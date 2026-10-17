@@ -1,0 +1,25 @@
+{
+  "name": "@owfpv/maps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Levels as code: blockout geometry by material, collision triangles and spawn points",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@owfpv/sim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@owfpv/world-mesh": "workspace:*",
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
+  }
+}
