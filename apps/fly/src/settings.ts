@@ -23,6 +23,11 @@ export interface Settings {
     spawn: string;
     /** the device last flown with, so the page reconnects to it */
     lastDevice: string | null;
+    /**
+     * damage and crashes (sim-core's crashOn). Off by default (owner, 2026-10-17: shelved for now, every hit is a
+     * bounce and the quad keeps flying); the toggle brings the damage model back.
+     */
+    damage: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -33,7 +38,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     mode: 'acro',
     stickMode: 2,
     spawn: 'park',
-    lastDevice: null
+    lastDevice: null,
+    damage: false
 };
 
 const KEY = 'owfpv.settings';
@@ -67,6 +73,7 @@ export function loadSettings(): Settings {
     if (s.stickMode === 1 || s.stickMode === 2 || s.stickMode === 3 || s.stickMode === 4) out.stickMode = s.stickMode;
     if (typeof s.spawn === 'string') out.spawn = s.spawn;
     if (typeof s.lastDevice === 'string') out.lastDevice = s.lastDevice;
+    if (typeof s.damage === 'boolean') out.damage = s.damage;
     return out;
 }
 

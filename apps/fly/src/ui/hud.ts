@@ -38,8 +38,8 @@ export class Hud {
             h('div', { class: low ? 'warn' : '' }, `${v.toFixed(1)} V  (${(v / cells).toFixed(2)} V/cell)`),
             // without a radio the mode channel has never been set: no mode to show
             h('div', { class: armed ? 'status-ok' : 'warn' }, `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`),
-            // rounded up, so a scratched craft never reads 0 % before it is down
-            h('div', { class: health <= 30 ? 'warn' : '' }, `HEALTH ${String(health).padStart(3)}%`)
+            // only with damage on (settings); rounded up, so a scratched craft never reads 0 % before it is down
+            ...(sim.p.crashOn ? [h('div', { class: health <= 30 ? 'warn' : '' }, `HEALTH ${String(health).padStart(3)}%`)] : [])
         );
         const thr = Math.round(((sim.ch[2] + 1) / 2) * 100);
         const spd = Math.sqrt(s[S.vx] * s[S.vx] + s[S.vy] * s[S.vy] + s[S.vz] * s[S.vz]) * 3.6;

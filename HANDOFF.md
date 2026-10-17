@@ -69,10 +69,13 @@ F1, F2 (fixed) and F3 (new).
 - Determinism: `?selftest` MATCH in Chrome 155 with the new hash `5115a73f…` (Node). Firefox not re-checked.
 - Logs: 0.2.0 logs no longer replay to their 0.2.0 traces (`log-v2-compat.test.ts` says why); the app saves none.
 
-**Open, for the owner:** (1) at 0 % health: crash + usual quick respawn, health back to 100 % at every respawn
-(built that way, proposed); (2) the thresholds above (estimates) and how tilted landings feel (F3: a 30 deg landing
-at 3 m/s costs ~8 %, a level one nothing); (3) does sliding along walls and floors feel right (friction 0.4, upstream's
-estimate)?
+**Damage shelved (owner, 2026-10-17):** "lets shelve the damage system for now, we should just bounce off of stuff
+and keep flying". The app sets `crashOn: false` by default (setting `damage`, toggle "Damage and crashes" in
+Settings; HUD hides HEALTH while off). sim-core keeps the model. The owner found it unrealistic: a real 5" hits on
+its belly and slides without damage. Measured before shelving: belly skids at flight attitudes (0-30 deg nose down,
+10-20 m/s forward, 2-3 m/s down) already took 0 %; the harsh parts were straight-down belly hits over 4 m/s, tilted
+drops (F3) and hits past 60 deg counted as prop hits. When it comes back, ask the owner what a 5" survives.
+**Still open for the owner:** do contacts, bounces and sliding along walls and floors feel right (friction 0.4)?
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

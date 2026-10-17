@@ -31,7 +31,8 @@ const settings = loadSettings();
 const presetRates = compileParams(preset).rates;
 
 function overrides(): ParamOverrides {
-    return settings.rates ? { rates: settings.rates } : {};
+    // crashOn always set: off means every hit is a bounce, no damage, no crash (the owner's default for now)
+    return settings.rates ? { rates: settings.rates, crashOn: settings.damage } : { crashOn: settings.damage };
 }
 
 const session = new FlightSession({

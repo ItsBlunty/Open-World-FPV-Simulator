@@ -90,8 +90,9 @@ and the review's own physics test cases. Note the author's own preset values are
   in the physics, not by respawning a stuck quad.
 - Damage (owner, 2026-10-17): a simple model to start: one health value, 100 % at spawn, reduced by each hit from an
   estimate of the impact (from speed). Built in sim-core/0.3.0: no damage up to a safe speed, then growing with the
-  impact energy to 100 % at the crash speed; shown on the HUD. **[proposed]** 0 % is a crash (disarm, the usual
-  quick respawn) and every respawn restores 100 %; to confirm with the owner.
+  impact energy to 100 % at the crash speed; shown on the HUD. **Shelved (owner, 2026-10-17):** off by default,
+  every hit is a bounce and the quad keeps flying; a settings toggle ("Damage and crashes") brings it back. To revisit
+  later, with the owner's own figures for what a 5" survives (belly hits should be nearly harmless).
 - Landing (owner, 2026-10-17): landing on the bottom of the drone does no damage unless very fast, as on a real FPV quad.
   Built in sim-core/0.3.0 **[proposed thresholds, to tune by flying]**: on the underside no damage up to 4 m/s, a crash
   at 10 m/s; on the props, arms or top no damage up to 1.5 m/s, a crash at 5 m/s (Nazgul).
@@ -151,3 +152,4 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | (owner's request after flying M1) Sticking and shaking on surfaces | Must not happen at all; fix the physics, respawn workarounds are not acceptable |
 | 2026-10-17 | (owner's request) Damage | Simple health 100 % down by impact speed for now |
 | 2026-10-17 | (owner's request) Landing | Landing on the bottom does no damage unless very fast |
+| 2026-10-17 | (owner, after the damage model was built) Damage too harsh, not realistic: a 5" hits on its belly and slides without damage | Shelve damage: off by default, every hit a bounce, keep flying; a toggle to bring it back later |
