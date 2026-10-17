@@ -15,7 +15,9 @@
   },
   "scripts": {
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev": "pnpm --filter @owfpv/fly dev",
+    "build": "pnpm --filter @owfpv/fly build"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

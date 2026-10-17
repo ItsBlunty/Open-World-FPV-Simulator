@@ -1,16 +1,16 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0.
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0 and again after building M1.
 
 ## 0. Where things stand (start here)
 
-- **M0 is done** (2026-10-17) and pushed to https://github.com/ItsBlunty/Open-World-FPV-Simulator (`main`).
-  CI (GitHub Actions: install, typecheck, test) passes: 31 test files, 334 tests.
-- **Next: M1 First flight** (SPEC.md §5). Owner decisions for it are in SPEC.md §7: Three.js, blockout then
-  CC0 art, EdgeTX radio over USB, 5" freestyle default drone (`nazgulf5v3-6s`).
-- **Before planning M1, ask the owner the questions in §5 below**, then research the items listed there.
-- Commands: `pnpm install`, `pnpm typecheck`, `pnpm test` (Node 22.12+, pnpm 10).
+- **M0 is done** (2026-10-17). **M1 is built** (2026-10-17) and waits for the owner to fly it with the Boxer:
+  that test flight, and the owner's notes on feel, close M1. Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`,
+  `pnpm dev` (Node 22.12+, pnpm 10). 35 test files, 348 tests.
+- **Owner to-dos for M1:** fly it; check the first-flight list in §2b; turn on GitHub Pages (Settings > Pages >
+  Source: "GitHub Actions") so CI publishes the playtest build; confirm the map size (Claude read "quite large" as ~1 km).
+- **Next after M1: M2 physics review** (SPEC.md §5).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
@@ -67,6 +67,46 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   line endings (byte-exact fixtures have their own override). CI warns that its actions (`checkout`, `setup-node`,
   `pnpm/action-setup` v4) target the deprecated Node 20 runtime; it still passes.
 
+## 2b. What M1 built, and what was learned
+
+- **Layout:** `packages/input` (DOM-free: HID reader ported from upstream, `RadioProfile` + `mapFrame`, the calibration
+  wizard), `packages/maps` (the first map as code, `LevelBuilder`, seeded integer `Rng`, `levelSha256`), `apps/fly`
+  (Vite + Three.js 0.186 `WebGPURenderer`; `session.ts` wraps the runner, director and clock; UI in `src/ui`).
+  Provenance of ported upstream files: `packages/input/UPSTREAM.md`, `apps/fly/UPSTREAM.md` (MIT notices kept).
+- **Input research:** EdgeTX USB Joystick "Classic" sends CH1-8 as eight axes and CH9-32 as buttons; with both RF
+  modules off the mixer runs at 1000 Hz (manual.edgetx.org, color radios, USB Joystick). WebHID reads each report with
+  its own timestamp at the radio's rate and reads the device's own descriptor (upstream `hid-layout.ts`), so it is
+  the primary path in Chrome/Edge; the Gamepad API (upstream's 500 Hz poll outside the render loop) is the fallback
+  and the only path in Firefox. Stick modes 1-4 follow EdgeTX's Radio Setup table.
+- **Calibration wizard:** our own, user-paced (nothing advances without Next), using upstream's rules found on real
+  radios: a push counts at >= 70 % of travel held 400 ms; a switch is a held jump. Steps: range, centre, throttle,
+  yaw, pitch, roll, arm (skip: Space arms), flight-mode switch (optional, positions mapped to acro/horizon/angle),
+  respawn switch (optional), check. Profiles are saved per device key in localStorage. The thresholds are NOT yet
+  tested on a real radio: the Boxer is the first.
+- **Map:** ~1 km square, 44 006 triangles, pinned hash in `packages/maps/test/first-map.test.ts` (bump `MAP_VERSION`
+  with any layout change). Park + spawn in the middle, 5-storey bando to the west (60 x 24 m, 3.6 m storeys, missing
+  floor panels, a collapse through floors 3-4, an open shaft, windowed/missing walls, a dock annex), 60 city blocks
+  north (heights grow towards the centre, a steel construction frame with a crane, an open car park), an industrial
+  yard south-west (walk-through warehouses, container stacks, silos, a gantry), fields and a water tower south-east.
+  The renderer draws the collision's own triangles, with a world-space 1 m / 5 m grid in a TSL shader for speed and
+  height cues.
+- **Determinism, Node vs browsers on the mesh map:** `?selftest` flies a scripted 20 s flight (2 crashes, 2 respawns)
+  and compares with Node's hash `ead63cdd…`: **match** in Chrome 155 (WebGPU and forced WebGL 2) and Firefox 158.
+- **Respawn (to playtest):** crash -> 1 s -> 2 s back along the path, on the platform, armed if the switch is on
+  (`QUICK_RESPAWN` in `apps/fly/src/session.ts`); R or the radio's respawn switch -> the chosen spawn point.
+  Settings changes (rates) start a new life at the spawn point.
+- **Rates box:** Betaflight and Actual, fields and limits from sim-core's `rates-edit.ts`; switching type converts
+  with `fitRates`, keeping the feel. Overrides go into each life header, so replays keep them.
+- **Not done / known gaps:** no real-radio test yet; no fisheye lens (the 120° camera is rectilinear, so the edges
+  stretch); no shadows; no sound; the gamepad path is untested on hardware; the HUD has no flight timer (not asked).
+
+### First-flight checklist for the owner
+1. `pnpm dev`, open the page in Chrome, plug in the Boxer, choose "USB Joystick (HID)" on the radio.
+2. "Connect USB radio", pick the Boxer, run "Radio setup". Note any step that misreads or feels slow.
+3. Fly from the park, then the bando. Report: hover throttle, rates feel, how crashes and respawns feel, whether
+   landing / ceiling touches register as crashes too easily (finding F1), camera tilt and FOV.
+4. Run `?selftest` once on your machine and say whether it shows MATCH.
+
 ## 3. Betaflight SITL (for the later "real firmware" mode)
 
 From Betaflight's own SITL docs (https://betaflight.com/docs/development/autopilot/SITL_Autopilot_Testing_Gazebo):
@@ -98,18 +138,10 @@ From Betaflight's own SITL docs (https://betaflight.com/docs/development/autopil
 
 Decided so far: see SPEC.md §7 (license GPL-3.0-or-later, GPL for sim-core changes, renderer, art, radio, drone).
 
-**Ask the owner at the start of M1:**
-- Which EdgeTX radio model, and is it set up as a USB joystick? Any channel order or switch for arm/mode to match?
-- Use the owner's own Betaflight rates? sim-core imports a CLI `diff`; if yes, ask for the `diff all` text.
-- FPV camera: usual camera uptilt angle and field of view.
-- Map scale: how big a "small bando" is (storeys, rooms), and roughly how large the whole map should be.
-- HUD for M1: which readouts (e.g. battery voltage, flight timer, throttle, speed, armed/mode).
-- Playtest builds: publish to GitHub Pages (static hosting) or run locally only?
+**Asked and answered at the start of M1:** see SPEC.md §7. Still to confirm: the map size (~1 km assumed).
 
-**Claude to research for M1 (do not assume):**
-- WebHID vs Gamepad API for EdgeTX over USB (read upstream `packages/input` and EdgeTX docs).
-- Three.js WebGPU/WebGL setup and its current version; loading glTF levels into `MeshContactWorld`.
-- Driving sim-core's `Runner` from the render loop (fixed 1 ms steps, frame-rate independent).
+**Open from M1:** loading glTF levels into `MeshContactWorld` (not needed while the map is code; needed when CC0 assets
+replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real HID descriptor as a test fixture.
 
 **Left open on purpose:** freestyle grading method, progression and challenge design, until levels are flyable.
 

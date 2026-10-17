@@ -1,0 +1,67 @@
+:root {
+    --bg: rgba(14, 17, 22, 0.92);
+    --panel: #171b22;
+    --line: #2c333d;
+    --text: #e8ecf1;
+    --muted: #94a0ae;
+    --accent: #ff7a3d;
+    --good: #5fd18a;
+    --bad: #ff5d5d;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    color: var(--text);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+canvas { display: block; width: 100%; height: 100%; }
+button {
+    font: inherit; color: var(--text); background: #252b35; border: 1px solid var(--line);
+    border-radius: 6px; padding: 8px 14px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #1a0d05; font-weight: 600; }
+select, input { font: inherit; color: var(--text); background: #0f1217; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+input[type=range] { padding: 0; width: 220px; }
+.overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.55); z-index: 10; padding: 16px;
+}
+.overlay.hidden, .hidden { display: none !important; }
+.panel {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 22px 26px;
+    width: min(760px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+}
+.panel h1 { margin: 0 0 4px; font-size: 24px; }
+.panel h2 { margin: 18px 0 8px; font-size: 16px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.spacer { flex: 1; }
+.muted { color: var(--muted); font-size: 14px; }
+.note { color: var(--muted); font-size: 13px; line-height: 1.45; }
+.status-ok { color: var(--good); }
+.status-bad { color: var(--bad); }
+.say { font-size: 18px; line-height: 1.45; margin: 10px 0 14px; min-height: 52px; }
+.hint { color: var(--accent); min-height: 22px; }
+.chans { display: grid; grid-template-columns: 56px 1fr 74px; gap: 4px 10px; align-items: center; font-size: 13px; }
+.bar { position: relative; height: 14px; background: #0c0f13; border: 1px solid var(--line); border-radius: 3px; }
+.bar .range { position: absolute; top: 0; bottom: 0; background: #2a3442; }
+.bar .rest { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--muted); }
+.bar .val { position: absolute; top: -3px; bottom: -3px; width: 4px; margin-left: -2px; background: var(--accent); border-radius: 2px; }
+.prog { height: 6px; background: #0c0f13; border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.prog > div { height: 100%; background: var(--good); }
+.sticks { display: flex; gap: 28px; justify-content: center; margin: 10px 0; }
+.stick { position: relative; width: 120px; height: 120px; border: 2px solid var(--line); border-radius: 10px; background: #0c0f13; }
+.stick.active { border-color: var(--accent); }
+.stick .dot { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); }
+.stick .arrow { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 46px; color: var(--accent); }
+.stick-label { text-align: center; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.modes label { margin-right: 14px; }
+table.rates { border-collapse: collapse; }
+table.rates td, table.rates th { padding: 4px 8px; text-align: left; font-size: 14px; }
+table.rates input { width: 76px; }
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; font-family: ui-monospace, Consolas, monospace; text-shadow: 0 1px 2px #000; }
+#hud .tl { position: absolute; left: 18px; top: 14px; font-size: 18px; line-height: 1.5; }
+#hud .tr { position: absolute; right: 18px; top: 14px; font-size: 18px; text-align: right; line-height: 1.5; }
+#hud .mid { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); font-size: 24px; text-align: center; }
+#hud .cross { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(255,255,255,0.55); border-radius: 50%; }
+#hud .bottom { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: #ddd; }
+.warn { color: #ffcc4d; }

@@ -21,3 +21,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm --filter @owfpv/fly build
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'push'
+        with:
+          path: apps/fly/dist
+
+  # Playtest build at https://itsblunty.github.io/Open-World-FPV-Simulator/ (owner's choice, 2026-10-17).
+  # Needs the repository's Settings > Pages > Source set to "GitHub Actions".
+  pages:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,132 @@
+// One flight in one level: sim-core's lives runner, the respawn director and the page clock. No DOM,
+// so the Node tests fly exactly what the page flies.
+//
+// Determinism (CLAUDE.md): the page only hands in stick channels with their page timestamps and asks
+// for respawns; the runner applies both at tick boundaries and logs them. Rendering reads the state.
+
+import {
+    DEFAULT_RESPAWN_POLICY, RespawnDirector, Runner, SIM_CORE_VERSION, StateHistory,
+    compileParams, hoverStickOf, lifeSim, makeLifeHeader
+} from '@owfpv/sim-core';
+import type { ParamOverrides, PresetJson, RespawnPolicy, Sim } from '@owfpv/sim-core';
+import { levelSha256, spawnPose } from '@owfpv/maps';
+import type { Level, SpawnPoint } from '@owfpv/maps';
+import { MeshContactWorld } from '@owfpv/world-mesh';
+import { SimClock } from './simclock';
+
+/**
+ * SPEC.md 4.2, to prototype: after a crash, respawn quickly where you were. 1 s after the crash the
+ * craft goes 2 s back along the path it flew (sim-core's rewind), on its invisible platform, still
+ * armed if the arm switch is on. Upstream's defaults are 2 s and 5 s; the shorter values are a first
+ * guess at "quick, where you are", to be settled by playtesting (M3).
+ */
+export const QUICK_RESPAWN: RespawnPolicy = { ...DEFAULT_RESPAWN_POLICY, delayTicks: 1000, rewindTicks: 2000 };
+
+export interface SessionOptions {
+    preset: PresetJson;
+    overrides?: ParamOverrides;
+    level: Level;
+    /** the level's collision, built once and shared (it is stateless) */
+    world?: MeshContactWorld;
+    spawn?: SpawnPoint;
+    policy?: RespawnPolicy;
+    /** hash every tick's state (determinism checks) */
+    runHash?: boolean;
+}
+
+export class FlightSession {
+    readonly level: Level;
+    readonly world: MeshContactWorld;
+    readonly preset: PresetJson;
+    readonly runner: Runner;
+    readonly director: RespawnDirector;
+    readonly clock = new SimClock();
+    readonly collisionSha256: string;
+    private overrides: ParamOverrides;
+    private spawnPt: SpawnPoint;
+    private pose: [number, number, number, number];
+
+    constructor(o: SessionOptions) {
+        this.level = o.level;
+        this.world = o.world ?? new MeshContactWorld(o.level.collision);
+        this.preset = o.preset;
+        this.overrides = o.overrides ?? {};
+        this.collisionSha256 = levelSha256(o.level);
+        this.spawnPt = o.spawn ?? o.level.spawns[0];
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.world);
+        this.pose = this.poseOf(this.spawnPt, sim);
+        this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: false });
+        const p = sim.p;
+        this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory(), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
+        this.runner.director = this.director;
+    }
+
+    get sim(): Sim {
+        return this.runner.sim;
+    }
+
+    get spawn(): SpawnPoint {
+        return this.spawnPt;
+    }
+
+    /** Height of the first surface straight down at x, z (the ground when nothing is there). */
+    groundY(x: number, z: number): number {
+        const hit = this.world.queryRay(x, 1000, z, 0, -1, 0, 2000);
+        return hit ? hit.y : 0;
+    }
+
+    private poseOf(s: SpawnPoint, sim: Sim): [number, number, number, number] {
+        return spawnPose(s, (x, z) => this.groundY(x, z), sim.p.bodyBottom);
+    }
+
+    private header(reason: 'start' | 'settings') {
+        return makeLifeHeader({
+            simCore: SIM_CORE_VERSION,
+            preset: this.preset,
+            overrides: this.overrides,
+            collisionSha256: this.collisionSha256,
+            scene: { id: this.level.id, version: this.level.version, transform: [1, 0, 0, 0], floaterMinBlocks: 0 },
+            at: this.pose,
+            opts: { platform: true },
+            reason
+        });
+    }
+
+    /** A stick frame (sim-core channels) with its page time, ms. */
+    input(ch: ArrayLike<number>, tMs: number): void {
+        this.clock.push(ch, tMs);
+    }
+
+    /** Step the physics up to page time `nowMs`. */
+    advance(nowMs: number): void {
+        this.clock.advance(this.runner, nowMs);
+    }
+
+    pause(on: boolean, nowMs: number): void {
+        this.clock.pause(on, nowMs);
+    }
+
+    get paused(): boolean {
+        return this.clock.paused;
+    }
+
+    /** Back to the spawn point at the next tick (the radio's reset switch, the R key). */
+    resetToSpawn(): void {
+        this.director.request('start');
+    }
+
+    /** A new spawn point: it becomes the start, and the craft goes there now. */
+    setSpawn(s: SpawnPoint): void {
+        this.spawnPt = s;
+        this.pose = this.poseOf(s, this.sim);
+        this.director.request('start');
+    }
+
+    /** New flight-model settings (rates, ...): a new life on a model built from them, in place. */
+    setOverrides(o: ParamOverrides): void {
+        this.overrides = JSON.parse(JSON.stringify(o)) as ParamOverrides;
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.world);
+        // the new model starts at the spawn point: settings change in the menu, between flights
+        this.runner.newLife(sim, this.header('settings'));
+    }
+}

@@ -1,6 +1,6 @@
 # FPV Practice Sim — Specification (DRAFT)
 
-Status: M0 done 2026-10-17; M1 next. Game design beyond the first map pending owner interview.
+Status: M0 done 2026-10-17; M1 built 2026-10-17, waiting for the owner's test flight. Game design beyond the first map pending owner interview.
 Items marked **[proposed]** are not yet confirmed by the owner.
 
 ## 1. Goal
@@ -70,9 +70,16 @@ and the review's own physics test cases. Note the author's own preset values are
 
 ### 4.2 Structure
 - Open world: a free-fly map with challenges placed around it.
-- First map: one mixed map with a small bando, next to a park and a city area.
+- First map: one open world with a 5-storey bando (broken floors), a park and a city area, about 1 km x 1 km to start
+  (owner: "quite large"; the 1 km figure is Claude's reading, to confirm).
 - Art: blockout geometry first, tuned by flying; then CC0 assets (e.g. Kenney, Quaternius, Poly Haven) once the layout
   feels right (owner, 2026-10-17).
+- Radio setup: a wizard that walks the pilot through moving each stick and switch, for stick modes 1-4, and saves the
+  calibration per device (owner, 2026-10-17).
+- Rates: the preset's by default, plus a box to type the pilot's own Betaflight or Actual rates (owner, 2026-10-17).
+- FPV camera: 20° uptilt and 120° field of view by default, both adjustable (owner, 2026-10-17).
+- HUD for M1: battery voltage, armed / flight mode, throttle and speed (owner, 2026-10-17).
+- Playtest builds: published to GitHub Pages (owner, 2026-10-17).
 - Default drone: a 5" freestyle quad, sim-core's `nazgulf5v3-6s` preset (owner, 2026-10-17). Several of its values
   are the preset author's estimates (see `packages/sim-core/docs/research/drones-v08.md`).
 - Challenge types: a variety, to be designed once levels work. Levels first, content added into them after.
@@ -125,3 +132,9 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | How is the first map's art made? (blockout then CC0 / CC0 from the start / blockout only) | Blockout first, then CC0 |
 | 2026-10-17 | What radio, connected how? (EdgeTX USB / wireless dongle / gamepad) | EdgeTX radio over USB |
 | 2026-10-17 | Default drone for the first map? (5" freestyle / 65 mm whoop / 3" cinewhoop) | 5" freestyle |
+| 2026-10-17 | Which EdgeTX radio, set up how? | RadioMaster Boxer. A setup system that saves calibration and settings, supports all 4 stick modes and walks the pilot through moving each stick |
+| 2026-10-17 | Use the owner's own Betaflight rates? | Preset defaults, plus a box for Betaflight and Actual rates where pilots enter their own |
+| 2026-10-17 | FPV camera uptilt and field of view? | 20° default, adjustable; ~120° FOV, adjustable |
+| 2026-10-17 | Map scale and bando size? | One open world, start quite large; bando 5 storeys with broken floors |
+| 2026-10-17 | HUD readouts for M1? | Battery voltage, armed / flight mode, throttle and speed |
+| 2026-10-17 | Where do playtest builds run? | GitHub Pages |

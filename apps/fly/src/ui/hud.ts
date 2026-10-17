@@ -1,0 +1,51 @@
+// The flight HUD (owner's choice for M1, 2026-10-17): battery voltage, armed / flight mode, throttle
+// and speed, plus crash and arming prompts. Reads the sim state; changes nothing.
+
+import { S, modeFromChannel } from '@owfpv/sim-core';
+import type { Sim } from '@owfpv/sim-core';
+import { h } from './dom';
+
+export interface HudExtra {
+    /** ticks until the automatic respawn, or null */
+    respawnIn: number | null;
+    hasRadio: boolean;
+    armHint: string;
+    footer: string;
+}
+
+export class Hud {
+    readonly el: HTMLElement;
+    private readonly tl = h('div', { class: 'tl' });
+    private readonly tr = h('div', { class: 'tr' });
+    private readonly mid = h('div', { class: 'mid' });
+    private readonly bottom = h('div', { class: 'bottom' });
+
+    constructor() {
+        this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, h('div', { class: 'cross' }), this.bottom);
+    }
+
+    update(sim: Sim, x: HudExtra): void {
+        const s = sim.s;
+        const cells = sim.p.cells;
+        const v = s[S.volt];
+        const low = v / cells < 3.5;
+        const armed = s[S.armed] > 0;
+        const mode = modeFromChannel(sim.ch[5]).toUpperCase();
+        this.tl.innerHTML = '';
+        this.tl.append(
+            h('div', { class: low ? 'warn' : '' }, `${v.toFixed(1)} V  (${(v / cells).toFixed(2)} V/cell)`),
+            // without a radio the mode channel has never been set: no mode to show
+            h('div', { class: armed ? 'status-ok' : 'warn' }, `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`)
+        );
+        const thr = Math.round(((sim.ch[2] + 1) / 2) * 100);
+        const spd = Math.sqrt(s[S.vx] * s[S.vx] + s[S.vy] * s[S.vy] + s[S.vz] * s[S.vz]) * 3.6;
+        this.tr.innerHTML = '';
+        this.tr.append(h('div', {}, `THR ${String(thr).padStart(3)}%`), h('div', {}, `${spd.toFixed(0).padStart(3)} km/h`));
+        let msg = '';
+        if (!x.hasRadio) msg = 'No radio set up — press Esc for the menu';
+        else if (s[S.crashed] > 0) msg = x.respawnIn !== null ? `CRASHED — respawn in ${(x.respawnIn / 1000).toFixed(1)} s` : 'CRASHED';
+        else if (!armed) msg = x.armHint;
+        this.mid.textContent = msg;
+        this.bottom.textContent = x.footer;
+    }
+}
