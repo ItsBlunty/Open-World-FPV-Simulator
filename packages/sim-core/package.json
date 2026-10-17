@@ -1,9 +1,9 @@
 {
-  "name": "@gsfpv/sim-core",
-  "version": "0.1.0",
+  "name": "@owfpv/sim-core",
+  "version": "0.2.0",
   "private": true,
   "description": "DOM-free quadcopter flight model: motors, X mixer, rate PID, Betaflight/Actual/KISS/Raceflight rate curves, gravity, crash detection, deterministic record/replay",
-  "license": "MIT",
+  "license": "MIT AND GPL-3.0",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
@@ -13,5 +13,9 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
   }
 }
