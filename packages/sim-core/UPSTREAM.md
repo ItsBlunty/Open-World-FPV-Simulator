@@ -33,3 +33,11 @@ so `git diff` against it shows exactly what we changed.
 1. `package.json`: renamed from `@gsfpv/sim-core` to `@owfpv/sim-core`, version 0.1.0 → 0.2.0 to match
    `SIM_CORE_VERSION`, license field updated, its own dev dependencies (TypeScript, Vitest) added. No code change.
 2. `vitest.config.ts` added (upstream used one at its repository root), so this package tests on its own.
+3. Bot pilot ported: upstream `packages/input/src/sim/{bot,plan,scenario}.ts` (same commit, MIT, Andrii Shramko)
+   copied to `src/bot/`. Only change: imports of `@gsfpv/sim-core` now point to `../index`. New `src/bot/index.ts`
+   and package export `./bot`. Tests that imported the bot from `../../input/src/sim/` now import it from `../src/bot/`.
+   Not ported: the rest of upstream `packages/input` (radio, gamepad, keyboard input, the simulated human pilot).
+
+   Caveat: the bot and planner use `Math.tan`, `Math.atan2`, `Math.sin`, `Math.cos` and `Math.hypot`, which can differ
+   between JavaScript engines. Replays stay exact (they replay the recorded sticks, not the bot), but the same bot
+   flight is not guaranteed to produce identical sticks in Node and in every browser.

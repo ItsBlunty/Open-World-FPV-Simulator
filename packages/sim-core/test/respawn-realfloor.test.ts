@@ -15,8 +15,8 @@ import type { ContactWorld, ParamOverrides, RespawnDecision, RespawnPolicy, Sim 
 // test-only imports across packages, as log-kit.ts does for the bot
 import { VoxelContactWorld, openVoxelCollision } from '../../collision/src/index';
 import type { VoxelMetadata } from '../../collision/src/index';
-import { BotPilot } from '../../input/src/sim/bot';
-import { makePlan } from '../../input/src/sim/plan';
+import { BotPilot } from '../src/bot/bot';
+import { makePlan } from '../src/bot/plan';
 import { PRESET, SPLITS, runFrames } from './log-kit';
 
 const FIX = join(__dirname, '..', '..', '..', 'fixtures', '39e63ce9');

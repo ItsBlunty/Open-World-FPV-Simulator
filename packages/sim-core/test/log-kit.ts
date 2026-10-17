@@ -11,7 +11,7 @@ import type {
     RespawnPolicy, RunnerOptions, Sim
 } from '../src/index';
 // The repo's test pilot (closed loop in acro, stick channels only). A test-only import across packages.
-import { BotPilot } from '../../input/src/sim/bot';
+import { BotPilot } from '../src/bot/bot';
 import pavo20pro from '../presets/pavo20pro-3s.json';
 import pavo20pro2 from '../presets/pavo20pro2-3s.json';
 import air65 from '../presets/air65-1s.json';

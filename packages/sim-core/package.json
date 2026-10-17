@@ -8,6 +8,7 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./bot": "./src/bot/index.ts",
     "./presets/*": "./presets/*"
   },
   "scripts": {

@@ -18,8 +18,8 @@ import type { SimEvent } from '../src/index';
 // test-only imports across packages, as respawn-realfloor.test.ts does
 import { VoxelContactWorld, findSphereSpawn, openVoxelCollision } from '../../collision/src/index';
 import type { VoxelCollision, VoxelMetadata } from '../../collision/src/index';
-import { Scenario } from '../../input/src/sim/scenario';
-import { makePlan } from '../../input/src/sim/plan';
+import { Scenario } from '../src/bot/scenario';
+import { makePlan } from '../src/bot/plan';
 import { PRESET } from './log-kit';
 
 const FIX = join(__dirname, '..', '..', '..', 'fixtures', '39e63ce9');

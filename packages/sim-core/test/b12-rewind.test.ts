@@ -24,9 +24,9 @@ import type { Life, LifeHeader, ReplayDeps, SimEvent } from '../src/index';
 // test-only imports across packages, as model-pinned.test.ts does
 import { VoxelContactWorld, findSphereSpawn, openVoxelCollision } from '../../collision/src/index';
 import type { VoxelCollision, VoxelMetadata } from '../../collision/src/index';
-import { BotPilot } from '../../input/src/sim/bot';
-import { Scenario } from '../../input/src/sim/scenario';
-import { makePlan } from '../../input/src/sim/plan';
+import { BotPilot } from '../src/bot/bot';
+import { Scenario } from '../src/bot/scenario';
+import { makePlan } from '../src/bot/plan';
 import { PRESET, attachDirector } from './log-kit';
 
 const FIX = join(__dirname, '..', '..', '..', 'fixtures', '39e63ce9');
