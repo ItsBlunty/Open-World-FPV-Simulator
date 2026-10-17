@@ -50,3 +50,5 @@ so `git diff` against it shows exactly what we changed.
    `motorCmd`) and `physics(motorCmd)` (motors to crash settling), so another flight controller can drive the physics
    through four motor commands (SPEC.md R1). No calculation changed: traces are bit-identical, shown by every replay
    test, including upstream's saved format /2 logs replaying to their saved hashes (`test/log-v2-compat.test.ts`).
+6. `src/director.ts`: a "stuck, pinned" rule (`PINNED_TICKS`, `pinSince`) after the wedged rule, for a craft held
+   against a ceiling with the throttle below hover (`docs/physics-review.md` F2). Physics and traces unchanged.

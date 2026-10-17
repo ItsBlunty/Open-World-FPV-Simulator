@@ -22,6 +22,14 @@ import { SimClock } from './simclock';
  */
 export const QUICK_RESPAWN: RespawnPolicy = { ...DEFAULT_RESPAWN_POLICY, delayTicks: 1000, rewindTicks: 2000 };
 
+/**
+ * Room a rewind spot needs beyond the craft's bounding radius, m. sim-core's default (0.05) suits open
+ * scans; in the bando it put a 5-inch quad 25 cm under a slab, where any throttle hits the ceiling
+ * again (owner's flight, 2026-10-17). 0.5 m (0.69 m from the centre for the Nazgul) leaves room to
+ * climb off the platform; spots in tight gaps are skipped for older, roomier ones.
+ */
+export const REWIND_MARGIN_M = 0.5;
+
 export interface SessionOptions {
     preset: PresetJson;
     overrides?: ParamOverrides;
@@ -57,7 +65,7 @@ export class FlightSession {
         this.pose = this.poseOf(this.spawnPt, sim);
         this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: false });
         const p = sim.p;
-        this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory(), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
+        this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
         this.runner.director = this.director;
     }
 

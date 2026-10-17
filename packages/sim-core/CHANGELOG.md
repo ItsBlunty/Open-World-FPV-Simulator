@@ -8,6 +8,10 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 - `Sim.step()` is split into the flight controller and the physics, which meet only at the four motor
   commands. Traces are bit-identical.
 - Tests that needed upstream's voxel collision moved to `packages/world-mesh`.
+- Respawn director: a new "stuck, pinned" rule (armed, still, touching something above, throttle stick
+  below hover, 1.5 s: rewind, reason `stuck-wedged`). It works around physics-review finding F2. The
+  physics is unchanged and every log replays as before (replays apply logged respawns, never the
+  director); only live runs that get pinned under a ceiling now respawn where they stayed stuck before.
 
 ## sim-core/0.2.0: vendored (2026-10-17)
 

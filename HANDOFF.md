@@ -97,6 +97,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   Settings changes (rates) start a new life at the spawn point.
 - **Rates box:** Betaflight and Actual, fields and limits from sim-core's `rates-edit.ts`; switching type converts
   with `fitRates`, keeping the feel. Overrides go into each life header, so replays keep them.
+- **Owner's first flight (2026-10-17, Pages build):** stuck in the bando: rewinds put the quad 25 cm under a slab
+  and it got pinned against the ceiling with the throttle at zero (physics-review F2). Fixed for now by roomier
+  rewind spots (`REWIND_MARGIN_M` 0.5 m) and a director rule for being pinned; the physics cause is for M2.
 - **Not done / known gaps:** no real-radio test yet; no fisheye lens (the 120° camera is rectilinear, so the edges
   stretch); no shadows; no sound; the gamepad path is untested on hardware; the HUD has no flight timer (not asked).
 
