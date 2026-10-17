@@ -1,0 +1,24 @@
+{
+  "name": "@owfpv/input",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Radio input without the DOM: HID report reading, radio profiles (calibration and channel mapping) and the calibration wizard",
+  "license": "GPL-3.0-or-later AND MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@owfpv/sim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
+  }
+}
