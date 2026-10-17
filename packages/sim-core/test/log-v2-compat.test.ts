@@ -45,7 +45,7 @@ describe('logs written by format /2 replay unchanged', () => {
         }
         const once = Array.from(replayLives(lives, roomDeps).sim.s);
         expect(Array.from(replayLives(FIX.lives.map((l) => lifeOf(l)), roomDeps).sim.s)).toEqual(once);
-        expect(once).toHaveLength(FIX.final.length + 1); // the health slot
+        expect(once).toHaveLength(FIX.final.length + 2); // the health slot (0.3.0) and the turtle-mode slot (0.4.0)
     });
 
     it('control: one input bit flipped in the first life changes its replay hash', () => {

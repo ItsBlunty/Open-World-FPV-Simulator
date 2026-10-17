@@ -121,6 +121,7 @@ export class RadioSetup {
             case 'arm': return v.stage === 'done' ? `Arm switch found on ${v.found?.kind === 'button' ? `button ${v.found.bit + 1}` : ch(axisOf(v))}. Flip it back to OFF, then press Next.` : 'Flip your ARM switch to ON and leave it there for a moment. (No arm switch? Skip: the Space key arms.)';
             case 'mode': return v.stage === 'done' ? `Flight-mode switch on ${ch(axisOf(v))}. Flip through all its positions, choose what each does, then press Next.` : 'Optional: flip your flight-mode switch to another position. (Skip: the mode from Settings is used.)';
             case 'reset': return v.stage === 'done' ? 'Respawn switch found. Flip it back, then press Next.' : 'Optional: flip or press the switch you want for "back to the spawn point". (Skip: the R key does it.)';
+            case 'turtle': return v.stage === 'done' ? 'Turtle-mode switch found. Flip it back to OFF, then press Next.' : 'Optional: flip the switch you use for turtle mode (Betaflight "flip over after crash") to ON. (Skip: the T key toggles it.)';
             case 'check': return 'Move your sticks: the dots should follow them exactly. If anything moves the wrong way, go Back. Then Save.';
             default: {
                 if (!p) return '';

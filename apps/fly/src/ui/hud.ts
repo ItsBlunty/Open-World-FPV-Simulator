@@ -1,6 +1,7 @@
 // The flight HUD (owner's choice for M1, 2026-10-17): battery voltage, armed / flight mode, throttle
 // and speed, plus crash and arming prompts; the craft's health since the damage model (owner,
-// 2026-10-17; sim-core/0.3.0). Reads the sim state; changes nothing.
+// 2026-10-17; sim-core/0.3.0); turtle mode and the tilted-arming prompt (sim-core/0.4.0). Reads the sim state;
+// changes nothing.
 
 import { S, modeFromChannel } from '@owfpv/sim-core';
 import type { Sim } from '@owfpv/sim-core';
@@ -11,6 +12,8 @@ export interface HudExtra {
     respawnIn: number | null;
     hasRadio: boolean;
     armHint: string;
+    /** what to do when the craft is too tilted to arm (Betaflight's small_angle): use turtle mode */
+    turtleHint: string;
     footer: string;
 }
 
@@ -31,13 +34,16 @@ export class Hud {
         const v = s[S.volt];
         const low = v / cells < 3.5;
         const armed = s[S.armed] > 0;
+        const turtle = armed && s[S.flip] > 0;
+        // body up along world up: arming needs within 25 deg of level (sim-core arming(), Betaflight small_angle)
+        const upY = 1 - 2 * (s[S.qx] * s[S.qx] + s[S.qz] * s[S.qz]);
         const mode = modeFromChannel(sim.ch[5]).toUpperCase();
         const health = Math.ceil(s[S.health] * 100);
         this.tl.innerHTML = '';
         this.tl.append(
             h('div', { class: low ? 'warn' : '' }, `${v.toFixed(1)} V  (${(v / cells).toFixed(2)} V/cell)`),
             // without a radio the mode channel has never been set: no mode to show
-            h('div', { class: armed ? 'status-ok' : 'warn' }, `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`),
+            h('div', { class: turtle ? 'warn' : armed ? 'status-ok' : 'warn' }, turtle ? 'ARMED  TURTLE' : `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`),
             // only with damage on (settings); rounded up, so a scratched craft never reads 0 % before it is down
             ...(sim.p.crashOn ? [h('div', { class: health <= 30 ? 'warn' : '' }, `HEALTH ${String(health).padStart(3)}%`)] : [])
         );
@@ -48,7 +54,8 @@ export class Hud {
         let msg = '';
         if (!x.hasRadio) msg = 'No radio set up — press Esc for the menu';
         else if (s[S.crashed] > 0) msg = x.respawnIn !== null ? `CRASHED — respawn in ${(x.respawnIn / 1000).toFixed(1)} s` : 'CRASHED';
-        else if (!armed) msg = x.armHint;
+        else if (!armed) msg = upY < 0.9063 ? x.turtleHint : x.armHint;
+        else if (turtle) msg = 'TURTLE — push a stick to flip over, then turtle switch off';
         this.mid.textContent = msg;
         this.bottom.textContent = x.footer;
     }

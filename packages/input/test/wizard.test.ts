@@ -20,6 +20,8 @@ const AETR: Wiring = { fn: { roll: 0, pitch: 1, throttle: 2, yaw: 3 }, reversed:
 /** TAER with pitch and yaw reversed, like a radio set up for another sim */
 const TAER_REV: Wiring = { fn: { throttle: 0, roll: 1, pitch: 2, yaw: 3 }, reversed: { pitch: true, yaw: true }, arm: 5, mode: 6, reset: 7 };
 
+const TURTLE_BIT = 2;
+
 /** A pilot's hands on the radio: function values in -1..1 (throttle -1 low), switches as their channel values. */
 class Radio {
     t = 0;
@@ -27,6 +29,8 @@ class Radio {
     arm = -1;
     mode = -1;
     reset = -1;
+    /** the turtle-mode switch, on a button (EdgeTX sends channels 9 and up as buttons): bit TURTLE_BIT */
+    turtle = -1;
     constructor(readonly w: Wiring, readonly wiz: CalibrationWizard) {}
 
     frame(): RawFrame {
@@ -35,7 +39,7 @@ class Radio {
         axes[this.w.arm] = this.arm;
         axes[this.w.mode] = this.mode;
         axes[this.w.reset] = this.reset;
-        return { t: this.t, axes, buttons: 0 };
+        return { t: this.t, axes, buttons: this.turtle > 0 ? 1 << TURTLE_BIT : 0 };
     }
 
     /** Hold everything for ms, a report every 2 ms (a 500 Hz radio). */
@@ -66,6 +70,7 @@ class Radio {
         for (const v of [1, -1]) { this.arm = v; this.wait(50); }
         for (const v of [0, 1, -1]) { this.mode = v; this.wait(50); }
         for (const v of [1, -1]) { this.reset = v; this.wait(50); }
+        for (const v of [1, -1]) { this.turtle = v; this.wait(50); }
         return this;
     }
 }
@@ -114,6 +119,12 @@ function fullRun(w: Wiring, stickMode: StickMode): { wiz: CalibrationWizard; rad
     r.reset = -1;
     r.wait(50);
     expect(wiz.next()).toBe(true);
+    expect(wiz.view().step).toBe('turtle');
+    r.turtle = 1;
+    r.wait(600);
+    r.turtle = -1;
+    r.wait(50);
+    expect(wiz.next()).toBe(true);
     expect(wiz.view().step).toBe('check');
     return { wiz, radio: r, profile: wiz.profile('test', 'Test radio', '2026-10-17') };
 }
@@ -129,6 +140,7 @@ describe('calibration wizard', () => {
             expect(p.arm).toMatchObject({ kind: 'axis', index: w.arm, onAbove: true });
             expect(p.mode?.index).toBe(w.mode);
             expect(p.reset).toMatchObject({ kind: 'axis', index: w.reset });
+            expect(p.turtle).toEqual({ kind: 'button', bit: TURTLE_BIT });
             // the mapping undoes the wiring: functions come out as sim-core's channels
             r.fn = { roll: 0.5, pitch: -0.25, throttle: 0, yaw: 1 };
             r.arm = 1;
@@ -137,6 +149,10 @@ describe('calibration wizard', () => {
             expect(Array.from(ch.slice(0, 4))).toEqual([0.5, -0.25, 0, 1]);
             expect(ch[4]).toBe(1);
             expect(ch[5]).toBe(MODE_CHANNEL.angle);
+            expect(ch[6]).toBe(0);
+            r.turtle = 1;
+            expect(mapFrame(p, r.frame(), new Float32Array(8))[6]).toBe(1);
+            r.turtle = -1;
             r.arm = -1;
             r.mode = -1;
             r.fn.throttle = -1;
@@ -222,12 +238,15 @@ describe('calibration wizard', () => {
         expect(wiz.skip()).toBe(true);
         expect(wiz.skip()).toBe(true);
         expect(wiz.skip()).toBe(true);
+        expect(wiz.skip()).toBe(true);
         expect(wiz.view().step).toBe('check');
         const p = wiz.profile('k', 'n', 'd');
         expect(p.arm).toBeNull();
         expect(p.mode).toBeNull();
         expect(p.reset).toBeNull();
-        // back from check to reset, then to mode: the roll stick step stays assigned
+        expect(p.turtle).toBeNull();
+        // back from check to turtle, reset, then to mode: the roll stick step stays assigned
+        wiz.back();
         wiz.back();
         wiz.back();
         expect(wiz.view().step).toBe('mode');

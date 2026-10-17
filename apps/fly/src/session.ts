@@ -18,9 +18,10 @@ import { SimClock } from './simclock';
  * SPEC.md 4.2, to prototype: after a crash, respawn quickly where you were. 1 s after the crash the
  * craft goes 2 s back along the path it flew (sim-core's rewind), on its invisible platform, still
  * armed if the arm switch is on. Upstream's defaults are 2 s and 5 s; the shorter values are a first
- * guess at "quick, where you are", to be settled by playtesting (M3).
+ * guess at "quick, where you are", to be settled by playtesting (M3). No automatic rewind of a craft lying on its
+ * back (flipped: false): turtle mode or R gets it going (owner, 2026-10-17).
  */
-export const QUICK_RESPAWN: RespawnPolicy = { ...DEFAULT_RESPAWN_POLICY, delayTicks: 1000, rewindTicks: 2000 };
+export const QUICK_RESPAWN: RespawnPolicy = { ...DEFAULT_RESPAWN_POLICY, delayTicks: 1000, rewindTicks: 2000, flipped: false };
 
 /**
  * Room a rewind spot needs beyond the craft's bounding radius, m. sim-core's default (0.05) suits open

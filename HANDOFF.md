@@ -1,21 +1,22 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), and after sim-core/0.3.1 (prop strikes).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), and after sim-core/0.4.0 (turtle mode).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 39 test files, 372 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 41 test files, 382 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
 - **§0b, sim-core/0.3.1 (prop strikes):** the owner flew 0.3.0 and still got stuck on walls. Cause: a forward hit
   leaves the quad flat on its props against the wall, and their full thrust plus friction held it there. Now a prop
-  against a surface over its intake makes no thrust, and the quad falls off. **Waiting for the owner to fly it**, and
-  for an answer on what should happen after a hit leaves the quad on its back (physics-review F4, "still open").
-- sim-core is now `sim-core/0.3.1`; the self-test hash is unchanged, `5115a73f…` (Node and Chrome 155 match; Firefox not re-checked).
+  against a surface over its intake makes no thrust, and the quad falls off. The owner chose turtle mode for a quad
+  left on its back: **§0c, sim-core/0.4.0**. **Waiting for the owner to fly both** (re-run Radio setup to map the
+  turtle switch, or use the T key).
+- sim-core is now `sim-core/0.4.0`; the self-test hash is `cd45c59c…` (Node and Chrome 155 match; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -94,6 +95,21 @@ Fix: prop strikes (`sim.ts propStrikes`). Test: `contact-solver.test.ts`, "a for
 0.3.0: hangs at 2.83 m; passes on 0.3.1). Ported bot tests (`model-pinned`, `b12-dash`) now see the craft drop off the
 wall it leans on; each says why. Open: after a hit the quad lies on its back at the foot of the wall (turtled):
 turtle mode, bouncier hits or a prop-strike kick are the options to put to the owner.
+
+## 0c. Turtle mode (owner, 2026-10-17): sim-core/0.4.0
+
+The owner chose turtle mode over bouncier hits or a prop-strike kick, with Betaflight's default exit (turtle switch off
+while armed disarms; arm again) and no automatic rewind of a flipped quad (SPEC.md §7).
+- Source read in full: Betaflight 2026.6.2 (current release) `mixer.c applyCrashFlipModeToMotors`, `core.c`
+  (arming, crash flip, small_angle), `imu.c isUpright`, `mixer_init.c` defaults; 4.5-maintenance compared (it had an
+  expo and read the switch only at arming). Ported mix: `packages/sim-core/src/crashflip.ts` with Betaflight's header.
+- Seam: `Sim.motorDir` next to `motorCmd`, as DShot's spin-direction command; SITL later sends the same.
+- Input: channel 6 is the turtle switch. Radio setup has an optional turtle step (button or axis); T toggles it on
+  radios without one; the HUD shows TURTLE, and TILTED with what to do when arming is refused. Old profiles have no
+  turtle switch until Radio setup is run again.
+- The game's director has the stuck-flipped rule off (`QUICK_RESPAWN.flipped`). The stuck-wedged rule (throttle up,
+  not moving, 3 s) still rewinds, also a quad on its back with the throttle up (the self-test flight shows it).
+- Findings: physics-review F4, "Turtle mode added".
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

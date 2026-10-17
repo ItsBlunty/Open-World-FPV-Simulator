@@ -4,7 +4,7 @@
 //
 // Steps: range (move every stick and switch to its ends) -> centre (sticks centred, throttle low,
 // hold still) -> throttle, yaw, pitch, roll (push the stick the stick mode names, one at a time) ->
-// arm switch -> flight-mode switch (optional) -> respawn switch (optional) -> check.
+// arm switch -> flight-mode switch (optional) -> respawn switch (optional) -> turtle-mode switch (optional) -> check.
 //
 // Rules taken from upstream's wizard (ShramkoGSFPV packages/input/src/calib.ts, MIT, v3 of
 // 2026-09-26), whose author found them on real radios: nothing advances unless the pilot presses
@@ -18,8 +18,8 @@ import type { FlightMode } from '@owfpv/sim-core';
 import type { AxisCal, Fn, ModeSwitchMap, RadioProfile, StickAxis, StickMode, SwitchMap } from './profile';
 import { nearestLevel, stickOf } from './profile';
 
-export type StepId = 'range' | 'centre' | 'throttle' | 'yaw' | 'pitch' | 'roll' | 'arm' | 'mode' | 'reset' | 'check';
-export const STEPS: readonly StepId[] = ['range', 'centre', 'throttle', 'yaw', 'pitch', 'roll', 'arm', 'mode', 'reset', 'check'];
+export type StepId = 'range' | 'centre' | 'throttle' | 'yaw' | 'pitch' | 'roll' | 'arm' | 'mode' | 'reset' | 'turtle' | 'check';
+export const STEPS: readonly StepId[] = ['range', 'centre', 'throttle', 'yaw', 'pitch', 'roll', 'arm', 'mode', 'reset', 'turtle', 'check'];
 export type Stage = 'active' | 'done';
 
 export const WIZARD_TUNING = {
@@ -55,7 +55,7 @@ export interface AxisLive {
     max: number;
     rest: number | null;
     /** what this axis has been assigned to so far */
-    use: Fn | 'arm' | 'mode' | 'reset' | null;
+    use: Fn | 'arm' | 'mode' | 'reset' | 'turtle' | null;
 }
 
 export interface WizardView {
@@ -111,6 +111,7 @@ export class CalibrationWizard {
     private axes: Partial<Record<Fn, AxisCal>> = {};
     private arm: SwitchMap | null = null;
     private reset: SwitchMap | null = null;
+    private turtle: SwitchMap | null = null;
     private mode: { index: number; levels: number[]; modes: FlightMode[] } | null = null;
     private modeHold: { level: number; since: number } | null = null;
 
@@ -160,7 +161,7 @@ export class CalibrationWizard {
         return true;
     }
 
-    /** Optional steps (arm, mode, reset) only: go on without one. */
+    /** Optional steps (arm, mode, reset, turtle) only: go on without one. */
     skip(): boolean {
         if (!this.can().skip) return false;
         this.clearFrom(this.stepI);
@@ -191,7 +192,7 @@ export class CalibrationWizard {
         // the ends as measured by the end of the wizard: pushes during the stick steps widen them
         for (const fn of ['roll', 'pitch', 'throttle', 'yaw'] as Fn[]) axes[fn] = { ...a[fn], min: this.min[a[fn].index], max: this.max[a[fn].index] };
         const mode: ModeSwitchMap | null = this.mode && this.mode.levels.length >= 2 ? { index: this.mode.index, levels: this.mode.levels.slice(), modes: this.mode.modes.slice() } : null;
-        return { version: 1, deviceKey, deviceName, stickMode: this.stickMode, axes, arm: this.arm, mode, reset: this.reset, deadband: 0, created };
+        return { version: 1, deviceKey, deviceName, stickMode: this.stickMode, axes, arm: this.arm, mode, reset: this.reset, turtle: this.turtle, deadband: 0, created };
     }
 
     view(): WizardView {
@@ -241,6 +242,7 @@ export class CalibrationWizard {
             else if (s === 'arm') this.arm = null;
             else if (s === 'mode') this.mode = null;
             else if (s === 'reset') this.reset = null;
+            else if (s === 'turtle') this.turtle = null;
             else if (s === 'centre') this.rest = null;
         }
     }
@@ -250,21 +252,22 @@ export class CalibrationWizard {
         if (this.arm?.kind === 'axis' && this.arm.index === i) return 'arm';
         if (this.mode?.index === i) return 'mode';
         if (this.reset?.kind === 'axis' && this.reset.index === i) return 'reset';
+        if (this.turtle?.kind === 'axis' && this.turtle.index === i) return 'turtle';
         return null;
     }
 
     private usedBit(bit: number): boolean {
-        return (this.arm?.kind === 'button' && this.arm.bit === bit) || (this.reset?.kind === 'button' && this.reset.bit === bit);
+        return [this.arm, this.reset, this.turtle].some((m) => m?.kind === 'button' && m.bit === bit);
     }
 
     private can(): WizardView['can'] {
         const s = this.step;
-        const optional = s === 'arm' || s === 'mode' || s === 'reset';
+        const optional = s === 'arm' || s === 'mode' || s === 'reset' || s === 'turtle';
         const c = { next: false, back: this.stepI > 0, skip: optional, redo: this.stage === 'done' };
         if (s === 'range') c.next = this.spanCount() >= 4;
         else if (s === 'centre') c.next = this.still();
         else if (isFn(s)) c.next = this.stage === 'done' && this.released(s);
-        else if (s === 'arm' || s === 'reset') c.next = this.stage === 'done' && !this.switchStillOn();
+        else if (s === 'arm' || s === 'reset' || s === 'turtle') c.next = this.stage === 'done' && !this.switchStillOn();
         else if (s === 'mode') c.next = this.stage === 'done' && (this.mode?.levels.length ?? 0) >= 2;
         return c;
     }
@@ -333,7 +336,7 @@ export class CalibrationWizard {
             if (!this.still()) this.hint = 'hold-still';
         } else if (isFn(s)) {
             this.stickStep(s);
-        } else if (s === 'arm' || s === 'reset') {
+        } else if (s === 'arm' || s === 'reset' || s === 'turtle') {
             this.switchStep(s);
         } else if (s === 'mode') {
             this.modeStep();
@@ -375,7 +378,7 @@ export class CalibrationWizard {
         this.hint = 'release';
     }
 
-    private switchStep(which: 'arm' | 'reset'): void {
+    private switchStep(which: 'arm' | 'reset' | 'turtle'): void {
         if (this.stage === 'done') {
             if (this.switchStillOn()) this.hint = 'switch-off';
             return;
@@ -403,7 +406,8 @@ export class CalibrationWizard {
         if (pick?.kind === 'axis' && !this.axisStill(pick.index)) key = null;
         if (!this.held(key, T.SWITCH_MS) || !pick) return;
         if (which === 'arm') this.arm = pick;
-        else this.reset = pick;
+        else if (which === 'reset') this.reset = pick;
+        else this.turtle = pick;
         this.found = pick.kind === 'axis' ? { kind: 'axis', index: pick.index, invert: !pick.onAbove } : { kind: 'button', bit: pick.bit };
         this.stage = 'done';
         this.hint = 'switch-off';

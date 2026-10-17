@@ -7,7 +7,7 @@
 //
 // Channels ch[0..7] in [-1, 1] after calibration: 0 roll (right +), 1 pitch (stick forward +),
 // 2 throttle (-1 = low, +1 = full), 3 yaw (right +), 4 arm switch (> 0.5 on), 5 flight mode
-// (modeFromChannel: -1 acro, 0 horizon, +1 angle), 6..7 spare.
+// (modeFromChannel: -1 acro, 0 horizon, +1 angle), 6 turtle-mode switch (> 0.5 on; sim-core/0.4.0), 7 spare.
 //
 // Air: with p.wind (wind.ts) the drag terms act on the airspeed, velocity minus the wind at the
 // craft's height above the scan's ground; without it the airspeed is the velocity (still air).
@@ -22,6 +22,7 @@ import { PlatformContact } from './platform';
 import { compileWind } from './wind';
 import type { WindField } from './wind';
 import { inducedVelocity, wakeIntensity, wakeNoise } from './wake';
+import { crashFlipMix } from './crashflip';
 
 export const DT = 0.001;
 export const DT_US = 1000;
@@ -90,7 +91,9 @@ export const S = {
     platOn: 65, platX: 66, platY: 67, platZ: 68, platR: 69,
     // health 1 at a (re)spawn, down by each hit's damage; 0 is a crash (sim-core/0.3.0)
     health: 70,
-    size: 71
+    // turtle mode (crash flip) active: the turtle switch was on when the craft armed (sim-core/0.4.0)
+    flip: 71,
+    size: 72
 } as const;
 
 const PT1 = (fc: number) => {
@@ -187,6 +190,17 @@ const BOTTOM_COS_LO = 0.5;
 const STRIKE_COS_HI = 0.866;
 const STRIKE_COS_LO = 0.5;
 const STRIKE_GAP = 0.0005;
+/**
+ * Arming needs the craft within Betaflight's small_angle (default 25 deg, src/main/flight/imu.c) of level, unless the
+ * turtle switch is on (src/main/fc/core.c updateArmingStatus): cos(25 deg).
+ */
+const SMALL_ANGLE_COS = 0.9063077870366499;
+/**
+ * Thrust of a prop spun backwards (turtle mode) as a share of its forward thrust: 0.59 / 0.81 kgf, the peaks measured
+ * on a thrust stand with a Gemfan 7x5E on 4S (Tyto Robotics, "How Much Thrust Does a UAV Prop Make Backwards?").
+ * One 7-inch prop; for the presets' props an estimate. Used for the reaction torque too [estimate].
+ */
+const REVERSE_THRUST = 0.59 / 0.81;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
 const CRASH_LIN_DAMP = 0.5; // 1/s horizontal, scraping and bouncing losses [estimate]
 
@@ -246,6 +260,11 @@ export class Sim {
     private hit = new Float64Array(6);
     /** motor commands of the last step: after the mixer and idle, before the motor lag (0..1) */
     readonly motorCmd = new Float64Array(4);
+    /**
+     * Spin direction of each motor for the physics: 1 normal, -1 reversed (turtle mode). With motorCmd it is the whole
+     * controller-to-physics seam: DShot sends the direction as its own command, so the commands stay in 0..1.
+     */
+    readonly motorDir = new Float64Array([1, 1, 1, 1]);
     private thrust = new Float64Array(4);
     /** per-motor thrust share left by prop strikes this tick (1: free; exactly 1 without contacts) */
     private strike = new Float64Array(4);
@@ -323,6 +342,7 @@ export class Sim {
         s.fill(0);
         s[S.health] = 1;
         this.motorCmd.fill(0);
+        this.motorDir.fill(1);
         s[S.px] = x; s[S.py] = y; s[S.pz] = z;
         const h = -yawDeg * DEG2RAD * 0.5;
         // rotation about +y (which turns left), so a right heading is a negative angle
@@ -432,21 +452,36 @@ export class Sim {
         this.physics(this.motorCmd);
     }
 
-    /** Arming: the edge of the arm switch, throttle low, not crashed. */
+    /**
+     * Arming: the edge of the arm switch, throttle low, not crashed, and level within small_angle unless the turtle
+     * switch is on. Turtle mode (Betaflight 2026.6.2 src/main/fc/core.c, crashflip_auto_rearm off, its default): the
+     * turtle switch's position when the craft arms decides it; turning the switch off while armed in turtle mode
+     * disarms, and arming again needs the arm switch off and on (the edge rule below already asks for that).
+     */
     private arming(): void {
         const s = this.s;
         const ch = this.ch;
         const sw = ch[4] > 0.5 ? 1 : 0;
+        const flipSw = ch[6] > 0.5 ? 1 : 0;
         const thrStick = (ch[2] + 1) * 0.5;
         if (sw === 1 && s[S.armSw] === 0 && s[S.armed] === 0) {
-            if (thrStick <= 0.05 && s[S.crashed] === 0) {
+            // body up along world up (r11)
+            const upY = 1 - 2 * (s[S.qx] * s[S.qx] + s[S.qz] * s[S.qz]);
+            if (thrStick <= 0.05 && s[S.crashed] === 0 && (upY > SMALL_ANGLE_COS || flipSw === 1)) {
                 s[S.armed] = 1;
+                s[S.flip] = flipSw;
                 s[S.iR] = s[S.iP] = s[S.iY] = 0;
                 this.events.push({ type: 'arm', tick: this.tick });
             }
         }
+        if (s[S.armed] === 1 && s[S.flip] === 1 && flipSw === 0) {
+            s[S.armed] = 0;
+            s[S.flip] = 0;
+            this.events.push({ type: 'disarm', tick: this.tick, reason: 'crashflip' });
+        }
         if (sw === 0 && s[S.armed] === 1) {
             s[S.armed] = 0;
+            s[S.flip] = 0;
             this.events.push({ type: 'disarm', tick: this.tick, reason: 'switch' });
         }
         s[S.armSw] = sw;
@@ -550,6 +585,17 @@ export class Sim {
             for (let i = 0; i < 4; i++) out[i] = 0;
             s[S.mixRange] = 0;
         }
+        // turtle mode replaces the mix (Betaflight returns from mixTable before mixing): sticks only, motors reversed
+        const dir = this.motorDir;
+        if (armed && s[S.flip] > 0) {
+            crashFlipMix(ch[0], ch[1], ch[3], MIX_R, MIX_P, MIX_Y, out);
+            for (let i = 0; i < 4; i++) {
+                if (out[i] > 0) out[i] = p.idle + (1 - p.idle) * out[i];
+                dir[i] = -1;
+            }
+        } else {
+            dir[0] = dir[1] = dir[2] = dir[3] = 1;
+        }
     }
 
     /**
@@ -601,22 +647,26 @@ export class Sim {
         }
         this.propStrikes(nNear);
         const strike = this.strike;
+        const dir = this.motorDir;
         for (let i = 0; i < 4; i++) {
             const k = S.m0 + i;
-            const dw = (out[i] - s[k]) * aa;
+            // the motor state is signed: below 0 the motor spins backwards (turtle mode), towards dir x command
+            const dw = (dir[i] * out[i] - s[k]) * aa;
             s[k] += dw;
             const w = s[k];
-            const T0 = tmax * w * w;
+            const wa = w < 0 ? -w : w;
+            // backwards: thrust and reaction torque the other way, at REVERSE_THRUST of the forward value
+            const T0 = w < 0 ? -REVERSE_THRUST * tmax * wa * wa : tmax * w * w;
             const T = T0 * keep * strike[i];
             th[i] = T;
             tSum += T;
-            wSum += w;
+            wSum += wa;
             // r x (0, T, 0) = (-rz T, 0, rx T)
             tauX += -mp[i * 3 + 2] * T;
             tauZ += mp[i * 3] * T;
             tauY += p.motorYaw[i] * (p.kappa * T + jr * dw);
             // the rotors turn as fast in the wash: the power follows the thrust they would make in clean air
-            power += p.kappa * T0 * (w * p.omegaMaxPerVolt * volt);
+            power += p.kappa * (T0 < 0 ? -T0 : T0) * (wa * p.omegaMaxPerVolt * volt);
         }
         if (wash > 0 && p.wakeShake > 0) {
             // turbulent roll (about body z) and pitch (about body x) torque: the rotors' thrust fluctuates by a
@@ -994,7 +1044,8 @@ export class Sim {
     /**
      * this.strike from the m contacts gathered at the start of the tick: each prop's thrust share after prop strikes
      * (STRIKE_COS_HI). Only the duct spheres (0-3, the motors' order) are props; a preset without them has no strikes.
-     * Exactly 1 for a prop with nothing near, so free flight is unchanged bit for bit.
+     * Exactly 1 for a prop with nothing near, so free flight is unchanged bit for bit. A reversed prop (turtle mode)
+     * draws its air from below, so for it the surfaces under the body block the intake.
      */
     private propStrikes(m: number): void {
         const st = this.strike;
@@ -1007,8 +1058,9 @@ export class Sim {
             const o = j * CN;
             const i = c[o + 21];
             if (i > 3) continue;
-            // how far the surface is over the intake: the normal points from the surface to the prop, so against "up"
-            let a = (-(c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz) - STRIKE_COS_LO) / (STRIKE_COS_HI - STRIKE_COS_LO);
+            // how far the surface is over the intake: the normal points from the surface to the prop, so against the
+            // side the thrust points to (up, or down for a reversed prop)
+            let a = (-(c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz) * this.motorDir[i] - STRIKE_COS_LO) / (STRIKE_COS_HI - STRIKE_COS_LO);
             if (!(a > 0)) continue;
             if (a > 1) a = 1;
             let g = c[o + 20] / STRIKE_GAP;
@@ -1118,6 +1170,7 @@ export class Sim {
             s[S.crashed] = 1;
             s[S.crashT] = 0;
             s[S.restT] = 0;
+            s[S.flip] = 0;
             if (s[S.armed] > 0) {
                 s[S.armed] = 0;
                 this.events.push({ type: 'disarm', tick: this.tick, reason: 'crash' });

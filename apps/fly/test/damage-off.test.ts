@@ -1,8 +1,9 @@
 // Damage off, the app's default for now (owner, 2026-10-17: shelve damage, bounce off things and keep
 // flying): the self-test flight dives into the ground twice; with crashOn false it never crashes,
 // stays armed and keeps its health, and with it on (the self-test's own setting) it crashes. The dive
-// can leave it lying on its back with the throttle down: the director's stuck-flipped reset still
-// picks it up (Liftoff's rule, nothing to do with damage).
+// can leave it lying on its back: the game has no stuck-flipped reset since turtle mode (owner,
+// 2026-10-17), so it lies there until the script's throttle climb, which the director's stuck-wedged
+// rule (throttle up, not moving, 3 s) rewinds. Nothing to do with damage.
 
 import { describe, expect, it } from 'vitest';
 import { S } from '@owfpv/sim-core';
@@ -42,7 +43,7 @@ describe('damage off (the default setting)', () => {
         expect(off.crashes).toBe(0);
         expect(off.contacts).toBeGreaterThan(0);
         expect(off.disarmed).toBe(0);
-        expect(off.reasons.every((x) => x === 'stuck-flipped')).toBe(true);
+        expect(off.reasons).toEqual(['stuck-wedged']);
         expect(off.health).toBe(1);
         expect(fly(true).crashes).toBeGreaterThan(0);
     });

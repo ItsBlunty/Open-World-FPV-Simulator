@@ -2,6 +2,25 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## sim-core/0.4.0: turtle mode (2026-10-17)
+
+Changes traces: every trace hash (the state has one more slot, `S.flip` at index 71, `S.size` 72). Flights that never
+use the turtle switch fly the same, except that arming now needs the craft level (below). The self-test hash is
+`cd45c59c…` (Node and Chrome 155 match).
+
+- **Turtle mode** (Betaflight's FLIP OVER AFTER CRASH, from Betaflight 2026.6.2 with its defaults): channel 6 is the
+  turtle switch (> 0.5 on). Its position when the craft arms decides turtle mode (`S.flip`). In turtle mode the motors
+  spin backwards and only the sticks drive them (`crashflip.ts`, ported from `applyCrashFlipModeToMotors`, GPL header
+  kept): roll or pitch spins the pair on that side, a diagonal one motor, yaw a diagonal pair, by the stick deflection
+  past a 15 % deadband; throttle does nothing. Turning the switch off while armed in turtle mode disarms (event reason
+  `crashflip`); arming again needs the arm switch off and on (crashflip_auto_rearm off, Betaflight's default).
+- **Arming needs the craft level**: within 25 deg (Betaflight's small_angle default), unless the turtle switch is on.
+- **Reversed motors in the physics**: `Sim.motorDir` (1 or -1 per motor) joins `motorCmd` at the controller-to-physics
+  seam (DShot sends the direction as its own command). The motor state is signed; a prop spun backwards makes its
+  thrust and reaction torque the other way at 0.73 of the forward value (`REVERSE_THRUST`, measured on one 7" prop, an
+  estimate for 5"). Prop strikes follow the direction: a reversed prop draws its air from below.
+- **Respawn director**: a `flipped` policy flag turns the stuck-flipped rule off (default on; the game sets it off).
+
 ## sim-core/0.3.1: prop strikes (2026-10-17)
 
 Changes traces: flights in which a prop comes within 0.5 mm of a surface over it (the side its thrust points to).

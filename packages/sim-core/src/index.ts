@@ -13,6 +13,7 @@ export * from './bfaux';
 export * from './contracts';
 export * from './wind';
 export * from './wake';
+export * from './crashflip';
 
 /** Bumped whenever the model changes in a way that alters traces. Part of the log header. */
-export const SIM_CORE_VERSION = 'sim-core/0.3.1';
+export const SIM_CORE_VERSION = 'sim-core/0.4.0';

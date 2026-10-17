@@ -153,3 +153,6 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | (owner's request) Damage | Simple health 100 % down by impact speed for now |
 | 2026-10-17 | (owner's request) Landing | Landing on the bottom does no damage unless very fast |
 | 2026-10-17 | (owner, after the damage model was built) Damage too harsh, not realistic: a 5" hits on its belly and slides without damage | Shelve damage: off by default, every hit a bounce, keep flying; a toggle to bring it back later |
+| 2026-10-17 | After a hit leaves the quad on its back: turtle mode, bouncier hits, a prop-strike kick, or nothing? | Turtle mode |
+| 2026-10-17 | Turtle switch turned off while armed: disarm and re-arm (Betaflight 2026.6 default), fly on (auto re-arm), or 4.5 style? | Disarm, re-arm (Betaflight default) |
+| 2026-10-17 | The automatic rewind of a quad lying flipped for 1.5 s (Liftoff's rule)? | Always off |

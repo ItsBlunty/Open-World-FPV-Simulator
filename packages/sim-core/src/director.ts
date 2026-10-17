@@ -41,6 +41,11 @@ export interface RespawnPolicy {
     platform: boolean;
     keepArmed: boolean;
     unstuck: boolean;
+    /**
+     * with unstuck: the stuck-flipped rule (this project, sim-core/0.4.0). The game turns it off: the owner chose turtle
+     * mode or R over an automatic rewind (2026-10-17).
+     */
+    flipped: boolean;
     refill: 'start' | 'respawn' | 'never';
 }
 
@@ -54,6 +59,7 @@ export const DEFAULT_RESPAWN_POLICY: Readonly<RespawnPolicy> = {
     platform: true,
     keepArmed: true,
     unstuck: true,
+    flipped: true,
     refill: 'start'
 };
 
@@ -225,7 +231,7 @@ export class RespawnDirector {
 
         // body up-vector y (r11): 1 upright, -1 on its back
         const upY = 1 - 2 * (s[S.qx] * s[S.qx] + s[S.qz] * s[S.qz]);
-        if (s[S.crashed] === 0 && upY < FLIPPED_UP_Y) {
+        if (P.flipped && s[S.crashed] === 0 && upY < FLIPPED_UP_Y) {
             if (grid) {
                 const still = this.moveV < FLIPPED_V && this.moveW < FLIPPED_W && this.touching(sim);
                 // the still window began STILL_WINDOW_TICKS ago

@@ -10,7 +10,7 @@ import type { Level } from '@owfpv/maps';
 
 export const SELFTEST_TICKS = 20000;
 /** The hash Node computes (test/selftest.test.ts); the page shows whether its own run matches. */
-export const SELFTEST_HASH = '5115a73f6756f7a749a39887997f45ba2e62346866ee7e225159ab623d0fccda';
+export const SELFTEST_HASH = 'cd45c59c63f9faf4f70770311685dd75b34b6dacde7379bf206de6f1c25ea8ef';
 
 /** Sticks at tick t: arm, climb, fly north, dive into the ground, fly on after the respawn. */
 export function selftestSticks(t: number, out: Float32Array): Float32Array {

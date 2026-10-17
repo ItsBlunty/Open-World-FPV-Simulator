@@ -66,3 +66,9 @@ so `git diff` against it shows exactly what we changed.
    `gatherContacts` and `solveContacts` so the start-of-tick contacts reach the motors. Tests: in `packages/world-mesh`,
    `contact-solver` (the ceiling case; new wall-hit and take-off tests), `model-pinned` and `b12-dash` (the craft now
    drops off the wall it leans on with its props; each test says why). `SIM_CORE_VERSION` is `sim-core/0.3.1`.
+9. `src/sim.ts`, `src/director.ts`, `src/index.ts`, new `src/crashflip.ts` (sim-core/0.4.0, changes traces): turtle
+   mode. `src/crashflip.ts` is ported from Betaflight 2026.6.2 `src/main/flight/mixer.c` (GPL-3.0-or-later, its
+   copyright header kept); the arming rules in `sim.ts arming()` follow the same release's `src/main/fc/core.c`
+   (small_angle, crash-flip arming and disarming). The state gains `S.flip`, the seam gains `Sim.motorDir`, the motor
+   state is signed, `RespawnPolicy` gains `flipped`. Tests: new `test/crashflip.test.ts`, and in `packages/world-mesh`
+   `test/turtle.test.ts`; `wind` and `log-v2-compat` check the new state size. `SIM_CORE_VERSION` is `sim-core/0.4.0`.

@@ -73,6 +73,8 @@ let profile: RadioProfile | null = null;
 let lastFrameT = -Infinity;
 let lastArmOn = false;
 let keyArm = false;
+/** the turtle switch for a radio without one (T key) */
+let keyTurtle = false;
 let resetWas = false;
 let rate = { n: 0, t0: 0, hz: 0 };
 const ch = new Float32Array(8);
@@ -85,7 +87,7 @@ function onRaw(f: RawFrame): void {
         return;
     }
     if (!profile || demo) return;
-    mapFrame(profile, f, ch, { arm: profile.arm ? undefined : keyArm, fallbackMode: settings.mode });
+    mapFrame(profile, f, ch, { arm: profile.arm ? undefined : keyArm, turtle: profile.turtle ? undefined : keyTurtle, fallbackMode: settings.mode });
     session.input(ch, f.t);
     lastFrameT = f.t;
     lastArmOn = ch[4] > 0;
@@ -226,7 +228,7 @@ function renderMenu(): void {
             h('button', { onclick: openSettings }, 'Settings (camera, rates)'),
             h('span', { class: 'spacer' }),
             h('button', { class: 'primary', onclick: () => showMenu(false) }, profile || demo ? 'Fly' : 'Look around')),
-        h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm (only if your radio has no arm switch).'),
+        h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm, T turtle mode (only if your radio has no switch for them).'),
         h('p', { class: 'note' }, `Renderer: ${backend}. GPL-3.0-or-later; flight model from ShramkoGSFPV by Andrii Shramko (MIT).`)
     );
 }
@@ -239,6 +241,7 @@ addEventListener('keydown', (e) => {
     else if (e.code === 'KeyR') session.resetToSpawn();
     else if (e.code === 'KeyC') view.setMode(view.mode === 'fpv' ? 'chase' : 'fpv');
     else if (e.code === 'Space' && profile && !profile.arm) keyArm = !keyArm;
+    else if (e.code === 'KeyT' && profile && !profile.turtle) keyTurtle = !keyTurtle;
 });
 
 // ---------------------------------------------------------------- frame loop
@@ -269,6 +272,7 @@ function frame(): void {
         respawnIn: pend ? pend.atTick - session.sim.tick : null,
         hasRadio: profile !== null || demo,
         armHint: profile && !profile.arm ? 'DISARMED — throttle down, press Space to arm' : 'DISARMED — throttle down, flip the arm switch',
+        turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
         footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(fps)} fps · ${view.mode.toUpperCase()}`
     });
     renderer.render(scene, view.camera);

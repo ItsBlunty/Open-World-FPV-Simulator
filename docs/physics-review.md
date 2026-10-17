@@ -111,3 +111,12 @@ foot of the wall and lies there on its back, like a real quad turtled after a cr
 they flip the quad onto its back (both before and after the fix). Options: Betaflight's turtle mode (flip over after
 crash), bouncier impacts, or a prop-strike kick away from the surface. Not modelled: the blades' strike itself (a
 kick, a motor brake, a broken prop).
+
+**Turtle mode added (sim-core/0.4.0, owner's choice, 2026-10-17).** Betaflight 2026.6.2's crash flip with its
+defaults (`packages/sim-core/src/crashflip.ts`). Measured (Nazgul, `packages/world-mesh/test/turtle.test.ts`): on its
+back on the floor a full roll or pitch stick flips it upright in 114 ms, half stick in 235 ms; standing on its edge
+against a wall after a forward hit, pitch flips it in 86-233 ms and roll does nothing. A flip that ends past 25 deg
+of tilt does not arm (Betaflight's small_angle), so some attempts need a second go, as on a real quad. Real crash flips
+look slower (props in grass, broken props); not modelled. Reversed thrust is 0.73 of forward, from one thrust-stand
+test of a 7x5 prop (Tyto Robotics); a 5" prop's value is unknown. Full yaw in turtle mode spins a diagonal pair hard
+enough to lift a quad off upside down; a real one likely does too at full reverse power.

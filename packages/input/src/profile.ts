@@ -1,6 +1,6 @@
 // A saved radio setup (made by the calibration wizard, wizard.ts) and the mapping it describes: raw
 // device frames in, sim-core's eight channels out (sim.ts header: 0 roll right +, 1 pitch forward +,
-// 2 throttle -1 low .. +1 full, 3 yaw right +, 4 arm > 0.5 on, 5 flight mode, 6..7 spare).
+// 2 throttle -1 low .. +1 full, 3 yaw right +, 4 arm > 0.5 on, 5 flight mode, 6 turtle mode > 0.5 on, 7 spare).
 //
 // The mapped channels are what the runner logs, so replays never need the profile: calibration can
 // change at any time without touching determinism.
@@ -67,6 +67,8 @@ export interface RadioProfile {
     mode: ModeSwitchMap | null;
     /** null: no respawn switch; the page's key still works */
     reset: SwitchMap | null;
+    /** null: no turtle-mode switch; the page's key toggles it. Missing in profiles saved before turtle mode. */
+    turtle?: SwitchMap | null;
     /** stick deadband around the centre, fraction of the half range (0 = none) */
     deadband: number;
     created: string;
@@ -132,10 +134,10 @@ export function profileMode(p: RadioProfile, f: RawFrame, fallback: FlightMode):
 }
 
 /**
- * The eight sim-core channels for one frame. `arm` overrides the profile's arm switch when given
- * (a profile without one arms by key); `fallbackMode` is the mode without a mode switch.
+ * The eight sim-core channels for one frame. `arm` and `turtle` override the profile's switches when given
+ * (a profile without them uses keys); `fallbackMode` is the mode without a mode switch.
  */
-export function mapFrame(p: RadioProfile, f: RawFrame, out: Float32Array, o: { arm?: boolean; fallbackMode?: FlightMode } = {}): Float32Array {
+export function mapFrame(p: RadioProfile, f: RawFrame, out: Float32Array, o: { arm?: boolean; turtle?: boolean; fallbackMode?: FlightMode } = {}): Float32Array {
     const ax = p.axes;
     out[0] = mapCentred(ax.roll, f.axes[ax.roll.index], p.deadband);
     out[1] = mapCentred(ax.pitch, f.axes[ax.pitch.index], p.deadband);
@@ -144,7 +146,8 @@ export function mapFrame(p: RadioProfile, f: RawFrame, out: Float32Array, o: { a
     const armed = o.arm ?? switchOn(p.arm, f);
     out[4] = armed ? 1 : -1;
     out[5] = MODE_CHANNEL[profileMode(p, f, o.fallbackMode ?? 'acro')];
-    out[6] = 0;
+    // 0 when off, as every frame logged before turtle mode
+    out[6] = o.turtle ?? switchOn(p.turtle ?? null, f) ? 1 : 0;
     out[7] = 0;
     return out;
 }
