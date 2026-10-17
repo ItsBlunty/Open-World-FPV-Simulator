@@ -24,6 +24,7 @@ ungraded freestyle; this project adds structured, scored practice on top of a so
 - Based on `sim-core` from [ShramkoGSFPV](https://github.com/AndriiShramko/ShramkoGSFPV) (MIT, © Andrii Shramko).
   Vendored with its LICENSE and a provenance note crediting the author.
 - Lives in its own package (`packages/sim-core`) with its own tests, version and changelog.
+- License of our changes to it: GPL-3.0 (owner, 2026-10-17); the original files keep their MIT notice.
 - No dependency on rendering, UI, game modes or the browser. The game talks to it only through its
   public interface: parameters in, stick channels in, state and events out, plus the `ContactWorld`
   collision interface.
@@ -92,7 +93,8 @@ and old flights re-scored.
 ## 5. Milestones (draft)
 
 - **M0 Foundation:** repo, vendored sim-core with provenance, its tests passing standalone
-  (port the bot-pilot test helper; replace splat-voxel collision tests with mesh-collision ones).
+  (port the bot-pilot test helper; replace splat-voxel collision tests with mesh-collision ones);
+  split the flight controller from the physics at the mixer (R1), proven trace-identical by the hash tests.
 - **M1 First flight:** the mixed map (bando, park, city), mesh collision, radio/gamepad input,
   FPV camera, HUD, quick respawn. Flyable in a browser.
 - **M2 Physics review:** deliver R2's `docs/physics-review.md`.

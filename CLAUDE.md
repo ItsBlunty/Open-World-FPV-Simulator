@@ -25,7 +25,7 @@ Read both before starting a new milestone.
 - sim-core comes from ShramkoGSFPV (MIT, © Andrii Shramko). Keep his LICENSE, his NOTICE and the fdlibm/musl
   notices in `packages/sim-core`; never remove a copyright notice from any copied code.
 - Code copied from Betaflight or other GPL projects must keep its original copyright header and name its source.
-  Do not copy Betaflight code into `packages/sim-core` until the owner decides that package's license (`HANDOFF.md` §4).
+  Our changes and new files in `packages/sim-core` are GPL-3.0 (owner, 2026-10-17); Andrii's original files keep their MIT notice.
 - Record each third-party asset's source and license (CC0 preferred).
 
 ## Working with the owner
