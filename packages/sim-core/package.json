@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "DOM-free quadcopter flight model: motors, X mixer, rate PID, Betaflight/Actual/KISS/Raceflight rate curves, gravity, crash detection, deterministic record/replay",
-  "license": "MIT AND GPL-3.0",
+  "license": "MIT AND GPL-3.0-or-later",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

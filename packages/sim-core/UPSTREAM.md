@@ -16,7 +16,7 @@ This package is the flight model from **ShramkoGSFPV** by **Andrii Shramko**.
 - Andrii Shramko's original code: MIT, Copyright (c) 2026 Andrii Shramko. See [`LICENSE`](LICENSE) and
   [`NOTICE`](NOTICE), both copied unchanged from the upstream repository root.
 - `src/dmath.ts` ports fdlibm (Sun Microsystems notice) and musl libc (MIT). The notices are in that file and in `NOTICE`.
-- Our changes and new files in this package: GPL-3.0, like the rest of this project (owner's decision, 2026-10-17).
+- Our changes and new files in this package: GPL-3.0-or-later, like the rest of this project (owner's decision, 2026-10-17).
   Original files keep their MIT notice; a changed file is under both.
 
 ## Also copied from upstream

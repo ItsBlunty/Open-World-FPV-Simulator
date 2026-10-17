@@ -2,7 +2,7 @@
   "name": "open-world-fpv-simulator",
   "private": true,
   "description": "Open-source browser FPV simulator: realistic flight physics plus game design that rewards practice",
-  "license": "GPL-3.0",
+  "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/ItsBlunty/Open-World-FPV-Simulator",
   "repository": {
     "type": "git",

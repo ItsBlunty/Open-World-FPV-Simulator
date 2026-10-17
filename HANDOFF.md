@@ -43,7 +43,7 @@ From Betaflight's own SITL docs (https://betaflight.com/docs/development/autopil
   under WSL per Betaflight's docs.
 - Reference implementation (GPL, Rust + Godot, not browser): https://github.com/hugowis/open-fpv-sim
   runs Betaflight SITL in lockstep with its physics. Its PyPI listing gives GPL-3.0-or-later, compatible with this
-  project's GPL-3.0, so its code can be reused with its notices kept (check each file's header first).
+  project's GPL-3.0-or-later, so its code can be reused with its notices kept (check each file's header first).
 
 ## 3. Rejected options and why
 
@@ -59,8 +59,8 @@ From Betaflight's own SITL docs (https://betaflight.com/docs/development/autopil
 
 ## 4. Open questions for the owner
 
-- ~~License of our changes to `packages/sim-core`.~~ **Decided 2026-10-17: GPL-3.0 (option B).** Owner does not
-  need to contribute back upstream. Andrii's original code keeps its MIT notices; our changes and new files are GPL-3.0.
+- ~~License of our changes to `packages/sim-core`.~~ **Decided 2026-10-17: GPL-3.0-or-later (option B).** Owner does not
+  need to contribute back upstream. Andrii's original code keeps its MIT notices; our changes and new files are GPL-3.0-or-later.
 - Renderer: Three.js proposed (WebGPU with WebGL fallback). Not yet confirmed.
 - Art: proposed blockout geometry first, then CC0 assets (Kenney, Quaternius, Poly Haven). Not yet confirmed.
 - Freestyle grading method, progression and challenge design: deliberately left open until levels are flyable.

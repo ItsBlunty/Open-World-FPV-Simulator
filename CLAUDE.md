@@ -21,11 +21,11 @@ Read both before starting a new milestone.
   Simulation advances only in sim-core's fixed 1 ms steps.
 
 ## Licensing and credit
-- Project license is GPL-3.0. Every new dependency, copied code and asset must be GPL-3.0-compatible.
+- Project license is GPL-3.0-or-later (owner, 2026-10-17). Every new dependency, copied code and asset must be GPL-3.0-compatible.
 - sim-core comes from ShramkoGSFPV (MIT, © Andrii Shramko). Keep his LICENSE, his NOTICE and the fdlibm/musl
   notices in `packages/sim-core`; never remove a copyright notice from any copied code.
 - Code copied from Betaflight or other GPL projects must keep its original copyright header and name its source.
-  Our changes and new files in `packages/sim-core` are GPL-3.0 (owner, 2026-10-17); Andrii's original files keep their MIT notice.
+  Our changes and new files in `packages/sim-core` are GPL-3.0-or-later (owner, 2026-10-17); Andrii's original files keep their MIT notice.
 - Record each third-party asset's source and license (CC0 preferred).
 
 ## Working with the owner

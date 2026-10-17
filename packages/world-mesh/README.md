@@ -14,5 +14,5 @@ planner and the game.
 - Input: vertex positions and (optionally) triangle indices, in sim-core's world frame (Y up, metres).
   Triangles with no area are dropped.
 
-License: GPL-3.0. Written for this project from standard geometry (closest point on a triangle,
+License: GPL-3.0-or-later. Written for this project from standard geometry (closest point on a triangle,
 swept sphere against face, edge and vertex, ray-triangle by Cramer's rule); no code was copied.

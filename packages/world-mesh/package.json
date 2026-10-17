@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Triangle-mesh collision for sim-core: ContactWorld sweep and push-out, ray and sphere queries",
-  "license": "GPL-3.0",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {

@@ -13,7 +13,7 @@ ungraded freestyle; this project adds structured, scored practice on top of a so
 
 - Runs in a desktop browser from static hosting; no install for the default mode.
 - Primary browsers: Chrome / Edge (WebHID for EdgeTX radios). Gamepad API as fallback input.
-- License: GPL-3.0 for the project (owner's choice, 2026-10-17). Included MIT code (sim-core, Three.js)
+- License: GPL-3.0-or-later for the project (owner's choice, 2026-10-17). Included MIT code (sim-core, Three.js)
   keeps its original copyright and license notices. Betaflight (GPL-3.0) code and the Betaflight SITL bridge
   are license-compatible with the project.
 - Renderer **[proposed]**: Three.js, using WebGPU where available with a WebGL fallback for wider browser reach.
@@ -24,7 +24,7 @@ ungraded freestyle; this project adds structured, scored practice on top of a so
 - Based on `sim-core` from [ShramkoGSFPV](https://github.com/AndriiShramko/ShramkoGSFPV) (MIT, © Andrii Shramko).
   Vendored with its LICENSE and a provenance note crediting the author.
 - Lives in its own package (`packages/sim-core`) with its own tests, version and changelog.
-- License of our changes to it: GPL-3.0 (owner, 2026-10-17); the original files keep their MIT notice.
+- License of our changes to it: GPL-3.0-or-later (owner, 2026-10-17); the original files keep their MIT notice.
 - No dependency on rendering, UI, game modes or the browser. The game talks to it only through its
   public interface: parameters in, stick channels in, state and events out, plus the `ContactWorld`
   collision interface.

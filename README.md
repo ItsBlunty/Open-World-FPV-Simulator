@@ -26,5 +26,5 @@ pnpm test
 
 ## License
 
-GPL-3.0 (see [`LICENSE`](LICENSE)). Included third-party code keeps its own license and copyright
+GPL-3.0-or-later (see [`LICENSE`](LICENSE)). Included third-party code keeps its own license and copyright
 notices; `packages/sim-core` contains MIT code by Andrii Shramko.
