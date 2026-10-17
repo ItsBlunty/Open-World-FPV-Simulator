@@ -110,6 +110,10 @@ while armed disarms; arm again) and no automatic rewind of a flipped quad (SPEC.
 - The game's director has the stuck-flipped rule off (`QUICK_RESPAWN.flipped`). The stuck-wedged rule (throttle up,
   not moving, 3 s) still rewinds, also a quad on its back with the throttle up (the self-test flight shows it).
 - Findings: physics-review F4, "Turtle mode added".
+- Seeing through surfaces after a crash (owner, 2026-10-17): the FPV camera sits at the body's centre, 45 mm from a
+  surface the quad rests on, inside the old 5 cm near plane. Now 1 cm (`view.ts CAMERA_NEAR`) with a reversed depth
+  buffer (`main.ts`); checked in Chrome on WebGPU and WebGL 2 against a tree trunk. The chase camera still has no
+  collision of its own and can end up inside a building.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

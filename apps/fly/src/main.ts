@@ -44,7 +44,9 @@ const session = new FlightSession({
 
 // ---------------------------------------------------------------- renderer
 
-const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.has('webgl') });
+// reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
+// and Three.js falls back to normal depth without it
+const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 document.body.append(renderer.domElement);

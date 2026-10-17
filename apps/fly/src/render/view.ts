@@ -8,6 +8,13 @@ import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
 
 const X = new THREE.Vector3(1, 0, 0);
+/**
+ * Near clipping distance, m. The FPV camera sits at the body's centre, and the body sphere keeps that 45 mm (Nazgul)
+ * from any surface; the near plane's corners at 120 deg FOV reach about 2.1 x this from the lens, so 1 cm never cuts
+ * into a surface the quad rests against. At 5 cm it did: a quad lying on a wall or the ground showed the sky through
+ * it (owner, 2026-10-17). Depth precision out to the far plane comes from the reversed depth buffer (main.ts).
+ */
+export const CAMERA_NEAR = 0.01;
 
 /** Vertical FOV for a horizontal FOV at an aspect ratio (Three.js cameras take the vertical one). */
 export function verticalFov(hDeg: number, aspect: number): number {
@@ -27,7 +34,7 @@ export class CraftView {
     private chaseInit = false;
 
     constructor() {
-        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, 0.05, 5000);
+        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, 5000);
         this.craft = craftModel();
     }
 
