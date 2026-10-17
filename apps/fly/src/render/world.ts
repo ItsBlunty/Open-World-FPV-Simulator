@@ -1,9 +1,11 @@
 // The level in Three.js: one mesh per material, built from the same triangles the collision uses.
 // Blockout surfaces get a world-aligned grid in the shader (1 m and 5 m lines): on flat colours an
-// FPV pilot cannot read speed or height, on a grid they can. TSL compiles it for WebGPU and WebGL 2.
+// FPV pilot cannot read speed or height, on a grid they can. City buildings ('facade-*') get storeys
+// of windows painted on their walls instead, so a tower reads as a building and its size as real.
+// TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera.
 
 import * as THREE from 'three/webgpu';
-import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, vec3 } from 'three/tsl';
+import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
 
 type FloatNode = THREE.Node<'float'>;
@@ -29,8 +31,19 @@ const COLOURS: Record<Material, number> = {
     marking: 0xe8e2c8,
     'container-a': 0xb0453a,
     'container-b': 0x2f6aa3,
-    'container-c': 0xc9a227
+    'container-c': 0xc9a227,
+    'facade-concrete': 0xa9a59d,
+    'facade-brick': 0x9b5a43,
+    'facade-plaster': 0xd8cfbf,
+    'facade-glass': 0x6f8ea3,
+    'facade-dark': 0x6f6b66
 };
+
+/** Window glass on the facades: dark, with a little blue from the sky. */
+const WINDOW = 0x26323d;
+/** City storey height and the top of the sidewalk the buildings stand on (maps first-map.ts building()). */
+const STOREY = 3.5;
+const PLINTH = 0.15;
 
 /** No grid on these: it would read as tiles on a tree or on water. */
 const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water']);
@@ -42,6 +55,40 @@ function lines(c: FloatNode, spacing: number): FloatNode {
     const d = abs(fract(u.sub(0.5)).sub(0.5)).div(w.max(1e-6));
     const line = float(1).sub(min(d, 1));
     return line.mul(float(1).sub(smoothstep(0.2, 0.6, w)));
+}
+
+/** 1 inside [lo, hi], 0 outside, with edges softened over w (anti-aliasing). */
+function band(a: FloatNode, lo: number, hi: number, w: FloatNode): FloatNode {
+    return smoothstep(w.negate().add(lo), w.add(lo), a).mul(float(1).sub(smoothstep(w.negate().add(hi), w.add(hi), a)));
+}
+
+/**
+ * How much of a wall point is window, 0-1. Along the wall (x or z, whichever the wall runs along) a
+ * window every `bay` m; up the wall one row per storey, the ground floor with tall shop windows. Glass
+ * towers get ribbon windows with thin mullions. Where the pattern gets too fine to draw it fades to
+ * its average, so distant towers do not shimmer.
+ */
+function windows(glass: boolean): FloatNode {
+    const p = positionWorld;
+    const n = abs(normalWorld);
+    const u = mix(p.x, p.z, step(0.5, n.x));
+    const y = p.y.sub(PLINTH);
+    const bay = glass ? 1.5 : 3;
+    const across = fract(u.div(bay)).mul(bay);
+    const up = fract(y.div(STOREY)).mul(STOREY);
+    const ground = float(1).sub(step(STOREY, y));
+    const wa = fwidth(u).max(1e-4);
+    const wu = fwidth(y).max(1e-4);
+    const upper = glass
+        ? band(up, 0.8, 3.2, wu).mul(float(1).sub(band(across, 0, 0.08, wa)))
+        : band(up, 0.9, 2.6, wu).mul(band(across, 0.8, 2.2, wa));
+    const shop = band(up, 0.3, 3.0, wu).mul(band(across, 0.25, bay - 0.25, wa));
+    const pattern = mix(upper, shop, ground);
+    const mean = glass ? 0.6 : 0.23;
+    const fine = smoothstep(0.15, 0.5, max(wa.div(bay), wu.div(STOREY)));
+    // walls only: not on roofs, and nothing below the plinth
+    const wall = float(1).sub(step(0.5, n.y)).mul(step(0, y));
+    return mix(pattern, float(mean), fine).mul(wall);
 }
 
 function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
@@ -60,7 +107,14 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
     const minor = max(max(lines(p.x, 1).mul(wx), lines(p.y, 1).mul(wy)), lines(p.z, 1).mul(wz));
     const major = max(max(lines(p.x, 5).mul(wx), lines(p.y, 5).mul(wy)), lines(p.z, 5).mul(wz));
     const shade = minor.mul(0.1).max(major.mul(0.28));
-    mat.colorNode = mix(base, vec3(0.08, 0.08, 0.08), shade);
+    const gridded = mix(base, vec3(0.08, 0.08, 0.08), shade);
+    if (!m.startsWith('facade-')) {
+        mat.colorNode = gridded;
+        return mat;
+    }
+    const win = windows(m === 'facade-glass');
+    mat.colorNode = mix(gridded, color(WINDOW), win);
+    mat.roughnessNode = mix(float(0.9), float(0.2), win);
     return mat;
 }
 
@@ -75,20 +129,65 @@ export function levelGroup(level: Level): THREE.Group {
         geo.computeBoundingSphere();
         const mesh = new THREE.Mesh(geo, gridMaterial(m));
         mesh.name = m;
+        mesh.castShadow = m !== 'marking' && m !== 'water';
+        mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         g.add(mesh);
     }
     return g;
 }
 
+/** Where the sun is: from the south-west, high (a direction; the light itself follows the camera). */
+const SUN_DIR = new THREE.Vector3(-300, 500, 200).normalize();
+/** Half the side of the shadowed square around the camera, m, and the shadow map's size, texels (5.9 cm each). */
+const SHADOW_HALF = 120;
+const SHADOW_MAP = 4096;
+
+/** The sun with its shadow; call follow() each frame with the camera's position. */
+export class Sun {
+    readonly light: THREE.DirectionalLight;
+    private readonly toLight = new THREE.Matrix4();
+    private readonly fromLight = new THREE.Matrix4();
+    private readonly c = new THREE.Vector3();
+
+    constructor(scene: THREE.Scene) {
+        const l = new THREE.DirectionalLight(0xfff4e0, 2.2);
+        l.castShadow = true;
+        l.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
+        const cam = l.shadow.camera;
+        cam.left = -SHADOW_HALF;
+        cam.right = SHADOW_HALF;
+        cam.top = SHADOW_HALF;
+        cam.bottom = -SHADOW_HALF;
+        cam.near = 1;
+        cam.far = 1200; // from 600 m up-sun to well below the ground under the camera
+        cam.updateProjectionMatrix();
+        l.shadow.bias = -0.0002;
+        l.shadow.normalBias = 0.04;
+        scene.add(l, l.target);
+        this.light = l;
+        // a rotation into the light's view, to snap the shadow square to whole texels
+        this.fromLight.lookAt(SUN_DIR, new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
+        this.toLight.copy(this.fromLight).invert();
+    }
+
+    /** Centre the shadow square on p, moved in whole shadow texels so its edges do not crawl as the camera moves. */
+    follow(p: THREE.Vector3): void {
+        const texel = (2 * SHADOW_HALF) / SHADOW_MAP;
+        this.c.copy(p).applyMatrix4(this.toLight);
+        this.c.x = Math.round(this.c.x / texel) * texel;
+        this.c.y = Math.round(this.c.y / texel) * texel;
+        this.c.applyMatrix4(this.fromLight);
+        this.light.target.position.copy(this.c);
+        this.light.position.copy(this.c).addScaledVector(SUN_DIR, 600);
+    }
+}
+
 /** Sky, sun, fill light and distance fog. */
-export function environment(scene: THREE.Scene): THREE.DirectionalLight {
+export function environment(scene: THREE.Scene): Sun {
     const sky = new THREE.Color(0x9cc4e4);
     scene.background = sky;
     scene.fog = new THREE.Fog(sky, 250, 1600);
     scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.4));
-    const sun = new THREE.DirectionalLight(0xfff4e0, 2.2);
-    sun.position.set(-300, 500, 200);
-    scene.add(sun);
-    return sun;
+    return new Sun(scene);
 }

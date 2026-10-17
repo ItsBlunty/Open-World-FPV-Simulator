@@ -35,6 +35,15 @@ describe('level builder', () => {
         const f = new LevelBuilder().floor('grass', 0, 0, 1, 1).build('t', 1, 't', 1).parts.get('grass')!;
         expect(outward(f, [0.5, -1, 0.5])).toBe(0);
     });
+    it('draws decals but leaves them out of the collision', () => {
+        const l = new LevelBuilder().floor('asphalt', 0, 0, 10, 10).decal('marking', 1, 1, 2, 4).build('t', 1, 't', 1);
+        expect(l.triangleCount).toBe(2);
+        expect(l.collision.length).toBe(18);
+        const m = l.parts.get('marking')!;
+        expect(m.length).toBe(18);
+        expect(outward(m, [1.5, -1, 2.5])).toBe(0); // faces up
+        for (let i = 1; i < m.length; i += 3) expect(m[i]).toBeCloseTo(0.02, 6);
+    });
 });
 
 describe('first map', () => {
@@ -46,6 +55,17 @@ describe('first map', () => {
         expect(levelSha256(buildFirstMap())).toBe(levelSha256(level));
         expect(world.degenerate).toBe(0);
         expect(levelSha256(level)).toBe(PINNED);
+    });
+
+    it('runs the bando columns unbroken through every floor slab', () => {
+        // a ray from the west along the bando's south wall line (z = -12), at the middle of each floor
+        // slab's thickness: it must meet the corner column's west face (x = -280.25), not stop at the
+        // slab edge (x = -280) as the per-storey columns of map v1 let it
+        for (let k = 1; k <= 5; k++) {
+            const hit = world.queryRay(-300, k * 3.6 - 0.15, -12, 1, 0, 0, 40);
+            expect(hit, `slab ${k}`).not.toBeNull();
+            expect(hit!.x, `slab ${k}`).toBeCloseTo(-280.25, 6);
+        }
     });
 
     it('puts every spawn point on a surface with room for the quad', () => {
@@ -65,4 +85,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '86ca74a03ded09bba5c35a6d6ddcbf31a5e63363d66fcf3f9aff14a462e60a78';
+const PINNED = '57c76dccb7944cd6bb7c40678633dd5c1548783ed07bbe6c448ff11bdb252d62';

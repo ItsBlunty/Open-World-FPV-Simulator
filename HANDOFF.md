@@ -1,13 +1,13 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), and after the FPV camera near-plane fix.
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, and after the level look pass (map v2).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 41 test files, 382 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 41 test files, 384 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
@@ -19,9 +19,12 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Camera fix (commit `f1ddc51`, renderer only):** the owner could see through walls and the ground after a crash.
   The FPV camera's near plane is now 1 cm with a reversed depth buffer (details at the end of §0c). Waiting for the
   owner to confirm on the Pages build.
-- **Next, once the owner has flown:** their feedback on contacts, prop strikes, turtle mode and the camera; then the
-  open items in §5 ("Open from the 0.3.1-0.4.0 fixes"); then M2 (physics review).
-- sim-core is now `sim-core/0.4.0`; the self-test hash is `cd45c59c…` (Node and Chrome 155 match; Firefox not re-checked).
+- **The owner flew 0.3.0-0.4.0 and the camera fix: "all 4 seems good for now"** (2026-10-17). The stuck-wedged rewind
+  stays. Chase-camera collision is on the to-do list (§5).
+- **Level look pass, map v2 (§0d):** unbroken bando columns, windows on city buildings, road paint, sun shadows.
+  **Waiting for the owner to look at it and fly it**, and to answer the people-and-cars question (§0d).
+- **Next:** the owner's view of the look pass and the traffic answer; then M2 (physics review).
+- sim-core is now `sim-core/0.4.0`; the self-test hash is `cd45c59c…` (Node and Chrome 155 match, also on map v2; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -119,6 +122,31 @@ while armed disarms; arm again) and no automatic rewind of a flipped quad (SPEC.
   surface the quad rests on, inside the old 5 cm near plane. Now 1 cm (`view.ts CAMERA_NEAR`) with a reversed depth
   buffer (`main.ts`); checked in Chrome on WebGPU and WebGL 2 against a tree trunk. The chase camera still has no
   collision of its own and can end up inside a building.
+
+## 0d. Level look pass (owner, 2026-10-17): map v2
+
+The owner asked for "a general pass" on how the level looks, with two points: the bando's pillars "seem like they are
+segments only one story tall, so they have gaps in between them unlike a real building", and how much load people
+walking and cars driving would add.
+- **Bando columns** (`first-map.ts bando`): one box from the ground slab to the roof (or to the 4th floor's top
+  for the few broken interior ones) instead of one per storey stopping under each slab. The old gap showed at every
+  missing panel and along the outside, where the columns stand 25 cm proud of the slab edges. Test: "runs the bando
+  columns unbroken" (fails on map v1). The RNG draws are unchanged, so the rest of the bando is the same.
+- **City facades:** buildings use new `facade-*` materials; the shader (`render/world.ts windows()`) paints a window
+  every 3 m per 3.5 m storey, shop windows on the ground floor, ribbon windows with mullions on glass towers, and
+  fades to the average where the pattern gets finer than the screen can draw. Paint only: collision unchanged.
+- **Road paint:** `LevelBuilder.decal()` draws a rectangle 2 cm up and leaves it out of the collision (stripe edges
+  would be steps the contact solver catches on; 2 cm is under half a 45 mm collision sphere). Dashed centre lines
+  and zebra crossings on every city junction.
+- **Sun shadows** (`render/world.ts Sun`): 4096² map over 240 m around the camera, snapped to whole texels so it does
+  not crawl. Measured GPU time at 2560x1319 (WebGPU, owner's machine): street 2.3 ms with / 1.5 ms without, city
+  overview 0.6 / 0.7, bando 0.55 / 0.6. `?noshadows` turns them off. Works on the WebGL 2 fallback too.
+- Map v2: 41 462 triangles (v1: 44 006), hash `57c76dcc…`. The self-test hash did not change (its flight is in the park).
+- **People and cars (asked, not built):** answered the owner with this estimate. Drawn only (they cannot be hit):
+  cheap to run (instanced low-poly models, a few hundred of each, well under a millisecond of CPU and GPU per frame),
+  a moderate job to build (lanes and sidewalk paths on the city grid, stopping at junctions, CC0 models). Solid
+  (a hit bounces the quad): their positions must come from the sim tick only (replays), and sim-core's contact solver
+  must handle a moving surface (it assumes the world is still): a sim-core change with a version bump and a flight test.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
@@ -255,9 +283,9 @@ Decided so far: see SPEC.md §7 (license GPL-3.0-or-later, GPL for sim-core chan
 replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real HID descriptor as a test fixture.
 
 **Open from the 0.3.1-0.4.0 fixes (2026-10-17), to ask or offer the owner:**
-- The director's stuck-wedged rule (throttle up, not moving, 3 s) still rewinds automatically, also a quad on its back
-  with the throttle up. The owner turned the flipped rule off ("always off"); ask whether wedged should go too.
-- The chase camera (C key) has no collision and can sit inside a building. Offered to the owner, not asked for yet.
+- **To do (owner, 2026-10-17: "put chase cam on a list"):** the chase camera (C key) has no collision and can sit
+  inside a building.
+- The stuck-wedged rewind stays (owner, 2026-10-17).
 - Hard hits barely bounce (upstream's restitution, 0.35 at v_bounce and less above) and a forward wall hit always ends
   flat against the wall. The owner chose turtle mode over bouncier hits; revisit only if they ask.
 - Reverse prop thrust (0.73) comes from one 7" thrust-stand test; a 5" measurement would replace the estimate.

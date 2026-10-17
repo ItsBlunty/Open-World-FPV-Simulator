@@ -1,7 +1,8 @@
 // The page: builds the map, the flight session and the renderer, connects the radio, and runs the
 // frame loop (physics up to now, then draw). URL options: ?selftest runs the determinism check,
 // ?demo flies the self-test's scripted sticks in real time (no radio needed), ?webgl forces WebGL 2,
-// ?spawn=<id> starts at a spawn point, ?cam=chase starts in the chase view.
+// ?spawn=<id> starts at a spawn point, ?cam=chase starts in the chase view, ?noshadows turns the sun's
+// shadows off (for slow GPUs, and to measure what they cost).
 
 import './style.css';
 import * as THREE from 'three/webgpu';
@@ -53,8 +54,11 @@ document.body.append(renderer.domElement);
 await renderer.init();
 const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
 
+renderer.shadowMap.enabled = !params.has('noshadows');
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 const scene = new THREE.Scene();
-environment(scene);
+const sun = environment(scene);
 scene.add(levelGroup(level));
 const view = new CraftView();
 view.uptiltDeg = settings.uptiltDeg;
@@ -277,6 +281,7 @@ function frame(): void {
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
         footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(fps)} fps · ${view.mode.toUpperCase()}`
     });
+    sun.follow(view.camera.position);
     renderer.render(scene, view.camera);
 }
 
@@ -293,7 +298,7 @@ if (demo) showMenu(false);
 renderer.setAnimationLoop(frame);
 // for checks from the browser console and automated tests
 (globalThis as { __fly?: unknown }).__fly = {
-    session, view, S,
+    session, view, sun, renderer, scene, S,
     /** a simulated radio for UI checks: frames go through the same path as a real one's reports */
     fakeRadio(): (f: RawFrame) => void {
         useDevice({ kind: 'hid', key: 'test:simulated', name: 'Simulated radio' }, loadProfile('test:simulated'));

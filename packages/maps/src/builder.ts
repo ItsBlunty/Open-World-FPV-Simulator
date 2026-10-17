@@ -9,7 +9,9 @@ import { sha256Hex } from '@owfpv/sim-core';
 
 export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
-    'metal', 'rust', 'wood', 'trunk', 'foliage', 'rubble', 'water', 'marking', 'container-a', 'container-b', 'container-c'
+    'metal', 'rust', 'wood', 'trunk', 'foliage', 'rubble', 'water', 'marking', 'container-a', 'container-b', 'container-c',
+    // city building fronts: the renderer paints storeys of windows on their walls
+    'facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -30,7 +32,7 @@ export interface Level {
     name: string;
     /** the playable square's half size, m (the ground reaches further) */
     halfSize: number;
-    /** per material: flat triangle soup, xyz per vertex, three vertices per triangle */
+    /** per material: flat triangle soup, xyz per vertex, three vertices per triangle (decals included) */
     parts: Map<Material, Float32Array>;
     /** every triangle for the collision, xyz per vertex (Float64: the collision's own precision) */
     collision: Float64Array;
@@ -67,12 +69,27 @@ export class Rng {
 
 export class LevelBuilder {
     private readonly tris = new Map<Material, number[]>();
+    private readonly paint = new Map<Material, number[]>();
     readonly spawns: SpawnPoint[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
         if (!a) this.tris.set(m, (a = []));
         for (const p of v) a.push(p[0], p[1], p[2]);
+    }
+
+    /**
+     * Paint on the ground (road lines, crossings): an upward rectangle drawn 2 cm above y but left out
+     * of the collision. 2 cm is under half the quad's 45 mm collision spheres, so flying over it looks
+     * and feels the same as flying over the surface beneath; as geometry, every stripe's edges would be
+     * steps for the contact solver to catch on.
+     */
+    decal(m: Material, x0: number, z0: number, x1: number, z1: number, y = 0): this {
+        const v = y + 0.02;
+        let a = this.paint.get(m);
+        if (!a) this.paint.set(m, (a = []));
+        a.push(x0, v, z0, x0, v, z1, x1, v, z1, x0, v, z0, x1, v, z1, x1, v, z0);
+        return this;
     }
 
     /** Quad a-b-c-d, counter-clockwise seen from the side it faces. */
@@ -143,10 +160,10 @@ export class LevelBuilder {
         const parts = new Map<Material, Float32Array>();
         let n = 0;
         for (const m of MATERIALS) {
-            const a = this.tris.get(m);
-            if (!a || a.length === 0) continue;
-            parts.set(m, Float32Array.from(a));
+            const a = this.tris.get(m) ?? [];
+            const d = this.paint.get(m) ?? [];
             n += a.length;
+            if (a.length + d.length > 0) parts.set(m, Float32Array.from(d.length ? a.concat(d) : a));
         }
         // collision in a fixed order (MATERIALS), so the hash does not depend on build order between materials
         const collision = new Float64Array(n);

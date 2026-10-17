@@ -10,7 +10,7 @@ import { LevelBuilder, Rng } from './builder';
 import type { Level, Material } from './builder';
 
 export const MAP_ID = 'mixed-1';
-export const MAP_VERSION = 1;
+export const MAP_VERSION = 2;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -171,15 +171,12 @@ function bando(b: LevelBuilder, r: Rng): void {
     const keep = (k: number, i: number, j: number): boolean => k === storeys && i === 0 && j === 0; // the roof spawn
     // ground slab
     b.box('concrete-dark', x0 - 0.5, 0, z0 - 0.5, x0 + NX * BAY + 0.5, 0.1, z0 + NZ * BAY + 0.5);
-    // columns, one per storey per grid point
-    for (let k = 0; k < storeys; k++) {
-        const y0 = k === 0 ? 0.1 : k * H;
-        const y1 = (k + 1) * H - SLAB;
-        for (let i = 0; i <= NX; i++) for (let j = 0; j <= NZ; j++) {
-            // a few columns are gone on the top storey (the roof there sags onto the walls)
-            if (k === storeys - 1 && i > 0 && i < NX && j > 0 && j < NZ && r.chance(1, 4)) continue;
-            b.block('concrete', x0 + i * BAY, z0 + j * BAY, 0.5, 0.5, y0, y1 - y0);
-        }
+    // columns: one piece from the ground slab to the roof, through every floor, as a cast frame is. Built
+    // per storey they stopped under each slab and showed a gap wherever a panel was missing (owner,
+    // 2026-10-17). A few interior ones are broken off at the top floor (the roof there sags onto the walls).
+    for (let i = 0; i <= NX; i++) for (let j = 0; j <= NZ; j++) {
+        const broken = i > 0 && i < NX && j > 0 && j < NZ && r.chance(1, 4);
+        b.block('concrete', x0 + i * BAY, z0 + j * BAY, 0.5, 0.5, 0.1, (broken ? (storeys - 1) * H : storeys * H) - 0.1);
     }
     // floor panels, slab k's top at k * H
     for (let k = 1; k <= storeys; k++) {
@@ -253,15 +250,15 @@ function bando(b: LevelBuilder, r: Rng): void {
 
 // ---------------------------------------------------------------- city
 
-const MATS_BUILDING: Material[] = ['concrete', 'brick', 'plaster', 'glass', 'concrete-dark'];
+const MATS_BUILDING: Material[] = ['facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark'];
 
 function building(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
     const floors = r.int(2, maxFloors);
     const h = floors * 3.5;
-    const m = h > 40 && r.chance(1, 2) ? 'glass' : r.pick(MATS_BUILDING);
+    const m = h > 40 && r.chance(1, 2) ? 'facade-glass' : r.pick(MATS_BUILDING);
     if (h > 30 && r.chance(1, 2)) {
         // podium and a set-back tower
-        b.box(m === 'glass' ? 'concrete' : m, x0, 0.15, z0, x1, 0.15 + 3 * 3.5, z1);
+        b.box(m === 'facade-glass' ? 'facade-concrete' : m, x0, 0.15, z0, x1, 0.15 + 3 * 3.5, z1);
         const ix = Math.min(6, (x1 - x0) / 4);
         const iz = Math.min(6, (z1 - z0) / 4);
         b.box(m, x0 + ix, 0.15 + 3 * 3.5, z0 + iz, x1 - ix, 0.15 + h, z1 - iz);
@@ -313,10 +310,51 @@ function carPark(b: LevelBuilder, x0: number, z0: number): void {
     }
 }
 
+/** City grid: a block every PITCH m, roads ROAD m wide between them (kerb to kerb). */
+const PITCH = 80;
+const ROAD = 18;
+
+/**
+ * Road paint, drawn but not collided with (LevelBuilder.decal): a dashed centre line on every road
+ * (3 m dashes, 6 m gaps, 15 cm wide, stopping short of the crossings) and zebra crossings on each
+ * side of every junction. Road centres: x = -480 + 80a (a = 0..12) running north-south from the
+ * park edge (z = -70) to the north edge, and z = -90 - 80c (c = 0..5) running east-west.
+ */
+function roadMarkings(b: LevelBuilder): void {
+    const xs: number[] = [];
+    for (let a = 0; a <= 12; a++) xs.push(-HALF + 20 + a * PITCH);
+    const zs: number[] = [];
+    for (let c = 0; c <= 5; c++) zs.push(-90 - c * PITCH);
+    const nearAny = (v: number, list: number[], d: number): boolean => list.some((u) => Math.abs(u - v) < d);
+    const W = 0.075; // half the line width
+    const clear = ROAD / 2 + 4; // no centre line inside a junction or over its crossings
+    // north-south roads
+    for (const x of xs) for (let z = -HALF; z + 3 <= -70; z += 9) {
+        if (nearAny(z, zs, clear) || nearAny(z + 3, zs, clear)) continue;
+        b.decal('marking', x - W, z, x + W, z + 3);
+    }
+    // east-west roads
+    for (const z of zs) for (let x = -HALF; x + 3 <= HALF; x += 9) {
+        if (nearAny(x, xs, clear) || nearAny(x + 3, xs, clear)) continue;
+        b.decal('marking', x, z - W, x + 3, z + W);
+    }
+    // zebra crossings: 0.5 m stripes, 0.5 m apart, 3 m long, just outside each junction
+    const half = ROAD / 2 - 0.5;
+    for (const x of xs) for (const z of zs) {
+        for (let s = -half; s + 0.5 <= half; s += 1) {
+            for (const side of [-1, 1]) {
+                const zc = z + side * (ROAD / 2 + 1.5); // across the north-south road
+                if (zc - 1.5 >= -HALF) b.decal('marking', x + s, zc - 1.5, x + s + 0.5, zc + 1.5);
+                const xc = x + side * (ROAD / 2 + 1.5); // across the east-west road
+                b.decal('marking', xc - 1.5, z + s, xc + 1.5, z + s + 0.5);
+            }
+        }
+    }
+}
+
 function city(b: LevelBuilder, r: Rng): void {
-    const PITCH = 80;
-    const ROAD = 18;
     const BLOCK = PITCH - ROAD;
+    roadMarkings(b);
     for (let a = 0; a < 12; a++) {
         for (let c = 0; c < 5; c++) {
             const x0 = -HALF + 20 + a * PITCH + ROAD / 2;

@@ -156,3 +156,7 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | After a hit leaves the quad on its back: turtle mode, bouncier hits, a prop-strike kick, or nothing? | Turtle mode |
 | 2026-10-17 | Turtle switch turned off while armed: disarm and re-arm (Betaflight 2026.6 default), fly on (auto re-arm), or 4.5 style? | Disarm, re-arm (Betaflight default) |
 | 2026-10-17 | The automatic rewind of a quad lying flipped for 1.5 s (Liftoff's rule)? | Always off |
+| 2026-10-17 | (after flying 0.3.0-0.4.0) Contacts, prop strikes, turtle mode, the camera fix | All good for now |
+| 2026-10-17 | Keep the automatic rewind of a quad wedged with the throttle up for 3 s? | Keep it: a pilot throttles down unless something is wrong |
+| 2026-10-17 | A chase camera that does not go inside buildings? | Later: on the to-do list |
+| 2026-10-17 | (owner's request) Level look | A general pass; bando columns must run unbroken like a real building's |
