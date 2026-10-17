@@ -71,7 +71,7 @@ and the review's own physics test cases. Note the author's own preset values are
 ### 4.2 Structure
 - Open world: a free-fly map with challenges placed around it.
 - First map: one open world with a 5-storey bando (broken floors), a park and a city area, about 1 km x 1 km to start
-  (owner: "quite large"; the 1 km figure is Claude's reading, to confirm).
+  (owner, 2026-10-17).
 - Art: blockout geometry first, tuned by flying; then CC0 assets (e.g. Kenney, Quaternius, Poly Haven) once the layout
   feels right (owner, 2026-10-17).
 - Radio setup: a wizard that walks the pilot through moving each stick and switch, for stick modes 1-4, and saves the
@@ -138,3 +138,4 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | Map scale and bando size? | One open world, start quite large; bando 5 storeys with broken floors |
 | 2026-10-17 | HUD readouts for M1? | Battery voltage, armed / flight mode, throttle and speed |
 | 2026-10-17 | Where do playtest builds run? | GitHub Pages |
+| 2026-10-17 | Is ~1 km x 1 km the right map size to start? | Yes |

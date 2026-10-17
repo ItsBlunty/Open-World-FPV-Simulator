@@ -9,7 +9,7 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   that test flight, and the owner's notes on feel, close M1. Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`,
   `pnpm dev` (Node 22.12+, pnpm 10). 35 test files, 348 tests.
 - **Owner to-dos for M1:** fly it; check the first-flight list in §2b; turn on GitHub Pages (Settings > Pages >
-  Source: "GitHub Actions") so CI publishes the playtest build; confirm the map size (Claude read "quite large" as ~1 km).
+  Source: "GitHub Actions") so CI publishes the playtest build.
 - **Next after M1: M2 physics review** (SPEC.md §5).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
@@ -138,7 +138,7 @@ From Betaflight's own SITL docs (https://betaflight.com/docs/development/autopil
 
 Decided so far: see SPEC.md §7 (license GPL-3.0-or-later, GPL for sim-core changes, renderer, art, radio, drone).
 
-**Asked and answered at the start of M1:** see SPEC.md §7. Still to confirm: the map size (~1 km assumed).
+**Asked and answered at the start of M1:** see SPEC.md §7.
 
 **Open from M1:** loading glTF levels into `MeshContactWorld` (not needed while the map is code; needed when CC0 assets
 replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real HID descriptor as a test fixture.
