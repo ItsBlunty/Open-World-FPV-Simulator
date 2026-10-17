@@ -1,6 +1,8 @@
 // The owner's first flight (2026-10-17): in the bando a rewind put the quad 25 cm under a slab; a short
 // throttle blip pressed it against the ceiling, where it stayed pinned with the throttle at zero
-// (contact chatter + airmode, docs/physics-review.md F2). Reproduced here from the same spot.
+// (contact chatter + airmode, docs/physics-review.md F2). sim-core/0.3.0 fixed the contacts themselves
+// (every touching sphere solved together, sim.ts contactsAt), so the same flight from the same spot now
+// touches the slab and drops away. The director's "stuck, pinned" rule that worked around it is gone.
 
 import { describe, expect, it } from 'vitest';
 import { S } from '@owfpv/sim-core';
@@ -13,6 +15,14 @@ const preset = nazgul as unknown as PresetJson;
 const level = buildFirstMap();
 /** where the owner's last rewind put the quad: bando storey 2, ceiling (slab underside) at 10.5 m */
 const UNDER_SLAB: [number, number, number, number] = [-243.784, 10.245, -9.746, -89.53];
+const SLAB = 10.5;
+
+interface Track {
+    /** ticks (since the respawn) with the top of a prop sphere within 2 mm of the slab */
+    touching: number[];
+    /** largest body rotation rate while touching, rad/s */
+    maxW: number;
+}
 
 /** Arm at the park spawn, respawn at `at`, then fly script(t) for `ticks` (t = ticks since the respawn). */
 function fly(script: (t: number, ch: Float32Array) => void, ticks: number, o: { at?: [number, number, number, number]; policy?: RespawnPolicy } = {}) {
@@ -26,13 +36,20 @@ function fly(script: (t: number, ch: Float32Array) => void, ticks: number, o: { 
     for (let i = 0; i < 100; i++) r.stepOnce();
     if (o.at) r.respawn(o.at[0], o.at[1], o.at[2], o.at[3], { platform: true, keepArmed: true }, 'crash');
     const n = r.events.length;
+    const top = s.sim.p.spheres[3]; // duct sphere radius, the centre is level with the body's
+    const track: Track = { touching: [], maxW: 0 };
     for (let t = 0; t < ticks; t++) {
         const before = ch.join();
         script(t, ch);
         if (ch.join() !== before) r.enqueue({ tUs: r.tUs + 1000, ch });
         r.stepOnce();
+        const st = s.sim.s;
+        if (st[S.py] + top > SLAB - 0.002) {
+            track.touching.push(t);
+            track.maxW = Math.max(track.maxW, Math.hypot(st[S.wx], st[S.wy], st[S.wz]));
+        }
     }
-    return { s, events: r.events.slice(n) as SimEvent[] };
+    return { s, events: r.events.slice(n) as SimEvent[], track };
 }
 
 /** a 0.4 s blip near hover at 0.5 s, then the throttle all the way down */
@@ -40,40 +57,33 @@ const blip = (t: number, ch: Float32Array): void => {
     ch[2] = t >= 500 && t < 900 ? -0.25 : -1;
 };
 
-const pinned = (s: FlightSession): boolean => s.sim.s[S.armed] > 0 && s.sim.s[S.py] > 10.4;
-
-describe('stuck under a ceiling', () => {
-    it('negative control: with the stuck rules off the quad stays pinned, throttle down, motors working', () => {
-        const { s, events } = fly(blip, 8000, { at: UNDER_SLAB, policy: { ...QUICK_RESPAWN, unstuck: false } });
-        expect(events.some((e) => e.type === 'respawn')).toBe(false);
-        expect(pinned(s)).toBe(true);
-        expect(s.sim.ch[2]).toBe(-1);
+describe('under a ceiling (the owner\'s bando flight, F2)', () => {
+    it('the blip reaches the slab, rests against it without rocking, and the quad drops away once the throttle is down', () => {
+        // the director's stuck rules off: nothing but the physics gets it down
+        const { s, events, track } = fly(blip, 3000, { at: UNDER_SLAB, policy: { ...QUICK_RESPAWN, unstuck: false } });
+        console.log(`under the slab: touching ticks ${track.touching[0]}..${track.touching[track.touching.length - 1]} (${track.touching.length}), max rotation then ${track.maxW.toExponential(2)} rad/s, y at 3 s ${s.sim.s[S.py].toFixed(3)}`);
+        expect(track.touching.length).toBeGreaterThan(50);
+        // sim-core/0.2.0: 2-3 rad/s of alternating roll or yaw for as long as it stayed there
+        expect(track.maxW).toBeLessThan(0.05);
+        // it lets go when the stick goes down at t = 900 (the motors spin down over a few tens of ms)
+        expect(track.touching[track.touching.length - 1]).toBeLessThan(1000);
+        // and falls back onto the invisible respawn platform it started from (still on: it never left by 1 m)
+        expect(s.sim.s[S.platOn]).toBe(1);
+        expect(s.sim.s[S.py]).toBeCloseTo(UNDER_SLAB[1], 2);
+        expect(s.sim.s[S.armed]).toBe(1);
+        expect(events.some((e) => e.type === 'respawn' || e.type === 'crash')).toBe(false);
     });
 
-    it('the pinned rule rewinds it within 2 s, to a spot it then sits free at', () => {
-        const { s, events } = fly(blip, 8000, { at: UNDER_SLAB });
-        const re = events.filter((e) => e.type === 'respawn');
-        expect(re.length).toBeGreaterThan(0);
-        // pinned from about t = 600 (the blip reaches the slab in ~0.1 s); the rule needs 1.5 s still
-        expect(re[0].tick - (s.sim.tick - 8000)).toBeLessThan(600 + 2000);
-        expect(s.director.last?.reason).toBe('stuck-wedged');
-        expect(pinned(s)).toBe(false);
-        // after the rewind, nothing above it within its bounding radius
-        const out = { x: 0, y: 0, z: 0 };
-        const st = s.sim.s;
-        expect(s.world.pushOut(st[S.px], st[S.py], st[S.pz], s.sim.p.boundRadius + 0.02, out) && out.y < 0).toBe(false);
-    });
-
-    it('never fires on a quad landed armed at idle (contact from below)', () => {
+    it('never respawns a quad landed armed at idle (contact from below)', () => {
         const { events } = fly(() => undefined, 10000);
         expect(events.some((e) => e.type === 'respawn')).toBe(false);
     });
 
-    it('does not count a spot 25 cm under a slab as a rewind spot any more', () => {
+    it('does not count a spot 25 cm under a slab as a rewind spot', () => {
         const s = new FlightSession({ preset, level });
         const out = { x: 0, y: 0, z: 0 };
         const [x, y, z] = UNDER_SLAB;
-        // sim-core's default margin (0.05 m) took it; ours does not
+        // sim-core's default margin (0.05 m) took it; ours does not, so a rewind leaves room to fly
         expect(s.world.pushOut(x, y, z, s.sim.p.boundRadius + 0.05, out)).toBe(false);
         expect(s.world.pushOut(x, y, z, s.sim.p.boundRadius + REWIND_MARGIN_M, out)).toBe(true);
     });

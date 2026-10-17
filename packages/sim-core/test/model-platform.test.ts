@@ -33,15 +33,20 @@ describe('C.12 item 1: the platform holds a craft at the spawn', () => {
         expect(sim.events.filter((e) => e.type === 'crash')).toEqual([]);
     });
 
-    it('control: the same rest on a scene floor with the 1 mm skin chatters (a contact every few ms)', () => {
-        // the floor where the platform top would be: the body falls back 1 mm onto it again and again
+    it('the same rest on a scene floor is as still (sim-core/0.3.0; before it, the 1 mm skin chattered: a contact every few ms)', () => {
+        // the floor where the platform top would be: every contact of the body is solved together each tick
         const probe = new Sim(params(), null);
         probe.reset(SPAWN[0], SPAWN[1], SPAWN[2], 30, { platform: true });
         const floor = halfSpace(0, 1, 0, probe.s[S.platY]);
         const sim = onPlatform({}, floor);
-        for (let i = 0; i < 5000; i++) sim.step();
+        let maxW = 0;
+        for (let i = 0; i < 5000; i++) {
+            sim.step();
+            if (i >= 500) maxW = Math.max(maxW, Math.hypot(sim.s[S.wx], sim.s[S.wy], sim.s[S.wz]));
+        }
         const late = sim.events.filter((e) => e.type === 'contact' && e.tick > sim.tick - 4500);
-        expect(late.length).toBeGreaterThan(50);
+        expect(late).toEqual([]);
+        expect(maxW).toBeLessThan(1e-4);
     });
 
     it('hover + 10 % lifts off; the platform stays on below +1 m and is off above it', () => {

@@ -10,14 +10,6 @@
 // - Stuck, flipped (Liftoff's rule): not crashed, up-vector y < 0.3, |v| < 0.2 m/s, |w| < 1 rad/s,
 //   touching, for 1.5 s. Stuck, wedged: armed, throttle stick >= hover + 0.15, |v| < 0.1 m/s,
 //   touching, for 3 s. Both rewind like a crash. An upright, disarmed craft is a landing: never.
-// - Stuck, pinned (this project, 2026-10-17, not upstream): armed, |v| < 0.1 m/s, touching something
-//   ABOVE it (the push-out points down), throttle stick below hover, for 1.5 s. The pilot is not
-//   asking to climb, yet the craft stays up there: under a flat mesh ceiling the
-//   contact chatter reads as several rad/s of rotation, airmode answers with full mixer authority,
-//   and the mean thrust holds the craft against the ceiling with the throttle stick at zero
-//   (docs/physics-review.md F2). Until the contact model is fixed this rule gets the pilot out; it
-//   rewinds like the other stuck rules, with the reason 'stuck-wedged' (no new log code). Pressing
-//   up on purpose (stick at or over hover) stays the wedged rule's business, as upstream designed.
 //
 // How still is measured (a deviation from the design's wording, kept narrow):
 //   |v| is the largest distance the body centre got from where it was 100 ms earlier, per second;
@@ -105,8 +97,6 @@ const FLIPPED_V = 0.2;
 const FLIPPED_W = 1;
 const WEDGED_V = 0.1;
 const WEDGED_ABOVE_HOVER = 0.15;
-/** Stuck, pinned must hold this long, ticks (as long as flipped). */
-export const PINNED_TICKS = 1500;
 const TOUCH_MARGIN = 0.02;
 const POSES = STILL_WINDOW_TICKS / TOUCH_EVERY_TICKS + 1;
 const WINDOW_S = STILL_WINDOW_TICKS / 1000;
@@ -138,7 +128,6 @@ export class RespawnDirector {
     private manual: 'start' | 'rewind' | null = null;
     private flipSince = -1;
     private wedgeSince = -1;
-    private pinSince = -1;
     private lastRewind = -Infinity;
     private backoff = 0;
     // poses on the touch grid (x, y, z, up x, up y, up z), for the motion over the span
@@ -255,15 +244,6 @@ export class RespawnDirector {
             }
             if (this.wedgeSince >= 0 && t - this.wedgeSince >= WEDGED_TICKS) return this.rewind(t, this.wedgeSince, 'stuck-wedged');
         } else this.wedgeSince = -1;
-
-        if (s[S.armed] > 0 && s[S.crashed] === 0 && stick < this.hoverStickNow) {
-            if (grid) {
-                const still = this.moveV < WEDGED_V && this.touching(sim) && this.push.y < 0;
-                if (!still) this.pinSince = -1;
-                else if (this.pinSince < 0) this.pinSince = t - STILL_WINDOW_TICKS;
-            }
-            if (this.pinSince >= 0 && t - this.pinSince >= PINNED_TICKS) return this.rewind(t, this.pinSince, 'stuck-wedged');
-        } else this.pinSince = -1;
         return null;
     }
 
@@ -300,7 +280,6 @@ export class RespawnDirector {
     private resetStuck(): void {
         this.flipSince = -1;
         this.wedgeSince = -1;
-        this.pinSince = -1;
     }
 
     /**

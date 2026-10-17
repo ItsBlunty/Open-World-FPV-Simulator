@@ -50,6 +50,14 @@ export interface SimParams {
     boundRadius: number; // body origin -> farthest sphere surface, m
     vBounce: number;
     vCrash: number;
+    /**
+     * Damage (this project, sim-core/0.3.0): a hit on the props, arms or top approaching at up to vHarm m/s does no
+     * damage; from there the damage grows with the impact energy, to the whole health at vCrash. A hit on the
+     * underside (the body landing) uses vLandSafe and vLandCrash instead.
+     */
+    vHarm: number;
+    vLandSafe: number;
+    vLandCrash: number;
     rates: RatesConfig;
     pid: { roll: number[]; pitch: number[]; yaw: number[] };
     throttle: ThrottleCurve;
@@ -108,6 +116,10 @@ export interface ParamOverrides {
     rates?: RatesConfig;
     vCrash?: number;
     vBounce?: number;
+    /** damage thresholds, m/s (SimParams.vHarm, vLandSafe, vLandCrash) */
+    vHarm?: number;
+    vLandSafe?: number;
+    vLandCrash?: number;
     pid?: { roll?: number[]; pitch?: number[]; yaw?: number[] };
     throttle?: ThrottleCurve; // thr_mid / thr_expo, e.g. imported from a Betaflight diff
     uptiltDeg?: number;
@@ -269,6 +281,8 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     }
     const lv = o.level ?? {};
     const pl = presetLevel(p);
+    const vBounce = o.vBounce ?? num(p, 'v_bounce_ms');
+    const vCrash = o.vCrash ?? num(p, 'v_crash_ms');
 
     const rj = p.fields.rates.value as { type: RatesType; roll: number[]; pitch: number[]; yaw: number[]; rate_limit: number };
     const rates: RatesConfig = o.rates ?? {
@@ -306,8 +320,14 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         cda: [cdaH, cdaV, cdaH],
         spheres,
         boundRadius,
-        vBounce: o.vBounce ?? num(p, 'v_bounce_ms'),
-        vCrash: o.vCrash ?? num(p, 'v_crash_ms'),
+        vBounce,
+        vCrash,
+        // [estimates, this project]: below the bounce speed a touch is a slide and does no harm; a 5-inch quad lands on
+        // its frame's underside at a few m/s without damage and survives drops of a couple of metres (10 m/s is a
+        // 5 m drop), so the underside takes 0.8 and 2 times the crash speed. To be tuned by flying.
+        vHarm: o.vHarm ?? vBounce,
+        vLandSafe: o.vLandSafe ?? 0.8 * vCrash,
+        vLandCrash: o.vLandCrash ?? 2 * vCrash,
         rates,
         pid: {
             roll: o.pid?.roll ?? (p.fields.pid_roll.value as number[]),

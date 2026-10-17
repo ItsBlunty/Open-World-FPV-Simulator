@@ -7,11 +7,17 @@
 
 import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
 import { Bvh } from './bvh';
-import { TRI_STRIDE, closest, newClosest, rayTriangle, sweepTriangle } from './triangle';
+import { EDGE_OR_VERTEX, FACE, TRI_STRIDE, closest, newClosest, rayTriangle, sweepTriangle } from './triangle';
 import type { SweepHit } from './triangle';
 
 /** Push-out passes per query, as in the voxel world this replaces (SuperSplat's resolveIterative). */
 const PUSH_ITERATIONS = 4;
+/** contacts(): triangles a query keeps as candidates (a sphere near a corner of a box touches up to ~6) */
+const MAX_CANDIDATES = 32;
+/** contacts(): an edge point this close to a face's plane lies in it (a seam), m; far above the rounding of 1 km maps */
+const SEAM_TOL = 1e-6;
+/** contacts(): normals with a cosine above this are the same surface */
+const SAME_NORMAL = 0.9999;
 
 export interface Vec3 {
     x: number;
@@ -30,6 +36,9 @@ export class MeshContactWorld implements ContactWorld {
     private readonly cl = newClosest();
     private readonly hit: SweepHit = { nx: 0, ny: 0, nz: 0 };
     private readonly pushNormals = new Float64Array(9);
+    /** contacts() candidates: normal, distance, closest point, kind (8 each), and which are taken */
+    private readonly cand = new Float64Array(MAX_CANDIDATES * 8);
+    private readonly candUsed = new Uint8Array(MAX_CANDIDATES);
 
     /**
      * positions: x, y, z per vertex. indices: three per triangle; omitted, every three vertices
@@ -158,6 +167,70 @@ export class MeshContactWorld implements ContactWorld {
         }
         out.x = tx; out.y = ty; out.z = tz;
         return hadHit;
+    }
+
+    /**
+     * ContactWorld.contacts: the surfaces within r of (x, y, z), as (normal from the surface to the point, distance),
+     * closest first, at most max. Every triangle within r is a candidate, then a flat surface made of several
+     * triangles is reduced to one contact: an edge or corner of one triangle that lies in the plane of another
+     * triangle the point is over (the seam between two floor triangles) is not a contact of its own, or the solver
+     * would feel a bump at every seam; candidates with the same normal are merged into the closest. Deterministic:
+     * triangles are visited in tree order and ties keep that order.
+     */
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number {
+        const cl = this.cl;
+        const cd = this.cand;
+        let nc = 0;
+        const order = this.bvh.order;
+        let sp = this.visitStart();
+        while (sp > 0) {
+            const node = this.stack[--sp];
+            if (!this.overlapsBox(node, x - r, y - r, z - r, x + r, y + r, z + r)) continue;
+            const l = this.bvh.left[node];
+            if (l >= 0) {
+                this.stack[sp++] = l + 1;
+                this.stack[sp++] = l;
+                continue;
+            }
+            const f = this.bvh.first[node], e = f + this.bvh.count[node];
+            for (let j = f; j < e && nc < MAX_CANDIDATES; j++) {
+                const kind = closest(this.tris, order[j], x, y, z, cl);
+                if (!(cl.dist < r)) continue;
+                const o = nc * 8;
+                cd[o] = cl.nx; cd[o + 1] = cl.ny; cd[o + 2] = cl.nz; cd[o + 3] = cl.dist;
+                cd[o + 4] = cl.qx; cd[o + 5] = cl.qy; cd[o + 6] = cl.qz; cd[o + 7] = kind;
+                nc++;
+            }
+        }
+        let m = 0;
+        // closest first: pick the nearest remaining candidate each time (stable: the earlier one wins a tie)
+        const used = this.candUsed;
+        used.fill(0, 0, nc);
+        while (m < max) {
+            let best = -1;
+            for (let a = 0; a < nc; a++) if (used[a] === 0 && (best < 0 || cd[a * 8 + 3] < cd[best * 8 + 3])) best = a;
+            if (best < 0) break;
+            used[best] = 1;
+            const o = best * 8;
+            const nx = cd[o], ny = cd[o + 1], nz = cd[o + 2];
+            let keep = true;
+            if (cd[o + 7] === EDGE_OR_VERTEX) {
+                // a seam: the point lies in the plane of a face the query point is over
+                for (let b = 0; b < nc && keep; b++) {
+                    const ob = b * 8;
+                    if (cd[ob + 7] !== FACE) continue;
+                    const off = cd[ob] * (cd[o + 4] - cd[ob + 4]) + cd[ob + 1] * (cd[o + 5] - cd[ob + 5]) + cd[ob + 2] * (cd[o + 6] - cd[ob + 6]);
+                    if (off <= SEAM_TOL && off >= -SEAM_TOL) keep = false;
+                }
+            }
+            for (let k = 0; k < m && keep; k++) {
+                if (out[k * 4] * nx + out[k * 4 + 1] * ny + out[k * 4 + 2] * nz > SAME_NORMAL) keep = false;
+            }
+            if (!keep) continue;
+            out[m * 4] = nx; out[m * 4 + 1] = ny; out[m * 4 + 2] = nz; out[m * 4 + 3] = cd[o + 3];
+            m++;
+        }
+        return m;
     }
 
     /** Same as pushOut; the name the bot's planner (sim-core/bot PlanCollision) uses. */

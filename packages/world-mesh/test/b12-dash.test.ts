@@ -7,7 +7,7 @@
 // replays only on the world it was flown in, so the replay is not ported and the fixture is removed.
 // Its starting state is: the rewind (REWIND below, copied from the recording) is flown again here
 // closed loop, with and without the bot's fix. The room's wall is where the scan's was (x = -5.2).
-// The whole flight is ported too, but in the mesh room it never reaches that rewind (see there).
+// The whole flight is ported too; since sim-core/0.3.0 it reaches that rewind in the mesh room as well (see there).
 //
 // Upstream's description:
 // accept-fly B12's negative control in the browser (wave 2, after model-pinned.test.ts): the bot's
@@ -90,7 +90,7 @@ const REWIND = {
  * and clock, its sticks every 4 ticks as the Scenario sends them (float32, as the runner applies
  * them), for 3 s or until a crash comes to rest.
  */
-function flyRewind(leadS: number): { crashes: Crash[]; contacts: number; restarts: number } {
+function flyRewind(leadS: number): { crashes: Crash[]; contacts: number; restarts: number; maxHit: number; health: number } {
     const sim = lifeSim(compileParams(PRESET, {}), room());
     sim.tick = REWIND.startTick;
     sim.setChannels(REWIND.ch);
@@ -100,7 +100,7 @@ function flyRewind(leadS: number): { crashes: Crash[]; contacts: number; restart
     // the dash began 14 s before this life (scenario phase 'dash'); the bot's clock runs from there
     (bot as unknown as { dashT0: number }).dashT0 = REWIND.dashT0;
     bot.dashLeadS = leadS;
-    const out = { crashes: [] as Crash[], contacts: 0, restarts: 0 };
+    const out = { crashes: [] as Crash[], contacts: 0, restarts: 0, maxHit: 0, health: 1 };
     while (sim.tick < REWIND.startTick + 3000) {
         const n = sim.events.length;
         sim.step();
@@ -108,46 +108,57 @@ function flyRewind(leadS: number): { crashes: Crash[]; contacts: number; restart
             const e = sim.events[i];
             if (e.type === 'crash') out.crashes.push(e);
             else if (e.type === 'contact') out.contacts++;
+            if (e.type === 'contact' || e.type === 'crash') out.maxHit = Math.max(out.maxHit, e.speed);
         }
         if (sim.tick % 4 === 0 && sim.s[S.crashed] < 2) sim.setChannels(Float32Array.from(bot.update(sim)));
     }
     out.restarts = bot.dashRestarts;
+    out.health = sim.s[S.health];
     return out;
 }
 
 describe("B12 in the mesh room: the bot's dash-lead fix", () => {
-    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall and crashes; the fixed bot restarts its dash and touches it without a crash', () => {
-        const vCrash = compileParams(PRESET, {}).vCrash;
+    // sim-core/0.3.0: upstream's old reference hit the wall at 3.2 m/s and crashed on a second duct hit at 5.2 m/s,
+    // the lopsided single-impulse contact of docs/physics-review.md F1 (the bounce spun it to 68 rad/s). The contact
+    // solver shares the impact between the spheres that meet the wall: the same 3.2 m/s hit and a slower rebound, no
+    // crash, but nearly all of the health gone (the damage model). The bot's fix still keeps the craft off the wall.
+    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall at 3.2 m/s and is badly damaged; the fixed bot restarts its dash and touches it gently', () => {
+        const p = compileParams(PRESET, {});
         const fixed = flyRewind(0.5);
         expect(fixed.crashes).toHaveLength(0);
         expect(fixed.contacts).toBeGreaterThan(0);
         expect(fixed.restarts).toBeGreaterThan(0);
+        expect(fixed.maxHit).toBeLessThan(p.vHarm);
+        expect(fixed.health).toBe(1);
 
         const old = flyRewind(Infinity);
         expect(old.restarts).toBe(0);
-        expect(old.crashes).toHaveLength(1);
-        expect(old.crashes[0].speed).toBeGreaterThan(vCrash);
-        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, no crash; old reference crashes at ${old.crashes[0].speed.toFixed(2)} m/s (recorded on the scan: 5.21 m/s)`);
+        expect(old.maxHit).toBeGreaterThan(3);
+        expect(old.maxHit).toBeLessThan(p.vCrash);
+        expect(old.crashes).toHaveLength(0);
+        expect(old.health).toBeLessThan(0.5);
+        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, hit ${fixed.maxHit.toFixed(2)} m/s; old reference hits at ${old.maxHit.toFixed(2)} m/s (recorded on the scan: 3.2 m/s, then a 5.21 m/s crash), health left ${(old.health * 100).toFixed(0)} %`);
     });
 
-    // port: in the mesh room the slow dash never reaches the rewind. Upstream's craft slid down the
-    // scan's wall on its side for 6 s and then lay still, flipped, for 1.5 s: a stuck-flipped rewind,
-    // after which the old reference crashed. Here the bot holds the craft against the flat wall while it
-    // slides down for about 8.5 s, rocking (tilt rate 0.2-2.5 rad/s, never still for 1.5 s), and the
-    // Scenario ends the dash after 16 s, as it reaches the floor. So both bots touch without a crash
-    // here; the rewind itself is flown from its recorded state in the test above.
-    it("the whole control flight with the page's director: the slow dash touches the wall and slides down it without a crash, with either bot (port: no rewind in the mesh room)", () => {
+    // port: on the scan upstream's craft slid down the wall on its side for 6 s and then lay still, flipped, for
+    // 1.5 s: a stuck-flipped rewind. Until sim-core/0.3.0 the mesh room never got there, because the single-impulse
+    // contact kept the craft rocking against the flat wall (tilt rate 0.2-2.5 rad/s, never still for 1.5 s). With the
+    // contact solver it lies still like upstream's and the director rewinds it, and then B12 runs as upstream's did:
+    // the old reference flies full throttle into the wall and crashes (here a direct hit at v_crash), the fixed bot
+    // does not.
+    it("the whole control flight with the page's director: the slow dash touches the wall and ends on its back, rewound as stuck; after the rewind only the old reference crashes", () => {
         const fixed = b12('control', 0.5);
         console.log(`whole slow dash: fixed ${fixed.contacts} contacts, rewinds [${fixed.rewinds}], ${fixed.restarts} restarts`);
-        expect(fixed.contacts).toBeGreaterThan(100);
+        expect(fixed.contacts).toBeGreaterThan(0);
         expect(fixed.crashes).toHaveLength(0);
-        expect(fixed.rewinds).toEqual([]);
+        expect(fixed.rewinds.length).toBeGreaterThan(0);
+        expect(new Set(fixed.rewinds)).toEqual(new Set(['stuck-flipped']));
 
         const old = b12('control', Infinity);
         console.log(`whole slow dash: old ${old.contacts} contacts, rewinds [${old.rewinds}], crashes ${old.crashes.map((c) => c.speed.toFixed(2))}`);
-        expect(old.contacts).toBeGreaterThan(100);
-        expect(old.crashes).toHaveLength(0);
-        expect(old.rewinds).toEqual([]);
+        expect(old.rewinds[0]).toBe('stuck-flipped');
+        expect(old.crashes).toHaveLength(1);
+        expect(old.crashes[0].speed).toBeGreaterThanOrEqual(compileParams(PRESET, {}).vCrash);
     });
 
     it("B12's first half is untouched: the 8 m/s dash never restarts and crashes exactly as before, at >= 1.9 v_crash", () => {

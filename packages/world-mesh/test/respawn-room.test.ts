@@ -60,7 +60,7 @@ function reasons(r: Runner): string[] {
 }
 
 describe('stuck, flipped, on the mesh room floor (item 18)', () => {
-    it('a craft lying on its back is reset 1.50-1.51 s after it lies still, through the contact chatter', () => {
+    it('a craft lying on its back is reset 1.50-1.51 s after it lies still', () => {
         const { r, d } = setup([SPAWN[0], SPAWN[1], SPAWN[2], 0]);
         lay(r.sim, true);
         // the design's literal |w|: the whole rotation between poses 100 ms apart, measured beside the director
@@ -85,11 +85,11 @@ describe('stuck, flipped, on the mesh room floor (item 18)', () => {
         expect(L!.startTick).toBeGreaterThanOrEqual(1500);
         expect(L!.startTick).toBeLessThanOrEqual(1510);
         expect(d.last!.kind).toBe('start'); // never armed: no safe point, so the spawn
-        // why the tilt and not the whole rotation: the craft spins, so the design's |w| < 1 rad/s never held
-        expect(contacts).toBeGreaterThan(100);
-        // port: upstream also asserted rotMin > 1 rad/s. That spin came from the voxel scan's uneven
-        // floor; on a flat mesh floor the craft lies still (0.006 rad/s), so it is logged, not asserted.
-        expect(rotMin).toBeLessThan(1);
+        // port: upstream asserted > 100 contact events (its craft chattered on the floor) and rotMin > 1 rad/s,
+        // a spin from the voxel scan's uneven floor. On a flat mesh floor with sim-core/0.3.0's contact solver the
+        // craft lies still: no contact events after it lands, and the whole rotation reads ~0.
+        expect(contacts).toBeLessThan(5);
+        expect(rotMin).toBeLessThan(1e-3);
     });
 
     it('control: the same craft upright on the same floor, disarmed (a landing), is left alone for 30 s', () => {

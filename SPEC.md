@@ -89,8 +89,12 @@ and the review's own physics test cases. Note the author's own preset values are
 - Contacts (owner, 2026-10-17): the quad must never stick to or shake inside walls, floors or ceilings; this is fixed
   in the physics, not by respawning a stuck quad.
 - Damage (owner, 2026-10-17): a simple model to start: one health value, 100 % at spawn, reduced by each hit from an
-  estimate of the impact (from speed). Behaviour at 0 % and on respawn: to decide.
+  estimate of the impact (from speed). Built in sim-core/0.3.0: no damage up to a safe speed, then growing with the
+  impact energy to 100 % at the crash speed; shown on the HUD. **[proposed]** 0 % is a crash (disarm, the usual
+  quick respawn) and every respawn restores 100 %; to confirm with the owner.
 - Landing (owner, 2026-10-17): landing on the bottom of the drone does no damage unless very fast, as on a real FPV quad.
+  Built in sim-core/0.3.0 **[proposed thresholds, to tune by flying]**: on the underside no damage up to 4 m/s, a crash
+  at 10 m/s; on the props, arms or top no damage up to 1.5 m/s, a crash at 5 m/s (Nazgul).
 
 ### 4.3 Freestyle grading: OPEN, not committed
 Owner's direction: capture specific tricks, then grade each on factors of its execution

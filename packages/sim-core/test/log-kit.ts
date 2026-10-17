@@ -52,6 +52,16 @@ export class PlaneWorld implements ContactWorld {
         }
         return best;
     }
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number {
+        let k = 0;
+        for (const [nx, ny, nz, d] of this.planes) {
+            const dist = nx * x + ny * y + nz * z - d;
+            if (dist >= r || k >= max) continue;
+            out[k * 4] = nx; out[k * 4 + 1] = ny; out[k * 4 + 2] = nz; out[k * 4 + 3] = dist;
+            k++;
+        }
+        return k;
+    }
     pushOut(x: number, y: number, z: number, r: number, out: { x: number; y: number; z: number }): boolean {
         let hit = false;
         out.x = 0; out.y = 0; out.z = 0;

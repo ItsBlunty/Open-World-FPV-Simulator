@@ -376,7 +376,7 @@ describe('stillness is the largest pose change over 100 ms, of the centre and of
         expect(t).toBeLessThanOrEqual(1510);
     });
 
-    it('why: a craft at rest on the floor fails the rule read per tick, and passes it over 100 ms', () => {
+    it('why: a craft at rest on the floor passes the rule over 100 ms (and, since sim-core/0.3.0, read per tick too)', () => {
         const r = newRunner({ world: FLOOR, at: [0, 0.5, 0, 0] });
         const s = r.sim.s;
         s[S.qw] = 0; s[S.qx] = 0; s[S.qy] = 0; s[S.qz] = 1; s[S.px] = 0; s[S.py] = 0.0305; s[S.pz] = 0; s[S.hold] = 0;
@@ -401,8 +401,9 @@ describe('stillness is the largest pose change over 100 ms, of the centre and of
         };
         runFrames(r, 60, 3_000_000);
         console.log(`resting on its back: per tick ${perTick}/${n} ticks meet |w| < 1 and |v| < 0.2; over 100 ms ${windowed}/${windows} windows`);
-        // if the contact solver one day settles a resting craft, this first line fails: the window is still right
-        expect(perTick / n).toBeLessThan(0.1);
+        // before sim-core/0.3.0 under 10 % of the ticks passed: the single-impulse contact rocked a resting craft.
+        // The contact solver now settles it; the 100 ms window, which the director reads, is still right.
+        expect(perTick).toBe(n);
         expect(windowed).toBe(windows);
     });
 });

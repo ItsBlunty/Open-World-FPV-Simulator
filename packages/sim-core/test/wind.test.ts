@@ -167,7 +167,9 @@ describe('the flight model in wind (drag on the airspeed)', () => {
     });
 
     it('adds no hashed state: the state layout is the one the A6 reference was recorded with', () => {
-        expect(S.size).toBe(70);
-        expect(new Sim(compileParams(PRESET, { wind: WIND }), null).s.length).toBe(70);
+        // 70 slots then; sim-core/0.3.0 added one, the health (S.health), not for the wind
+        expect(S.size).toBe(71);
+        expect(S.health).toBe(70);
+        expect(new Sim(compileParams(PRESET, { wind: WIND }), null).s.length).toBe(71);
     });
 });

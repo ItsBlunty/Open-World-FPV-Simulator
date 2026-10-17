@@ -7,8 +7,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 36 test files, 352 tests.
-- **The next task is §0a below: the owner's requests after the first flights.** Do it before M2.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 38 test files, 368 tests.
+- **§0a (contacts, damage, landing) is built: sim-core/0.3.0, 2026-10-17. Waiting for the owner to fly it** and to
+  answer the open questions at the end of §0a. Then M2.
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Next task: contacts, damage, landing (owner, 2026-10-17, after flying M1)
@@ -53,6 +54,25 @@ and the gyro reads ~0 on floors, walls and ceilings; sliding along a wall does n
 bottom does no harm), re-pin hashes that legitimately change (`SELFTEST_HASH` in `apps/fly/src/selftest.ts`, upstream
 log-replay tests may need their saved logs regenerated: check what they guarantee first), and ask the owner to fly it.
 Record findings in `docs/physics-review.md` (F1/F2 are the starting point).
+
+**What was built (sim-core/0.3.0, 2026-10-17).** Details: `packages/sim-core/CHANGELOG.md`; findings: physics-review
+F1, F2 (fixed) and F3 (new).
+- Contact solver (`sim.ts contactsAt`): every sphere's surfaces within 5 mm (new `ContactWorld.contacts()`) solved
+  together each tick, speculative contacts (close the gap, no further), projected Gauss-Seidel, Coulomb-cone friction.
+  The sweep only catches fast impacts (spheres 0.5 mm smaller), then the same solver at the touch pose. Leftover
+  penetration is fixed by moving the pose. `MeshContactWorld.contacts` merges the triangles of a flat surface (seams
+  between coplanar triangles would otherwise feel like bumps: turning that filter off breaks the wall-slide test).
+- Measured: resting on a floor 3e-7 rad/s, pressed under a ceiling 1e-6, leaning into a wall 2e-5 (0.2.0: 2-3 rad/s);
+  the owner's bando case lets go of the slab as soon as the throttle is down. Director's pinned rule removed.
+- Damage: `S.health` (1 at every spawn), crash at 0; thresholds `vHarm`/`vCrash` (props, arms, top) and
+  `vLandSafe`/`vLandCrash` (underside, normal within 30 deg of body up), blended to 60 deg. HUD shows HEALTH.
+- Determinism: `?selftest` MATCH in Chrome 155 with the new hash `5115a73f…` (Node). Firefox not re-checked.
+- Logs: 0.2.0 logs no longer replay to their 0.2.0 traces (`log-v2-compat.test.ts` says why); the app saves none.
+
+**Open, for the owner:** (1) at 0 % health: crash + usual quick respawn, health back to 100 % at every respawn
+(built that way, proposed); (2) the thresholds above (estimates) and how tilted landings feel (F3: a 30 deg landing
+at 3 m/s costs ~8 %, a level one nothing); (3) does sliding along walls and floors feel right (friction 0.4, upstream's
+estimate)?
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

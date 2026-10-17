@@ -44,12 +44,21 @@ export interface ContactWorld {
     sweep(c0: Float64Array, c1: Float64Array, r: Float64Array, pad: Float64Array, n: number, out: ContactOut): number;
     /** Push-out vector for a sphere overlapping solid; false when free. */
     pushOut(x: number, y: number, z: number, r: number, out: { x: number; y: number; z: number }): boolean;
+    /**
+     * The surfaces within distance r of the point (x, y, z), at most max of them (the closest when there are more):
+     * 4 numbers each into out, the unit normal pointing from the surface towards the point and the distance
+     * (negative when the point is inside a solid whose inside is known). Returns how many. A flat surface counts
+     * once, however many triangles or voxels it is made of. The contact solver asks this for every body sphere
+     * every tick (sim-core/0.3.0).
+     */
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number;
 }
 
 export type SimEvent =
     | { type: 'arm'; tick: number }
     | { type: 'disarm'; tick: number; reason: string }
-    | { type: 'contact'; tick: number; speed: number; regime: 'slide' | 'bounce' }
+    /** damage: the share of the health this hit took (0..1; 0 below the safe speed or with crashes off) */
+    | { type: 'contact'; tick: number; speed: number; regime: 'slide' | 'bounce'; damage: number }
     | { type: 'crash'; tick: number; speed: number; nx: number; ny: number; nz: number; px: number; py: number; pz: number }
     | { type: 'rest'; tick: number }
     | { type: 'respawn'; tick: number };
@@ -79,7 +88,9 @@ export const S = {
     hzS: 62, tgR: 63, tgP: 64,
     // invisible one-way platform (C.2): on flag, disc centre on its top surface, radius
     platOn: 65, platX: 66, platY: 67, platZ: 68, platR: 69,
-    size: 70
+    // health 1 at a (re)spawn, down by each hit's damage; 0 is a crash (sim-core/0.3.0)
+    health: 70,
+    size: 71
 } as const;
 
 const PT1 = (fc: number) => {
@@ -117,10 +128,6 @@ const PLAT_GAP = 0.002;
 const PLAT_R = 0.4;
 const PLAT_LEAVE_UP = 1.0;
 const PLAT_LEAVE_SIDE = 0.5;
-// resting on the platform: sequential-impulse passes over the spheres on its top, and how close
-// to the top (after the lift) a sphere's bottom must be to count as on it, m
-const REST_PASSES = 16;
-const REST_GAP = 1e-4;
 
 // quad X mixer, Betaflight order M1 RR, M2 FR, M3 RL, M4 FL; columns roll, pitch, yaw
 const MIX_R = [-1, -1, 1, 1];
@@ -128,13 +135,44 @@ const MIX_P = [1, -1, 1, -1];
 const MIX_Y = [-1, 1, 1, -1];
 
 const MU = 0.4; // friction coefficient [estimate]
-const SKIN = 0.001; // m, gap kept after a contact
+
+// ---- contact solver (sim-core/0.3.0, this project; see contactsAt) ----
 /**
- * The first contact of a tick pinned the body: it stopped it before the body advanced this far,
- * m. The voxel sweep resolves contact times to 0.25 mm (collision LEAF): a hit inside the first
- * leaf of the path is reported at t = 1e-12, so the whole tick's motion is undone.
+ * Surfaces within this gap of a body sphere are contacts of the tick: the solver lets the gap close
+ * in this tick but not further (speculative contacts). 5 mm covers an approach of 5 m/s in one 1 ms
+ * tick; faster impacts are found by the swept test (sweepImpact). A numerical choice, not physics:
+ * larger catches more impacts in the solver but can stop a sphere that would have passed just by an
+ * edge, up to this far from it.
  */
-const PIN_M = 0.00025;
+const SPEC_MARGIN = 0.005;
+/** the swept test uses spheres this much smaller, so a sphere resting on a surface is not "overlapping" it, m [numerical choice] */
+const SWEEP_SHRINK = 0.0005;
+/** contacts kept per body sphere (a sphere in a corner of three walls needs 3) */
+const MAX_PER_SPHERE = 4;
+/** Gauss-Seidel passes over the tick's contacts; 24 hold a craft on five coplanar spheres still (tests) [numerical choice] */
+const SOLVE_PASSES = 24;
+/** contact record: offset from the centre of mass (3), normal (3), tangents (6), masses n/t1/t2 (3), target, impulses n/t1/t2 (3), vn0, gap, sphere */
+const CN = 22;
+/** pose push-out passes for what penetration is left after the solve */
+const PUSH_PASSES = 3;
+/** approach speeds under this do not bounce (a resting craft's 1 ms of fall is 0.01 m/s) [estimate] */
+const BOUNCE_MIN = 0.25;
+/** an impact faster than this is a 'contact' event (upstream's value) */
+const CONTACT_EVENT_V = 0.05;
+/**
+ * A contact already touching at the start of the tick (gap under PRESS_GAP, m) that approaches slower than PRESS_V
+ * (m/s) is being pressed, not hit: the tick's forces alone push it in (full thrust of a whoop: 0.06 m/s per tick).
+ * It is solved like any contact, but it is no impact: no event, no damage. [numerical choice]
+ */
+const PRESS_GAP = 1e-4;
+const PRESS_V = 1;
+/**
+ * The underside: a contact whose normal is within acos(0.866) = 30 deg of the body's up axis is a landing on
+ * the frame's bottom, one beyond acos(0.5) = 60 deg is a hit on the props, arms or top; damage thresholds
+ * blend in between [estimates, this project].
+ */
+const BOTTOM_COS_HI = 0.866;
+const BOTTOM_COS_LO = 0.5;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
 const CRASH_LIN_DAMP = 0.5; // 1/s horizontal, scraping and bouncing losses [estimate]
 
@@ -163,31 +201,35 @@ export class Sim {
     tick = 0;
     world: ContactWorld | null;
     events: SimEvent[] = [];
-    /** optional: counts contact sweeps that started overlapping (should stay 0 in flight) */
+    /** optional: counts fast-impact sweeps that started overlapping by more than SWEEP_SHRINK (should stay 0 in flight) */
     startOverlaps = 0;
     /**
      * Test seam for the determinism negative control ONLY: when set, its value is added to the
      * thrust every step (e.g. Math.random), which must change the trace hash. Never set in the app.
      */
     perturb: (() => number) | null = null;
-    /**
-     * Test seam for the pinned-contact test's negative control ONLY: false is the single-impulse
-     * rule of v0.2 and wave 1 (pinnedContacts skipped). Never set in the app.
-     */
-    pinnedPass = true;
 
     // scratch
     private c0: Float64Array;
     private c1: Float64Array;
     private rr: Float64Array;
+    /** sphere radii minus SWEEP_SHRINK, for the fast-impact sweep */
+    private rs: Float64Array;
     private pad: Float64Array;
-    /** restOnDisc scratch: 9 slots per sphere */
-    private rest: Float64Array;
     private nS: number;
     private cout: ContactOut = { sphere: -1, nx: 0, ny: 0, nz: 0 };
     private push = { x: 0, y: 0, z: 0 };
-    /** pinnedContacts scratch: a touching sphere's push-out */
-    private pinOut = { x: 0, y: 0, z: 0 };
+    /** contact solver scratch: CN slots per contact, one sphere's world.contacts answer, the rotation of the pose */
+    private cn: Float64Array;
+    private cq: Float64Array;
+    private rot = new Float64Array(9);
+    /** velocity (3) and world angular momentum (3) the solver works on; world inverse inertia (xx, xy, xz, yy, yz, zz) */
+    private vl = new Float64Array(6);
+    private iw = new Float64Array(6);
+    /** the tick's strongest impact (applyHit): approach speed (-1 none), damage, normal, world point */
+    private hitV = -1;
+    private hitDmg = 0;
+    private hit = new Float64Array(6);
     /** motor commands of the last step: after the mixer and idle, before the motor lag (0..1) */
     readonly motorCmd = new Float64Array(4);
     private thrust = new Float64Array(4);
@@ -223,8 +265,13 @@ export class Sim {
         this.c1 = new Float64Array(this.nS * 3);
         this.rr = new Float64Array(this.nS);
         this.pad = new Float64Array(this.nS);
-        this.rest = new Float64Array(this.nS * 9);
-        for (let i = 0; i < this.nS; i++) this.rr[i] = p.spheres[i * 4 + 3];
+        this.rs = new Float64Array(this.nS);
+        this.cn = new Float64Array(this.nS * MAX_PER_SPHERE * CN);
+        this.cq = new Float64Array(MAX_PER_SPHERE * 4);
+        for (let i = 0; i < this.nS; i++) {
+            this.rr[i] = p.spheres[i * 4 + 3];
+            this.rs[i] = this.rr[i] - SWEEP_SHRINK;
+        }
         const rc = p.rates;
         this.maxR = setpointRate(rc.type, 1, rc.roll, rc.rateLimit, rc.quickRcExpo === true);
         this.maxP = setpointRate(rc.type, 1, rc.pitch, rc.rateLimit, rc.quickRcExpo === true);
@@ -258,6 +305,7 @@ export class Sim {
         // NaN keeps the pack (as a log record's -1 does): it would poison every hashed slot after it
         if (opts.soc !== undefined && opts.soc === opts.soc) soc = opts.soc < 0 ? 0 : opts.soc > 1 ? 1 : opts.soc;
         s.fill(0);
+        s[S.health] = 1;
         this.motorCmd.fill(0);
         s[S.px] = x; s[S.py] = y; s[S.pz] = z;
         const h = -yawDeg * DEG2RAD * 0.5;
@@ -598,20 +646,34 @@ export class Sim {
         const px0 = s[S.px], py0 = s[S.py], pz0 = s[S.pz];
         const q0w = qw, q0x = qx, q0y = qy, q0z = qz;
         const invM = 1 / p.mass;
-        const nvx = vx + fx * invM * DT;
-        const nvy = vy + fy * invM * DT;
-        const nvz = vz + fz * invM * DT;
-        s[S.vx] = nvx; s[S.vy] = nvy; s[S.vz] = nvz;
-        s[S.px] = px0 + nvx * DT; s[S.py] = py0 + nvy * DT; s[S.pz] = pz0 + nvz * DT;
+        let nvx = vx + fx * invM * DT;
+        let nvy = vy + fy * invM * DT;
+        let nvz = vz + fz * invM * DT;
 
         // Rotation: I w' = tau - w x I w, integrated through the world-frame angular momentum
         // (L_w += R tau dt), which keeps |L| exact when no torque acts; w follows from the new
         // attitude. Semi-implicit: the attitude update uses the predicted new w.
         const I0 = p.inertia[0], I1 = p.inertia[1], I2 = p.inertia[2];
         const lbx = I0 * wx, lby = I1 * wy, lbz = I2 * wz;
-        const lwx = r00 * lbx + r01 * lby + r02 * lbz + (r00 * tauX + r01 * tauY + r02 * tauZ) * DT;
-        const lwy = r10 * lbx + r11 * lby + r12 * lbz + (r10 * tauX + r11 * tauY + r12 * tauZ) * DT;
-        const lwz = r20 * lbx + r21 * lby + r22 * lbz + (r20 * tauX + r21 * tauY + r22 * tauZ) * DT;
+        let lwx = r00 * lbx + r01 * lby + r02 * lbz + (r00 * tauX + r01 * tauY + r02 * tauZ) * DT;
+        let lwy = r10 * lbx + r11 * lby + r12 * lbz + (r10 * tauX + r11 * tauY + r12 * tauZ) * DT;
+        let lwz = r20 * lbx + r21 * lby + r22 * lbz + (r20 * tauX + r21 * tauY + r22 * tauZ) * DT;
+
+        // ---- contact, velocities: every surface near the body now, solved together (contactsAt) ----
+        // With nothing within SPEC_MARGIN the velocities are untouched, so free flight is the model before 0.3.0.
+        const world = this.contactWorld;
+        this.hitV = -1;
+        if (world) {
+            const vl = this.vl;
+            vl[0] = nvx; vl[1] = nvy; vl[2] = nvz; vl[3] = lwx; vl[4] = lwy; vl[5] = lwz;
+            setRot(this.rot, q0w, q0x, q0y, q0z);
+            if (this.contactsAt(world, px0, py0, pz0)) {
+                nvx = vl[0]; nvy = vl[1]; nvz = vl[2]; lwx = vl[3]; lwy = vl[4]; lwz = vl[5];
+            }
+        }
+        s[S.vx] = nvx; s[S.vy] = nvy; s[S.vz] = nvz;
+        s[S.px] = px0 + nvx * DT; s[S.py] = py0 + nvy * DT; s[S.pz] = pz0 + nvz * DT;
+
         // predictor with the old attitude
         const pwx = (r00 * lwx + r10 * lwy + r20 * lwz) / I0;
         const pwy = (r01 * lwx + r11 * lwy + r21 * lwz) / I1;
@@ -625,9 +687,12 @@ export class Sim {
         s[S.wy] = (n01 * lwx + n11 * lwy + n21 * lwz) / I1;
         s[S.wz] = (n02 * lwx + n12 * lwy + n22 * lwz) / I2;
 
-        // ---- contact ----
-        const world = this.contactWorld;
-        if (world) this.contact(world, px0, py0, pz0, q0w, q0x, q0y, q0z);
+        // ---- contact, poses: fast impacts, then what penetration is left ----
+        if (world) {
+            this.sweepImpact(world, px0, py0, pz0, q0w, q0x, q0y, q0z, lwx, lwy, lwz);
+            this.pushClear(world);
+            this.applyHit();
+        }
         if (s[S.platOn] > 0) {
             // the platform retires once the craft has clearly left it (state only, so replays agree)
             const dx = s[S.px] - s[S.platX], dz = s[S.pz] - s[S.platZ];
@@ -774,7 +839,130 @@ export class Sim {
         return sum / 1000;
     }
 
-    private contact(world: ContactWorld, px0: number, py0: number, pz0: number, q0w: number, q0x: number, q0y: number, q0z: number): void {
+    /**
+     * The contact solver (sim-core/0.3.0, this project; replaces upstream's one impulse at the first sphere a sweep
+     * touched, docs/physics-review.md F1 and F2). Every body sphere asks the world for the surfaces within its
+     * radius + SPEC_MARGIN at the pose (px, py, pz, this.rot), and all those contacts are solved together on the
+     * velocity and world angular momentum in this.vl: projected Gauss-Seidel with accumulated impulses, as the
+     * platform's resting solver did (upstream restOnDisc), extended to any surface and to friction in any direction.
+     * A contact with a gap may close it in this tick and no further (a speculative contact), so the body arrives on
+     * the surface instead of bouncing off a skin; one approaching faster than its gap is an impact, which bounces with
+     * the speed-dependent restitution and counts for damage (applyHit). Normal impulses only push, friction stays
+     * within MU times the normal impulse (Coulomb cone). False when nothing is near: this.vl is untouched.
+     */
+    private contactsAt(world: ContactWorld, px: number, py: number, pz: number): boolean {
+        const p = this.p;
+        const sp = p.spheres;
+        const c = this.cn;
+        const q = this.cq;
+        const R = this.rot;
+        let m = 0;
+        for (let i = 0; i < this.nS; i++) {
+            const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2], ri = this.rr[i];
+            const ox = R[0] * lx + R[1] * ly + R[2] * lz, oy = R[3] * lx + R[4] * ly + R[5] * lz, oz = R[6] * lx + R[7] * ly + R[8] * lz;
+            const k = world.contacts(px + ox, py + oy, pz + oz, ri + SPEC_MARGIN, q, MAX_PER_SPHERE);
+            for (let j = 0; j < k; j++) {
+                const nx = q[j * 4], ny = q[j * 4 + 1], nz = q[j * 4 + 2];
+                const o = m * CN;
+                // the contact point: the sphere's surface point facing the surface
+                c[o] = ox - nx * ri; c[o + 1] = oy - ny * ri; c[o + 2] = oz - nz * ri;
+                c[o + 3] = nx; c[o + 4] = ny; c[o + 5] = nz;
+                c[o + 20] = q[j * 4 + 3] - ri;
+                c[o + 21] = i;
+                m++;
+            }
+        }
+        if (m === 0) return false;
+        this.inertiaWorld();
+        const w = this.push;
+        const im = 1 / p.mass;
+        for (let j = 0; j < m; j++) {
+            const o = j * CN;
+            const ox = c[o], oy = c[o + 1], oz = c[o + 2], nx = c[o + 3], ny = c[o + 4], nz = c[o + 5];
+            // tangents: a unit vector across n (from the axis least along it), and n x t1
+            let ax = 1, ay = 0;
+            if (nx > 0.57735 || nx < -0.57735) { ax = 0; ay = 1; }
+            const an = ax * nx + ay * ny;
+            let t1x = ax - an * nx, t1y = ay - an * ny, t1z = -an * nz;
+            const tl = 1 / Math.sqrt(t1x * t1x + t1y * t1y + t1z * t1z);
+            t1x *= tl; t1y *= tl; t1z *= tl;
+            c[o + 6] = t1x; c[o + 7] = t1y; c[o + 8] = t1z;
+            c[o + 9] = ny * t1z - nz * t1y; c[o + 10] = nz * t1x - nx * t1z; c[o + 11] = nx * t1y - ny * t1x;
+            c[o + 12] = 1 / (im + this.angEff(ox, oy, oz, nx, ny, nz));
+            c[o + 13] = 1 / (im + this.angEff(ox, oy, oz, t1x, t1y, t1z));
+            c[o + 14] = 1 / (im + this.angEff(ox, oy, oz, c[o + 9], c[o + 10], c[o + 11]));
+            c[o + 16] = 0; c[o + 17] = 0; c[o + 18] = 0;
+            // the normal velocity the contact may have at the end of the tick: closing exactly its gap (0 when it is
+            // already in: pushClear undoes penetration without adding speed), or the bounce of an impact
+            this.pointVel(ox, oy, oz, w);
+            const vn0 = w.x * nx + w.y * ny + w.z * nz;
+            const gap = c[o + 20];
+            const allowed = gap > 0 ? -gap / DT : 0;
+            let target = allowed;
+            if (vn0 < allowed) {
+                const e = this.restitution(-vn0);
+                if (e > 0) target = -vn0 * e;
+            }
+            c[o + 15] = target;
+            c[o + 19] = vn0;
+        }
+        for (let pass = 0; pass < SOLVE_PASSES; pass++) {
+            // alternate the order, so no contact takes the load first every time
+            for (let jj = 0; jj < m; jj++) {
+                const o = (pass & 1 ? m - 1 - jj : jj) * CN;
+                const ox = c[o], oy = c[o + 1], oz = c[o + 2], nx = c[o + 3], ny = c[o + 4], nz = c[o + 5];
+                // normal: the accumulated impulse only pushes
+                this.pointVel(ox, oy, oz, w);
+                const lamN = Math.max(0, c[o + 16] + (c[o + 15] - (w.x * nx + w.y * ny + w.z * nz)) * c[o + 12]);
+                const jn = lamN - c[o + 16];
+                c[o + 16] = lamN;
+                if (jn !== 0) this.applyJ(nx * jn, ny * jn, nz * jn, ox, oy, oz);
+                // friction: stop the sliding, the accumulated impulse within MU times the normal one
+                const t1x = c[o + 6], t1y = c[o + 7], t1z = c[o + 8], t2x = c[o + 9], t2y = c[o + 10], t2z = c[o + 11];
+                this.pointVel(ox, oy, oz, w);
+                let l1 = c[o + 17] - (w.x * t1x + w.y * t1y + w.z * t1z) * c[o + 13];
+                let l2 = c[o + 18] - (w.x * t2x + w.y * t2y + w.z * t2z) * c[o + 14];
+                const lim = MU * lamN;
+                const ll = l1 * l1 + l2 * l2;
+                if (ll > lim * lim) {
+                    const k = lim > 0 ? lim / Math.sqrt(ll) : 0;
+                    l1 *= k; l2 *= k;
+                }
+                const j1 = l1 - c[o + 17], j2 = l2 - c[o + 18];
+                c[o + 17] = l1; c[o + 18] = l2;
+                if (j1 !== 0 || j2 !== 0) this.applyJ(t1x * j1 + t2x * j2, t1y * j1 + t2y * j2, t1z * j1 + t2z * j2, ox, oy, oz);
+            }
+        }
+        // the impacts: contacts that approached faster than their gap allowed and pushed. The tick keeps the most
+        // damaging one (then the fastest) for applyHit.
+        const ux = R[1], uy = R[4], uz = R[7];
+        for (let j = 0; j < m; j++) {
+            const o = j * CN;
+            const vn0 = c[o + 19];
+            const gap = c[o + 20];
+            if (!(c[o + 16] > 0) || !(vn0 < (gap > 0 ? -gap / DT : 0))) continue;
+            const a = -vn0;
+            if (gap < PRESS_GAP && a < PRESS_V) continue;
+            const dmg = this.damageOf(a, c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz);
+            if (dmg > this.hitDmg || (dmg === this.hitDmg && a > this.hitV)) {
+                const h = this.hit;
+                h[0] = c[o + 3]; h[1] = c[o + 4]; h[2] = c[o + 5];
+                h[3] = px + c[o]; h[4] = py + c[o + 1]; h[5] = pz + c[o + 2];
+                this.hitDmg = dmg;
+            }
+            if (a > this.hitV) this.hitV = a;
+        }
+        return true;
+    }
+
+    /**
+     * Fast impacts: a surface the tick's start could not see (approaching faster than SPEC_MARGIN per tick) is found
+     * by the swept test of the tick's motion with spheres SWEEP_SHRINK smaller (so resting on a surface is not a hit).
+     * The body stops at the pose of the first touch and the contacts there are solved like any others, so a level
+     * impact on a flat surface is shared by every sphere that meets it (F1). Upstream kept a 1 mm skin here and
+     * threw the tick's motion away when a sphere started inside something; neither is needed now.
+     */
+    private sweepImpact(world: ContactWorld, px0: number, py0: number, pz0: number, q0w: number, q0x: number, q0y: number, q0z: number, lwx: number, lwy: number, lwz: number): void {
         const s = this.s;
         const p = this.p;
         const n = this.nS;
@@ -790,131 +978,80 @@ export class Sim {
             const d = Math.sqrt(lx * lx + ly * ly + lz * lz);
             this.pad[i] = (d * dth * dth) / 8 + 1e-9;
         }
-        const t = world.sweep(this.c0, this.c1, this.rr, this.pad, n, this.cout);
+        const t = world.sweep(this.c0, this.c1, this.rs, this.pad, n, this.cout);
         if (t < 0) return;
-
-        let k = this.cout.sphere;
-        const onDisc = world === this.plat && this.plat.hitDisc;
-        const resting = onDisc && t === Number.MIN_VALUE && this.cout.ny > 0;
-        // pinned: see pinnedContacts (the start-overlap branch already resolves every sphere it pushes out)
-        let pinned = false;
-        if (resting) {
-            // Resting on the platform: a sphere started the tick on its top (the disc reports that as
-            // the smallest fraction). Moving back to the start pose, as below, froze the pose every
-            // tick while a one-point impulse at one duct mostly spun the body: an armed craft's rate
-            // loop damped that, a disarmed one gained hidden fall and spin every tick (3.3 m/s and
-            // 70 rad/s 0.5 s after the pilot disarmed on the disc), crashed on it and dropped through.
-            // The disc is an exact plane, so keep the tick's motion, lift the body by the deepest
-            // penetration of a sphere over the disc (no skin: nothing to chatter), and support it at
-            // every sphere on the top together (restOnDisc).
-            const pl = this.plat;
-            const r2 = pl.r * pl.r;
-            let pen = 0;
-            for (let i = 0; i < n; i++) {
-                const cx = this.c1[i * 3] - pl.x, cy = this.c1[i * 3 + 1], cz = this.c1[i * 3 + 2] - pl.z;
-                if (cy < pl.y || cx * cx + cz * cz > r2) continue; // one-way: centres above the top only
-                const d = pl.y - (cy - this.rr[i]);
-                if (d > pen) { pen = d; k = i; }
-            }
-            s[S.py] += pen;
-        } else if (t === 0) {
-            // started overlapping: stay at the start pose and push every overlapping sphere out
+        if (t === 0) {
+            // already more than SWEEP_SHRINK inside at the start (a respawn into something, a squeeze): pushClear moves it out
             this.startOverlaps++;
-            s[S.px] = px0; s[S.py] = py0; s[S.pz] = pz0;
-            s[S.qw] = q0w; s[S.qx] = q0x; s[S.qy] = q0y; s[S.qz] = q0z;
-            for (let it = 0; it < 3; it++) {
-                let moved = false;
-                for (let i = 0; i < n; i++) {
-                    const cx = this.c0[i * 3] + (s[S.px] - px0), cy = this.c0[i * 3 + 1] + (s[S.py] - py0), cz = this.c0[i * 3 + 2] + (s[S.pz] - pz0);
-                    if (world.pushOut(cx, cy, cz, this.rr[i] + SKIN, this.push)) {
-                        const px = this.push.x, py = this.push.y, pz = this.push.z;
-                        s[S.px] += px; s[S.py] += py; s[S.pz] += pz;
-                        // remove the velocity component that drives the body into the surface
-                        const pl = Math.sqrt(px * px + py * py + pz * pz);
-                        if (pl > 1e-12) {
-                            const ux = px / pl, uy = py / pl, uz = pz / pl;
-                            const vn = s[S.vx] * ux + s[S.vy] * uy + s[S.vz] * uz;
-                            if (vn < 0) { s[S.vx] -= vn * ux; s[S.vy] -= vn * uy; s[S.vz] -= vn * uz; }
-                        }
-                        moved = true;
-                    }
-                }
-                if (!moved) break;
-            }
-        } else {
-            const mx = this.c1[k * 3] - this.c0[k * 3], my = this.c1[k * 3 + 1] - this.c0[k * 3 + 1], mz = this.c1[k * 3 + 2] - this.c0[k * 3 + 2];
-            // the platform disc is an exact plane with its own resting solver (restOnDisc): not here
-            pinned = !onDisc && t * Math.sqrt(mx * mx + my * my + mz * mz) <= PIN_M;
-            // move to the contact pose: translation and rotation interpolated like the sweep did
-            s[S.px] = px0 + (s[S.px] - px0) * t;
-            s[S.py] = py0 + (s[S.py] - py0) * t;
-            s[S.pz] = pz0 + (s[S.pz] - pz0) * t;
-            let bw = s[S.qw], bx = s[S.qx], by = s[S.qy], bz = s[S.qz];
-            if (q0w * bw + q0x * bx + q0y * by + q0z * bz < 0) { bw = -bw; bx = -bx; by = -by; bz = -bz; }
-            let iw = q0w + (bw - q0w) * t, ix = q0x + (bx - q0x) * t, iy = q0y + (by - q0y) * t, iz = q0z + (bz - q0z) * t;
-            const il = 1 / Math.sqrt(iw * iw + ix * ix + iy * iy + iz * iz);
-            iw *= il; ix *= il; iy *= il; iz *= il;
-            s[S.qw] = iw; s[S.qx] = ix; s[S.qy] = iy; s[S.qz] = iz;
-            // keep a small skin so tangential motion along the surface is not reported as contact.
-            // The platform is an exact plane that tangential motion never touches, so it gets no
-            // skin: a craft resting on it would otherwise fall 1 mm onto it every ~16 ms (0.14 m/s).
-            const kx = this.c0[k * 3] + (this.c1[k * 3] - this.c0[k * 3]) * t;
-            const ky = this.c0[k * 3 + 1] + (this.c1[k * 3 + 1] - this.c0[k * 3 + 1]) * t;
-            const kz = this.c0[k * 3 + 2] + (this.c1[k * 3 + 2] - this.c0[k * 3 + 2]) * t;
-            const sx = this.cout.nx * SKIN, sy = this.cout.ny * SKIN, sz = this.cout.nz * SKIN;
-            // apply the skin only if no sphere of the body ends up touching anything
-            let clear = !onDisc;
-            for (let i = 0; i < n && clear; i++) {
-                const ix = this.c0[i * 3] + (this.c1[i * 3] - this.c0[i * 3]) * t + sx;
-                const iy = this.c0[i * 3 + 1] + (this.c1[i * 3 + 1] - this.c0[i * 3 + 1]) * t + sy;
-                const iz = this.c0[i * 3 + 2] + (this.c1[i * 3 + 2] - this.c0[i * 3 + 2]) * t + sz;
-                if (world.pushOut(ix, iy, iz, this.rr[i], this.push)) clear = false;
-            }
-            if (clear) {
-                s[S.px] += sx; s[S.py] += sy; s[S.pz] += sz;
-            }
-            void kx; void ky; void kz;
-        }
-
-        // contact geometry
-        const nx = this.cout.nx, ny = this.cout.ny, nz = this.cout.nz;
-        const qw = s[S.qw], qx = s[S.qx], qy = s[S.qy], qz = s[S.qz];
-        const lx = sp[k * 4], ly = sp[k * 4 + 1], lz = sp[k * 4 + 2], rk = sp[k * 4 + 3];
-        // world offset of the sphere centre from the COM, then to the contact point
-        const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qw * qz), r02 = 2 * (qx * qz + qw * qy);
-        const r10 = 2 * (qx * qy + qw * qz), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qw * qx);
-        const r20 = 2 * (qx * qz - qw * qy), r21 = 2 * (qy * qz + qw * qx), r22 = 1 - 2 * (qx * qx + qy * qy);
-        const ox = r00 * lx + r01 * ly + r02 * lz - nx * rk;
-        const oy = r10 * lx + r11 * ly + r12 * lz - ny * rk;
-        const oz = r20 * lx + r21 * ly + r22 * lz - nz * rk;
-        // angular velocity in world
-        const bwx = s[S.wx], bwy = s[S.wy], bwz = s[S.wz];
-        const wwx = r00 * bwx + r01 * bwy + r02 * bwz;
-        const wwy = r10 * bwx + r11 * bwy + r12 * bwz;
-        const wwz = r20 * bwx + r21 * bwy + r22 * bwz;
-        // contact point velocity v + w x r
-        const cvx = s[S.vx] + (wwy * oz - wwz * oy);
-        const cvy = s[S.vy] + (wwz * ox - wwx * oz);
-        const cvz = s[S.vz] + (wwx * oy - wwy * ox);
-        const vn = cvx * nx + cvy * ny + cvz * nz; // < 0 approaching
-        const approach = -vn;
-
-        this.impact(approach, nx, ny, nz, ox, oy, oz);
-        if (resting) {
-            this.restOnDisc();
             return;
         }
-        if (approach > 0) this.impulse(approach, vn, cvx, cvy, cvz, nx, ny, nz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22);
-        if (pinned && this.pinnedPass) this.pinnedContacts(world, k, r00, r01, r02, r10, r11, r12, r20, r21, r22);
+        // move to the contact pose: translation and rotation interpolated like the sweep did
+        s[S.px] = px0 + (s[S.px] - px0) * t;
+        s[S.py] = py0 + (s[S.py] - py0) * t;
+        s[S.pz] = pz0 + (s[S.pz] - pz0) * t;
+        let bw = s[S.qw], bx = s[S.qx], by = s[S.qy], bz = s[S.qz];
+        if (q0w * bw + q0x * bx + q0y * by + q0z * bz < 0) { bw = -bw; bx = -bx; by = -by; bz = -bz; }
+        let iw = q0w + (bw - q0w) * t, ix = q0x + (bx - q0x) * t, iy = q0y + (by - q0y) * t, iz = q0z + (bz - q0z) * t;
+        const il = 1 / Math.sqrt(iw * iw + ix * ix + iy * iy + iz * iz);
+        iw *= il; ix *= il; iy *= il; iz *= il;
+        s[S.qw] = iw; s[S.qx] = ix; s[S.qy] = iy; s[S.qz] = iz;
+        const vl = this.vl;
+        vl[0] = s[S.vx]; vl[1] = s[S.vy]; vl[2] = s[S.vz]; vl[3] = lwx; vl[4] = lwy; vl[5] = lwz;
+        const R = this.rot;
+        setRot(R, iw, ix, iy, iz);
+        this.contactsAt(world, s[S.px], s[S.py], s[S.pz]);
+        s[S.vx] = vl[0]; s[S.vy] = vl[1]; s[S.vz] = vl[2];
+        // body rates from the angular momentum, at this pose
+        const I = p.inertia;
+        s[S.wx] = (R[0] * vl[3] + R[3] * vl[4] + R[6] * vl[5]) / I[0];
+        s[S.wy] = (R[1] * vl[3] + R[4] * vl[4] + R[7] * vl[5]) / I[1];
+        s[S.wz] = (R[2] * vl[3] + R[5] * vl[4] + R[8] * vl[5]) / I[2];
     }
 
-    /** A contact point approaching a surface at `approach` m/s: a crash, or a contact event (C.7: crashes off makes it a bounce). */
-    private impact(approach: number, nx: number, ny: number, nz: number, ox: number, oy: number, oz: number): void {
+    /**
+     * What penetration is left (rotation within the tick, the last fraction of a millimetre of a fast impact, a respawn
+     * into something) is undone by moving the body out along each sphere's push-out, without touching its velocity:
+     * the solver already stopped the approach, and a push through the velocity would add a bounce.
+     */
+    private pushClear(world: ContactWorld): void {
+        const s = this.s;
+        const sp = this.p.spheres;
+        const R = this.rot;
+        setRot(R, s[S.qw], s[S.qx], s[S.qy], s[S.qz]);
+        const u = this.push;
+        for (let it = 0; it < PUSH_PASSES; it++) {
+            let moved = false;
+            for (let i = 0; i < this.nS; i++) {
+                const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2];
+                const cx = s[S.px] + R[0] * lx + R[1] * ly + R[2] * lz;
+                const cy = s[S.py] + R[3] * lx + R[4] * ly + R[5] * lz;
+                const cz = s[S.pz] + R[6] * lx + R[7] * ly + R[8] * lz;
+                if (!world.pushOut(cx, cy, cz, this.rr[i], u)) continue;
+                s[S.px] += u.x; s[S.py] += u.y; s[S.pz] += u.z;
+                moved = true;
+            }
+            if (!moved) break;
+        }
+    }
+
+    /**
+     * The tick's strongest impact (contactsAt): its damage comes off the health, and at 0 the craft crashes (motors
+     * stopped, disarmed: upstream's crash). With crashes off (C.7) nothing is damaged and every impact is a bounce.
+     */
+    private applyHit(): void {
         const s = this.s;
         const p = this.p;
-        const flying = s[S.crashed] === 0;
-        // crashes off (C.7): the same impact is a bounce, reported with its speed; motors keep running
-        if (flying && p.crashOn && approach >= p.vCrash) {
+        const a = this.hitV;
+        const dmg = p.crashOn ? this.hitDmg : 0;
+        this.hitV = -1;
+        this.hitDmg = 0;
+        if (a < 0 || s[S.crashed] > 0) return;
+        if (dmg > 0) {
+            const hp = s[S.health] - dmg;
+            s[S.health] = hp > 0 ? hp : 0;
+        }
+        if (s[S.health] <= 0) {
+            const h = this.hit;
             s[S.crashed] = 1;
             s[S.crashT] = 0;
             s[S.restT] = 0;
@@ -923,166 +1060,87 @@ export class Sim {
                 this.events.push({ type: 'disarm', tick: this.tick, reason: 'crash' });
             }
             for (let i = 0; i < 4; i++) s[S.m0 + i] = 0;
-            this.events.push({
-                type: 'crash', tick: this.tick, speed: approach, nx, ny, nz,
-                px: s[S.px] + ox, py: s[S.py] + oy, pz: s[S.pz] + oz
-            });
-        } else if (flying && approach > 0.05) {
-            this.events.push({ type: 'contact', tick: this.tick, speed: approach, regime: approach >= p.vBounce ? 'bounce' : 'slide' });
+            this.events.push({ type: 'crash', tick: this.tick, speed: a, nx: h[0], ny: h[1], nz: h[2], px: h[3], py: h[4], pz: h[5] });
+        } else if (a > CONTACT_EVENT_V) {
+            this.events.push({ type: 'contact', tick: this.tick, speed: a, regime: a >= p.vBounce ? 'bounce' : 'slide', damage: dmg });
         }
-    }
-
-    /** Impulse at contact offset o along n with speed-dependent restitution and Coulomb friction; cv = that point's velocity, vn = cv . n < 0. */
-    private impulse(
-        approach: number, vn: number, cvx: number, cvy: number, cvz: number, nx: number, ny: number, nz: number, ox: number, oy: number, oz: number,
-        r00: number, r01: number, r02: number, r10: number, r11: number, r12: number, r20: number, r21: number, r22: number
-    ): void {
-        const s = this.s;
-        const p = this.p;
-        let e: number;
-        if (s[S.crashed] > 0) e = 0.3 / (1 + approach * 0.5);
-        else if (approach < p.vBounce) e = 0.1;
-        else e = 0.35 / (1 + (approach - p.vBounce) * 0.5);
-
-        const I0 = this.p.inertia[0], I1 = this.p.inertia[1], I2 = this.p.inertia[2];
-        // effective mass along n: 1/m + n . ((I^-1 (r x n)) x r), inertia in body frame
-        const effN = invEff(nx, ny, nz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2);
-        const jn = ((1 + e) * approach) / (1 / p.mass + effN);
-        let ix = nx * jn, iy = ny * jn, iz = nz * jn;
-        // tangential velocity
-        const tvx = cvx - vn * nx, tvy = cvy - vn * ny, tvz = cvz - vn * nz;
-        const tv = Math.sqrt(tvx * tvx + tvy * tvy + tvz * tvz);
-        if (tv > 1e-9) {
-            const tx = tvx / tv, ty = tvy / tv, tz = tvz / tv;
-            const effT = invEff(tx, ty, tz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2);
-            let jt = tv / (1 / p.mass + effT);
-            if (jt > MU * jn) jt = MU * jn;
-            ix -= tx * jt; iy -= ty * jt; iz -= tz * jt;
-        }
-        applyImpulse(s, p.mass, ix, iy, iz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2);
     }
 
     /**
-     * The first contact pinned the body (it stopped it before the body advanced PIN_M), so the
-     * whole tick's motion was undone, but only that one sphere got an impulse. Every other sphere
-     * touching a surface at this pose (within the skin) and moving into it is an impact too: the
-     * same crash / contact rule and the same impulse, in sphere order.
-     *
-     * Without this a craft wedged in a corner froze: on 39e63ce9 (B12's slow dash, wave 1) one duct
-     * grazing a slanted face won the sweep at t = 1e-12 every tick, while the thrust drove two other
-     * ducts into the wall beside it unresolved. The pose never changed and the velocity grew to
-     * 8 m/s (and the spin to 97 rad/s) in 0.7 s, until a "crash" at 6.1 m/s that never happened.
-     * v0.2 had the same single-impulse rule; its craft just did not end up pinned there.
+     * The share of the health a hit approaching at `a` m/s takes: none up to the safe speed, then growing with the
+     * impact energy (a^2) to all of it at the crash speed. up = the contact normal along the body's up axis: above
+     * BOTTOM_COS_HI a landing on the frame's underside (vLandSafe, vLandCrash), under BOTTOM_COS_LO the props, arms
+     * or top (vHarm, vCrash).
      */
-    private pinnedContacts(
-        world: ContactWorld, first: number,
-        r00: number, r01: number, r02: number, r10: number, r11: number, r12: number, r20: number, r21: number, r22: number
-    ): void {
-        const s = this.s;
-        const sp = this.p.spheres;
-        const cv = this.push;
-        const u = this.pinOut;
-        for (let i = 0; i < this.nS; i++) {
-            if (i === first) continue;
-            const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2], ri = this.rr[i];
-            const cx = r00 * lx + r01 * ly + r02 * lz, cy = r10 * lx + r11 * ly + r12 * lz, cz = r20 * lx + r21 * ly + r22 * lz;
-            if (!world.pushOut(s[S.px] + cx, s[S.py] + cy, s[S.pz] + cz, ri + SKIN, u)) continue;
-            const ul = Math.sqrt(u.x * u.x + u.y * u.y + u.z * u.z);
-            if (ul <= 1e-12) continue;
-            const nx = u.x / ul, ny = u.y / ul, nz = u.z / ul;
-            const ox = cx - nx * ri, oy = cy - ny * ri, oz = cz - nz * ri;
-            this.pointVelocity(ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, cv);
-            const cvx = cv.x, cvy = cv.y, cvz = cv.z;
-            const vn = cvx * nx + cvy * ny + cvz * nz;
-            if (vn >= 0) continue;
-            this.impact(-vn, nx, ny, nz, ox, oy, oz);
-            this.impulse(-vn, vn, cvx, cvy, cvz, nx, ny, nz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22);
-        }
-    }
-
-
-    /**
-     * A body resting on the platform's top, supported at every sphere on it at once: projected
-     * Gauss-Seidel over those contacts with accumulated impulses (normal >= 0, no bounce; box
-     * friction within MU times the normal one), so a push at one duct can be taken back when
-     * another duct carries the load. One impulse at one duct per tick, the scene floors' way,
-     * cannot hold a body on four points still: on the disc it rocked from duct to duct, the rate
-     * loop integrated the rocking (I-terms near 100 after 5 s at idle) and an acro craft walked off.
-     */
-    private restOnDisc(): void {
-        const s = this.s;
+    private damageOf(a: number, up: number): number {
         const p = this.p;
-        const pl = this.plat;
-        const sp = p.spheres;
-        const n = this.nS;
-        const c = this.rest;
-        const qw = s[S.qw], qx = s[S.qx], qy = s[S.qy], qz = s[S.qz];
-        const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qw * qz), r02 = 2 * (qx * qz + qw * qy);
-        const r10 = 2 * (qx * qy + qw * qz), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qw * qx);
-        const r20 = 2 * (qx * qz - qw * qy), r21 = 2 * (qy * qz + qw * qx), r22 = 1 - 2 * (qx * qx + qy * qy);
-        const I0 = p.inertia[0], I1 = p.inertia[1], I2 = p.inertia[2];
-        const im = 1 / p.mass;
-        const r2 = pl.r * pl.r;
-        // the contacts: spheres over the disc whose bottom is on its top; per contact 9 slots:
-        // contact point from the centre of mass (3), effective masses along y, x, z (3), and the
-        // impulses accumulated along y, x, z (3)
-        let m = 0;
-        for (let i = 0; i < n; i++) {
-            const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2], ri = sp[i * 4 + 3];
-            const cx = r00 * lx + r01 * ly + r02 * lz, cy = r10 * lx + r11 * ly + r12 * lz, cz = r20 * lx + r21 * ly + r22 * lz;
-            const wy = s[S.py] + cy;
-            const dx = s[S.px] + cx - pl.x, dz = s[S.pz] + cz - pl.z;
-            if (wy < pl.y || dx * dx + dz * dz > r2 || wy - ri - pl.y > REST_GAP) continue;
-            const k = m * 9;
-            const ox = cx, oy = cy - ri, oz = cz;
-            c[k] = ox; c[k + 1] = oy; c[k + 2] = oz;
-            c[k + 3] = 1 / (im + invEff(0, 1, 0, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2));
-            c[k + 4] = 1 / (im + invEff(1, 0, 0, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2));
-            c[k + 5] = 1 / (im + invEff(0, 0, 1, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2));
-            c[k + 6] = 0; c[k + 7] = 0; c[k + 8] = 0;
-            m++;
-        }
-        const cv = this.push;
-        for (let pass = 0; pass < REST_PASSES; pass++) {
-            // alternate the order, so no sphere index takes the load first every time
-            for (let j = 0; j < m; j++) {
-                const k = (pass & 1 ? m - 1 - j : j) * 9;
-                const ox = c[k], oy = c[k + 1], oz = c[k + 2];
-                // normal: the contact point may not move into the disc; the total impulse stays >= 0
-                this.pointVelocity(ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, cv);
-                const lamN = Math.max(0, c[k + 6] - cv.y * c[k + 3]);
-                const jn = lamN - c[k + 6];
-                c[k + 6] = lamN;
-                if (jn !== 0) applyImpulse(s, p.mass, 0, jn, 0, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2);
-                // friction along x and z, the total within MU times the normal impulse
-                this.pointVelocity(ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, cv);
-                const lim = MU * lamN;
-                const lamX = clampAbs(c[k + 7] - cv.x * c[k + 4], lim);
-                const lamZ = clampAbs(c[k + 8] - cv.z * c[k + 5], lim);
-                const jx = lamX - c[k + 7], jz = lamZ - c[k + 8];
-                c[k + 7] = lamX; c[k + 8] = lamZ;
-                if (jx !== 0 || jz !== 0) applyImpulse(s, p.mass, jx, 0, jz, ox, oy, oz, r00, r01, r02, r10, r11, r12, r20, r21, r22, I0, I1, I2);
-            }
-        }
+        let f = (up - BOTTOM_COS_LO) / (BOTTOM_COS_HI - BOTTOM_COS_LO);
+        f = f < 0 ? 0 : f > 1 ? 1 : f;
+        const crash = p.vCrash + (p.vLandCrash - p.vCrash) * f;
+        let safe = p.vHarm + (p.vLandSafe - p.vHarm) * f;
+        if (safe > crash) safe = crash;
+        if (a >= crash) return 1;
+        if (a <= safe) return 0;
+        return (a * a - safe * safe) / (crash * crash - safe * safe);
     }
 
-    /** Velocity of the point at world offset o from the centre of mass: v + w x o, into out. */
-    private pointVelocity(
-        ox: number, oy: number, oz: number,
-        r00: number, r01: number, r02: number, r10: number, r11: number, r12: number, r20: number, r21: number, r22: number,
-        out: { x: number; y: number; z: number }
-    ): void {
-        const s = this.s;
-        const bwx = s[S.wx], bwy = s[S.wy], bwz = s[S.wz];
-        const wwx = r00 * bwx + r01 * bwy + r02 * bwz, wwy = r10 * bwx + r11 * bwy + r12 * bwz, wwz = r20 * bwx + r21 * bwy + r22 * bwz;
-        out.x = s[S.vx] + (wwy * oz - wwz * oy);
-        out.y = s[S.vy] + (wwz * ox - wwx * oz);
-        out.z = s[S.vz] + (wwx * oy - wwy * ox);
+    /** Restitution of an impact approaching at `a` m/s (upstream's values; none under BOUNCE_MIN). */
+    private restitution(a: number): number {
+        const p = this.p;
+        if (a < BOUNCE_MIN) return 0;
+        if (this.s[S.crashed] > 0) return 0.3 / (1 + a * 0.5);
+        if (a < p.vBounce) return 0.1;
+        return 0.35 / (1 + (a - p.vBounce) * 0.5);
+    }
+
+    /** this.iw = R diag(1/I) R^T for the pose in this.rot: the world angular velocity is iw L. */
+    private inertiaWorld(): void {
+        const R = this.rot;
+        const I = this.p.inertia;
+        const a = 1 / I[0], b = 1 / I[1], c = 1 / I[2];
+        const iw = this.iw;
+        iw[0] = R[0] * R[0] * a + R[1] * R[1] * b + R[2] * R[2] * c;
+        iw[1] = R[0] * R[3] * a + R[1] * R[4] * b + R[2] * R[5] * c;
+        iw[2] = R[0] * R[6] * a + R[1] * R[7] * b + R[2] * R[8] * c;
+        iw[3] = R[3] * R[3] * a + R[4] * R[4] * b + R[5] * R[5] * c;
+        iw[4] = R[3] * R[6] * a + R[4] * R[7] * b + R[5] * R[8] * c;
+        iw[5] = R[6] * R[6] * a + R[7] * R[7] * b + R[8] * R[8] * c;
+    }
+
+    /** (o x u) . iw (o x u): the rotational part of the inverse effective mass along u at offset o. */
+    private angEff(ox: number, oy: number, oz: number, ux: number, uy: number, uz: number): number {
+        const iw = this.iw;
+        const cx = oy * uz - oz * uy, cy = oz * ux - ox * uz, cz = ox * uy - oy * ux;
+        return cx * (iw[0] * cx + iw[1] * cy + iw[2] * cz) + cy * (iw[1] * cx + iw[3] * cy + iw[4] * cz) + cz * (iw[2] * cx + iw[4] * cy + iw[5] * cz);
+    }
+
+    /** Velocity of the point at world offset o from the centre of mass, v + w x o, from this.vl, into out. */
+    private pointVel(ox: number, oy: number, oz: number, out: { x: number; y: number; z: number }): void {
+        const vl = this.vl;
+        const iw = this.iw;
+        const Lx = vl[3], Ly = vl[4], Lz = vl[5];
+        const wx = iw[0] * Lx + iw[1] * Ly + iw[2] * Lz;
+        const wy = iw[1] * Lx + iw[3] * Ly + iw[4] * Lz;
+        const wz = iw[2] * Lx + iw[4] * Ly + iw[5] * Lz;
+        out.x = vl[0] + (wy * oz - wz * oy);
+        out.y = vl[1] + (wz * ox - wx * oz);
+        out.z = vl[2] + (wx * oy - wy * ox);
+    }
+
+    /** Impulse J at world offset o into this.vl: v += J / m, L += o x J. */
+    private applyJ(jx: number, jy: number, jz: number, ox: number, oy: number, oz: number): void {
+        const vl = this.vl;
+        const im = 1 / this.p.mass;
+        vl[0] += jx * im; vl[1] += jy * im; vl[2] += jz * im;
+        vl[3] += oy * jz - oz * jy; vl[4] += oz * jx - ox * jz; vl[5] += ox * jy - oy * jx;
     }
 }
 
-function clampAbs(v: number, lim: number): number {
-    return v < -lim ? -lim : v > lim ? lim : v;
+/** Row-major rotation matrix of the unit quaternion q (body to world) into R. */
+function setRot(R: Float64Array, qw: number, qx: number, qy: number, qz: number): void {
+    R[0] = 1 - 2 * (qy * qy + qz * qz); R[1] = 2 * (qx * qy - qw * qz); R[2] = 2 * (qx * qz + qw * qy);
+    R[3] = 2 * (qx * qy + qw * qz); R[4] = 1 - 2 * (qx * qx + qz * qz); R[5] = 2 * (qy * qz - qw * qx);
+    R[6] = 2 * (qx * qz - qw * qy); R[7] = 2 * (qy * qz + qw * qx); R[8] = 1 - 2 * (qx * qx + qy * qy);
 }
 
 /**
@@ -1101,35 +1159,6 @@ export function hoverThrOf(p: SimParams): number {
 function autoThrottle(u: number, hover: number): number {
     const h = hover < 0.02 ? 0.02 : hover > 0.98 ? 0.98 : hover;
     return u <= 0.5 ? (u / 0.5) * h : h + ((u - 0.5) / 0.5) * (1 - h);
-}
-
-function invEff(
-    nx: number, ny: number, nz: number, ox: number, oy: number, oz: number,
-    r00: number, r01: number, r02: number, r10: number, r11: number, r12: number, r20: number, r21: number, r22: number,
-    I0: number, I1: number, I2: number
-): number {
-    // c = r x n (world) -> body -> I^-1 -> world -> x r -> . n
-    const cx = oy * nz - oz * ny, cy = oz * nx - ox * nz, cz = ox * ny - oy * nx;
-    const bx = (r00 * cx + r10 * cy + r20 * cz) / I0;
-    const by = (r01 * cx + r11 * cy + r21 * cz) / I1;
-    const bz = (r02 * cx + r12 * cy + r22 * cz) / I2;
-    const wx = r00 * bx + r01 * by + r02 * bz;
-    const wy = r10 * bx + r11 * by + r12 * bz;
-    const wz = r20 * bx + r21 * by + r22 * bz;
-    const kx = wy * oz - wz * oy, ky = wz * ox - wx * oz, kz = wx * oy - wy * ox;
-    return kx * nx + ky * ny + kz * nz;
-}
-
-function applyImpulse(
-    s: Float64Array, m: number, ix: number, iy: number, iz: number, ox: number, oy: number, oz: number,
-    r00: number, r01: number, r02: number, r10: number, r11: number, r12: number, r20: number, r21: number, r22: number,
-    I0: number, I1: number, I2: number
-): void {
-    s[S.vx] += ix / m; s[S.vy] += iy / m; s[S.vz] += iz / m;
-    const tx = oy * iz - oz * iy, ty = oz * ix - ox * iz, tz = ox * iy - oy * ix;
-    s[S.wx] += (r00 * tx + r10 * ty + r20 * tz) / I0;
-    s[S.wy] += (r01 * tx + r11 * ty + r21 * tz) / I1;
-    s[S.wz] += (r02 * tx + r12 * ty + r22 * tz) / I2;
 }
 
 /** q <- q * exp(w dt / 2), renormalised. */

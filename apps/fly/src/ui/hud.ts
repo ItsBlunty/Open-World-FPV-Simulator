@@ -1,5 +1,6 @@
 // The flight HUD (owner's choice for M1, 2026-10-17): battery voltage, armed / flight mode, throttle
-// and speed, plus crash and arming prompts. Reads the sim state; changes nothing.
+// and speed, plus crash and arming prompts; the craft's health since the damage model (owner,
+// 2026-10-17; sim-core/0.3.0). Reads the sim state; changes nothing.
 
 import { S, modeFromChannel } from '@owfpv/sim-core';
 import type { Sim } from '@owfpv/sim-core';
@@ -31,11 +32,14 @@ export class Hud {
         const low = v / cells < 3.5;
         const armed = s[S.armed] > 0;
         const mode = modeFromChannel(sim.ch[5]).toUpperCase();
+        const health = Math.ceil(s[S.health] * 100);
         this.tl.innerHTML = '';
         this.tl.append(
             h('div', { class: low ? 'warn' : '' }, `${v.toFixed(1)} V  (${(v / cells).toFixed(2)} V/cell)`),
             // without a radio the mode channel has never been set: no mode to show
-            h('div', { class: armed ? 'status-ok' : 'warn' }, `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`)
+            h('div', { class: armed ? 'status-ok' : 'warn' }, `${armed ? 'ARMED' : 'DISARMED'}${x.hasRadio ? `  ${mode}` : ''}`),
+            // rounded up, so a scratched craft never reads 0 % before it is down
+            h('div', { class: health <= 30 ? 'warn' : '' }, `HEALTH ${String(health).padStart(3)}%`)
         );
         const thr = Math.round(((sim.ch[2] + 1) / 2) * 100);
         const spd = Math.sqrt(s[S.vx] * s[S.vx] + s[S.vy] * s[S.vy] + s[S.vz] * s[S.vz]) * 3.6;

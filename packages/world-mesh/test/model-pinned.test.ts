@@ -8,8 +8,9 @@
 // slanted face won the sweep at t = 1e-12 every tick. The whole tick's motion was undone, but only
 // that duct got an impulse, so the thrust driving two other ducts into the wall was never resolved:
 // the pose froze while the speed grew to 8 m/s and the spin to 97 rad/s, and a "crash" at 6.1 m/s
-// ended a touch that never moved faster than 0.75 m/s. Control: the single-impulse rule
-// (Sim.pinnedPass false).
+// ended a touch that never moved faster than 0.75 m/s. Upstream's control, the single-impulse rule
+// (Sim.pinnedPass false), was removed with that rule: sim-core/0.3.0 solves every contact of a tick
+// together (sim.ts contactsAt), so there is no pinned pass to switch off.
 
 import { describe, expect, it } from 'vitest';
 import { InputLog, Runner, S, Sim, compileParams, hoverSolve } from '@owfpv/sim-core';
@@ -31,13 +32,12 @@ interface Run {
 }
 
 /** accept-fly B12's control flight: the session's spawn, makePlan, respawn at the plan spawn, Scenario with a 0.75 m/s dash. */
-function slowDash(pinnedPass: boolean): Run {
+function slowDash(): Run {
     const p = compileParams(PRESET, {});
     // port: the mesh room; its spawn is free, so upstream's findSphereSpawn fallback is not needed
     const world = room();
     const pos = [...SPAWN];
     const sim = new Sim(p, world);
-    sim.pinnedPass = pinnedPass;
     sim.reset(pos[0], pos[1], pos[2], 0);
     sim.hoverThr = hoverSolve(p, 1).motor;
     const runner = new Runner(sim, new InputLog({ format: 'gsfpv-input-log/1', simCore: 'test', preset: PRESET.id, configHash: '', collisionSha256: null, spawn: [pos[0], pos[1], pos[2], 0], seed: 0 }));
@@ -80,29 +80,15 @@ function slowDash(pinnedPass: boolean): Run {
 
 describe('a craft pinned in a corner (B12 control, root cause)', () => {
     it('the slow dash touches the wall, tumbles against it like v0.2 and never crashes; no frozen pose gathers speed', () => {
-        const r = slowDash(true);
-        expect(r.contacts).toBeGreaterThan(100);
+        const r = slowDash();
+        // it touches (upstream counted > 100 contact events; since sim-core/0.3.0 a contact pressed by the thrust is no
+        // impact, so only the touches themselves are events)
+        expect(r.contacts).toBeGreaterThan(0);
         expect(r.crashes).toHaveLength(0);
         // it presses on into the wall like v0.2's craft (up-vector y -0.38 there): the control below is not a gentler flight
         expect(r.minUpY).toBeLessThan(0);
         // it may sit wedged, but a pose that does not move does not gather speed
         expect(r.frozenTicks === 0 || r.frozenSpeed < 1).toBe(true);
-        expect(r.maxSpeed).toBeLessThan(2);
-    });
-
-    // port: upstream's control does not reproduce on mesh geometry. Upstream asserted that with the
-    // single-impulse rule the pose freezes for > 300 ticks while the speed passes v_crash, then a
-    // phantom crash. Rerun on the 39e63ce9 scan with this repository's sim-core (2026-10-17), it still
-    // does: frozen > 400 ticks at (-5.175, 0.969, 0.755), on its side, one duct held at t = 1e-12 on a
-    // voxel step sticking out of the wall, then a crash at 6.13 m/s. In the mesh room it does not: a
-    // search of 25 protrusions on the wall (ledges, door-frame strips across the craft's slide), also
-    // with the voxel world's "contact within 0.25 mm reports t = 1e-12" rule, never froze the craft.
-    // The freeze needed the scan's stepped voxel surfaces. This control records that the mesh room
-    // does not pin the craft with either rule; the fix stays covered by the test above.
-    it('control (port): with the single-impulse rule the mesh room does not pin the craft either; no phantom crash', () => {
-        const r = slowDash(false);
-        expect(r.frozenTicks).toBeLessThan(300);
-        expect(r.crashes).toHaveLength(0);
         expect(r.maxSpeed).toBeLessThan(2);
     });
 });

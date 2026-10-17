@@ -20,8 +20,6 @@ export class PlatformContact implements ContactWorld {
     r = 0;
     /** true: stops spheres from above only (the design); false exists for the test control */
     oneWay: boolean;
-    /** the earliest hit of the last sweep was the disc (the sim keeps no skin gap above a plane) */
-    hitDisc = false;
 
     constructor(o: { oneWay?: boolean } = {}) {
         this.oneWay = o.oneWay ?? true;
@@ -34,7 +32,6 @@ export class PlatformContact implements ContactWorld {
     }
 
     sweep(c0: Float64Array, c1: Float64Array, rr: Float64Array, pad: Float64Array, n: number, out: ContactOut): number {
-        this.hitDisc = false;
         const tIn = this.inner ? this.inner.sweep(c0, c1, rr, pad, n, out) : -1;
         let best = -1;
         let bestK = -1;
@@ -62,9 +59,19 @@ export class PlatformContact implements ContactWorld {
         if (best < 0 || (tIn >= 0 && tIn <= best)) return tIn;
         // a hit exactly at the start would read as "started overlapping"; the sphere is on the
         // top, not in it, so report the earliest representable fraction instead
-        this.hitDisc = true;
         out.sphere = bestK; out.nx = 0; out.ny = bestNy; out.nz = 0;
         return best > 0 ? best : Number.MIN_VALUE;
+    }
+
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number {
+        const k = this.inner ? this.inner.contacts(x, y, z, r, out, max) : 0;
+        if (k >= max) return k;
+        // one-way, as pushOut: only a sphere whose centre is above the top rests on it
+        const dx = x - this.x, dz = z - this.z;
+        const dist = y - this.y;
+        if (dist < 0 || dist >= r || dx * dx + dz * dz > this.r * this.r) return k;
+        out[k * 4] = 0; out[k * 4 + 1] = 1; out[k * 4 + 2] = 0; out[k * 4 + 3] = dist;
+        return k + 1;
     }
 
     pushOut(x: number, y: number, z: number, r: number, out: { x: number; y: number; z: number }): boolean {

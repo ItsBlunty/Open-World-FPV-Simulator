@@ -52,3 +52,12 @@ so `git diff` against it shows exactly what we changed.
    test, including upstream's saved format /2 logs replaying to their saved hashes (`test/log-v2-compat.test.ts`).
 6. `src/director.ts`: a "stuck, pinned" rule (`PINNED_TICKS`, `pinSince`) after the wedged rule, for a craft held
    against a ceiling with the throttle below hover (`docs/physics-review.md` F2). Physics and traces unchanged.
+7. `src/sim.ts`, `src/platform.ts`, `src/params.ts`, `src/director.ts`, `src/index.ts` (sim-core/0.3.0, changes traces):
+   the contact model is replaced by a contact solver over every touching sphere (`contactsAt`, `sweepImpact`,
+   `pushClear`, `applyHit`), `ContactWorld` gains `contacts()`, the state gains `S.health` and a damage model with
+   a landing rule (params `vHarm`, `vLandSafe`, `vLandCrash`), `contact` events gain `damage`, and item 6's pinned
+   rule is removed. Upstream's `contact`, `impact`, `impulse`, `pinnedContacts`, `restOnDisc` and their helpers are
+   gone; restitution values and the crash settling are upstream's. Tests: assertions that recorded the old contact
+   chatter now record its absence (`model-platform`, `respawn-director`; in `packages/world-mesh`: `respawn-room`,
+   `model-pinned`, `b12-dash`), `wind` checks the new state size, `log-v2-compat` no longer expects 0.2.0's saved
+   hashes (each test says why); new `test/model-damage.test.ts`. `SIM_CORE_VERSION` is `sim-core/0.3.0`.

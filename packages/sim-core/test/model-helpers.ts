@@ -58,6 +58,12 @@ export function halfSpace(nx: number, ny: number, nz: number, d: number): Contac
             }
             return best;
         },
+        contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number {
+            const dist = nx * x + ny * y + nz * z - d;
+            if (dist >= r || max < 1) return 0;
+            out[0] = nx; out[1] = ny; out[2] = nz; out[3] = dist;
+            return 1;
+        },
         pushOut(x: number, y: number, z: number, r: number, o: { x: number; y: number; z: number }): boolean {
             const dist = nx * x + ny * y + nz * z - d - r;
             if (dist >= 0) return false;
