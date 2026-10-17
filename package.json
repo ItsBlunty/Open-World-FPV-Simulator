@@ -1,0 +1,25 @@
+{
+  "name": "open-world-fpv-simulator",
+  "private": true,
+  "description": "Open-source browser FPV simulator: realistic flight physics plus game design that rewards practice",
+  "license": "GPL-3.0",
+  "homepage": "https://github.com/ItsBlunty/Open-World-FPV-Simulator",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ItsBlunty/Open-World-FPV-Simulator.git"
+  },
+  "type": "module",
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
+  }
+}
