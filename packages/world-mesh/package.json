@@ -1,0 +1,24 @@
+{
+  "name": "@owfpv/world-mesh",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Triangle-mesh collision for sim-core: ContactWorld sweep and push-out, ray and sphere queries",
+  "license": "GPL-3.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@owfpv/sim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
+  }
+}
