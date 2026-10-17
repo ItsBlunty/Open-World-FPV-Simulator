@@ -64,8 +64,8 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Upstream code worth reading before writing M1 input:** upstream `packages/input` (MIT, same commit) has EdgeTX
   WebHID, gamepad, keyboard, calibration and switch-mapping code. Only the bot was ported.
 - **Repo housekeeping:** git identity is set per repo (`ItsBlunty`, GitHub noreply email). `.gitattributes` forces LF
-  line endings (byte-exact fixtures have their own override). CI warns that its actions (`checkout`, `setup-node`,
-  `pnpm/action-setup` v4) target the deprecated Node 20 runtime; it still passes.
+  line endings (byte-exact fixtures have their own override). CI's actions were moved to their Node 24 majors
+  on 2026-10-17 (checkout v7, setup-node v7, pnpm/action-setup v6, upload-pages-artifact v5, deploy-pages v5).
 
 ## 2b. What M1 built, and what was learned
 
