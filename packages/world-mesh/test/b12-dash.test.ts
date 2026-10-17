@@ -1,3 +1,15 @@
+// Ported from ShramkoGSFPV packages/sim-core/test/b12-rewind.test.ts (MIT, Andrii Shramko; see
+// packages/sim-core/UPSTREAM.md). Upstream flew it on the 39e63ce9 voxel scan; here it flies in the
+// mesh test room (room.ts), through MeshContactWorld. Changes from upstream are marked "port:".
+//
+// port: upstream's first two tests replay a flight log recorded in Chrome on the scan
+// (fixtures/b12-control-chrome-life.json) and fly its last life again tick for tick. A recording
+// replays only on the world it was flown in, so the replay is not ported and the fixture is removed.
+// Its starting state is: the rewind (REWIND below, copied from the recording) is flown again here
+// closed loop, with and without the bot's fix. The room's wall is where the scan's was (x = -5.2).
+// The whole flight is ported too, but in the mesh room it never reaches that rewind (see there).
+//
+// Upstream's description:
 // accept-fly B12's negative control in the browser (wave 2, after model-pinned.test.ts): the bot's
 // 0.75 m/s dash into a wall on scene 39e63ce9 still ended in a crash in system Chrome. The page's
 // own flight log (fixtures/b12-control-chrome-life.json, its last life) replays here bit for bit
@@ -15,56 +27,29 @@
 // so it never saw step 2. Fix in the bot (input/src/sim/bot.ts): a dash reference never leads the
 // craft by more than max(0.5 m, 0.5 s x speed); a craft held back restarts the dash from where it
 // is. Control: bot.dashLeadS = Infinity, the reference before the fix.
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { InputLog, LifePlayer, Runner, S, Sim, compileParams, hoverSolve, lifeParams, lifeSim, normalizeRespawnOpts } from '../src/index';
-import type { Life, LifeHeader, ReplayDeps, SimEvent } from '../src/index';
-// test-only imports across packages, as model-pinned.test.ts does
-import { VoxelContactWorld, findSphereSpawn, openVoxelCollision } from '../../collision/src/index';
-import type { VoxelCollision, VoxelMetadata } from '../../collision/src/index';
-import { BotPilot } from '../src/bot/bot';
-import { Scenario } from '../src/bot/scenario';
-import { makePlan } from '../src/bot/plan';
-import { PRESET, attachDirector } from './log-kit';
 
-const FIX = join(__dirname, '..', '..', '..', 'fixtures', '39e63ce9');
-let COL: VoxelCollision;
-let CAM: { position: number[]; target: number[] };
-interface Recorded {
-    dash: { kind: 'dash'; from: [number, number, number]; dir: [number, number, number]; speed: number; yawDeg: number; t0: number };
-    page: { crash: { tick: number; speed: number } };
-    life: { header: LifeHeader; b64: string; endTick: number; hash: string; hashFrom: number };
-}
-let REC: Recorded;
-
-beforeAll(() => {
-    const meta = JSON.parse(readFileSync(join(FIX, 'scene.voxel.json'), 'utf8')) as VoxelMetadata;
-    let bin = new Uint8Array(readFileSync(join(FIX, 'scene.voxel.bin')));
-    if (bin[0] === 0x1f && bin[1] === 0x8b) bin = new Uint8Array(gunzipSync(bin));
-    COL = openVoxelCollision(meta, bin);
-    CAM = JSON.parse(readFileSync(join(FIX, 'settings.json'), 'utf8')).cameras[0].initial;
-    REC = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'b12-control-chrome-life.json'), 'utf8')) as Recorded;
-});
+import { describe, expect, it } from 'vitest';
+import { InputLog, Runner, S, Sim, compileParams, hoverSolve, lifeSim, normalizeRespawnOpts } from '@owfpv/sim-core';
+import type { BotTask } from '@owfpv/sim-core/bot';
+import type { SimEvent } from '@owfpv/sim-core';
+import { BotPilot, Scenario, makePlan } from '@owfpv/sim-core/bot';
+// test-only import of sim-core's test kit (the preset, the page's director wiring)
+import { PRESET, attachDirector } from '../../sim-core/test/log-kit';
+import { SPAWN, TARGET, room } from './room';
 
 type Crash = Extract<SimEvent, { type: 'crash' }>;
 
 /** B12's flight as the page flies it: makePlan + Scenario, and the page's director with respawn.auto off. */
 function b12(dash: 'control' | 'crash', leadS: number): { crashes: Crash[]; contacts: number; rewinds: string[]; restarts: number } {
     const p = compileParams(PRESET, {});
-    const world = new VoxelContactWorld(COL);
-    let pos = [...CAM.position];
-    const R = p.boundRadius + 0.03;
-    if (COL.querySphere(pos[0], pos[1], pos[2], R, { x: 0, y: 0, z: 0 })) {
-        const out = { x: 0, y: 0, z: 0 };
-        if (findSphereSpawn(COL, pos[0], pos[1], pos[2], R, out)) pos = [out.x, out.y, out.z];
-    }
+    // port: the mesh room; its spawn is free, so upstream's findSphereSpawn fallback is not needed
+    const world = room();
+    const pos = [...SPAWN];
     const sim = new Sim(p, world);
     sim.reset(pos[0], pos[1], pos[2], 0);
     sim.hoverThr = hoverSolve(p, 1).motor;
     const runner = new Runner(sim, new InputLog({ format: 'gsfpv-input-log/1', simCore: 'test', preset: PRESET.id, configHash: '', collisionSha256: null, spawn: [pos[0], pos[1], pos[2], 0], seed: 0 }));
-    const plan = makePlan(COL, p.boundRadius, pos, CAM.target, dash === 'control' ? 0.5 * p.vBounce : 2 * p.vCrash, (x, y, z, r, o) => findSphereSpawn(COL, x, y, z, r, o));
+    const plan = makePlan(world, p.boundRadius, pos, TARGET, dash === 'control' ? 0.5 * p.vBounce : 2 * p.vCrash);
     runner.respawn(plan.spawn[0], plan.spawn[1], plan.spawn[2], plan.spawnYawDeg);
     const d = attachDirector(runner, [plan.spawn[0], plan.spawn[1], plan.spawn[2], plan.spawnYawDeg], { auto: false });
     const sc = new Scenario(runner, plan);
@@ -85,33 +70,38 @@ function b12(dash: 'control' | 'crash', leadS: number): { crashes: Crash[]; cont
     return out;
 }
 
-function recordedLife(): { life: Life; deps: ReplayDeps } {
-    const bytes = new Uint8Array(Buffer.from(REC.life.b64, 'base64'));
-    const life: Life = { header: REC.life.header, bytes: () => bytes, endTick: REC.life.endTick, traceHash: REC.life.hash, hashFrom: REC.life.hashFrom };
-    const world = new VoxelContactWorld(COL);
-    return { life, deps: { preset: () => REC.life.header.presetJson ?? null, world: () => world } };
-}
+/**
+ * port: the state the recorded life started from (fixtures/b12-control-chrome-life.json, its life 2):
+ * the director's stuck-flipped rewind at tick 22810, at rest 0.41 m before the wall, armed on the
+ * platform, and the bot's 0.75 m/s dash task, begun at tick 8860.
+ */
+const REWIND = {
+    startTick: 22810,
+    at: [-4.7917399406433105, 1.5853253602981567, 0.70076584815979, -90] as [number, number, number, number],
+    opts: { platform: true, keepArmed: true },
+    soc: 0.9192576515543869,
+    ch: [0.4286045730113983, -0.7230724692344666, 0.5514329671859741, 0.2844143211841583, 1, -1, 0, 0],
+    dash: { kind: 'dash', from: [0.6900143756212824, 1.5819922606740981, 0.7007658693042722], dir: [-1, 0, 1.8369701987210297e-16], speed: 0.75, yawDeg: 270 } as BotTask,
+    dashT0: 8860
+};
 
 /**
- * The recorded life flown again closed loop: its start (the rewind), the bot on the same dash task
+ * Upstream's flyRecordedLife, from REWIND instead of the recording: the bot on the same dash task
  * and clock, its sticks every 4 ticks as the Scenario sends them (float32, as the runner applies
- * them), until the crash comes to rest. With the control the states equal the recording's.
+ * them), for 3 s or until a crash comes to rest.
  */
-function flyRecordedLife(leadS: number, each?: (sim: Sim) => void): { crashes: Crash[]; contacts: number; restarts: number } {
-    const { life, deps } = recordedLife();
-    const h = life.header;
-    const sim = lifeSim(lifeParams(h, deps), deps.world(h.scene, null));
-    sim.tick = h.life.startTick;
-    sim.setChannels(h.life.ch);
-    sim.respawn(h.life.at[0], h.life.at[1], h.life.at[2], h.life.at[3], { ...normalizeRespawnOpts(h.life.opts), soc: h.life.soc });
+function flyRewind(leadS: number): { crashes: Crash[]; contacts: number; restarts: number } {
+    const sim = lifeSim(compileParams(PRESET, {}), room());
+    sim.tick = REWIND.startTick;
+    sim.setChannels(REWIND.ch);
+    sim.respawn(REWIND.at[0], REWIND.at[1], REWIND.at[2], REWIND.at[3], { ...normalizeRespawnOpts(REWIND.opts), soc: REWIND.soc });
     const bot = new BotPilot(sim.p);
-    const { t0, ...task } = REC.dash;
-    bot.setTask(task, sim);
+    bot.setTask(REWIND.dash, sim);
     // the dash began 14 s before this life (scenario phase 'dash'); the bot's clock runs from there
-    (bot as unknown as { dashT0: number }).dashT0 = t0;
+    (bot as unknown as { dashT0: number }).dashT0 = REWIND.dashT0;
     bot.dashLeadS = leadS;
     const out = { crashes: [] as Crash[], contacts: 0, restarts: 0 };
-    while (sim.tick < life.endTick) {
+    while (sim.tick < REWIND.startTick + 3000) {
         const n = sim.events.length;
         sim.step();
         for (let i = n; i < sim.events.length; i++) {
@@ -119,68 +109,45 @@ function flyRecordedLife(leadS: number, each?: (sim: Sim) => void): { crashes: C
             if (e.type === 'crash') out.crashes.push(e);
             else if (e.type === 'contact') out.contacts++;
         }
-        each?.(sim);
         if (sim.tick % 4 === 0 && sim.s[S.crashed] < 2) sim.setChannels(Float32Array.from(bot.update(sim)));
     }
     out.restarts = bot.dashRestarts;
     return out;
 }
 
-describe('B12 control in the browser: a stuck-flipped rewind and the bot (root cause)', () => {
-    it("the page's recorded life replays to its hash: a rewind 0.41 m before the wall, full throttle and pitch, a crash at 5.2 m/s", () => {
-        const { life, deps } = recordedLife();
-        expect(life.header.life.reason).toBe('stuck-flipped');
-        expect(life.header.life.opts).toMatchObject({ platform: true, keepArmed: true });
-        const p = new LifePlayer(life, deps, life.endTick, { hash: true });
-        const crashes: Crash[] = [];
-        let maxPitch = -1, maxThrottle = -1, vBefore = 0;
-        p.onEvent = (e) => { if (e.type === 'crash') crashes.push(e); };
-        p.onStep = (sim) => {
-            if (sim.tick <= life.header.life.startTick + 60) { maxPitch = Math.max(maxPitch, sim.ch[1]); maxThrottle = Math.max(maxThrottle, sim.ch[2]); }
-            if (crashes.length === 0) vBefore = Math.max(vBefore, Math.hypot(sim.s[S.vx], sim.s[S.vy], sim.s[S.vz]));
-        };
-        p.stepTo(life.endTick);
-        expect(p.digest()).toBe(REC.life.hash);
-        // 0.41 m from the wall (x = -5.2), at rest
-        expect(life.header.life.at[0] - -5.2).toBeLessThan(0.45);
-        expect(maxPitch).toBeGreaterThan(0.95);
-        expect(maxThrottle).toBeGreaterThan(0.95);
-        expect(crashes).toHaveLength(1);
-        expect(crashes[0].tick).toBe(REC.page.crash.tick);
-        expect(crashes[0].speed).toBe(REC.page.crash.speed);
-        expect(vBefore).toBeGreaterThan(3);
-    });
-
-    it('flown again from that rewind, the bot restarts its dash and touches the wall without a crash; control: the old reference flies the recording tick for tick', () => {
-        const fixed = flyRecordedLife(0.5);
+describe("B12 in the mesh room: the bot's dash-lead fix", () => {
+    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall and crashes; the fixed bot restarts its dash and touches it without a crash', () => {
+        const vCrash = compileParams(PRESET, {}).vCrash;
+        const fixed = flyRewind(0.5);
         expect(fixed.crashes).toHaveLength(0);
         expect(fixed.contacts).toBeGreaterThan(0);
         expect(fixed.restarts).toBeGreaterThan(0);
 
-        const { life, deps } = recordedLife();
-        const rec = new LifePlayer(life, deps, life.endTick, { hash: false });
-        let diverged = -1;
-        const control = flyRecordedLife(Infinity, (sim) => {
-            rec.stepTo(sim.tick);
-            if (diverged < 0) for (let j = 0; j < S.size; j++) if (sim.s[j] !== rec.sim.s[j]) { diverged = sim.tick; break; }
-        });
-        expect(diverged).toBe(-1);
-        expect(control.crashes).toHaveLength(1);
-        expect(control.crashes[0].speed).toBe(REC.page.crash.speed);
-    });
-
-    it("the whole control flight with the page's director: a stuck-flipped rewind, then no crash; control: the old reference crashes after the rewind", () => {
-        const vCrash = compileParams(PRESET, {}).vCrash;
-        const fixed = b12('control', 0.5);
-        expect(fixed.contacts).toBeGreaterThan(100);
-        expect(fixed.crashes).toHaveLength(0);
-        // the craft still ends up flipped against the wall and is rewound: the director is not the fix
-        expect(fixed.rewinds).toContain('stuck-flipped');
-
-        const old = b12('control', Infinity);
-        expect(old.rewinds).toContain('stuck-flipped');
+        const old = flyRewind(Infinity);
+        expect(old.restarts).toBe(0);
         expect(old.crashes).toHaveLength(1);
         expect(old.crashes[0].speed).toBeGreaterThan(vCrash);
+        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, no crash; old reference crashes at ${old.crashes[0].speed.toFixed(2)} m/s (recorded on the scan: 5.21 m/s)`);
+    });
+
+    // port: in the mesh room the slow dash never reaches the rewind. Upstream's craft slid down the
+    // scan's wall on its side for 6 s and then lay still, flipped, for 1.5 s: a stuck-flipped rewind,
+    // after which the old reference crashed. Here the bot holds the craft against the flat wall while it
+    // slides down for about 8.5 s, rocking (tilt rate 0.2-2.5 rad/s, never still for 1.5 s), and the
+    // Scenario ends the dash after 16 s, as it reaches the floor. So both bots touch without a crash
+    // here; the rewind itself is flown from its recorded state in the test above.
+    it("the whole control flight with the page's director: the slow dash touches the wall and slides down it without a crash, with either bot (port: no rewind in the mesh room)", () => {
+        const fixed = b12('control', 0.5);
+        console.log(`whole slow dash: fixed ${fixed.contacts} contacts, rewinds [${fixed.rewinds}], ${fixed.restarts} restarts`);
+        expect(fixed.contacts).toBeGreaterThan(100);
+        expect(fixed.crashes).toHaveLength(0);
+        expect(fixed.rewinds).toEqual([]);
+
+        const old = b12('control', Infinity);
+        console.log(`whole slow dash: old ${old.contacts} contacts, rewinds [${old.rewinds}], crashes ${old.crashes.map((c) => c.speed.toFixed(2))}`);
+        expect(old.contacts).toBeGreaterThan(100);
+        expect(old.crashes).toHaveLength(0);
+        expect(old.rewinds).toEqual([]);
     });
 
     it("B12's first half is untouched: the 8 m/s dash never restarts and crashes exactly as before, at >= 1.9 v_crash", () => {

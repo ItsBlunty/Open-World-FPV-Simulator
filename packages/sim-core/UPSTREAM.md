@@ -41,3 +41,8 @@ so `git diff` against it shows exactly what we changed.
    Caveat: the bot and planner use `Math.tan`, `Math.atan2`, `Math.sin`, `Math.cos` and `Math.hypot`, which can differ
    between JavaScript engines. Replays stay exact (they replay the recorded sticks, not the bot), but the same bot
    flight is not guaranteed to produce identical sticks in Node and in every browser.
+4. Tests that needed upstream's voxel collision and its scanned scene 39e63ce9 moved to `packages/world-mesh/test/`
+   and fly in a mesh test room instead: `respawn-realfloor.test.ts` → `respawn-room.test.ts`, `model-pinned.test.ts`
+   (same name), `b12-rewind.test.ts` → `b12-dash.test.ts`. Each marks its changes with `port:` comments, including the
+   upstream checks that do not carry over to mesh geometry and why. `test/fixtures/b12-control-chrome-life.json`
+   (a flight recorded on the scan, which replays only there) removed.

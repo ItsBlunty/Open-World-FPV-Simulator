@@ -1,41 +1,36 @@
-// Respawns on real scan geometry: the 39e63ce9 voxel collision (CC BY fixture), not a plane.
-// A craft resting on a voxel floor or pressed under a voxel ceiling chatters in the contact solver
-// (about 106 contact events/s here), which the synthetic plane world does not show. Items 18 and
-// 23 (C.6, C.12 item 6) and the stuck rules are checked on it, each with its control.
+// Ported from ShramkoGSFPV packages/sim-core/test/respawn-realfloor.test.ts (MIT, Andrii Shramko;
+// see packages/sim-core/UPSTREAM.md). Upstream flew it on the 39e63ce9 voxel scan; here it flies in
+// the mesh test room (room.ts), through MeshContactWorld. Changes from upstream are marked "port:".
+//
+// Upstream's description: respawns on real scan geometry, not a plane. A craft resting on a voxel
+// floor or pressed under a voxel ceiling chatters in the contact solver (about 106 contact events/s
+// there), which the synthetic plane world does not show. Items 18 and 23 (C.6, C.12 item 6) and the
+// stuck rules are checked on it, each with its control.
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
     DEFAULT_RESPAWN_POLICY, MODE_CHANNEL, RespawnDirector, Runner, S, SIM_CORE_VERSION, StateHistory, compileParams, datan2, hoverStickOf,
     lifeSim, makeLifeHeader, replayLives
-} from '../src/index';
-import type { ContactWorld, ParamOverrides, RespawnDecision, RespawnPolicy, Sim } from '../src/index';
-// test-only imports across packages, as log-kit.ts does for the bot
-import { VoxelContactWorld, openVoxelCollision } from '../../collision/src/index';
-import type { VoxelMetadata } from '../../collision/src/index';
-import { BotPilot } from '../src/bot/bot';
-import { makePlan } from '../src/bot/plan';
-import { PRESET, SPLITS, runFrames } from './log-kit';
+} from '@owfpv/sim-core';
+import type { ContactWorld, ParamOverrides, RespawnDecision, RespawnPolicy, Sim } from '@owfpv/sim-core';
+import { BotPilot, makePlan } from '@owfpv/sim-core/bot';
+import { MeshContactWorld } from '../src/index';
+// test-only import of sim-core's test kit (the preset, the frame loop and the frame rates)
+import { PRESET, SPLITS, runFrames } from '../../sim-core/test/log-kit';
+import { SPAWN as ROOM_SPAWN, TARGET as ROOM_TARGET, room } from './room';
 
-const FIX = join(__dirname, '..', '..', '..', 'fixtures', '39e63ce9');
-let WORLD: VoxelContactWorld;
+// port: the mesh test room instead of the voxel scan
+let WORLD: MeshContactWorld;
 let SPAWN: [number, number, number];
 let TARGET: [number, number, number];
 /** the floor under the spawn (a ray down hits it at y = -0.2) and the ceiling over it */
 let FLOOR_Y: number;
 
 beforeAll(() => {
-    const meta = JSON.parse(readFileSync(join(FIX, 'scene.voxel.json'), 'utf8')) as VoxelMetadata;
-    let bin = new Uint8Array(readFileSync(join(FIX, 'scene.voxel.bin')));
-    if (bin[0] === 0x1f && bin[1] === 0x8b) bin = new Uint8Array(gunzipSync(bin));
-    const col = openVoxelCollision(meta, bin);
-    WORLD = new VoxelContactWorld(col);
-    const cam = JSON.parse(readFileSync(join(FIX, 'settings.json'), 'utf8')).cameras[0].initial;
-    SPAWN = cam.position;
-    TARGET = cam.target;
-    FLOOR_Y = col.queryRay(SPAWN[0], SPAWN[1], SPAWN[2], 0, -1, 0, 10)!.y;
+    WORLD = room();
+    SPAWN = ROOM_SPAWN;
+    TARGET = ROOM_TARGET;
+    FLOOR_Y = WORLD.queryRay(SPAWN[0], SPAWN[1], SPAWN[2], 0, -1, 0, 10)!.y;
 });
 
 interface Setup { r: Runner; d: RespawnDirector; at: [number, number, number, number] }
@@ -64,8 +59,8 @@ function reasons(r: Runner): string[] {
     return r.lives().map((l) => `${l.header.life.reason}@${l.header.life.startTick}`);
 }
 
-describe('stuck, flipped, on the 39e63ce9 voxel floor (item 18)', () => {
-    it('a craft lying on its back is reset 1.50-1.51 s after it lies still, although it spins about its up axis', () => {
+describe('stuck, flipped, on the mesh room floor (item 18)', () => {
+    it('a craft lying on its back is reset 1.50-1.51 s after it lies still, through the contact chatter', () => {
         const { r, d } = setup([SPAWN[0], SPAWN[1], SPAWN[2], 0]);
         lay(r.sim, true);
         // the design's literal |w|: the whole rotation between poses 100 ms apart, measured beside the director
@@ -85,14 +80,16 @@ describe('stuck, flipped, on the 39e63ce9 voxel floor (item 18)', () => {
         runFrames(r, 60, 3_000_000);
         contacts = r.events.slice(n0).filter((e) => e.type === 'contact' && e.tick <= 1500).length;
         const L = r.lives()[1]?.header.life;
-        console.log(`on its back on the voxel floor: ${contacts} contact events in 1.5 s, the whole rotation reads >= ${rotMin.toFixed(2)} rad/s, respawn ${reasons(r).join(' ')}`);
+        console.log(`on its back on the mesh floor: ${contacts} contact events in 1.5 s, the whole rotation reads >= ${rotMin.toFixed(2)} rad/s, respawn ${reasons(r).join(' ')}`);
         expect(L?.reason).toBe('stuck-flipped');
         expect(L!.startTick).toBeGreaterThanOrEqual(1500);
         expect(L!.startTick).toBeLessThanOrEqual(1510);
         expect(d.last!.kind).toBe('start'); // never armed: no safe point, so the spawn
         // why the tilt and not the whole rotation: the craft spins, so the design's |w| < 1 rad/s never held
         expect(contacts).toBeGreaterThan(100);
-        expect(rotMin).toBeGreaterThan(1);
+        // port: upstream also asserted rotMin > 1 rad/s. That spin came from the voxel scan's uneven
+        // floor; on a flat mesh floor the craft lies still (0.006 rad/s), so it is logged, not asserted.
+        expect(rotMin).toBeLessThan(1);
     });
 
     it('control: the same craft upright on the same floor, disarmed (a landing), is left alone for 30 s', () => {
@@ -141,11 +138,15 @@ describe('stuck, flipped, on the 39e63ce9 voxel floor (item 18)', () => {
     });
 });
 
-describe('stuck, wedged, under the 39e63ce9 voxel ceiling', () => {
+describe('stuck, wedged, under the mesh room ceiling', () => {
     /** Armed at the spawn with the stick `above` hover: it climbs into the ceiling (about 1.85 m here) and presses. */
     function pressed(above: number): { r: Runner; first: RespawnDecision | null; firstContact: number; perTickRun: number } {
         const at: [number, number, number, number] = [SPAWN[0], SPAWN[1], SPAWN[2], 0];
-        const { r, d } = setup(at);
+        // port: crashes off. On the flat mesh ceiling the climb's impact (2.8 m/s at hover + 0.2) hits
+        // one duct first, and the single-contact impulse flips the opposite duct into the ceiling at
+        // 4.6 m/s, over v_crash: a crash, where the voxel scan's uneven ceiling gave none. This test
+        // is about the wedged rule, not that impact (docs/physics-review.md, finding F1).
+        const { r, d } = setup(at, { overrides: { crashOn: false } });
         let first: RespawnDecision | null = null;
         r.onLife = () => { if (!first && d.last) first = { ...d.last }; };
         const stick = hoverStickOf(r.sim.p) + above;
@@ -188,13 +189,13 @@ describe('stuck, wedged, under the 39e63ce9 voxel ceiling', () => {
     });
 });
 
-describe('item 23 on the 39e63ce9 scan: a crash, then 2 s later the craft flies again 5 s back along its path', () => {
+describe('item 23 in the mesh room: a crash, then 2 s later the craft flies again 5 s back along its path', () => {
     interface Flight { r: Runner; d: RespawnDirector; decision: RespawnDecision | null; track: Map<number, number[]>; armedAt: number[]; hash: string }
 
     /** Hovers 6 s at the spawn on the platform (the bot, acro), then dashes into the wall the plan finds; the switch stays on. */
     function fly(frameHz: number, policy: Partial<RespawnPolicy> = {}): Flight {
         const p = compileParams(PRESET);
-        const plan = makePlan(WORLD.col, p.boundRadius, SPAWN, TARGET, 2 * p.vCrash);
+        const plan = makePlan(WORLD, p.boundRadius, SPAWN, TARGET, 2 * p.vCrash);
         const at: [number, number, number, number] = [plan.spawn[0], plan.spawn[1], plan.spawn[2], plan.spawnYawDeg];
         const { r, d } = setup(at, { policy, platform: true });
         const bot = new BotPilot(r.sim.p);
