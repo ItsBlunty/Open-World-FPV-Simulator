@@ -350,13 +350,28 @@ export class Sim {
         return wakeIntensity(-up, Math.sqrt(right * right + back * back), vi);
     }
 
+    /**
+     * One 1 ms tick: the built-in flight controller turns the sticks into four motor commands, then
+     * the physics flies them. The two meet only at those commands (this.motorCmd, 0..1 after idle:
+     * the shape of Betaflight's mixer output, which SITL sends), so another controller can drive
+     * the same physics (SPEC.md R1, R4).
+     */
     step(): void {
         const s = this.s;
-        const p = this.p;
-        const ch = this.ch;
         this.tick++;
+        this.arming();
+        if (s[S.hold] > 0) {
+            if (s[S.armed] > 0) s[S.hold] = 0;
+            else return; // parked at the spawn: no forces until armed
+        }
+        this.controller();
+        this.physics(this.motorCmd);
+    }
 
-        // ---- arming (edge of the arm switch, throttle low, not crashed) ----
+    /** Arming: the edge of the arm switch, throttle low, not crashed. */
+    private arming(): void {
+        const s = this.s;
+        const ch = this.ch;
         const sw = ch[4] > 0.5 ? 1 : 0;
         const thrStick = (ch[2] + 1) * 0.5;
         if (sw === 1 && s[S.armSw] === 0 && s[S.armed] === 0) {
@@ -371,16 +386,25 @@ export class Sim {
             this.events.push({ type: 'disarm', tick: this.tick, reason: 'switch' });
         }
         s[S.armSw] = sw;
-        if (s[S.hold] > 0) {
-            if (s[S.armed] > 0) s[S.hold] = 0;
-            else return; // parked at the spawn: no forces until armed
-        }
+    }
+
+    /**
+     * The built-in flight controller (Betaflight 4.5.1 behaviour, re-implemented from its formulas):
+     * stick setpoints, self-level, the rate PID and the airmode mixer. Reads the sticks and the
+     * craft's attitude and rotation rates (an ideal IMU), writes the four motor commands into
+     * this.motorCmd. Its filter and PID states are part of the hashed state.
+     */
+    private controller(): void {
+        const s = this.s;
+        const p = this.p;
+        const ch = this.ch;
+        const thrStick = (ch[2] + 1) * 0.5;
 
         // ---- body rotation matrix from q ----
         const qw = s[S.qw], qx = s[S.qx], qy = s[S.qy], qz = s[S.qz];
-        const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qw * qz), r02 = 2 * (qx * qz + qw * qy);
+        const r02 = 2 * (qx * qz + qw * qy);
         const r10 = 2 * (qx * qy + qw * qz), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qw * qx);
-        const r20 = 2 * (qx * qz - qw * qy), r21 = 2 * (qy * qz + qw * qx), r22 = 1 - 2 * (qx * qx + qy * qy);
+        const r22 = 1 - 2 * (qx * qx + qy * qy);
 
         const wx = s[S.wx], wy = s[S.wy], wz = s[S.wz];
         const armed = s[S.armed] > 0 && s[S.crashed] === 0;
@@ -462,6 +486,23 @@ export class Sim {
             for (let i = 0; i < 4; i++) out[i] = 0;
             s[S.mixRange] = 0;
         }
+    }
+
+    /**
+     * The physics of one tick from four motor commands in 0..1 (after idle): motor lag and rotor
+     * inertia, prop wash, battery, forces, integration, contact and the crashed body settling.
+     * Uses nothing from the controller but `out`.
+     */
+    private physics(out: Float64Array): void {
+        const s = this.s;
+        const p = this.p;
+
+        // ---- body rotation matrix from q ----
+        const qw = s[S.qw], qx = s[S.qx], qy = s[S.qy], qz = s[S.qz];
+        const r00 = 1 - 2 * (qy * qy + qz * qz), r01 = 2 * (qx * qy - qw * qz), r02 = 2 * (qx * qz + qw * qy);
+        const r10 = 2 * (qx * qy + qw * qz), r11 = 1 - 2 * (qx * qx + qz * qz), r12 = 2 * (qy * qz - qw * qx);
+        const r20 = 2 * (qx * qz - qw * qy), r21 = 2 * (qy * qz + qw * qx), r22 = 1 - 2 * (qx * qx + qy * qy);
+        const wx = s[S.wx], wy = s[S.wy], wz = s[S.wz];
 
         // ---- motors ----
         const volt = s[S.volt];

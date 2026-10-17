@@ -46,3 +46,7 @@ so `git diff` against it shows exactly what we changed.
    (same name), `b12-rewind.test.ts` → `b12-dash.test.ts`. Each marks its changes with `port:` comments, including the
    upstream checks that do not carry over to mesh geometry and why. `test/fixtures/b12-control-chrome-life.json`
    (a flight recorded on the scan, which replays only there) removed.
+5. `src/sim.ts`: `Sim.step()` split into `arming()`, `controller()` (setpoints, self-level, rate PID, mixer; writes
+   `motorCmd`) and `physics(motorCmd)` (motors to crash settling), so another flight controller can drive the physics
+   through four motor commands (SPEC.md R1). No calculation changed: traces are bit-identical, shown by every replay
+   test, including upstream's saved format /2 logs replaying to their saved hashes (`test/log-v2-compat.test.ts`).
