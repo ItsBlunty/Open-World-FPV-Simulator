@@ -86,6 +86,11 @@ and the review's own physics test cases. Note the author's own preset values are
 - Progression / rewards: undecided; decide after a playable prototype.
 - Crashes (to prototype): quick respawn where you are; inside a challenge area, respawn at that
   challenge's start. Final behaviour decided by playtesting.
+- Contacts (owner, 2026-10-17): the quad must never stick to or shake inside walls, floors or ceilings; this is fixed
+  in the physics, not by respawning a stuck quad.
+- Damage (owner, 2026-10-17): a simple model to start: one health value, 100 % at spawn, reduced by each hit from an
+  estimate of the impact (from speed). Behaviour at 0 % and on respawn: to decide.
+- Landing (owner, 2026-10-17): landing on the bottom of the drone does no damage unless very fast, as on a real FPV quad.
 
 ### 4.3 Freestyle grading: OPEN, not committed
 Owner's direction: capture specific tricks, then grade each on factors of its execution
@@ -139,3 +144,6 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | HUD readouts for M1? | Battery voltage, armed / flight mode, throttle and speed |
 | 2026-10-17 | Where do playtest builds run? | GitHub Pages |
 | 2026-10-17 | Is ~1 km x 1 km the right map size to start? | Yes |
+| 2026-10-17 | (owner's request after flying M1) Sticking and shaking on surfaces | Must not happen at all; fix the physics, respawn workarounds are not acceptable |
+| 2026-10-17 | (owner's request) Damage | Simple health 100 % down by impact speed for now |
+| 2026-10-17 | (owner's request) Landing | Landing on the bottom does no damage unless very fast |

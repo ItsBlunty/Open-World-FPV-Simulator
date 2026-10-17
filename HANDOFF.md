@@ -5,12 +5,54 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 
 ## 0. Where things stand (start here)
 
-- **M0 is done** (2026-10-17). **M1 is built** (2026-10-17) and waits for the owner to fly it with the Boxer:
-  that test flight, and the owner's notes on feel, close M1. Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`,
-  `pnpm dev` (Node 22.12+, pnpm 10). 35 test files, 348 tests.
-- **Owner to-dos for M1:** fly it; check the first-flight list in §2b; turn on GitHub Pages (Settings > Pages >
-  Source: "GitHub Actions") so CI publishes the playtest build.
-- **Next after M1: M2 physics review** (SPEC.md §5).
+- **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
+  (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 36 test files, 352 tests.
+- **The next task is §0a below: the owner's requests after the first flights.** Do it before M2.
+- The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
+
+## 0a. Next task: contacts, damage, landing (owner, 2026-10-17, after flying M1)
+
+The owner's words, after the pinned-to-ceiling fix (§2b) went live: "I'm still getting stuck on surfaces, walls, etc,
+and shaking inside of them, this shouldn't happen at all, timing out and moving isn't helpful, it just shouldn't
+happen." Then: a simple damage model, and landing on the bottom of the drone like a real FPV drone.
+
+1. **Fix the contact physics at the source (sim-core).** No sticking, no shaking against walls, floors or ceilings.
+   Respawn rules that move a stuck quad away are NOT an acceptable fix: the owner rejected that approach. The
+   "stuck, pinned" director rule added on 2026-10-17 (§2b) can be removed once contacts are right.
+2. **Damage model, simple for now.** One health value, 100 % at spawn, going down with each hit, by an estimate of
+   the impact from the speed (e.g. the contact's approach speed or the impact energy). Shown on the HUD. What happens
+   at 0 % (crash / disarm / respawn) and whether a respawn restores it: not yet decided; propose, then ask.
+3. **Land on the bottom without damage**, as a real FPV quad does, unless coming down very fast. Today any approach
+   at or over `vCrash` (5 m/s for the Nazgul preset) is a crash wherever it hits, and contacts under it are free.
+   A hit on the frame's underside (body-down contact normal) should be gentle up to a much higher speed than a hit on
+   the props, the arms' ends or the top.
+
+**What was learned reading the contact code** (`packages/sim-core/src/sim.ts`, `contact()` from line ~777):
+- The collision shape is 5 spheres: 4 "duct" spheres at the motors (0.1 m from the centre in x and z, r = 45 mm for
+  the Nazgul, so they stand in for the props) and 1 body sphere at the centre (r = 45 mm). There is no frame-bottom
+  shape, so "landing on the bottom" today means landing on the prop spheres.
+- Per tick: one swept test of all spheres (`world.sweep`), move to the first contact pose, ONE impulse at that one
+  sphere (`impulse`: restitution 0.1 under `vBounce`, Coulomb friction `MU` 0.4), plus a 1 mm skin. Only when the
+  first contact "pinned" the body (`PIN_M`) do the other touching spheres get impulses (`pinnedContacts`).
+- When a sphere starts the tick overlapping (`t === 0`), the tick's motion is thrown away and spheres are pushed out
+  (`pushOut`, 3 passes). Resting and sliding contacts go through this path or the single-impulse path every few
+  ticks: that is the shaking. The body rocks from sphere to sphere, the ideal gyro sees rotation of several rad/s,
+  and airmode answers with thrust (physics-review F1, F2; reproduction in `apps/fly/test/stuck.test.ts`).
+- The invisible respawn platform already has a proper resting solver (`restOnDisc`: projected Gauss-Seidel over
+  every touching sphere with accumulated normal and friction impulses). That is the model to extend to the scene:
+  gather every sphere touching (within a contact margin) after the move, solve them together with accumulated
+  impulses, and handle penetration by position correction rather than discarding the tick.
+- `impact()` decides crash vs contact from one approach speed only; damage and the landing rule go there (and the
+  sphere index / contact normal in body frame tells "bottom" from "props").
+
+**Rules that apply** (`.claude/rules/sim-core.md`, CLAUDE.md): this changes traces, so bump `SIM_CORE_VERSION`,
+add a CHANGELOG entry, list the change in `packages/sim-core/UPSTREAM.md`, comment every new constant's source
+(estimates labelled), keep determinism (only `+ - * /`, `Math.sqrt`, dmath), add tests (a resting craft stays still
+and the gyro reads ~0 on floors, walls and ceilings; sliding along a wall does not stick; landing at 2-3 m/s on the
+bottom does no harm), re-pin hashes that legitimately change (`SELFTEST_HASH` in `apps/fly/src/selftest.ts`, upstream
+log-replay tests may need their saved logs regenerated: check what they guarantee first), and ask the owner to fly it.
+Record findings in `docs/physics-review.md` (F1/F2 are the starting point).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
