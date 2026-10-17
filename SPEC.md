@@ -1,6 +1,6 @@
 # FPV Practice Sim — Specification (DRAFT)
 
-Status: architecture requirements recorded 2026-10-17. Game design pending owner interview.
+Status: M0 done 2026-10-17; M1 next. Game design beyond the first map pending owner interview.
 Items marked **[proposed]** are not yet confirmed by the owner.
 
 ## 1. Goal
@@ -16,7 +16,7 @@ ungraded freestyle; this project adds structured, scored practice on top of a so
 - License: GPL-3.0-or-later for the project (owner's choice, 2026-10-17). Included MIT code (sim-core, Three.js)
   keeps its original copyright and license notices. Betaflight (GPL-3.0) code and the Betaflight SITL bridge
   are license-compatible with the project.
-- Renderer **[proposed]**: Three.js, using WebGPU where available with a WebGL fallback for wider browser reach.
+- Renderer: Three.js (owner, 2026-10-17), using WebGPU where available with a WebGL fallback for wider browser reach.
 
 ## 3. Architecture requirements (owner-mandated)
 
@@ -71,6 +71,10 @@ and the review's own physics test cases. Note the author's own preset values are
 ### 4.2 Structure
 - Open world: a free-fly map with challenges placed around it.
 - First map: one mixed map with a small bando, next to a park and a city area.
+- Art: blockout geometry first, tuned by flying; then CC0 assets (e.g. Kenney, Quaternius, Poly Haven) once the layout
+  feels right (owner, 2026-10-17).
+- Default drone: a 5" freestyle quad, sim-core's `nazgulf5v3-6s` preset (owner, 2026-10-17). Several of its values
+  are the preset author's estimates (see `packages/sim-core/docs/research/drones-v08.md`).
 - Challenge types: a variety, to be designed once levels work. Levels first, content added into them after.
 - Progression / rewards: undecided; decide after a playable prototype.
 - Crashes (to prototype): quick respawn where you are; inside a challenge area, respawn at that
@@ -92,11 +96,12 @@ and old flights re-scored.
 
 ## 5. Milestones (draft)
 
-- **M0 Foundation:** repo, vendored sim-core with provenance, its tests passing standalone
+- **M0 Foundation (done 2026-10-17):** repo, vendored sim-core with provenance, its tests passing standalone
   (port the bot-pilot test helper; replace splat-voxel collision tests with mesh-collision ones);
   split the flight controller from the physics at the mixer (R1), proven trace-identical by the hash tests.
-- **M1 First flight:** the mixed map (bando, park, city), mesh collision, radio/gamepad input,
-  FPV camera, HUD, quick respawn. Flyable in a browser.
+- **M1 First flight:** the mixed map (bando, park, city) as blockout geometry, mesh collision (`packages/world-mesh`),
+  radio input (EdgeTX over USB first, gamepad as fallback), FPV camera, HUD, quick respawn, the 5" default drone,
+  rendered with Three.js. Flyable in a browser.
 - **M2 Physics review:** deliver R2's `docs/physics-review.md`.
 - **M3 Prototype content:** first challenges placed in the map; settle crash/respawn rules and
   explore freestyle grading options by playtesting.
@@ -105,3 +110,18 @@ and old flights re-scored.
 ## 6. Out of scope for now
 
 Gaussian splat worlds, Betaflight SITL mode, multiplayer. Each is kept possible by R1–R4.
+
+## 7. Owner decisions log
+
+Questions put to the owner and the answers, newest last. The body of this spec reflects them.
+
+| Date | Question | Answer |
+|---|---|---|
+| 2026-10-17 | Project license | GPL-3.0 |
+| 2026-10-17 | License of our changes to `packages/sim-core`: MIT (so they can go upstream) or GPL? | GPL; upstreaming not needed |
+| 2026-10-17 | Split the flight controller from the physics in M0, or later? | Claude's call: done in M0 |
+| 2026-10-17 | GPL-3.0 "only" or "or later"? | GPL-3.0-or-later |
+| 2026-10-17 | Which 3D engine renders the world? (Three.js / PlayCanvas / Babylon.js) | Three.js |
+| 2026-10-17 | How is the first map's art made? (blockout then CC0 / CC0 from the start / blockout only) | Blockout first, then CC0 |
+| 2026-10-17 | What radio, connected how? (EdgeTX USB / wireless dongle / gamepad) | EdgeTX radio over USB |
+| 2026-10-17 | Default drone for the first map? (5" freestyle / 65 mm whoop / 3" cinewhoop) | 5" freestyle |
