@@ -1,18 +1,20 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0 and again after building M1.
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, and after sim-core/0.3.0 (contacts).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 38 test files, 368 tests.
-- **§0a (contacts, damage, landing) is built: sim-core/0.3.0, 2026-10-17. Waiting for the owner to fly it** and to
-  answer the open questions at the end of §0a. Then M2.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 39 test files, 370 tests.
+- **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
+  the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
+  **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
+- sim-core is now `sim-core/0.3.0`; the self-test hash is `5115a73f…` (Node and Chrome 155 match; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
-## 0a. Next task: contacts, damage, landing (owner, 2026-10-17, after flying M1)
+## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
 
 The owner's words, after the pinned-to-ceiling fix (§2b) went live: "I'm still getting stuck on surfaces, walls, etc,
 and shaking inside of them, this shouldn't happen at all, timing out and moving isn't helpful, it just shouldn't
