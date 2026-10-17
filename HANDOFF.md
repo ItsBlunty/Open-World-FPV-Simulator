@@ -1,17 +1,21 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, and after sim-core/0.3.0 (contacts).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), and after sim-core/0.3.1 (prop strikes).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 39 test files, 370 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 39 test files, 372 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
-- sim-core is now `sim-core/0.3.0`; the self-test hash is `5115a73f…` (Node and Chrome 155 match; Firefox not re-checked).
+- **§0b, sim-core/0.3.1 (prop strikes):** the owner flew 0.3.0 and still got stuck on walls. Cause: a forward hit
+  leaves the quad flat on its props against the wall, and their full thrust plus friction held it there. Now a prop
+  against a surface over its intake makes no thrust, and the quad falls off. **Waiting for the owner to fly it**, and
+  for an answer on what should happen after a hit leaves the quad on its back (physics-review F4, "still open").
+- sim-core is now `sim-core/0.3.1`; the self-test hash is unchanged, `5115a73f…` (Node and Chrome 155 match; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -78,6 +82,18 @@ its belly and slides without damage. Measured before shelving: belly skids at fl
 10-20 m/s forward, 2-3 m/s down) already took 0 %; the harsh parts were straight-down belly hits over 4 m/s, tilted
 drops (F3) and hits past 60 deg counted as prop hits. When it comes back, ask the owner what a 5" survives.
 **Still open for the owner:** do contacts, bounces and sliding along walls and floors feel right (friction 0.4)?
+
+## 0b. Stuck on walls after 0.3.0 (owner, 2026-10-17): prop strikes, sim-core/0.3.1
+
+The owner's words after flying 0.3.0: "When I hit a wall or floor or anything like that, my whole quad gets stuck".
+Reproduced in Node (details and numbers: `docs/physics-review.md` F4): in forward flight the quad's top leans towards
+the wall, so a hit swings it flat against the wall props first; the props kept full thrust into the wall, friction
+held it up, and the acro controller's saturated corrections (airmode included) kept those props busy. Floor hits at
+normal flight angles recover; steep nose-first ones flip it on its back, as in real crashes.
+Fix: prop strikes (`sim.ts propStrikes`). Test: `contact-solver.test.ts`, "a forward-flight hit on a wall" (fails on
+0.3.0: hangs at 2.83 m; passes on 0.3.1). Ported bot tests (`model-pinned`, `b12-dash`) now see the craft drop off the
+wall it leans on; each says why. Open: after a hit the quad lies on its back at the foot of the wall (turtled):
+turtle mode, bouncier hits or a prop-strike kick are the options to put to the owner.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

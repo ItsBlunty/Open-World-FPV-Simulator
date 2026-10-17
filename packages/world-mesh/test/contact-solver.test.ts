@@ -17,8 +17,8 @@ const ROOM = mesh(new MeshBuilder().box([-5, 0, -5], [5, 3, 5]));
 const R = 0.045;
 
 /** A Nazgul at `at`, heading 0 (nose to -z); armed (throttle low) or disarmed, free to move either way. */
-function craft(at: [number, number, number], armed: boolean): Sim {
-    const sim = new Sim(compileParams(PRESET, {}), ROOM);
+function craft(at: [number, number, number], armed: boolean, crashOn = true): Sim {
+    const sim = new Sim(compileParams(PRESET, { crashOn }), ROOM);
     sim.setChannels([0, 0, -1, 0, -1, -1, 0, 0]);
     sim.reset(at[0], at[1], at[2], 0);
     sim.step();
@@ -104,13 +104,18 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
         expect(sim.crashed).toBe(false);
     });
 
-    it('pressed under the ceiling by thrust: still, gyro ~0; with the throttle down it leaves at once (F2)', () => {
+    it('climbing into the ceiling: it stops just under it, still, gyro ~0; with the throttle down it leaves at once (F2)', () => {
         const sim = craft([0, 2.9, 0], true);
         const hover = hoverSolve(sim.p, 1).stick * 2 - 1;
         const r = run(sim, 3000, 2000, () => [0, 0, hover + 0.1, 0, 1, -1, 0, 0]);
-        expect(sim.s[S.py]).toBeCloseTo(3 - R, 4);
+        // sim-core/0.3.1 (prop strikes, F4): a prop loses its thrust over the last 0.5 mm to a surface over it, so the
+        // climb ends where the thrust left balances the weight instead of pressing into the slab; it bobs there by
+        // a millimetre or two (the thrust share is a stiff spring with no damping of its own), never rocking
+        console.log(`under the ceiling: ${((3 - R - sim.s[S.py]) * 1000).toFixed(2)} mm below touching, moved ${(r.maxMove * 1000).toFixed(2)} mm, max rate ${r.maxW.toExponential(2)} rad/s`);
+        expect(sim.s[S.py]).toBeLessThanOrEqual(3 - R);
+        expect(sim.s[S.py]).toBeGreaterThan(3 - R - 0.003);
         expect(r.maxW).toBeLessThan(1e-4);
-        expect(r.maxMove).toBeLessThan(1e-6);
+        expect(r.maxMove).toBeLessThan(0.003);
         expect(r.late).toEqual([]);
         // acro, throttle stick down: the motors spin down and it falls away
         let left = -1;
@@ -153,5 +158,48 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
         // 0.4 x 9.81 = 3.9 m/s^2 for 0.4 s: 1.57 m/s lost, plus air drag
         expect(sim.s[S.vx]).toBeGreaterThan(3.0);
         expect(sim.s[S.vx]).toBeLessThan(3.5);
+    });
+
+    // The owner's report after sim-core/0.3.0 (2026-10-17): "When I hit a wall or floor or anything like that, my whole
+    // quad gets stuck". A forward-flight hit swings the quad flat against the wall, props first (the thrust leans
+    // towards the direction of flight). In 0.3.0 those props kept their full thrust, pushed it into the wall, and
+    // friction (MU x that push) held it there at hover throttle, at full throttle, and in airmode with the throttle
+    // down and a stick held. Since 0.3.1 a prop against a surface over its intake makes no thrust (prop strikes, F4).
+    it('a forward-flight hit on a wall leaves the quad on its props against it, and it falls off whatever the sticks do (F4)', () => {
+        const sticks: [string, number[]][] = [
+            ['hover throttle, no stick', [0, 0, 0, 0, 1, -1, 0, 0]],
+            ['full throttle, no stick', [0, 0, 1, 0, 1, -1, 0, 0]],
+            ['throttle down, pitch back (airmode)', [0, -0.5, -1, 0, 1, -1, 0, 0]],
+            ['half throttle, roll', [0.5, 0, 0, 0, 1, -1, 0, 0]]
+        ];
+        for (const [name, ch] of sticks) {
+            // damage off, as the app flies by default: every hit is a bounce and the motors keep running
+            const sim = craft([0, 2.5, -2], true, false);
+            // 30 deg nose down, 15 m/s towards the wall at z = -5
+            const h = (-30 * Math.PI) / 360;
+            sim.s[S.qw] = Math.cos(h); sim.s[S.qx] = Math.sin(h);
+            sim.s[S.vz] = -15;
+            const hover = hoverSolve(sim.p, 1).stick * 2 - 1;
+            let hit = -1;
+            let upAtHit = 1;
+            for (let t = 0; t < 2500; t++) {
+                sim.setChannels(hit < 0 || t - hit < 100 ? [0, 0, hover, 0, 1, -1, 0, 0] : ch);
+                sim.step();
+                if (hit < 0 && sim.s[S.pz] < -5 + 0.2) hit = t;
+                // the body's up axis along +z, 150 ms after the hit: props facing the wall
+                if (t === hit + 150) upAtHit = 2 * (sim.s[S.qy] * sim.s[S.qz] + sim.s[S.qw] * sim.s[S.qx]);
+            }
+            expect(hit, name).toBeGreaterThan(0);
+            expect(upAtHit, name).toBeLessThan(-0.8);
+            console.log(`${name}: up.z ${upAtHit.toFixed(2)} after the hit, at 2.5 s y ${sim.s[S.py].toFixed(2)} z ${sim.s[S.pz].toFixed(2)}`);
+            // 0.3.0: still on the wall at 2.5 m (all but the first); now on the floor
+            expect(sim.s[S.py], name).toBeLessThan(0.3);
+        }
+    });
+
+    it('sitting upright on the floor, armed: full throttle takes off as before (the floor under the props is no strike)', () => {
+        const sim = craft([0, R, 0], true);
+        run(sim, 500, 1, () => [0, 0, 1, 0, 1, -1, 0, 0]);
+        expect(sim.s[S.py]).toBeGreaterThan(1);
     });
 });

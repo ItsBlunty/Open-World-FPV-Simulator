@@ -35,7 +35,7 @@ import type { SimEvent } from '@owfpv/sim-core';
 import { BotPilot, Scenario, makePlan } from '@owfpv/sim-core/bot';
 // test-only import of sim-core's test kit (the preset, the page's director wiring)
 import { PRESET, attachDirector } from '../../sim-core/test/log-kit';
-import { SPAWN, TARGET, room } from './room';
+import { ROOM, SPAWN, TARGET, room } from './room';
 
 type Crash = Extract<SimEvent, { type: 'crash' }>;
 
@@ -121,8 +121,9 @@ describe("B12 in the mesh room: the bot's dash-lead fix", () => {
     // sim-core/0.3.0: upstream's old reference hit the wall at 3.2 m/s and crashed on a second duct hit at 5.2 m/s,
     // the lopsided single-impulse contact of docs/physics-review.md F1 (the bounce spun it to 68 rad/s). The contact
     // solver shares the impact between the spheres that meet the wall: the same 3.2 m/s hit and a slower rebound, no
-    // crash, but nearly all of the health gone (the damage model). The bot's fix still keeps the craft off the wall.
-    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall at 3.2 m/s and is badly damaged; the fixed bot restarts its dash and touches it gently', () => {
+    // crash, but nearly all of the health gone (the damage model). Since sim-core/0.3.1 the hit leaves it with its props
+    // on the wall, they strike it, and it drops and crashes on the floor. The bot's fix still keeps the craft off the wall.
+    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall at 3.2 m/s, drops off it and crashes; the fixed bot restarts its dash and touches it gently', () => {
         const p = compileParams(PRESET, {});
         const fixed = flyRewind(0.5);
         expect(fixed.crashes).toHaveLength(0);
@@ -134,31 +135,31 @@ describe("B12 in the mesh room: the bot's dash-lead fix", () => {
         const old = flyRewind(Infinity);
         expect(old.restarts).toBe(0);
         expect(old.maxHit).toBeGreaterThan(3);
-        expect(old.maxHit).toBeLessThan(p.vCrash);
-        expect(old.crashes).toHaveLength(0);
-        expect(old.health).toBeLessThan(0.5);
-        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, hit ${fixed.maxHit.toFixed(2)} m/s; old reference hits at ${old.maxHit.toFixed(2)} m/s (recorded on the scan: 3.2 m/s, then a 5.21 m/s crash), health left ${(old.health * 100).toFixed(0)} %`);
+        // sim-core/0.3.1: the hit leaves it flat against the wall, its props strike it and it drops; the landing ends
+        // the health the hit left (0.3.0: it stayed on the wall, badly damaged). Never a crash against the wall itself.
+        expect(old.crashes).toHaveLength(1);
+        expect(old.crashes[0].ny).toBe(1);
+        expect(old.health).toBe(0);
+        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, hit ${fixed.maxHit.toFixed(2)} m/s; old reference hits at ${old.maxHit.toFixed(2)} m/s (recorded on the scan: 3.2 m/s, then a 5.21 m/s crash), then a crash on the floor at ${old.crashes[0].speed.toFixed(2)} m/s`);
     });
 
     // port: on the scan upstream's craft slid down the wall on its side for 6 s and then lay still, flipped, for
-    // 1.5 s: a stuck-flipped rewind. Until sim-core/0.3.0 the mesh room never got there, because the single-impulse
-    // contact kept the craft rocking against the flat wall (tilt rate 0.2-2.5 rad/s, never still for 1.5 s). With the
-    // contact solver it lies still like upstream's and the director rewinds it, and then B12 runs as upstream's did:
-    // the old reference flies full throttle into the wall and crashes (here a direct hit at v_crash), the fixed bot
-    // does not.
-    it("the whole control flight with the page's director: the slow dash touches the wall and ends on its back, rewound as stuck; after the rewind only the old reference crashes", () => {
-        const fixed = b12('control', 0.5);
-        console.log(`whole slow dash: fixed ${fixed.contacts} contacts, rewinds [${fixed.rewinds}], ${fixed.restarts} restarts`);
-        expect(fixed.contacts).toBeGreaterThan(0);
-        expect(fixed.crashes).toHaveLength(0);
-        expect(fixed.rewinds.length).toBeGreaterThan(0);
-        expect(new Set(fixed.rewinds)).toEqual(new Set(['stuck-flipped']));
-
-        const old = b12('control', Infinity);
-        console.log(`whole slow dash: old ${old.contacts} contacts, rewinds [${old.rewinds}], crashes ${old.crashes.map((c) => c.speed.toFixed(2))}`);
-        expect(old.rewinds[0]).toBe('stuck-flipped');
-        expect(old.crashes).toHaveLength(1);
-        expect(old.crashes[0].speed).toBeGreaterThanOrEqual(compileParams(PRESET, {}).vCrash);
+    // 1.5 s: a stuck-flipped rewind, after which the old reference flew full throttle into the wall and crashed.
+    // sim-core/0.3.0 reproduced that in the mesh room. Since sim-core/0.3.1 (prop strikes, docs/physics-review.md F4)
+    // the craft cannot lean on the wall with its props: once the dash has tilted it flat against the wall its props
+    // stop making thrust and it drops to the floor, old reference and fixed bot alike, before any rewind. With damage
+    // on (sim-core's default) landing on its side from the dash height is a crash, at no more than a free fall's speed.
+    it('the whole control flight: the slow dash touches the wall, its props strike it and it drops to the floor, where it crashes', () => {
+        const drop = Math.sqrt(2 * 9.81 * (SPAWN[1] - ROOM.y0));
+        for (const leadS of [0.5, Infinity]) {
+            const r = b12('control', leadS);
+            console.log(`whole slow dash, lead ${leadS}: ${r.contacts} contacts, rewinds [${r.rewinds}], crashes ${r.crashes.map((c) => `${c.speed.toFixed(2)} m/s at y ${c.py.toFixed(2)}`)}`);
+            expect(r.contacts).toBeGreaterThan(0);
+            expect(r.rewinds).toEqual([]);
+            expect(r.crashes).toHaveLength(1);
+            expect(r.crashes[0].ny).toBe(1); // the floor, not the wall
+            expect(r.crashes[0].speed).toBeLessThan(drop);
+        }
     });
 
     it("B12's first half is untouched: the 8 m/s dash never restarts and crashes exactly as before, at >= 1.9 v_crash", () => {

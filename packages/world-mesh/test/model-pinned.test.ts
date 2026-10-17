@@ -18,7 +18,7 @@ import type { SimEvent } from '@owfpv/sim-core';
 import { Scenario, makePlan } from '@owfpv/sim-core/bot';
 // test-only import of sim-core's test kit (the preset)
 import { PRESET } from '../../sim-core/test/log-kit';
-import { SPAWN, TARGET, room } from './room';
+import { ROOM, SPAWN, TARGET, room } from './room';
 
 interface Run {
     crashes: Extract<SimEvent, { type: 'crash' }>[];
@@ -79,16 +79,19 @@ function slowDash(): Run {
 }
 
 describe('a craft pinned in a corner (B12 control, root cause)', () => {
-    it('the slow dash touches the wall, tumbles against it like v0.2 and never crashes; no frozen pose gathers speed', () => {
+    it('the slow dash touches the wall, tumbles against it like v0.2 and drops off it, never crashing against it; no frozen pose gathers speed', () => {
         const r = slowDash();
         // it touches (upstream counted > 100 contact events; since sim-core/0.3.0 a contact pressed by the thrust is no
         // impact, so only the touches themselves are events)
         expect(r.contacts).toBeGreaterThan(0);
-        expect(r.crashes).toHaveLength(0);
+        // since sim-core/0.3.1 (prop strikes, docs/physics-review.md F4) its props stop making thrust once it lies flat
+        // against the wall, and it drops to the floor; with damage on, landing on its side from there is a crash
+        expect(r.crashes.every((c) => c.ny === 1)).toBe(true);
         // it presses on into the wall like v0.2's craft (up-vector y -0.38 there): the control below is not a gentler flight
         expect(r.minUpY).toBeLessThan(0);
         // it may sit wedged, but a pose that does not move does not gather speed
         expect(r.frozenTicks === 0 || r.frozenSpeed < 1).toBe(true);
-        expect(r.maxSpeed).toBeLessThan(2);
+        // no faster than the drop from the dash height to the floor
+        expect(r.maxSpeed).toBeLessThan(Math.sqrt(2 * 9.81 * (SPAWN[1] - ROOM.y0)));
     });
 });

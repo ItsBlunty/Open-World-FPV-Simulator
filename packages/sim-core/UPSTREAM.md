@@ -61,3 +61,8 @@ so `git diff` against it shows exactly what we changed.
    chatter now record its absence (`model-platform`, `respawn-director`; in `packages/world-mesh`: `respawn-room`,
    `model-pinned`, `b12-dash`), `wind` checks the new state size, `log-v2-compat` no longer expects 0.2.0's saved
    hashes (each test says why); new `test/model-damage.test.ts`. `SIM_CORE_VERSION` is `sim-core/0.3.0`.
+8. `src/sim.ts`, `src/index.ts` (sim-core/0.3.1, changes traces): prop strikes (`propStrikes`, `STRIKE_*`): a prop
+   touching a surface over its intake makes no thrust (`docs/physics-review.md` F4); `contactsAt` is split into
+   `gatherContacts` and `solveContacts` so the start-of-tick contacts reach the motors. Tests: in `packages/world-mesh`,
+   `contact-solver` (the ceiling case; new wall-hit and take-off tests), `model-pinned` and `b12-dash` (the craft now
+   drops off the wall it leans on with its props; each test says why). `SIM_CORE_VERSION` is `sim-core/0.3.1`.

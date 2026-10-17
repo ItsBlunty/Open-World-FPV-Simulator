@@ -173,6 +173,20 @@ const PRESS_V = 1;
  */
 const BOTTOM_COS_HI = 0.866;
 const BOTTOM_COS_LO = 0.5;
+/**
+ * Prop strikes (sim-core/0.3.1, this project): a prop (duct sphere) touching a surface on its intake side, the side
+ * its thrust points to, cannot draw air through the disc and its blades hit the surface, so it makes no thrust. Full
+ * strike when the surface is within acos(0.866) = 30 deg of straight over the prop, none past acos(0.5) = 60 deg (a
+ * surface beside or under the prop leaves it free); it fades in over the last STRIKE_GAP of the gap, so the thrust
+ * changes smoothly as the prop nears the surface [estimates, this project]. 0.5 mm, not the 5 mm contact margin: the
+ * thrust share is a spring with no damping, and a thin one keeps a quad climbing into a ceiling to a 1-2 mm bob
+ * (5 mm: 1 cm at about 8 Hz, a visible shake). Without it a quad that ends up with its
+ * props against a wall or ceiling pushes itself into it at full thrust and friction holds it there (the owner's
+ * "stuck on walls", physics-review F4).
+ */
+const STRIKE_COS_HI = 0.866;
+const STRIKE_COS_LO = 0.5;
+const STRIKE_GAP = 0.0005;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
 const CRASH_LIN_DAMP = 0.5; // 1/s horizontal, scraping and bouncing losses [estimate]
 
@@ -233,6 +247,8 @@ export class Sim {
     /** motor commands of the last step: after the mixer and idle, before the motor lag (0..1) */
     readonly motorCmd = new Float64Array(4);
     private thrust = new Float64Array(4);
+    /** per-motor thrust share left by prop strikes this tick (1: free; exactly 1 without contacts) */
+    private strike = new Float64Array(4);
     private plat = new PlatformContact();
     // per-model constants of the self-level and drag terms (params do not change after construction)
     private maxR: number;
@@ -576,13 +592,22 @@ export class Sim {
             keep = 1 - p.wakeLoss * wash;
         }
         this.washNow = wash;
+        // the surfaces near the body at the start of the tick (contactsAt solves them below), and the props they block
+        const world = this.contactWorld;
+        let nNear = 0;
+        if (world) {
+            setRot(this.rot, qw, qx, qy, qz);
+            nNear = this.gatherContacts(world, s[S.px], s[S.py], s[S.pz]);
+        }
+        this.propStrikes(nNear);
+        const strike = this.strike;
         for (let i = 0; i < 4; i++) {
             const k = S.m0 + i;
             const dw = (out[i] - s[k]) * aa;
             s[k] += dw;
             const w = s[k];
             const T0 = tmax * w * w;
-            const T = T0 * keep;
+            const T = T0 * keep * strike[i];
             th[i] = T;
             tSum += T;
             wSum += w;
@@ -661,15 +686,13 @@ export class Sim {
 
         // ---- contact, velocities: every surface near the body now, solved together (contactsAt) ----
         // With nothing within SPEC_MARGIN the velocities are untouched, so free flight is the model before 0.3.0.
-        const world = this.contactWorld;
         this.hitV = -1;
-        if (world) {
+        if (nNear > 0) {
+            // the same pose as the gather above (this.rot still holds it): nothing has moved yet
             const vl = this.vl;
             vl[0] = nvx; vl[1] = nvy; vl[2] = nvz; vl[3] = lwx; vl[4] = lwy; vl[5] = lwz;
-            setRot(this.rot, q0w, q0x, q0y, q0z);
-            if (this.contactsAt(world, px0, py0, pz0)) {
-                nvx = vl[0]; nvy = vl[1]; nvz = vl[2]; lwx = vl[3]; lwy = vl[4]; lwz = vl[5];
-            }
+            this.solveContacts(nNear, px0, py0, pz0);
+            nvx = vl[0]; nvy = vl[1]; nvz = vl[2]; lwx = vl[3]; lwy = vl[4]; lwz = vl[5];
         }
         s[S.vx] = nvx; s[S.vy] = nvy; s[S.vz] = nvz;
         s[S.px] = px0 + nvx * DT; s[S.py] = py0 + nvy * DT; s[S.pz] = pz0 + nvz * DT;
@@ -851,8 +874,15 @@ export class Sim {
      * within MU times the normal impulse (Coulomb cone). False when nothing is near: this.vl is untouched.
      */
     private contactsAt(world: ContactWorld, px: number, py: number, pz: number): boolean {
-        const p = this.p;
-        const sp = p.spheres;
+        const m = this.gatherContacts(world, px, py, pz);
+        if (m === 0) return false;
+        this.solveContacts(m, px, py, pz);
+        return true;
+    }
+
+    /** contactsAt's first half: every sphere's surfaces within SPEC_MARGIN at the pose into this.cn; their number. */
+    private gatherContacts(world: ContactWorld, px: number, py: number, pz: number): number {
+        const sp = this.p.spheres;
         const c = this.cn;
         const q = this.cq;
         const R = this.rot;
@@ -872,7 +902,14 @@ export class Sim {
                 m++;
             }
         }
-        if (m === 0) return false;
+        return m;
+    }
+
+    /** contactsAt's second half: solve the m gathered contacts on this.vl and record the tick's impacts. */
+    private solveContacts(m: number, px: number, py: number, pz: number): void {
+        const p = this.p;
+        const c = this.cn;
+        const R = this.rot;
         this.inertiaWorld();
         const w = this.push;
         const im = 1 / p.mass;
@@ -952,7 +989,33 @@ export class Sim {
             }
             if (a > this.hitV) this.hitV = a;
         }
-        return true;
+    }
+
+    /**
+     * this.strike from the m contacts gathered at the start of the tick: each prop's thrust share after prop strikes
+     * (STRIKE_COS_HI). Only the duct spheres (0-3, the motors' order) are props; a preset without them has no strikes.
+     * Exactly 1 for a prop with nothing near, so free flight is unchanged bit for bit.
+     */
+    private propStrikes(m: number): void {
+        const st = this.strike;
+        st[0] = st[1] = st[2] = st[3] = 1;
+        if (this.nS < 5) return;
+        const c = this.cn;
+        const R = this.rot;
+        const ux = R[1], uy = R[4], uz = R[7];
+        for (let j = 0; j < m; j++) {
+            const o = j * CN;
+            const i = c[o + 21];
+            if (i > 3) continue;
+            // how far the surface is over the intake: the normal points from the surface to the prop, so against "up"
+            let a = (-(c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz) - STRIKE_COS_LO) / (STRIKE_COS_HI - STRIKE_COS_LO);
+            if (!(a > 0)) continue;
+            if (a > 1) a = 1;
+            let g = c[o + 20] / STRIKE_GAP;
+            g = g < 0 ? 0 : g > 1 ? 1 : g;
+            const f = 1 - a * (1 - g);
+            if (f < st[i]) st[i] = f;
+        }
     }
 
     /**

@@ -2,6 +2,21 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## sim-core/0.3.1: prop strikes (2026-10-17)
+
+Changes traces: flights in which a prop comes within 0.5 mm of a surface over it (the side its thrust points to).
+Free flight, landings on the underside and the self-test flight are bit-identical (the self-test hash is unchanged).
+
+- **Prop strikes** (`sim.ts`, `propStrikes`): a prop (duct sphere) touching a surface on its intake side makes no
+  thrust: fully when the surface is within 30 deg of straight over the prop, not at all past 60 deg, and fading in
+  over the last 0.5 mm of the gap (`STRIKE_COS_HI`, `STRIKE_COS_LO`, `STRIKE_GAP`, estimates). Before it, a forward
+  hit on a wall left the quad flat against the wall on its props, their full thrust pushed it in, and friction held
+  it up there at any throttle, and in airmode with the throttle down and a stick held (the owner's "my whole quad
+  gets stuck", physics-review F4). Now it falls off. Climbing into a ceiling ends a fraction of a millimetre under
+  it, where the thrust left balances the weight (it bobs there by 1-2 mm), instead of pressing into it.
+- The contacts near the body at the start of the tick are now gathered before the motors (`gatherContacts`) and
+  solved after the forces (`solveContacts`); `contactsAt` does both for the fast-impact sweep as before.
+
 ## sim-core/0.3.0: contact solver, damage, landing (2026-10-17)
 
 Changes traces: every flight that touches anything, and every trace hash (the state has one more slot).

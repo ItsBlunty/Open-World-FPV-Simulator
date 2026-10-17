@@ -83,3 +83,31 @@ not; whether real tilted landings feel as harsh is for the owner to judge by fly
 
 **For the review.** Check the roll and pitch inertia estimates (a swing test of the real quad would measure them),
 and consider a compliant contact (a little give or damping at each sphere) if tilted landings feel too harsh.
+
+### F4. A quad on its props against a wall stays up there (found 2026-10-17, sim-core/0.3.0; fixed in 0.3.1)
+
+**What the owner saw.** "When I hit a wall or floor or anything like that, my whole quad gets stuck."
+
+**What happens.** In forward flight the thrust leans towards the direction of flight, so the top of the quad faces
+the wall it flies into. The nose hits first and the impact swings the quad flat against the wall, props first
+(15 m/s at 30 deg nose down, Nazgul: flat within 150 ms). Those props kept their full thrust, which pushed the quad
+into the wall, and friction (MU 0.4 x that push) held it up: it stayed at the height of the hit at hover throttle,
+at full throttle, and in airmode with the throttle down and a stick held (the controller saturates trying to turn
+the quad, and the props on the wall get the high commands). Measured: 2.83 m up after 2.5 s in a 3 m room; 5.4 m up
+in a 20 m room for 2 s. In 36 forward hits (6-20 m/s, 15-55 deg nose down, 0-25 deg yaw, 0-20 deg roll) every one
+ended flat against the wall (a scripted pilot holding hover, then pulling back with some throttle); 9 were still
+hanging more than 1 m up 4 s later, the rest had slid down slowly.
+
+**Fix (sim-core/0.3.1).** A real prop pressed against a surface over its intake cannot draw air and its blades hit
+the surface, so a duct sphere touching a surface within 30 deg of straight over the prop makes no thrust (none past
+60 deg; fading in over the last 0.5 mm of the gap, so it never switches on and off). Now the same hits drop the quad
+off the wall in every stick case (`packages/world-mesh/test/contact-solver.test.ts`); a quad sitting upright on the
+floor takes off as before; under a ceiling the climb stops a fraction of a millimetre under it and bobs by 1-2 mm
+(the thrust share is a stiff spring without damping of its own), rotation under 1e-4 rad/s.
+
+**Still open, for the owner.** The quad still ends a forward wall hit flat against the wall, so it now falls to the
+foot of the wall and lies there on its back, like a real quad turtled after a crash. The restitution is upstream's
+(0.35 at v_bounce, less above it), so hard hits barely bounce. Floor hits at 20-45 deg nose down recover; at 70 deg
+they flip the quad onto its back (both before and after the fix). Options: Betaflight's turtle mode (flip over after
+crash), bouncier impacts, or a prop-strike kick away from the surface. Not modelled: the blades' strike itself (a
+kick, a motor brake, a broken prop).
