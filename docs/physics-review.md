@@ -105,7 +105,7 @@ off the wall in every stick case (`packages/world-mesh/test/contact-solver.test.
 floor takes off as before; under a ceiling the climb stops a fraction of a millimetre under it and bobs by 1-2 mm
 (the thrust share is a stiff spring without damping of its own), rotation under 1e-4 rad/s.
 
-**Still open, for the owner.** The quad still ends a forward wall hit flat against the wall, so it now falls to the
+**Left after the fix (asked 2026-10-17; the owner chose turtle mode, below).** The quad still ends a forward wall hit flat against the wall, so it now falls to the
 foot of the wall and lies there on its back, like a real quad turtled after a crash. The restitution is upstream's
 (0.35 at v_bounce, less above it), so hard hits barely bounce. Floor hits at 20-45 deg nose down recover; at 70 deg
 they flip the quad onto its back (both before and after the fix). Options: Betaflight's turtle mode (flip over after

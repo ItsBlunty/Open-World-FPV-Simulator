@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), and after sim-core/0.4.0 (turtle mode).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), and after the FPV camera near-plane fix.
 
 ## 0. Where things stand (start here)
 
@@ -11,11 +11,16 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
-- **§0b, sim-core/0.3.1 (prop strikes):** the owner flew 0.3.0 and still got stuck on walls. Cause: a forward hit
+- **§0b, sim-core/0.3.1 (prop strikes, commit `fd50a4b`):** the owner flew 0.3.0 and still got stuck on walls. Cause: a forward hit
   leaves the quad flat on its props against the wall, and their full thrust plus friction held it there. Now a prop
   against a surface over its intake makes no thrust, and the quad falls off. The owner chose turtle mode for a quad
-  left on its back: **§0c, sim-core/0.4.0**. **Waiting for the owner to fly both** (re-run Radio setup to map the
-  turtle switch, or use the T key).
+  left on its back: **§0c, sim-core/0.4.0 (commit `320bf30`)**. **Waiting for the owner to fly both** (re-run Radio
+  setup to map the turtle switch, or use the T key).
+- **Camera fix (commit `f1ddc51`, renderer only):** the owner could see through walls and the ground after a crash.
+  The FPV camera's near plane is now 1 cm with a reversed depth buffer (details at the end of §0c). Waiting for the
+  owner to confirm on the Pages build.
+- **Next, once the owner has flown:** their feedback on contacts, prop strikes, turtle mode and the camera; then the
+  open items in §5 ("Open from the 0.3.1-0.4.0 fixes"); then M2 (physics review).
 - sim-core is now `sim-core/0.4.0`; the self-test hash is `cd45c59c…` (Node and Chrome 155 match; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
@@ -248,6 +253,15 @@ Decided so far: see SPEC.md §7 (license GPL-3.0-or-later, GPL for sim-core chan
 
 **Open from M1:** loading glTF levels into `MeshContactWorld` (not needed while the map is code; needed when CC0 assets
 replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real HID descriptor as a test fixture.
+
+**Open from the 0.3.1-0.4.0 fixes (2026-10-17), to ask or offer the owner:**
+- The director's stuck-wedged rule (throttle up, not moving, 3 s) still rewinds automatically, also a quad on its back
+  with the throttle up. The owner turned the flipped rule off ("always off"); ask whether wedged should go too.
+- The chase camera (C key) has no collision and can sit inside a building. Offered to the owner, not asked for yet.
+- Hard hits barely bounce (upstream's restitution, 0.35 at v_bounce and less above) and a forward wall hit always ends
+  flat against the wall. The owner chose turtle mode over bouncier hits; revisit only if they ask.
+- Reverse prop thrust (0.73) comes from one 7" thrust-stand test; a 5" measurement would replace the estimate.
+- Firefox has not run `?selftest` since sim-core/0.2.0 on the mesh map.
 
 **Left open on purpose:** freestyle grading method, progression and challenge design, until levels are flyable.
 
