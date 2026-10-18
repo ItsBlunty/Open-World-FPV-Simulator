@@ -67,6 +67,12 @@ const QUEUE = 0.7;
 const CROSS_OFF = 0.35;
 /** the fastest a person crosses, m/s: the flashing phase (12 s) must see a road (19 m) crossed */
 const V_CROSS_MIN = 1.5;
+/**
+ * A car this far along a link leaving a junction (its centre, from the link's start STOP m out) still counts as
+ * in the junction for people about to cross: its back is then STOP + CLEAR_S - bodyHalfL = 15 m from the
+ * junction's centre, 4 m past the crossing (half a road + CROSS_ALONG = 11 m on the first map's 19 m roads).
+ */
+const CLEAR_S = 4;
 
 /** Headings: 0 east (+x), 1 south (+z), 2 west (-x), 3 north (-z); right of heading k is heading k + 1. */
 const DX = [1, 0, -1, 0];
@@ -82,9 +88,13 @@ interface Elem {
     dir: number;
     /** movement: the link it leaves on */
     out: number;
-    /** link: the movements at its end */
+    /** link: the movements at its end; movement: all the movements from its link (itself included) */
     moves: number[];
     vmax: number;
+    /** movement: how far along it the turn is done (0 straight), so cars on it and its siblings are apart */
+    split: number;
+    /** link: the movements that lead onto it */
+    feeders: number[];
 }
 
 interface Crossing {
@@ -149,6 +159,10 @@ export class NetTraffic implements TrafficModel {
     private readonly elems: Elem[] = [];
     /** link leaving junction j with heading k: linkOf[j * 4 + k], -1 none */
     private readonly linkOf: number[] = [];
+    /** the movements through each junction */
+    private readonly movesAt: number[][] = [];
+    /** links no car enters (by link index, which is the element index): see buildRoads */
+    private readonly dead: boolean[] = [];
     private readonly statics: StaticBox[][] = [];
 
     // people's network
@@ -203,7 +217,7 @@ export class NetTraffic implements TrafficModel {
             const v0 = 9 + (draw(carRng, 0) % 31) / 10; // 32-43 km/h
             const seed = draw(carRng, 0);
             const look = draw(carRng, 0);
-            if (take && config.cars) startCars.push([e, s, v0, seed, look]);
+            if (take && config.cars && !this.dead[e]) startCars.push([e, s, v0, seed, look]);
         }
         const pRng = new Uint32Array([0x9e0f1e]);
         const startPeople: number[][] = [];
@@ -287,21 +301,52 @@ export class NetTraffic implements TrafficModel {
             const a = this.at2(j, k, STOP, LANE), b = this.at2(n, k, -STOP, LANE);
             const route = pathThrough([a, b], 0, false, 0);
             this.linkOf.push(this.elems.length);
-            this.elems.push({ route, len: route.length, link: true, j: n, dir: k, out: -1, moves: [], vmax: V_ROAD });
+            this.elems.push({ route, len: route.length, link: true, j: n, dir: k, out: -1, moves: [], vmax: V_ROAD, split: 0, feeders: [] });
         }
-        // the movements at the end of each link
+        for (let j = 0; j < nJ; j++) this.movesAt.push([]);
+        // the turns at the end of each link: straight, right, and left only where nothing comes the other way
         const nLinks = this.elems.length;
+        const turns: number[][] = [];
         for (let e = 0; e < nLinks; e++) {
             const el = this.elems[e];
             const j = el.j, k = el.dir;
             const ahead = this.linkOf[j * 4 + k];
-            for (const out of [k, (k + 1) % 4, (k + 3) % 4]) {
+            turns.push([k, (k + 1) % 4, (k + 3) % 4].filter((out) =>
+                this.linkOf[j * 4 + out] >= 0 && !(out === (k + 3) % 4 && ahead >= 0)));
+        }
+        // Those rules leave a trap: the lane round the grid's edge the other way from the clock can never turn
+        // off (right is out of the city, left has oncoming traffic), so cars that joined it would circle it for
+        // ever and fill it. A car never turns into a lane from which it cannot reach every other one: a link is
+        // dead if it reaches fewer links than the best connected one (only dead links lead on from a dead link).
+        const reach = (e0: number): number => {
+            const seen = new Uint8Array(nLinks);
+            const todo = [e0];
+            seen[e0] = 1;
+            let n = 1;
+            while (todo.length) {
+                const e = todo.pop()!, el = this.elems[e];
+                for (const out of turns[e]) {
+                    const ol = this.linkOf[el.j * 4 + out];
+                    if (!seen[ol]) { seen[ol] = 1; n++; todo.push(ol); }
+                }
+            }
+            return n;
+        };
+        const counts = Array.from({ length: nLinks }, (_, e) => reach(e));
+        const most = Math.max(...counts);
+        for (let e = 0; e < nLinks; e++) this.dead.push(counts[e] < most);
+        // the movements at the end of each live link
+        for (let e = 0; e < nLinks; e++) {
+            if (this.dead[e]) continue;
+            const el = this.elems[e];
+            const j = el.j, k = el.dir;
+            for (const out of turns[e]) {
                 const ol = this.linkOf[j * 4 + out];
-                if (ol < 0) continue;
-                if (out === (k + 3) % 4 && ahead >= 0) continue; // left only where nothing comes the other way
+                if (this.dead[ol]) continue;
                 const p0 = this.at2(j, k, -STOP, LANE), p1 = this.at2(j, out, STOP, LANE);
                 let route: Route;
                 let vmax = V_ROAD;
+                let split = 0;
                 if (out === k) route = pathThrough([p0, p1], 0, false, 0);
                 else {
                     // the corner where the in and out lane lines meet: LANE back (right turn) or ahead (left)
@@ -310,9 +355,14 @@ export class NetTraffic implements TrafficModel {
                     const R = right ? R_RIGHT : R_LEFT;
                     route = pathThrough([p0, K, p1], R, false, 0);
                     vmax = Math.sqrt(A_LAT * R);
+                    // the straight up to the arc, then the quarter circle
+                    split = STOP + (right ? -LANE : LANE) - R + R * (Math.PI / 2);
                 }
-                el.moves.push(this.elems.length);
-                this.elems.push({ route, len: route.length, link: false, j, dir: k, out: ol, moves: [], vmax });
+                const m = this.elems.length;
+                el.moves.push(m);
+                this.movesAt[j].push(m);
+                this.elems[ol].feeders.push(m);
+                this.elems.push({ route, len: route.length, link: false, j, dir: k, out: ol, moves: el.moves, vmax, split, feeders: [] });
             }
         }
     }
@@ -397,6 +447,12 @@ export class NetTraffic implements TrafficModel {
         if (axis === 1) return c < NS_G ? 'green' : c < NS_Y ? 'yellow' : 'red';
         if (c < NS_R) return 'red';
         return c < EW_G ? 'green' : c < EW_Y ? 'yellow' : 'red';
+    }
+
+    /** ms of yellow left for an approach axis at junction j and tick (only meaningful while it shows yellow) */
+    private yellowLeft(j: number, axis: number, tick: number): number {
+        const c = (Math.floor(tick) + this.offset[j]) % CYCLE;
+        return (axis === 1 ? NS_Y : EW_Y) - c;
     }
 
     walkSignal(j: number, tick: number): 'walk' | 'flash' | 'stop' {
@@ -585,25 +641,43 @@ export class NetTraffic implements TrafficModel {
         return l.length ? l[l.length - 1] : -1;
     }
 
-    /** Room on link e for one more car at its start. */
+    /** Room on link e for one more car at its start, counting the cars in the junction already headed onto it. */
     private room(e: number): boolean {
         const i = this.last(e);
-        return i < 0 || this.cars[i * CN + C_S] >= 2 * CAR.bodyHalfL + IDM_S0 + 1;
+        let free = i < 0 ? this.elems[e].len : this.cars[i * CN + C_S];
+        for (const m of this.elems[e].feeders) free -= this.lists[m].length * (2 * CAR.bodyHalfL + IDM_S0);
+        return free >= 2 * CAR.bodyHalfL + IDM_S0 + 1;
+    }
+
+    /** No car is in junction j on a movement of the other axis (crossing traffic still clearing the box). */
+    private boxClear(j: number, axis: number): boolean {
+        for (const m of this.movesAt[j]) if (this.elems[m].dir % 2 !== axis && this.lists[m].length) return false;
+        return true;
     }
 
     private stepCars(tick: number): void {
         const c = this.cars;
-        // the front car of each link decides whether it goes at the stop line; once it goes, it is committed
+        // The front car of each link decides at every step whether it goes through the junction (C_GO 1), until
+        // it is too close to stop comfortably: then it is committed (C_GO 2) and goes whatever the light does.
+        // A car close enough to commit on green reaches the junction within the 3 s yellow (a stopped car in
+        // 1.8 s, one at 50 km/h through its 24 m stopping distance in 1.9 s). On yellow a car goes only if it cannot stop
+        // comfortably and gets into the junction before red; otherwise it stops.
         for (let e = 0; e < this.elems.length; e++) {
             const el = this.elems[e];
             if (!el.link || this.lists[e].length === 0) continue;
             const i = this.lists[e][0], o = i * CN;
-            if (c[o + C_GO] > 0) continue;
-            const sig = this.carSignal(el.j, el.dir % 2, tick);
-            if (!this.room(this.elems[c[o + C_NEXT]].out)) continue;
+            if (c[o + C_GO] === 2) continue;
+            const axis = el.dir % 2;
+            const sig = this.carSignal(el.j, axis, tick);
             const v = c[o + C_V];
             const toStop = this.stopPos(e) - c[o + C_S];
-            if (sig === 'green' || (sig === 'yellow' && toStop < (v * v) / (2 * B_YELLOW))) c[o + C_GO] = 1;
+            const stopDist = (v * v) / (2 * B_YELLOW);
+            let go = false;
+            if (sig !== 'red' && this.room(this.elems[c[o + C_NEXT]].out) && this.boxClear(el.j, axis)) {
+                if (sig === 'green') go = true;
+                else go = toStop < stopDist && el.len - c[o + C_S] < v * (this.yellowLeft(el.j, axis, tick) * 0.001 - STEP);
+            }
+            c[o + C_GO] = !go ? 0 : toStop <= stopDist ? 2 : 1;
         }
         for (let i = 0; i < this.nCars; i++) c[i * CN + C_ACC] = this.idm(i);
         for (let i = 0; i < this.nCars; i++) {
@@ -631,6 +705,26 @@ export class NetTraffic implements TrafficModel {
         }
     }
 
+    /**
+     * The car nearest ahead of distance s on movement m (other than car `self`): on m itself, or on another
+     * movement from the same lane while the follower or that car has not finished its turn. -1 if none.
+     */
+    private ahead(m: number, s: number, self: number): number {
+        const c = this.cars, split = this.elems[m].split;
+        let best = -1, bs = Infinity;
+        for (const mv of this.elems[m].moves) {
+            const list = this.lists[mv], sp = this.elems[mv].split;
+            // lists run furthest along first: the nearest ahead is the last one past s
+            for (let k = list.length - 1; k >= 0; k--) {
+                const l = list[k], sl = c[l * CN + C_S];
+                if (l === self || sl < s) continue;
+                if ((mv === m || s < split || sl < sp) && sl < bs) { best = l; bs = sl; }
+                break;
+            }
+        }
+        return best;
+    }
+
     /** The Intelligent Driver Model's acceleration for car i: its leader, or the stop line, or the open road. */
     private idm(i: number): number {
         const c = this.cars, o = i * CN;
@@ -640,7 +734,7 @@ export class NetTraffic implements TrafficModel {
         const pos = list.indexOf(i);
         const L = 2 * CAR.bodyHalfL;
         let gap = 1e9, vl = v;
-        if (pos > 0) {
+        if (el.link && pos > 0) {
             const l = list[pos - 1];
             gap = c[l * CN + C_S] - s - L;
             vl = c[l * CN + C_V];
@@ -648,15 +742,19 @@ export class NetTraffic implements TrafficModel {
             gap = this.stopPos(e) - s + IDM_S0;
             vl = 0;
         } else {
-            const n = c[o + C_NEXT];
-            const l = this.last(n);
+            // in or into a junction: the nearest car ahead on this movement or, while either is still turning,
+            // on another movement from the same lane (their paths start together); then the link after it
+            const m = el.link ? c[o + C_NEXT] : e;
+            const sm = el.link ? s - el.len : s;
+            const l = this.ahead(m, sm, i);
+            const me = this.elems[m];
             if (l >= 0) {
-                gap = el.len - s + c[l * CN + C_S] - L;
+                gap = c[l * CN + C_S] - sm - L;
                 vl = c[l * CN + C_V];
-            } else if (!this.elems[n].link) {
-                const l2 = this.last(this.elems[n].out);
+            } else {
+                const l2 = this.last(me.out);
                 if (l2 >= 0) {
-                    gap = el.len - s + this.elems[n].len + c[l2 * CN + C_S] - L;
+                    gap = me.len - sm + c[l2 * CN + C_S] - L;
                     vl = c[l2 * CN + C_V];
                 }
             }
@@ -696,6 +794,20 @@ export class NetTraffic implements TrafficModel {
         return [ex + dx * back * QUEUE * row - dz * CROSS_OFF, ez + dz * back * QUEUE * row + dx * CROSS_OFF];
     }
 
+    /**
+     * A car is still in junction j, or just out of it with its back over a crossing (CLEAR_S along the link
+     * leaving it). People do not step off on WALK until it has gone, as people check before crossing.
+     */
+    private junctionBusy(j: number): boolean {
+        for (const m of this.movesAt[j]) if (this.lists[m].length) return true;
+        for (let k = 0; k < 4; k++) {
+            const e = this.linkOf[j * 4 + k];
+            const l = e < 0 ? -1 : this.last(e);
+            if (l >= 0 && this.cars[l * CN + C_S] < CLEAR_S) return true;
+        }
+        return false;
+    }
+
     private stepPeople(tick: number): void {
         const p = this.people;
         for (let q = 0; q < this.nPeople; q++) {
@@ -703,7 +815,8 @@ export class NetTraffic implements TrafficModel {
             const ph = p[o + P_PH];
             if (ph === 2) {
                 const cid = p[o + P_C];
-                if (this.walkSignal(this.crossings[cid].j, tick) !== 'walk') continue;
+                const j = this.crossings[cid].j;
+                if (this.walkSignal(j, tick) !== 'walk' || this.junctionBusy(j)) continue;
                 const side = p[o + P_SIDE], row = p[o + P_ROW];
                 const a = this.slot(cid, side, row, false), b = this.slot(cid, side, row, true);
                 this.walkEdge(q, 3, a[0], a[1], b[0], b[1], Math.max(V_CROSS_MIN, p[o + P_VB] * 1.15), 0);

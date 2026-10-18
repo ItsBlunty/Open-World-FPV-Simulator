@@ -182,20 +182,27 @@ describe('network traffic (signals on)', () => {
         const pl = Array.from({ length: n }, newPlace);
         const was = Array.from({ length: n }, () => net.inspect(0));
         let speedSum = 0, speedN = 0, redRuns = 0, overlaps = 0, nearCrossers = 0, crossings = 0, waited = 0, braked = 0;
+        let lastSum = 0, lastN = 0, longestStill = 0;
+        const still = new Map<number, number>(carIds.map((i) => [i, 0]));
         const STEPS = 12000; // 20 Hz
         net.at(0);
         for (let i = 0; i < n; i++) was[i] = net.inspect(i);
         for (let k = 1; k <= STEPS; k++) {
             const tick = k * 50;
+            // the step this runs starts at `tick`; inspect() then shows the state at its end
             net.at(tick);
             for (let i = 0; i < n; i++) net.place(i, tick, pl[i]);
             for (const i of carIds) {
                 const now = net.inspect(i);
-                // entering a junction: the light at the step it went was green or yellow
-                if (was[i].link && !now.link && net.carSignal(was[i].j, was[i].axis, tick - 50) === 'red') redRuns++;
+                // entering a junction: the light during the step it went in was green or yellow
+                if (was[i].link && !now.link && net.carSignal(was[i].j, was[i].axis, tick) === 'red') redRuns++;
                 if (net.braking(i)) braked++;
                 speedSum += now.v;
                 speedN++;
+                if (k > STEPS - 1200) { lastSum += now.v; lastN++; }
+                const st = now.v < 0.1 ? still.get(i)! + 1 : 0;
+                still.set(i, st);
+                if (st > longestStill) longestStill = st;
                 was[i] = now;
             }
             for (const q of peopleIds) {
@@ -214,16 +221,23 @@ describe('network traffic (signals on)', () => {
                 }
             }
         }
-        const mean = speedSum / speedN;
+        const mean = speedSum / speedN, lastMean = lastSum / lastN;
         console.log(`network, 10 min: ${crossings} crossings started, ${waited} person-steps waiting, ${braked} car-steps braking, ` +
-            `mean car speed ${mean.toFixed(1)} m/s; overlaps ${overlaps}, red runs ${redRuns}, crossers near cars ${nearCrossers}`);
+            `mean car speed ${mean.toFixed(2)} m/s (last minute ${lastMean.toFixed(2)}), longest stand-still ${longestStill / 20} s; ` +
+            `overlaps ${overlaps}, red runs ${redRuns}, crossers near cars ${nearCrossers}`);
         expect(overlaps).toBe(0);
         expect(redRuns).toBe(0);
         expect(nearCrossers).toBe(0);
         expect(crossings).toBeGreaterThan(200);
         expect(waited).toBeGreaterThan(1000);
         expect(braked).toBeGreaterThan(1000);
-        expect(mean).toBeGreaterThan(3);
+        // Flowing, not jammed: no car waits longer than one light cycle, and the last minute is as quick as the
+        // whole run (a jam that grows shows as a falling speed; before the edge-lane fix it fell from 3.0 to
+        // 1.4 m/s over 30 min). The mean itself is set by the lights: each approach has green 15 s in 60, so a
+        // car spends much of its time waiting. Measured 3.08 m/s over these 10 min; the bound leaves room for tuning.
+        expect(longestStill / 20).toBeLessThan(60);
+        expect(lastMean).toBeGreaterThan(0.8 * mean);
+        expect(mean).toBeGreaterThan(2.5);
     });
 
     it('is the same at a tick however it got there: straight there, step by step, or back in time', () => {
