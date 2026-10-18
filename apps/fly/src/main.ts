@@ -15,12 +15,13 @@ import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings';
 import { HidSource } from './devices/hid';
-import { GamepadSource, gamepadKey } from './devices/gamepad';
+import { GamepadSource, gamepadKey, padClock } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
 import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
 import { SettingsUi } from './ui/settings-ui';
 import { h, clear } from './ui/dom';
+import { localPorts } from './engine/protocol';
 import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port } from './engine/protocol';
 
 const params = new URLSearchParams(location.search);
@@ -103,12 +104,11 @@ function startWorkerEngine(): void {
     engine = w;
 }
 
-/** The engine on this page, through a MessageChannel: the same messages as a worker. */
+/** The engine on this page: the same messages as a worker, handed over directly (no copies; protocol.ts localPorts). */
 function startPageEngine(): void {
-    const mc = new MessageChannel();
-    mc.port1.onmessage = onEngine;
-    engine = mc.port1;
-    const enginePort = mc.port2 as unknown as Port;
+    const [pagePort, enginePort] = localPorts();
+    pagePort.onmessage = onEngine;
+    engine = pagePort;
     void import('./engine/engine').then(({ startEngine }) => startEngine(enginePort, canvas, initMsg())).catch((err: unknown) => {
         onEngine({ data: { type: 'error', message: err instanceof Error ? err.message : String(err) } } as MessageEvent<EngineMsg>);
     });
@@ -431,6 +431,10 @@ requestAnimationFrame(pageFrame);
     settings,
     get engine(): string {
         return `${backend} ${engineWhere()}${engineReady ? '' : ' (starting)'}`;
+    },
+    /** which clock the gamepad poll runs on (devices/gamepad.ts startClock) */
+    get padClock(): string {
+        return padClock;
     },
     /** run `code` in the engine with `fly` (session, view, renderer, scene, S, trafficView, freeCam, radio) in scope; resolves to its cloned return value */
     ask(code: string): Promise<unknown> {

@@ -56,13 +56,26 @@ export function gamepadKey(g: Gamepad): string {
 
 // each 1 ms timeout is set from a message task, so the timer nesting level never builds up to the 4 ms clamp
 const CLOCK_SRC = 'const mc = new MessageChannel(); mc.port1.onmessage = () => setTimeout(tick, 1); function tick() { postMessage(0); mc.port2.postMessage(0); } tick();';
+/** The clock the last GamepadSource ended up on (for checks from the console: __fly.padClock). */
+export let padClock: 'worker' | 'interval' | 'none' = 'none';
 
-/** Calls `tick` every ~1-2 ms from a worker (a page interval where there are no workers, as in Node tests); returns its stop. */
+/**
+ * Calls `tick` every ~1-2 ms from a worker (a page interval where there are no workers, as in Node tests); returns
+ * its stop. scheduler.postTask with a 1 ms delay was tried (owner, 2026-10-18): ~650 ticks/s on an idle Firefox page,
+ * but ~230/s while flying (clamped like setInterval), catching 69 % of an imitated 4 ms gamepad update stream
+ * against the worker's 100 % (docs/evidence/2026-10-18-render-worker/).
+ */
 function startClock(tick: () => void): () => void {
     if (typeof Worker === 'undefined') {
+        padClock = 'interval';
         const id = setInterval(tick, 1);
         return () => clearInterval(id);
     }
+    return startWorkerClock(tick);
+}
+
+function startWorkerClock(tick: () => void): () => void {
+    padClock = 'worker';
     const url = URL.createObjectURL(new Blob([CLOCK_SRC], { type: 'text/javascript' }));
     const w = new Worker(url);
     w.onmessage = () => {

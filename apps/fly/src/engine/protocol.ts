@@ -79,3 +79,38 @@ export function pageToEngineMs(pageOrigin: number, engineOrigin: number): number
 
 /** HUD snapshots per second the engine sends (DOM work on the page is kept off its main thread's budget). */
 export const HUD_HZ = 30;
+
+/**
+ * Two ports on one thread that hand each message straight to the other side's handler: no copy. A MessageChannel
+ * copies every message (structured clone) and the copies fill memory that Firefox frees with a major GC about every
+ * 30 s, which stuttered (owner, 2026-10-18; HANDOFF.md §0k). Delivery is synchronous, so a sender may reuse what it
+ * sent as soon as postMessage returns. Messages to a side with no handler yet wait until one is set.
+ */
+export function localPorts(): [Port, Port] {
+    const make = (): Port & { peer: { deliver(m: unknown): void } | null; deliver(m: unknown): void } => {
+        let handler: ((e: MessageEvent) => void) | null = null;
+        const waiting: unknown[] = [];
+        const port = {
+            peer: null as { deliver(m: unknown): void } | null,
+            deliver(m: unknown): void {
+                if (handler) handler({ data: m } as MessageEvent);
+                else waiting.push(m);
+            },
+            postMessage(m: unknown): void {
+                port.peer!.deliver(m);
+            },
+            get onmessage(): ((e: MessageEvent) => void) | null {
+                return handler;
+            },
+            set onmessage(h: ((e: MessageEvent) => void) | null) {
+                handler = h;
+                while (handler && waiting.length) handler({ data: waiting.shift() } as MessageEvent);
+            }
+        };
+        return port;
+    };
+    const a = make(), b = make();
+    a.peer = b;
+    b.peer = a;
+    return [a, b];
+}

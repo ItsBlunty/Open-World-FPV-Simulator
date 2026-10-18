@@ -137,6 +137,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let prevT = performance.now();
     let fps = 0;
     let lastHud = -Infinity;
+    const hudMsg: EngineMsg & { type: 'hud' } = {
+        type: 'hud',
+        hud: { s: new Float64Array(session.sim.s.length), ch: new Float32Array(8), p: { cells: 0, crashOn: false }, respawnIn: null, fps: 0, mode: 'fpv', freeCam: false }
+    };
     function frame(): void {
         const now = performance.now();
         const dt = (now - prevT) / 1000;
@@ -166,18 +170,18 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             lastHud = now;
             const pend = session.director.pending();
             const sim = session.sim;
-            post({
-                type: 'hud',
-                hud: {
-                    s: new Float64Array(sim.s),
-                    ch: new Float32Array(sim.ch),
-                    p: { cells: sim.p.cells, crashOn: sim.p.crashOn },
-                    respawnIn: pend ? pend.atTick - sim.tick : null,
-                    fps,
-                    mode: view.mode,
-                    freeCam: freeCam.active
-                }
-            });
+            // one snapshot, refilled: a worker port copies it on send, the page's port hands it over and the page draws it at once
+            if (hudMsg.hud.s.length !== sim.s.length) hudMsg.hud.s = new Float64Array(sim.s.length);
+            const h = hudMsg.hud;
+            h.s.set(sim.s);
+            h.ch.set(sim.ch);
+            h.p.cells = sim.p.cells;
+            h.p.crashOn = sim.p.crashOn;
+            h.respawnIn = pend ? pend.atTick - sim.tick : null;
+            h.fps = fps;
+            h.mode = view.mode;
+            h.freeCam = freeCam.active;
+            post(hudMsg);
         }
         trafficView.update(session.sim.tick);
         sun.follow(view.camera.position);
@@ -185,6 +189,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     }
 
     warmUp();
+    // Firefox compiles WebGPU pipelines in its GPU process after they are asked for: until the warm-up's work has run
+    // there, the first frames waited (~1 s of stall when the menu was closed right after loading, 2026-10-18)
+    const device = (renderer.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } }).device;
+    if (device) await device.queue.onSubmittedWorkDone();
     post({ type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id });
 
     /**

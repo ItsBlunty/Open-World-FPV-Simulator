@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters (2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -52,6 +52,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   gamepads every 4 ms itself, §0i).
 - **First-turn stutter (owner, 2026-10-18, §0j, renderer only):** the scene is drawn along six directions while the
   map loads, so the first turn no longer hitches. **Waiting for the owner to reload and turn.**
+- **Firefox microstutters (owner, 2026-10-18, §0k):** measured in the owner's tab and a Firefox profile: about every
+  25-35 s, Firefox's garbage collection of WebGPU's per-draw memory (shadows double it). **Waiting for the owner to
+  fly Firefox with shadows off and with `?webgl`**, then to choose a fix.
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -503,6 +506,33 @@ camera along the six cube faces, the chase-view quad shown, then restores the ca
 
 **Left open:** not tried by the owner. Turning traffic on in Settings builds new traffic meshes, which probably hitch once
 the first time they come into view (not warmed). Other spawn points were not measured (they use the same materials).
+
+## 0k. Firefox microstutters (owner, 2026-10-18): measured; WebGPU garbage; waiting for the owner's test
+
+**Asked:** Chrome "runs great"; Firefox shows 120-121 fps and "some kind of microstutter or frame drop every now and
+then. It doesnt really feel like loading". The owner offered claudecodebrowser (localhost:8765) to measure in their
+Pages tab; scripts were injected as `<script>` elements (the extension's own scripts cannot see `__fly`).
+
+**Found** (evidence: `docs/evidence/2026-10-18-firefox-stutter/results.md`): Firefox holds 120.0 fps (120-121 on the
+HUD is the mean of 1/dt over frames that are 7-10 ms apart) and our work is ~4 ms a frame. The stutters come about
+every 25-35 s and line up with Firefox's major garbage collections (TOO_MUCH_MALLOC) and JIT bailout bursts after
+them. What fills memory is WebGPU: Firefox's WebGPU calls (180 `writeBuffer`, 113 `setBindGroup` a frame with
+shadows; 27 and 54 without) allocate native memory. With WebGL 2 there was no malloc-triggered GC in a minute;
+without shadows the GC came after 37 s instead of 25 s and no frame was slow. Messages (radio clock, page<->engine)
+made no difference. One flight also had 4 shadow-pass shader builds mid-flight (cause not found; none in a fresh
+flight with rebuild tracking, none when sliding the shadow square over the whole level).
+
+**Built:** on the page the page<->engine messages are handed over directly (`engine/protocol.ts` `localPorts`, no
+copies) and the HUD reuses one snapshot: overhead removal, measured not to change the GC rhythm. 'ready' waits for
+the GPU to finish the warm-up (`onSubmittedWorkDone`), which removed a ~1 s stall when the menu was closed right
+after loading (free camera 3.5-5.5 m -> 10.08 m in 1 s of W). `__fly.padClock` reports the gamepad clock.
+`scheduler.postTask` as the gamepad clock was tried and rejected (while flying: 230 polls/s, 69 % of updates caught;
+the worker clock: 635/s, 100 %). 46 test files, 417 tests; typecheck clean; Firefox and Chrome UI, radio and
+self-test checks pass (results.md section 6).
+
+**Waiting for the owner:** fly Firefox with Settings -> Sun shadows off (reload), and with `?webgl`, and say whether
+the stutters go. Then choose among: shadows redrawn less often (e.g. 30-60 Hz), fewer shadow casters, WebGL 2 in
+Firefox, shadows off in Firefox. Each changes looks or feel; Claude has not picked one.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
