@@ -1,13 +1,13 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker (2026-10-18).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 45 test files, 413 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 46 test files, 417 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
@@ -45,8 +45,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Firefox gamepad fix (owner, 2026-10-18, §0h):** the Boxer in Joystick mode was never seen by "Use gamepad" in
   Firefox. Not a Web Serial matter (the owner asked about it; see §0h). The owner: "it works now", but ~200 Hz and
   **24 fps with the radio attached** (120 without). Fixed: the gamepad poll no longer spins on the main thread (§0h
-  "Frame rate"). Flown: frame rate holds, sticks okay at ~140 Hz. **Asked the owner** whether to plan moving rendering off the main
-  thread (Firefox delivers gamepad data on the main thread; §0h "So in Firefox").
+  "Frame rate"). Flown: frame rate holds, sticks okay at ~140 Hz. Then (owner: "do this"): **the engine runs in a
+  worker** and the gamepad clock no longer has a 4 ms floor (§0i). **Waiting for the owner to fly it in Firefox and
+  Chrome** (handling: Firefox should read the Boxer ~200+ times a second; `?render=main` is the old layout for A/B).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -426,8 +427,46 @@ plan"; keep the worker timer until then.
 - Expected: Firefox gamepad ~200-250 new values/s (cap: Firefox's 4 ms drain; Boxer 500 Hz), stamps a few ms late
   instead of up to a frame, independent of the scene. Chrome WebHID stays 500 Hz (later option: open HID in the
   worker, Chrome 131+).
-- Unverified: WebGPU in a worker in a real (windowed) Firefox and Chrome; needs the owner's OK to open windows. Claude in Chrome cannot drive Firefox: the probe ran in
+- Built: §0i. Claude in Chrome cannot drive Firefox: the probe ran in
 throwaway Firefox windows, which pop up on the owner's screen (ask first, see memory).
+
+## 0i. Render worker and a faster gamepad clock (owner, 2026-10-18): built, waiting for the owner to fly
+
+**Asked:** the owner approved the plan (§0h): "1. yes [open browser windows] 2. yes [keep a fallback]". The Boxer's
+real rate is 500 Hz (Chrome WebHID).
+
+**Built (commit `fd5090b`):**
+- `engine/engine.ts`: the flight session, Three.js scene, views, traffic view, free-fly camera motion and the frame
+  loop, talking only through messages (`engine/protocol.ts`). `engine/worker.ts` runs it in a module worker on the
+  page's canvas (`transferControlToOffscreen`). `main.ts` is now the page: menus, settings (localStorage), Radio
+  setup, HUD, all input; it maps radio frames with the profile and posts them with their page time.
+- Clocks: `engine/radio-link.ts` shifts page time to the worker's (`performance.timeOrigin` difference) and keeps
+  the stale-radio disarm (150 ms) on the engine's clock. Messages sent while the engine starts are queued, then handled.
+- Fallback: no worker canvas, a worker that fails before 'ready', or `?render=main` -> the same engine on the page
+  through a MessageChannel (lazy-loaded chunk). The menu's last line says "in a worker" / "on the page".
+- HUD: the engine posts a snapshot 30 times a second (`HUD_HZ`); `Hud.update` takes a `HudSim` (a Sim fits it).
+- Free-fly camera: `render/freecam.ts` has no DOM; the page captures the mouse and sends held keys and mouse movement.
+- Gamepad clock (`devices/gamepad.ts`, UPSTREAM change 7): each 1 ms timeout is set from a message task, so the HTML
+  timer-nesting clamp (4 ms) never applies: ~665 ticks/s in Firefox, ~544 in Chrome, gaps 1-2 ms, no spinning.
+- Console: `__fly.engine` (backend and where), `__fly.ask(code)` runs code in the engine with `fly` in scope.
+
+**Why the clock mattered more than the worker on this machine:** with the engine on the page, worker-clock ticks
+still reached the page ~230 times/s with p95 lateness 3-4 ms, so drawing alone did not explain the owner's 140 Hz.
+An imitation of Firefox's path (updates every 4 ms, page keeps the latest) showed the clamped `setInterval(1)`
+catching 84 % of updates and the new clock 99.9-100 %, with the engine in the worker or on the page. The worker
+still takes input lateness from p95 4 ms / max 6-8 ms to p95 0-1 ms / max 1-2 ms (Firefox) and keeps it there as
+scenes get heavier.
+
+**Evidence** (`docs/evidence/2026-10-18-render-worker/results.md`, production build in windowed browsers via
+`drive.mjs`): Firefox 158 and Chrome 155 run WebGPU in the worker at 120 fps, WebGL 2 in the worker at 120 fps,
+`?render=main` at 120 fps; `?selftest` MATCH in both (`cd45c59c…`, `80f0c9aa…`); UI (free camera keys and drag,
+Esc pause, spawn menu, FOV slider, canvas size) and a simulated radio through `onRaw` (arm with Space, climb at 0.4
+throttle, stale disarm) work in both. 46 test files, 417 tests (new: `engine-link.test.ts`); typecheck clean.
+
+**Left open:** not flown with the Boxer: Firefox's real gamepad rate now (expected ~200+ Hz of the Boxer's 500;
+Firefox drains raw input every 4 ms, so at most ~250), Chrome WebHID still 500 Hz, and feel in both. Window resize
+while running not exercised (the start size is right). CPU cost of the new clock not measured (about 600 tiny tasks/s
+on the page and in its worker). WebHID could later be opened inside the engine worker (Chrome 131+).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
