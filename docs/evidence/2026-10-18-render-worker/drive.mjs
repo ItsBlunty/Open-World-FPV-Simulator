@@ -192,11 +192,36 @@ const radioCheck = `(async () => {
   localStorage.removeItem('owfpv.radioProfiles');
   return JSON.stringify(r);
 })()`;
+// first-turn stutter: after load, close the menu, drag the free camera 360 deg round, then down and up; frame times from rAF
+const spinCheck = `(async () => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  for (let i = 0; i < 150 && !(window.__fly && !__fly.engine.includes('starting')); i++) await sleep(100);
+  const tReady = performance.now();
+  [...document.querySelectorAll('button')].find((b) => b.textContent === 'Look around').click();
+  await sleep(1500);
+  const frames = [];
+  let last = performance.now(), on = true;
+  const raf = (t) => { frames.push(t - last); last = t; if (on) requestAnimationFrame(raf); };
+  requestAnimationFrame((t) => { last = t; requestAnimationFrame(raf); });
+  const cv = document.querySelector('canvas');
+  cv.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+  const step = (dx, dy, n) => new Promise((res) => { let i = 0; const f = () => { dispatchEvent(new MouseEvent('mousemove', { movementX: dx, movementY: dy })); if (++i < n) requestAnimationFrame(f); else res(); }; requestAnimationFrame(f); });
+  await step(30, 0, 84);   // 84 * 30 px * 0.0025 rad = 360 deg
+  await step(0, 25, 24);   // down 86 deg
+  await step(0, -25, 48);  // up to 86 deg above
+  await step(30, 0, 84);   // round again: anything left?
+  dispatchEvent(new MouseEvent('mouseup'));
+  on = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+  const firstSpin = frames.slice(0, 84 + 24 + 48), secondSpin = frames.slice(84 + 24 + 48);
+  const sum = (a) => ({ frames: a.length, over25ms: a.filter((x) => x > 25).length, over50ms: a.filter((x) => x > 50).length, maxMs: +Math.max(...a).toFixed(1), worst5: a.slice().sort((x, y) => y - x).slice(0, 5).map((x) => +x.toFixed(0)) });
+  return JSON.stringify({ slowAt: frames.map((x, i) => [i, +x.toFixed(0)]).filter(([, x]) => x > 12), engine: __fly.engine, readyAfterMs: Math.round(tReady), first: sum(firstSpin), second: sum(secondSpin) });
+})()`;
 const runs = (process.argv[4] ?? 'demo,demo-main,demo-webgl,selftest').split(',');
-const urls = { demo: '?demo', 'demo-main': '?demo&render=main', 'demo-webgl': '?demo&webgl', 'demo-webgl-main': '?demo&webgl&render=main', selftest: '?selftest', menu: '' };
+const urls = { demo: '?demo', 'demo-main': '?demo&render=main', 'demo-worker': '?demo&render=worker', 'demo-webgl': '?demo&webgl', 'demo-webgl-main': '?demo&webgl&render=main', selftest: '?selftest', menu: '' };
 for (const r of runs) {
     await navigate(`${base}/${urls[r]}`);
-    const out = await evalIn(r === 'selftest' ? selftest : process.env.CATCH ? catchRate : process.env.UI ? uiCheck : process.env.RADIO ? radioCheck : measure);
+    const out = await evalIn(r === 'selftest' ? selftest : process.env.CATCH ? catchRate : process.env.UI ? uiCheck : process.env.RADIO ? radioCheck : process.env.SPIN ? spinCheck : measure);
     console.log(JSON.stringify({ browser: which, run: r, ...out }));
 }
 await close();

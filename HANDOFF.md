@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -50,6 +50,8 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   5 to 10 seconds"; 219 Hz on the page with no stutter. **Owner's choice: the engine stays on the page** (default);
   `?render=worker` keeps the worker. Chrome WebHID fine either way; Chrome gamepad 185-191 Hz (Chrome samples
   gamepads every 4 ms itself, §0i).
+- **First-turn stutter (owner, 2026-10-18, §0j, renderer only):** the scene is drawn along six directions while the
+  map loads, so the first turn no longer hitches. **Waiting for the owner to reload and turn.**
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -477,6 +479,30 @@ is picked up again: Firefox's real gamepad rate now (expected ~200+ Hz of the Bo
 Firefox drains raw input every 4 ms, so at most ~250), Chrome WebHID still 500 Hz, and feel in both. Window resize
 while running not exercised (the start size is right). CPU cost of the new clock not measured (about 600 tiny tasks/s
 on the page and in its worker). WebHID could later be opened inside the engine worker (Chrome 131+).
+
+## 0j. First-turn stutter after a reload (owner, 2026-10-18): warm-up while loading, waiting for the owner
+
+**Asked:** "Is there a way to preload more so we dont get stutters as we turn initially after reloading the page?"
+
+**Cause (Three.js r186 source):** `Renderer.render` builds an object's pipelines and uploads its buffers the first
+time it is drawn, and draws only what is in view (`_projectObject` culls to the camera frustum). `compileAsync`
+culls the same way, so it would not cover what is behind the spawn view.
+
+**Built:** `engine/engine.ts` `warmUp()`: before 'ready', the engine draws the scene from the spawn with a 90 deg
+camera along the six cube faces, the chase-view quad shown, then restores the camera. Rendering only; no sim state.
+
+**Evidence** (`drive.mjs` `SPIN=1`: reload in a fresh profile, "Look around", drag the free camera 360 deg, down
+86 deg, up 172 deg, then 360 deg again; rAF frame times; production build, windows):
+| Browser | Warm-up | Ready after | First turn: frames > 25 ms, worst | Second turn worst |
+|---|---|---|---|---|
+| Firefox 158 | no | 1.9-2.1 s | 3, 150-183 ms | 8.3 ms |
+| Firefox 158 | yes | 1.9-2.2 s | 0, 17-25 ms (frame 0: the recorder's first frame) | 8.3 ms |
+| Chrome 155 | no | 3.7-3.9 s | 3, 133 ms | 8.5 ms |
+| Chrome 155 | yes | 4.1-5.3 s | 0, 8.5 ms | 8.5 ms |
+46 test files, 417 tests pass; typecheck clean.
+
+**Left open:** not tried by the owner. Turning traffic on in Settings builds new traffic meshes, which hitch once
+the first time they come into view (not warmed). Other spawn points were not measured (they use the same materials).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

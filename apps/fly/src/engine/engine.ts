@@ -184,6 +184,39 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         renderer.render(scene, view.camera);
     }
 
+    warmUp();
     post({ type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id });
+
+    /**
+     * First-sight stutter (owner, 2026-10-18): Three.js builds an object's pipelines and uploads its buffers the first
+     * time it is drawn, and only for what the camera sees (Renderer._projectObject culls to the view, compileAsync too),
+     * so the first turn after loading hitched 150-180 ms (Firefox 158). Drawing once along each cube face (90 deg) from
+     * the spawn, with the chase-view quad shown, does all of it while the map loads.
+     */
+    function warmUp(): void {
+        const cam = view.camera;
+        const pos = cam.position.clone(), quat = cam.quaternion.clone(), fov = cam.fov, aspect = cam.aspect;
+        view.update(session.sim.s, 0);
+        view.craft.visible = true;
+        cam.fov = 90;
+        cam.aspect = 1;
+        cam.updateProjectionMatrix();
+        const p = cam.position;
+        trafficView.update(session.sim.tick);
+        sun.follow(p);
+        for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
+            // looking straight up or down, the camera's up must not be along the view
+            cam.up.set(0, y === 0 ? 1 : 0, y === 0 ? 0 : -1);
+            cam.lookAt(p.x + x, p.y + y, p.z + z);
+            renderer.render(scene, cam);
+        }
+        cam.up.set(0, 1, 0);
+        cam.position.copy(pos);
+        cam.quaternion.copy(quat);
+        cam.fov = fov;
+        cam.aspect = aspect;
+        cam.updateProjectionMatrix();
+        view.update(session.sim.s, 0);
+    }
     renderer.setAnimationLoop(frame);
 }
