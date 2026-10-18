@@ -43,7 +43,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   real recessed city windows, see-through car windows with riders, car-park ramps, street-lamp heads, the south-east
   water tower's braces. **Waiting for the owner to look at it and fly it** (handling: window reveals and beams are solid).
 - **Firefox gamepad fix (owner, 2026-10-18, §0h):** the Boxer in Joystick mode was never seen by "Use gamepad" in
-  Firefox. Not a Web Serial matter (the owner asked about it; see §0h). **Waiting for the owner to try it in Firefox.**
+  Firefox. Not a Web Serial matter (the owner asked about it; see §0h). The owner: "it works now", but ~200 Hz and
+  **24 fps with the radio attached** (120 without). Fixed: the gamepad poll no longer spins on the main thread (§0h
+  "Frame rate"). **Waiting for the owner to fly it in Firefox** (handling: Firefox now reads the pad ~140 times a second).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -370,6 +372,23 @@ pass; `pnpm --filter @owfpv/fly typecheck` clean.
 after moving a stick, Firefox itself does not list the Boxer: next step is to see whether a gamepad tester page in
 Firefox shows it (not yet researched why Firefox would miss it).
 Firefox's input rate and stamps for this pad are not measured yet.
+
+**Frame rate (owner, 2026-10-18):** with the Boxer as a gamepad Firefox showed ~200 Hz and fell to 24 fps; without
+the radio it held 120 fps; Chrome with WebHID was fine. Cause, reproduced without a radio: upstream polled with a
+MessageChannel loop that re-posts itself ~280 000 times a second, and Firefox 158 runs those messages ahead of its
+frames (120 -> 25 fps with 6 ms of frame work); `getGamepads()` itself costs nothing measurable. Chrome 155 keeps 119.
+Without a radio the loop never ran, which is why only the radio made it slow. Measured alternatives
+(`docs/evidence/2026-10-18-gamepad-clock/results.md`): `scheduler.postTask` starves the same way; `setTimeout` and
+`requestIdleCallback` hold 120 fps but poll only 105-120 Hz; a worker timer posting to the page every 1 ms holds
+120 fps and polls ~140 Hz (Firefox clamps worker timers to ~4 ms); a worker busy loop polls ~205 Hz but keeps a CPU
+core at 100 %. **Chosen: the worker timer** (`startClock` in `devices/gamepad.ts`, UPSTREAM change 6), one path for
+every browser. Chrome gamepads (not the Boxer, which uses WebHID there) drop from ~220 to ~130 polls/s at that
+load. Each new sample keeps its `Gamepad.timestamp`, so timing stays right; only some in-between samples are missed.
+Evidence: full suite 45 files, 413 tests pass; typecheck clean; `pnpm --filter @owfpv/fly build` bundles the worker.
+**Left open:** not flown; the real rate Firefox delivers the Boxer at is unknown (the owner's ~200 Hz was read while
+the spin polled ~470 Hz, so it is probably Firefox's own rate). If the owner finds ~140 Hz feels worse, the busy
+worker (~205 Hz, one core) is the measured alternative. Claude in Chrome cannot drive Firefox: the probe ran in
+throwaway Firefox windows, which pop up on the owner's screen (ask first, see memory).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

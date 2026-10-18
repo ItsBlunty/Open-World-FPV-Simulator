@@ -1,0 +1,33 @@
+<!doctype html><meta charset=utf-8><title>probe</title><body><pre id=o></pre><script>
+const mode = new URLSearchParams(location.search).get('mode') || 'none';
+let frames = 0, polls = 0, spins = 0, gpMs = 0;
+function raf(){ frames++; // ~6 ms of render-like work per frame
+  const t=performance.now(); while(performance.now()-t<6){} requestAnimationFrame(raf); }
+requestAnimationFrame(raf);
+const tick = () => { spins++; const now = performance.now(); if (now - last >= 2) { last = now; polls++; navigator.getGamepads(); } };
+let last = 0;
+if (mode === 'timeout0') { const f = () => { tick(); setTimeout(f, 0); }; f(); }
+if (mode === 'timeout1') { const f = () => { tick(); setTimeout(f, 1); }; f(); }
+if (mode === 'posttask-bg' || mode === 'posttask-uv') { const pr = mode === 'posttask-bg' ? 'background' : 'user-visible';
+  const f = () => { tick(); scheduler.postTask(f, {priority: pr}); }; f(); }
+if (mode === 'idle') { const f = () => { tick(); requestIdleCallback(f); }; f(); }
+if (mode.startsWith('worker')) {
+  const src = mode === 'worker-int1' ? 'setInterval(()=>postMessage(0),1)' :
+              mode === 'worker-to1' ? 'const f=()=>{postMessage(0);setTimeout(f,1)};f()' :
+              'let l=performance.now();for(;;){const n=performance.now();if(n-l>=1){l=n;postMessage(0)}}';
+  const w = new Worker(URL.createObjectURL(new Blob([src], {type:'text/javascript'})));
+  w.onmessage = tick;
+}
+if (mode === 'spin' || mode === 'spin+gp') {
+  const ch = new MessageChannel(); let last = 0;
+  ch.port1.onmessage = () => { spins++; const now = performance.now();
+    if (now - last >= 2) { last = now; polls++; if (mode==='spin+gp'){ const a=performance.now(); navigator.getGamepads(); gpMs+=performance.now()-a; } }
+    ch.port2.postMessage(0); };
+  ch.port2.postMessage(0);
+}
+setTimeout(() => { frames = polls = spins = 0; gpMs=0; setTimeout(() => {
+  const r = {mode, fps: frames/3, pollHz: polls/3, spinHz: spins/3, gpUsPerCall: polls? 1000*gpMs/polls:0, ua: navigator.userAgent};
+  document.getElementById('o').textContent = JSON.stringify(r);
+  fetch('/result', {method:'POST', body: JSON.stringify(r)});
+}, 3000); }, 2000);
+</script>

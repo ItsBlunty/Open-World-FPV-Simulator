@@ -22,3 +22,5 @@ upstream repository root. Everything else in this app is ours, GPL-3.0-or-later.
 5. `gamepad.ts` (owner, 2026-10-18): a pad that the poll finds in `getGamepads()` is announced through `onConnect`
    as if `gamepadconnected` had fired (a pad touched before `start()` sends no event); `onConnect` fires once, for the
    adopted pad only, not for later pads or reconnects.
+6. `gamepad.ts` (owner, 2026-10-18): the poll runs on a worker's 1 ms timer (`startClock`) instead of upstream's
+   MessageChannel spin, which starved Firefox's frames (120 -> 25 fps). Measurements: `docs/evidence/2026-10-18-gamepad-clock/`.

@@ -1,9 +1,13 @@
 // From ShramkoGSFPV apps/fly/src/devices/gamepad.ts, commit 8c90f535 (MIT, Copyright (c) 2026 Andrii Shramko;
 // see ../../LICENSE-MIT and ../../NOTICE). Local changes are listed in ../../UPSTREAM.md.
 
-// Gamepad API (compatibility path; many radios also appear as gamepads). Polled at ~500 Hz with
-// a MessageChannel loop, not in requestAnimationFrame, so input sampling is independent of the
-// frame rate. Chromium traps: an axis may read exactly 0.0 until it has once been near centre,
+// Gamepad API (compatibility path; many radios also appear as gamepads). Polled on a worker's 1 ms
+// clock, not in requestAnimationFrame, so input sampling is independent of the frame rate. The clock
+// (owner, 2026-10-18): upstream spun a MessageChannel loop for ~500 Hz, which in Firefox 158 starves
+// drawing (120 -> 25 fps with 6 ms of frame work; Chrome 155 kept 119). A worker's timer posting to
+// the page leaves the frames alone in both (120 fps); Firefox clamps it to ~4 ms, so it polls ~140 Hz
+// at that load (Chrome ~130, the spin ~220). Each new sample keeps its Gamepad.timestamp (below).
+// Chromium traps: an axis may read exactly 0.0 until it has once been near centre,
 // and a pad only appears after a deflection > 0.5 — the arm gate's "passed centre" rule covers it.
 // Some pads (e.g. a DJI controller) report only changes: Gamepad.timestamp stands still while the
 // sticks do. Their held values are still true while the pad is connected, so they are sent again
@@ -44,6 +48,24 @@ export function gamepadKey(g: Gamepad): string {
     return `gp:${g.id}:${g.axes.length}:${g.buttons.length}:${g.mapping}`;
 }
 
+const CLOCK_SRC = 'setInterval(() => postMessage(0), 1);';
+
+/** Calls `tick` every ~1 ms from a worker's timer (a page interval where there are no workers, as in Node tests); returns its stop. */
+function startClock(tick: () => void): () => void {
+    if (typeof Worker === 'undefined') {
+        const id = setInterval(tick, 1);
+        return () => clearInterval(id);
+    }
+    const url = URL.createObjectURL(new Blob([CLOCK_SRC], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    w.onmessage = () => {
+        URL.revokeObjectURL(url); // the worker has its script once it ticks
+        w.onmessage = tick;
+        tick();
+    };
+    return () => w.terminate();
+}
+
 export class GamepadSource {
     index = -1;
     id = '';
@@ -52,7 +74,7 @@ export class GamepadSource {
     onConnect: ((g: Gamepad) => void) | null = null;
     /** new hardware samples per second (repeats of held values are not counted) */
     rateHz = 0;
-    private ch = new MessageChannel();
+    private stopClock: (() => void) | null = null;
     private running = false;
     private last = 0;
     private lastTs = -1; // a pad whose timestamp is 0 still sends its first frame
@@ -63,13 +85,14 @@ export class GamepadSource {
     start(): void {
         if (this.running) return;
         this.running = true;
-        this.ch.port1.onmessage = () => this.loop();
-        this.ch.port2.postMessage(0);
+        this.stopClock = startClock(() => this.loop());
         addEventListener('gamepadconnected', this.onConn);
     }
 
     stop(): void {
         this.running = false;
+        this.stopClock?.();
+        this.stopClock = null;
         removeEventListener('gamepadconnected', this.onConn);
     }
 
@@ -91,9 +114,6 @@ export class GamepadSource {
             this.last = now;
             this.poll(now);
         }
-        // keep spinning; yield to the event loop between iterations
-        if (document.visibilityState === 'visible') this.ch.port2.postMessage(0);
-        else setTimeout(() => this.ch.port2.postMessage(0), 100);
     }
 
     /** This source's pad if it is connected: at its slot, or the same pad back at another slot. */
