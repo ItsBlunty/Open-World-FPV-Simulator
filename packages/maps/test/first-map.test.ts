@@ -134,6 +134,58 @@ describe('first map', () => {
         expect(world.queryRay(140.25, 5, -120.5, 0, -1, 0, 5)!.y).toBeCloseTo(3.35, 6);
     });
 
+    it('builds the tower crane as open lattice: a quad fits through the tower and the jib', () => {
+        // the construction block: x0 = -71, z0 = -241; the crane's tower at x0 + 31, z0 + 31
+        const cx = -40, cz = -210;
+        const top = 0.65 + 12 * 3.9;
+        // the slewing unit's top, straight over the tower
+        expect(world.queryRay(cx, 100, cz, 0, -1, 0, 100)!.y).toBeCloseTo(top + 1, 6);
+        const out = { x: 0, y: 0, z: 0 };
+        const quad = 0.25; // a 5-inch quad with its props, m
+        // the tower is hollow, and every section's south face has room for the quad to pass through it
+        for (let s = 0; s < 12; s++) {
+            const y0 = 0.65 + s * 3.9;
+            expect(world.querySphere(cx, y0 + 1.95, cz, 0.5, out), `inside section ${s}`).toBe(false);
+            let gaps = 0;
+            for (let x = -0.5; x <= 0.5; x += 0.1) for (let y = 0.3; y <= 3.6; y += 0.1) {
+                if (!world.querySphere(cx + x, y0 + y, cz - 0.8, quad, out)) gaps++;
+            }
+            expect(gaps, `section ${s}`).toBeGreaterThan(0);
+        }
+        // the jib: a ray down through each of its first ten panels' bottom face finds a gap to the ground or the
+        // steel frame (the bottom face's diagonal leaves room either side of it)
+        const sy = top + 1;
+        for (let k = 0; k < 10; k++) {
+            const x = cx + 1.2 + 2.5 * k + 0.6;
+            if (Math.abs(x - (cx + 20)) < 1.5) continue; // the trolley
+            const hit = world.queryRay(x, sy + 0.3, cz + 0.4, 0, -1, 0, 30);
+            expect(hit === null || hit.y < sy - 1, `jib panel ${k}`).toBe(true);
+        }
+        // the hook hangs on its rope above the frame (24.15 m): straight under the trolley the first thing is the
+        // hook block's top
+        expect(world.queryRay(cx + 20, sy - 0.6, cz + 0.1, 0, -1, 0, 30)!.y).toBeCloseTo(31.1, 6);
+    });
+
+    it('names every city building and gives it a street door with no sill', () => {
+        expect(level.buildings.length).toBeGreaterThan(100);
+        expect(new Set(level.buildings.map((b) => b.name)).size).toBe(level.buildings.length);
+        const MASK: Record<string, number> = { '0,-1': 4, '0,1': 8, '-1,0': 16, '1,0': 32 };
+        for (const b of level.buildings) {
+            const d = level.doors[b.door];
+            expect(d.building).toBe(level.buildings.indexOf(b));
+            // on a face that looks onto a street
+            expect(b.street & MASK[`${d.nx},${d.nz}`], b.name).toBeTruthy();
+            // 15 cm above the sidewalk, from just outside, the first thing in is the glass in the reveal (no sill)
+            const hit = world.queryRay(d.x + d.nx * 0.5, d.y + 0.15, d.z + d.nz * 0.5, -d.nx, 0, -d.nz, 2);
+            expect(hit, b.name).not.toBeNull();
+            expect(Math.abs(hit!.x - d.x) + Math.abs(hit!.z - d.z), b.name).toBeCloseTo(d.depth, 6);
+            // beside the opening, the wall's sill comes first, on the face
+            const sx = d.x - d.nz * (d.width / 2 + 0.2), sz = d.z + d.nx * (d.width / 2 + 0.2);
+            const sill = world.queryRay(sx + d.nx * 0.5, d.y + 0.15, sz + d.nz * 0.5, -d.nx, 0, -d.nz, 2);
+            expect(Math.abs(sill!.x - sx) + Math.abs(sill!.z - sz), b.name).toBeCloseTo(0, 6);
+        }
+    });
+
     it('puts every spawn point on a surface with room for the quad', () => {
         const groundY = (x: number, z: number): number => {
             const hit = world.queryRay(x, 500, z, 0, -1, 0, 1000);
@@ -151,4 +203,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'e6d95de18404af1d3cf4076f7effc1f3e1e75b6520e342530cc5eeda237fa75e';
+const PINNED = 'e9343a1d36d5bf21d655bf3e03cf20571fc51b1887a1ce406911274bd8a58b9c';

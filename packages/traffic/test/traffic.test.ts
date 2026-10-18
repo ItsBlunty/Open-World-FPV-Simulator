@@ -245,6 +245,61 @@ describe('network traffic (signals on)', () => {
         expect(mean).toBeGreaterThan(1.6);
     });
 
+    it('walks people in through the buildings\' doors and out again, through the opening only', () => {
+        expect(level.doors.length).toBeGreaterThan(100);
+        const out = { x: 0, y: 0, z: 0 };
+        for (const d of level.doors) {
+            // the way out from the doorway to the walking line is clear of the level: a person's capsule as spheres (2 cm
+            // smaller: standing on the sidewalk is touching it)
+            const b = level.blocks[d.block];
+            const kerb = d.nz < 0 ? d.z - b.z0 : d.nx > 0 ? b.x1 - d.x : d.nz > 0 ? b.z1 - d.z : d.x - b.x0;
+            for (let s = PERSON.r + 0.05; s <= kerb - 1.3; s += 0.25) {
+                for (const y of [PERSON.y0, (PERSON.y0 + PERSON.y1) / 2, PERSON.y1]) {
+                    expect(mesh.querySphere(d.x + d.nx * s, d.y + y, d.z + d.nz * s, PERSON.r - 0.02, out), `door at ${d.x}, ${d.z}`).toBe(false);
+                }
+            }
+        }
+        const t = new NetTraffic(level, { ...ALL, signals: true });
+        const ids = t.movers.map((m, i) => (m.kind === 'person' ? i : -1)).filter((i) => i >= 0);
+        const pl = newPlace();
+        const was = ids.map(() => -1);
+        let entered = 0, left = 0, hiddenMax = 0, hiddenNow = 0, offLine = 0;
+        const STEPS = 6000; // 5 min at 20 Hz
+        for (let k = 1; k <= STEPS; k++) {
+            const tick = k * 50;
+            t.at(tick);
+            hiddenNow = 0;
+            ids.forEach((q, n) => {
+                const ph = t.inspect(q).phase;
+                if (ph === 7 && was[n] !== 7) entered++;
+                if (ph === 8 && was[n] === 7) left++;
+                if (t.hidden(q)) hiddenNow++;
+                const d = t.doorUse(q);
+                if (d >= 0) {
+                    // in the doorway: on the line through the door's middle, square to its face
+                    const door = level.doors[d];
+                    t.place(q, tick, pl);
+                    const lateral = Math.abs((pl.x - door.x) * door.nz - (pl.z - door.z) * door.nx);
+                    if (lateral > door.width / 2 - PERSON.r) offLine++;
+                }
+                if (ph === 7) {
+                    // inside the building it went into
+                    t.place(q, tick, pl);
+                    const bd = level.buildings.find((b) => pl.x > b.x0 && pl.x < b.x1 && pl.z > b.z0 && pl.z < b.z1);
+                    expect(bd, `person ${q} inside`).toBeDefined();
+                }
+                was[n] = ph;
+            });
+            hiddenMax = Math.max(hiddenMax, hiddenNow);
+        }
+        console.log(`doors, 5 min: ${entered} went in, ${left} came out, ${hiddenNow} of ${ids.length} inside at the end (most ${hiddenMax}), off the door line ${offLine}`);
+        expect(entered).toBeGreaterThan(50);
+        expect(left).toBeGreaterThan(20);
+        expect(offLine).toBe(0);
+        // most people stay out on the streets
+        expect(hiddenMax).toBeLessThan(ids.length * 0.4);
+    });
+
     it('is the same at a tick however it got there: straight there, step by step, or back in time', () => {
         const ticks = [0, 61234, 300000, 75000, 300001, 1000];
         const fresh = (): NetTraffic => new NetTraffic(buildFirstMap(), { ...ALL, signals: true });

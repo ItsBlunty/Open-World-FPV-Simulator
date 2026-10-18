@@ -1,6 +1,6 @@
 // The network traffic model (signals on): signalled junctions on the city grid, cars that follow each
 // other, queue at red lights and turn at junctions, and people who walk the sidewalks, wait at the
-// crossings and cross on the walk signal.
+// crossings and cross on the walk signal, and go in and out of the city buildings' street doors.
 //
 // It is a small simulation stepped every STEP_TICKS sim ticks (20 Hz), in lockstep with the sim tick:
 // the state at step k is a function of k alone (it starts from the same seeded state every time and
@@ -80,6 +80,15 @@ const CROSS_ALONG = 1.5;
 const WALK_OFF = 0.3;
 const QUEUE = 0.7;
 const CROSS_OFF = 0.35;
+/**
+ * Going into buildings [design choices]: a person walking a block's side goes in at one of its doors one time in
+ * four (ENTER_PCT), walks INSIDE m in past the glass (out of sight in the building), stays DWELL_MIN to DWELL_MAX s,
+ * then comes out and walks on either way.
+ */
+const ENTER_PCT = 25;
+const INSIDE = 1.5;
+const DWELL_MIN = 20;
+const DWELL_MAX = 120;
 /** the fastest a person crosses, m/s: the flashing phase (12 s) must see a road (19 m) crossed */
 const V_CROSS_MIN = 1.5;
 /**
@@ -146,11 +155,12 @@ function draw(st: Uint32Array, i: number): number {
 
 // per-car state slots
 const C_E = 0, C_S = 1, C_V = 2, C_GO = 3, C_NEXT = 4, C_ACC = 5, C_V0 = 6, CN = 7;
-// per-person state slots: phase (0 to a hub, 1 to a crossing queue, 2 waiting, 3 crossing, 4 to a hub after crossing),
-// edge from a to b, distance along it, speed, base speed, target hub, previous hub (or -1 - crossing), crossing, side,
-// queue row, kerb distance (crossing), lane offset
+// per-person state slots: phase (0 to a hub, 1 to a crossing queue, 2 waiting, 3 crossing, 4 to a hub after crossing,
+// 5 along the sidewalk to a door, 6 in through it, 7 inside, 8 out of it), edge from a to b, distance along it, speed,
+// base speed, target hub, previous hub (or -1 - crossing), crossing, side, queue row, kerb distance (crossing), lane
+// offset, which ends of the edge the lane offset eases in at (1 start, 2 end), door, tick to come out at
 const P_PH = 0, P_AX = 1, P_AZ = 2, P_BX = 3, P_BZ = 4, P_LEN = 5, P_S = 6, P_V = 7, P_VB = 8, P_H = 9, P_PREV = 10;
-const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, PN = 16;
+const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, P_EASE = 16, P_DOOR = 17, P_OUT = 18, PN = 19;
 
 interface Checkpoint {
     step: number;
@@ -188,6 +198,11 @@ export class NetTraffic implements TrafficModel {
     private readonly crossings: Crossing[] = [];
     /** crossings at each hub */
     private readonly crossAt: number[][] = [];
+    /** the doors along each block side (block * 4 + c, the side from corner hub c to c + 1), by Level.doors index */
+    private readonly sideDoors: number[][] = [];
+    /** per door: the point on its side's walking line in front of it, and the point INSIDE m in past its glass */
+    private readonly doorFront: [number, number][] = [];
+    private readonly doorIn: [number, number][] = [];
 
     // state
     private readonly nCars: number;
@@ -443,6 +458,15 @@ export class NetTraffic implements TrafficModel {
                 corner.set(`${kx},${kz}`, bi * 4 + c);
             }
         });
+        // doors: each on the block side its face looks onto (side c runs from hub c to c + 1: north, east, south, west)
+        for (let k = 0; k < level.blocks.length * 4; k++) this.sideDoors.push([]);
+        (level.doors ?? []).forEach((d, di) => {
+            const b = level.blocks[d.block];
+            const c = d.nz < 0 ? 0 : d.nx > 0 ? 1 : d.nz > 0 ? 2 : 3;
+            this.sideDoors[d.block * 4 + c].push(di);
+            this.doorFront.push(c === 0 ? [d.x, b.z0 + HUB_IN] : c === 1 ? [b.x1 - HUB_IN, d.z] : c === 2 ? [d.x, b.z1 - HUB_IN] : [b.x0 + HUB_IN, d.z]);
+            this.doorIn.push([d.x - d.nx * (d.depth + INSIDE), d.z - d.nz * (d.depth + INSIDE)]);
+        });
         const h = this.half;
         level.blocks.forEach((b, bi) => {
             for (let c = 0; c < 4; c++) {
@@ -542,6 +566,18 @@ export class NetTraffic implements TrafficModel {
             }
         });
         return out;
+    }
+
+    /** Person mover i is out of sight inside a building. */
+    hidden(i: number): boolean {
+        return i >= this.nCars && this.people[(i - this.nCars) * PN + P_PH] === 7;
+    }
+
+    /** The door (Level.doors index) mover i is walking in or out through, else -1. */
+    doorUse(i: number): number {
+        if (i < this.nCars) return -1;
+        const o = (i - this.nCars) * PN, ph = this.people[o + P_PH];
+        return ph === 6 || ph === 8 ? this.people[o + P_DOOR] : -1;
     }
 
     /** Every fixed box of the signals. */
@@ -810,6 +846,14 @@ export class NetTraffic implements TrafficModel {
         p[o + P_S] = 0;
         p[o + P_V] = v;
         p[o + P_OFF] = off;
+        p[o + P_EASE] = 3;
+    }
+
+    /** The point on the walking line in front of door d, WALK_OFF to the right of the way to (tx, tz). */
+    private laneAt(d: number, tx: number, tz: number): [number, number] {
+        const [fx, fz] = this.doorFront[d];
+        const l = Math.sqrt((tx - fx) * (tx - fx) + (tz - fz) * (tz - fz));
+        return [fx - (tz - fz) / l * WALK_OFF, fz + (tx - fx) / l * WALK_OFF];
     }
 
     /** Where person q waits (row 0 at the crossing end, row 1 behind) to cross crossing cid from `side`. */
@@ -842,6 +886,18 @@ export class NetTraffic implements TrafficModel {
         for (let q = 0; q < this.nPeople; q++) {
             const o = q * PN;
             const ph = p[o + P_PH];
+            if (ph === 7) {
+                if (tick < p[o + P_OUT]) continue;
+                // out again, on either way along the side
+                const a = p[o + P_H], b = p[o + P_PREV];
+                const back = draw(this.rngPeople, q) % 2 === 1;
+                const to = back ? b : a;
+                p[o + P_H] = to;
+                p[o + P_PREV] = back ? a : b;
+                const [lx, lz] = this.laneAt(p[o + P_DOOR], this.hubX[to], this.hubZ[to]);
+                this.walkEdge(q, 8, p[o + P_BX], p[o + P_BZ], lx, lz, p[o + P_VB], 0);
+                continue;
+            }
             if (ph === 2) {
                 const cid = p[o + P_C];
                 const j = this.crossings[cid].j;
@@ -857,6 +913,21 @@ export class NetTraffic implements TrafficModel {
             p[o + P_S] = p[o + P_LEN];
             if (ph === 1) {
                 p[o + P_PH] = 2;
+            } else if (ph === 5) {
+                // at the door: in through it
+                const d = p[o + P_DOOR];
+                const [ix, iz] = this.doorIn[d];
+                const [lx, lz] = this.laneAt(d, this.hubX[p[o + P_H]], this.hubZ[p[o + P_H]]);
+                this.walkEdge(q, 6, lx, lz, ix, iz, p[o + P_VB], 0);
+            } else if (ph === 6) {
+                p[o + P_PH] = 7;
+                p[o + P_OUT] = tick + (DWELL_MIN + (draw(this.rngPeople, q) % (DWELL_MAX - DWELL_MIN + 1))) * 1000;
+            } else if (ph === 8) {
+                // back on the sidewalk, on to the hub
+                const [fx, fz] = this.doorFront[p[o + P_DOOR]];
+                const h = p[o + P_H];
+                this.walkEdge(q, 0, fx, fz, this.hubX[h], this.hubZ[h], p[o + P_VB], WALK_OFF);
+                p[o + P_EASE] = 2;
             } else if (ph === 3) {
                 const cid = p[o + P_C], x = this.crossings[cid];
                 const h = p[o + P_SIDE] ? x.hA : x.hB;
@@ -880,9 +951,20 @@ export class NetTraffic implements TrafficModel {
         const pick = opts[draw(this.rngPeople, q) % opts.length];
         const hx = this.hubX[h], hz = this.hubZ[h];
         if (pick >= 0) {
-            this.walkEdge(q, 0, hx, hz, this.hubX[pick], this.hubZ[pick], p[o + P_VB], WALK_OFF);
             p[o + P_H] = pick;
             p[o + P_PREV] = h;
+            // along the block's side; now and then in at one of its doors on the way
+            const side = blk * 4 + (pick === blk * 4 + ((c + 1) % 4) ? c : (c + 3) % 4);
+            const doors = this.sideDoors[side];
+            if (doors.length && draw(this.rngPeople, q) % 100 < ENTER_PCT) {
+                const d = doors[draw(this.rngPeople, q) % doors.length];
+                const [fx, fz] = this.doorFront[d];
+                this.walkEdge(q, 5, hx, hz, fx, fz, p[o + P_VB], WALK_OFF);
+                p[o + P_EASE] = 1;
+                p[o + P_DOOR] = d;
+                return;
+            }
+            this.walkEdge(q, 0, hx, hz, this.hubX[pick], this.hubZ[pick], p[o + P_VB], WALK_OFF);
             return;
         }
         const cid = -1 - pick;
@@ -907,6 +989,12 @@ export class NetTraffic implements TrafficModel {
         let hx = 1, hz = 0;
         if (len > 1e-9) { hx = (bx - ax) / len; hz = (bz - az) / len; }
         const ph = p[o + P_PH];
+        if (ph === 7) {
+            // inside, out of sight
+            out.x = bx; out.z = bz; out.y = this.walkY;
+            out.hx = hx; out.hz = hz;
+            return;
+        }
         if (ph === 2) {
             // waiting: facing across
             const x = this.crossings[p[o + P_C]];
@@ -916,7 +1004,8 @@ export class NetTraffic implements TrafficModel {
             return;
         }
         // on a sidewalk keep to the right, easing in and out at the ends so the path stays continuous
-        const ease = Math.min(1, s / 0.6, (len - s) / 0.6);
+        const e = p[o + P_EASE];
+        const ease = Math.min(1, e & 1 ? s / 0.6 : 1, e & 2 ? (len - s) / 0.6 : 1);
         const off = p[o + P_OFF] * (ease > 0 ? ease : 0);
         out.x = ax + hx * s - hz * off;
         out.z = az + hz * s + hx * off;

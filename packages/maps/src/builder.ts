@@ -13,7 +13,9 @@ export const MATERIALS = [
     // city building fronts: the renderer paints storeys of windows on their walls
     'facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark',
     // the glass set back in city windows: punched windows and shop fronts, and glass towers' ribbon windows (mullions painted)
-    'window', 'window-ribbon'
+    'window', 'window-ribbon',
+    // the tower crane's steelwork (painted, as most tower cranes are)
+    'crane'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -38,6 +40,52 @@ export interface Block {
     y: number;
 }
 
+/**
+ * A city building's street entrance: a 2.5 m shop-front bay whose glass runs down to the sidewalk (no sill), so
+ * people can walk in. (x, z) is the middle of the opening on the building's outer face, (nx, nz) the face's
+ * outward normal; the glass (and the door in it) sits `depth` m in from the face.
+ */
+export interface Door {
+    x: number;
+    z: number;
+    /** the sidewalk under it, m */
+    y: number;
+    nx: number;
+    nz: number;
+    /** the opening's width and height, m */
+    width: number;
+    height: number;
+    depth: number;
+    /** the city block (index into Level.blocks) and the building (index into Level.buildings) */
+    block: number;
+    building: number;
+}
+
+/** A named city building, for the renderer's signs and the people's doors (not part of the collision). */
+export interface Building {
+    name: string;
+    /** a number for its sign's colours: the renderer's */
+    look: number;
+    /** footprint of the street floor, m */
+    x0: number;
+    z0: number;
+    x1: number;
+    z1: number;
+    /** the sidewalk under it and its highest roof, m */
+    y0: number;
+    top: number;
+    /** footprint of its highest part (a podium's set-back tower; else the footprint above) */
+    tx0: number;
+    tz0: number;
+    tx1: number;
+    tz1: number;
+    storeys: number;
+    /** the faces that look onto a street: a mask of FACE.nz, pz, nx, px */
+    street: number;
+    /** its entrance: index into Level.doors */
+    door: number;
+}
+
 export interface Level {
     id: string;
     version: number;
@@ -52,6 +100,9 @@ export interface Level {
     spawns: SpawnPoint[];
     /** the city blocks, for traffic routes (not part of the collision, nor of its hash) */
     blocks: Block[];
+    /** named city buildings and their entrances (not part of the collision, nor of its hash) */
+    buildings: Building[];
+    doors: Door[];
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */
@@ -89,6 +140,8 @@ export class LevelBuilder {
     private readonly paint = new Map<Material, number[]>();
     readonly spawns: SpawnPoint[] = [];
     readonly blocks: Block[] = [];
+    readonly buildings: Building[] = [];
+    readonly doors: Door[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -160,6 +213,35 @@ export class LevelBuilder {
         else this.quad(m, a, d, c, b);
     }
 
+    /**
+     * A straight bar of square section w from point a to point b (lattice members, ropes): its sides are
+     * parallel to the line a-b, its ends square to it. Points are [x, y, z]; only + - * / and sqrt are used.
+     */
+    bar(m: Material, a: number[], b: number[], w: number): this {
+        const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+        const l = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (l <= 0) return this;
+        // u: square to the bar and level (or along x for an upright bar), v square to both
+        let ux = -dz, uy = 0, uz = dx;
+        let ul = Math.sqrt(ux * ux + uz * uz);
+        if (ul < 1e-6 * l) { ux = l; uz = 0; ul = l; }
+        ux = (ux / ul) * w / 2; uy = 0; uz = (uz / ul) * w / 2;
+        let vx = (dy * uz - dz * uy) / l, vy = (dz * ux - dx * uz) / l, vz = (dx * uy - dy * ux) / l;
+        const vl = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        vx = (vx / vl) * w / 2; vy = (vy / vl) * w / 2; vz = (vz / vl) * w / 2;
+        const p = (q: number[], su: number, sv: number): number[] => [q[0] + su * ux + sv * vx, q[1] + su * uy + sv * vy, q[2] + su * uz + sv * vz];
+        const a0 = p(a, -1, -1), a1 = p(a, 1, -1), a2 = p(a, 1, 1), a3 = p(a, -1, 1);
+        const b0 = p(b, -1, -1), b1 = p(b, 1, -1), b2 = p(b, 1, 1), b3 = p(b, -1, 1);
+        const centre = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+        this.quadOut(m, centre, a0, a1, b1, b0);
+        this.quadOut(m, centre, a1, a2, b2, b1);
+        this.quadOut(m, centre, a2, a3, b3, b2);
+        this.quadOut(m, centre, a3, a0, b0, b3);
+        this.quadOut(m, centre, a0, a1, a2, a3);
+        this.quadOut(m, centre, b0, b1, b2, b3);
+        return this;
+    }
+
     /** Box given by its footprint centre and size, from y0 up h. */
     block(m: Material, cx: number, cz: number, sx: number, sz: number, y0: number, h: number): this {
         return this.box(m, cx - sx / 2, y0, cz - sz / 2, cx + sx / 2, y0 + h, cz + sz / 2);
@@ -221,7 +303,8 @@ export class LevelBuilder {
             collision.set(a, o);
             o += a.length;
         }
-        return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice() };
+        return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
+            buildings: this.buildings.slice(), doors: this.doors.slice() };
     }
 }
 

@@ -282,7 +282,7 @@ export class TrafficView {
             l.x = p.x; l.y = p.y; l.z = p.z; l.hx = p.hx; l.hz = p.hz;
         }
         this.updateCars(model);
-        this.updatePeople();
+        this.updatePeople(model);
         this.updateLamps(model, tick);
     }
 
@@ -345,11 +345,19 @@ export class TrafficView {
         if (M.brake.instanceColor) M.brake.instanceColor.needsUpdate = true;
     }
 
-    private updatePeople(): void {
+    private updatePeople(model: TrafficModel): void {
         const M = this.meshes;
         if (!M.bean) return;
         let h = 0;
+        const gone = this.r.makeScale(0, 0, 0);
         this.people.forEach((i, k) => {
+            if (model.hidden?.(i)) {
+                // inside a building: drawn nowhere
+                M.bean.setMatrixAt(k, gone);
+                for (let s = 0; s < 2; s++) for (const part of [M.eye, M.pupil, M.leg]) part.setMatrixAt(2 * k + s, gone);
+                if (this.hatted[h] === i) M.hat.setMatrixAt(h++, gone);
+                return;
+            }
             const phase = (this.dist[i] / STRIDE) * 2 * Math.PI;
             const bob = 0.035 * Math.abs(Math.sin(phase));
             const f = this.frame(i);

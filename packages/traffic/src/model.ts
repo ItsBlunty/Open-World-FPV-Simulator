@@ -11,7 +11,7 @@ import type { Place } from './route';
 export const DT = 0.001;
 
 /** Bumped with any change that moves a mover or changes a shape: part of the world hash (replays). */
-export const TRAFFIC_VERSION = 5;
+export const TRAFFIC_VERSION = 6;
 
 export interface TrafficConfig {
     cars: boolean;
@@ -80,4 +80,8 @@ export interface TrafficModel {
     lamp(h: number, tick: number): Lamp;
     /** Car i is braking (the renderer's brake lights). */
     braking(i: number): boolean;
+    /** Person i is out of sight inside a building (the renderer hides it; it stays solid where it is). */
+    hidden?(i: number): boolean;
+    /** The door (Level.doors index) person i is walking in or out through, else -1 (the renderer opens it). */
+    doorUse?(i: number): number;
 }

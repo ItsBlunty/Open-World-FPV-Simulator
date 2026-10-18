@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18), and after the fisheye lens (2026-10-18), and after the M2 physics review and the rotor inflow, sim-core/0.6.0 (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18), and after the fisheye lens (2026-10-18), and after the M2 physics review and the rotor inflow, sim-core/0.6.0 (2026-10-18), and after the crane, building names and doors (map v5, traffic v6, 2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -70,7 +70,10 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Airflow fix built: sim-core/0.6.0, rotor inflow (§0p).** Each prop's thrust follows the air through it, checked on
   NeuroBEM's measured 5-inch flights; Nazgul only; **Settings > Physics > "Classic physics"** brings back 0.5.0 bit for
   bit (owner's request). **Waiting for the owner to fly both and compare**, especially flat drops (now faster, §0p).
-  Self-test hashes: flight `af127b88…` (classic `cd45c59c…`), traffic `80f0c9aa…`.
+  Self-test hashes: flight `af127b88…` (classic `cd45c59c…`), traffic `80f0c9aa…` (now `59f44e0a…`, §0q).
+- **City pass, map v5 / traffic v6 (owner, 2026-10-18, §0q):** a real lattice tower crane, a name sign on every city
+  building, and street doors that walkers go in and out of. **Waiting for the owner to look and fly it** (the crane is
+  open lattice: the quad can fly through it). Hashes: map `e9343a1d…`, traffic `59f44e0a…`; flight hashes unchanged.
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools. The owner tests on the **Pages build**, never local tabs: never start dev servers
@@ -760,6 +763,55 @@ rotor speed does not rise as the props unload (top speed a little low); yaw torq
 no front/rear rotor interaction; no inflow lag; Johnson's descent model (the vortex ring) is not built, prop wash
 (wake.ts) still supplies that loss; NeuroBEM's measured 33 ms motor lag not applied (owner). The NeuroBEM data
 (`processed_data.zip`) lives only in the session scratchpad: download it again to re-run the scripts.
+
+## 0q. Crane, building names, people going into buildings (owner, 2026-10-18): built, waiting for the owner
+
+**Asked:** "Make the crane more realistic, etc. Put names on buildings, have some of the walking NPCs enter/leave buildings."
+
+**Crane (`first-map.ts towerCrane`, map v5).** Modelled on a Liebherr 172 EC-B 8 Litronic flat-top, from Liebherr's FEM
+technical data sheet (copy at ueg.qa, read 2026-10-18): 16 EC tower of 1.6 x 1.6 m sections 3.9 m long (12 sections,
+slewing unit at 47.45 m), a 50 m jib (a listed length), 13.4 m counter-jib, 7 ballast blocks of 3150 x 1180 x 280 mm
+(2.5 t each; 1.04 m^3 x 2.4 t/m^3 checks out) for that jib. Estimates: member sizes (chords 14 cm, bracing 7 cm),
+the jib's section (1.6 m wide, 1.8 m deep triangle, 2.5 m Warren panels), the cab, the 4.5 m foundation block's
+height. The trolley sits 20 m out with the hook block on two rope falls down to 30 m (above the 24 m steel frame); the
+rope is 5 cm thick (real ~16 mm, estimate) so it shows and is solid. New `LevelBuilder.bar` (a square bar between any
+two points) and a `crane` material (yellow). It is still: no slewing (a moving crane needs it in the traffic-style
+moving-surface world; not built).
+
+**Names and doors (`first-map.ts building`, `builder.ts` `Building`, `Door`).** Each of the 112 city buildings gets a
+made-up name (shops on low ones, offices / flats / hotels mid-height, towers in the centre, a few FPV jokes: "Prop
+Wash Laundry", "Turtle Mode Tacos"...) and one street entrance: the middle shop-front bay on a street-facing face, its
+sill left out so the glass runs to the sidewalk. Names and doors come from their own `Rng(7)`, so the rest of the city
+is drawn exactly as before. `Level.buildings` / `Level.doors` are metadata (not in the collision hash).
+
+**Rendering (`render/buildings.ts`, render only).** One texture with every name; a sign over the shop fronts on each
+street face (over the door on its face), and towers of 12+ storeys carry their name across the top storey. Signs sit
+3 cm off the wall. Each entrance has a dark frame, fixed side glass and two automatic sliding leaves inside the 15 cm
+reveal, which slide open (0.6 s) when a walker going through is within 2.2 m. People inside are not drawn
+(`render/traffic.ts`).
+
+**Walkers (`network.ts`, TRAFFIC_VERSION 6).** A walker starting along a block side with a door goes in one time in
+four: along the sidewalk to the door (phase 5), in through it to 1.5 m past the glass (6), stays 20-120 s out of
+sight (7, `hidden()`; still solid there, unreachable behind the glass), comes out (8) and walks on either way. All
+from the tick alone, as before. The signals-off loop model has no doors.
+
+**Evidence:** `pnpm test` 49 files, 443 tests (new: crane lattice and doors in `first-map.test.ts`: a 0.25 m sphere
+fits through every tower section's face, rays pass down through the jib, the hook block under the trolley; every
+building named uniquely with its door on a street face and no sill; `traffic.test.ts` doors: the way out of every door
+is clear for a person, and over 5 min 68 people went in and 49 came out, at most 22 of 270 inside, nobody in a doorway
+off its middle line). Typecheck and production build clean. Seen in the built-in browser (dev server, WebGPU):
+the crane from the street and up close (cab, truss jib), "Ashford Court" sign and doors, a walker going into
+"Lindqvist's Deli" with the doors opening and closing behind (screenshots in the session's tool-results, not saved).
+Re-pinned: map `e9343a1d…` (226 642 triangles), traffic self-test `59f44e0a…`. Flight self-test hashes unchanged
+(the flight is in the park).
+
+**For the owner:** look at the crane and fly through its tower and jib (thin bars are solid: tight gaps), read some
+signs, watch a door. Ask: crane slewing wanted? Names OK (want real-sounding only, or more jokes)? How many people
+should go in (25 % of block-side walks now)?
+
+**Left open:** `?selftest` not run in Chrome on the Pages build yet (Node hashes re-pinned); the crane does not move;
+no interiors (people vanish 1.5 m behind the door); signs are not lit at night (no night); the car park, plaza and
+surface-parking blocks have no names or doors.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

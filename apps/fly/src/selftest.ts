@@ -70,7 +70,7 @@ export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOv
 }
 
 /** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
-export const TRAFFIC_HASH = '80f0c9aa6bb84b35c3cb14e7054860f8597f8a9eca359370e6478a00b8d587cc';
+export const TRAFFIC_HASH = '59f44e0a5769fcda52164d46b3519f7596344cab51417156da0eb77ea1e59151';
 
 /**
  * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops

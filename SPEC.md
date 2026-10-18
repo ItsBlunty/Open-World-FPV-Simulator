@@ -177,3 +177,4 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-18 | (owner's request) Compare with the old physics | A "Classic physics" toggle that loads sim-core/0.5.0's model |
 | 2026-10-18 | Download NeuroBEM's 627 MB measured-flight data to check the model? | Yes, carefully (token budget) |
 | 2026-10-18 | Use NeuroBEM's measured 33 ms motor lag for the Nazgul? | No, leave 17 ms |
+| 2026-10-18 | (owner's request) City pass | A realistic tower crane, names on buildings, some walkers going in and out of buildings |

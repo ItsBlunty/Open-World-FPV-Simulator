@@ -40,7 +40,9 @@ const COLOURS: Record<Material, number> = {
     'facade-dark': 0x6f6b66,
     // window glass: dark, with a little blue from the sky
     window: 0x26323d,
-    'window-ribbon': 0x2a3a48
+    'window-ribbon': 0x2a3a48,
+    // tower crane steelwork: the yellow most tower cranes are painted
+    crane: 0xf2b705
 };
 
 /** A glass tower's mullions: a thin frame every 1.5 m along its ribbon windows. */
@@ -49,7 +51,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon', 'crane']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {
@@ -76,7 +78,7 @@ function mullions(): FloatNode {
 
 function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
     const glassy = m === 'glass' || m === 'water' || m === 'window' || m === 'window-ribbon';
-    const mat = new THREE.MeshStandardNodeMaterial({ roughness: glassy ? (m.startsWith('window') ? 0.12 : 0.25) : 0.9, metalness: m === 'metal' ? 0.3 : 0 });
+    const mat = new THREE.MeshStandardNodeMaterial({ roughness: glassy ? (m.startsWith('window') ? 0.12 : 0.25) : 0.9, metalness: m === 'metal' || m === 'crane' ? 0.3 : 0 });
     const base = color(COLOURS[m]);
     if (m === 'window-ribbon') {
         const f = mullions();

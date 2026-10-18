@@ -7,10 +7,10 @@
 // here changes the collision hash, so bump MAP_VERSION with it.
 
 import { FACE, LevelBuilder, Rng } from './builder';
-import type { Level, Material } from './builder';
+import type { Building, Level, Material } from './builder';
 
 export const MAP_ID = 'mixed-1';
-export const MAP_VERSION = 4;
+export const MAP_VERSION = 5;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -308,6 +308,18 @@ const SHOP: WindowRow = { sill: 0.3, head: 3.0, bay: 3, width: 2.5, glass: 'wind
 /** A glass tower's ribbon windows: glass all along each storey from 0.8 to 3.2 m (mullions painted on). */
 const RIBBON: WindowRow = { sill: 0.8, head: 3.2, bay: 0, width: 0, glass: 'window-ribbon' };
 
+/** The street entrance of a building: which wall (0 -z, 1 +z, 2 -x, 3 +x: windowedBlock's order) and which ground-floor bay. */
+interface DoorBay {
+    wall: number;
+    bay: number;
+}
+
+/** Where window `bay` of a row starts along a wall that starts at len0 and is len long (whole bays, centred). */
+function doorStart(len0: number, len: number, row: WindowRow, bay: number): number {
+    const n = Math.floor(len / row.bay);
+    return len0 + (len - n * row.bay) / 2 + bay * row.bay + (row.bay - row.width) / 2;
+}
+
 /**
  * A building block with its windows set back REVEAL into the walls: a glass core REVEAL in from the
  * footprint, wrapped in the wall's outer skin of solid bands between the window rows and piers between
@@ -315,7 +327,7 @@ const RIBBON: WindowRow = { sill: 0.8, head: 3.2, bay: 0, width: 0, glass: 'wind
  * fronts), `upper` the rest. Faces against other solid geometry are left out (LevelBuilder.box skip).
  */
 function windowedBlock(b: LevelBuilder, m: Material, x0: number, z0: number, x1: number, z1: number, y0: number, storeys: number,
-    ground: WindowRow, upper: WindowRow): void {
+    ground: WindowRow, upper: WindowRow, door?: DoorBay): void {
     const R = REVEAL;
     const y1 = y0 + storeys * STOREY;
     const rows: WindowRow[] = [];
@@ -343,9 +355,15 @@ function windowedBlock(b: LevelBuilder, m: Material, x0: number, z0: number, x1:
         const len = w.len1 - w.len0;
         // solid bands: under the first sill, between each head and the next sill, over the last head
         let y = y0;
+        const wi = walls.indexOf(w);
         rows.forEach((row, s) => {
             const sill = y0 + s * STOREY + row.sill;
-            w.span(w.len0, w.len1, y, sill, y === y0 ? FACE.bottom : 0);
+            if (s === 0 && door && door.wall === wi) {
+                // the entrance bay: no sill, its glass (and the door in it) runs down to the sidewalk
+                const da = doorStart(w.len0, len, row, door.bay);
+                w.span(w.len0, da, y, sill, FACE.bottom);
+                w.span(da + row.width, w.len1, y, sill, FACE.bottom);
+            } else w.span(w.len0, w.len1, y, sill, y === y0 ? FACE.bottom : 0);
             y = y0 + s * STOREY + row.head;
             if (!row.bay) return; // a ribbon: glass the whole way along
             // piers between the windows: whole bays, centred on the wall, the spare length in the end piers
@@ -364,18 +382,39 @@ function windowedBlock(b: LevelBuilder, m: Material, x0: number, z0: number, x1:
     }
 }
 
-function building(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
+/** The city block a building stands in: its sidewalk's bounds and its index in Level.blocks. */
+interface BlockRef {
+    x0: number;
+    z0: number;
+    x1: number;
+    z1: number;
+    index: number;
+}
+
+function building(b: LevelBuilder, r: Rng, names: Rng, used: Set<string>, blk: BlockRef, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
     const floors = r.int(2, maxFloors);
     const h = floors * STOREY;
     const m = h > 40 && r.chance(1, 2) ? 'facade-glass' : r.pick(MATS_BUILDING);
     const upper = m === 'facade-glass' ? RIBBON : PUNCHED;
+    // Its name and entrance come from their own Rng, so the city's shapes are drawn as before names existed.
+    // The entrance is in the middle bay of a face that looks onto a street (within a set-back of the block's edge).
+    const faces = [z0 - blk.z0 < 6, blk.z1 - z1 < 6, x0 - blk.x0 < 6, blk.x1 - x1 < 6];
+    const mask = [FACE.nz, FACE.pz, FACE.nx, FACE.px];
+    const street = faces.reduce((a, f, k) => a | (f ? mask[k] : 0), 0);
+    const open = faces.map((f, k) => (f ? k : -1)).filter((k) => k >= 0);
+    const wall = open.length ? names.pick(open) : 0;
+    const len = wall < 2 ? x1 - x0 : z1 - z0;
+    const bay = Math.floor(Math.floor(len / SHOP.bay) / 2);
+    const door: DoorBay = { wall, bay };
+    let t = [x0, z0, x1, z1];
     if (h > 30 && r.chance(1, 2)) {
         // podium and a set-back tower
-        windowedBlock(b, m === 'facade-glass' ? 'facade-concrete' : m, x0, z0, x1, z1, 0.15, 3, SHOP, PUNCHED);
+        windowedBlock(b, m === 'facade-glass' ? 'facade-concrete' : m, x0, z0, x1, z1, 0.15, 3, SHOP, PUNCHED, door);
         const ix = Math.min(6, (x1 - x0) / 4);
         const iz = Math.min(6, (z1 - z0) / 4);
         windowedBlock(b, m, x0 + ix, z0 + iz, x1 - ix, z1 - iz, 0.15 + 3 * STOREY, floors - 3, upper, upper);
-    } else windowedBlock(b, m, x0, z0, x1, z1, 0.15, floors, SHOP, upper);
+        t = [x0 + ix, z0 + iz, x1 - ix, z1 - iz];
+    } else windowedBlock(b, m, x0, z0, x1, z1, 0.15, floors, SHOP, upper, door);
     // rooftop clutter: AC units, a stair head
     const top = 0.15 + h;
     const n = r.int(0, 3);
@@ -385,6 +424,53 @@ function building(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z
         if (h > 30) continue; // a set-back tower's roof is smaller; keep it clear
         b.block('metal', cx, cz, 2, 1.5, top, 1.2);
     }
+    // the entrance: the middle of its opening on the outer face, and the face's outward normal
+    const along = doorStart(wall < 2 ? x0 : z0, len, SHOP, bay) + SHOP.width / 2;
+    const NX = [0, 0, -1, 1], NZ = [-1, 1, 0, 0];
+    const dx = wall === 2 ? x0 : wall === 3 ? x1 : along;
+    const dz = wall === 0 ? z0 : wall === 1 ? z1 : along;
+    b.doors.push({
+        x: dx, z: dz, y: 0.15, nx: NX[wall], nz: NZ[wall], width: SHOP.width, height: SHOP.head, depth: REVEAL,
+        block: blk.index, building: b.buildings.length
+    });
+    const bld: Building = {
+        name: buildingName(names, used, floors), look: names.u32(), x0, z0, x1, z1, y0: 0.15, top,
+        tx0: t[0], tz0: t[1], tx1: t[2], tz1: t[3], storeys: floors, street, door: b.doors.length - 1
+    };
+    b.buildings.push(bld);
+}
+
+// Building names: made up (any likeness to a real business is chance), by what a building of that height
+// usually is: shops and cafes in low ones, offices, flats and hotels in the middle, towers in the centre.
+const NAME_WORDS = [
+    'Maple', 'Cedar', 'Granite', 'Summit', 'Northgate', 'Riverside', 'Elm', 'Beacon', 'Meridian', 'Kestrel', 'Orchard',
+    'Ironwood', 'Ashford', 'Linden', 'Copper', 'Juniper', 'Halcyon', 'Larkspur', 'Westbrook', 'Harbour', 'Bramble',
+    'Foxglove', 'Hawthorn', 'Millstone', 'Oakridge', 'Pinecrest', 'Quarry', 'Rosewood', 'Saltmarsh', 'Thistle',
+    'Wren', 'Alder', 'Bellweather', 'Cobalt', 'Driftwood', 'Emberly', 'Fairhaven', 'Glenmore', 'Highfield', 'Kingsley'
+];
+const SHOPS = [
+    'Bakery', 'Books', 'Coffee', 'Deli', 'Florist', 'Hardware', 'Pharmacy', 'Barbers', 'Diner', 'Records', 'Toys',
+    'Bikes', 'Pizza', 'Noodle Bar', 'Tailors', 'Laundry', 'Grocer', 'Bistro', 'Opticians', 'Pet Supplies', 'Gym',
+    'Ice Cream', 'Tea Room', 'Hobby Shop', 'Electronics', 'Bagels'
+];
+const SURNAMES = ['Rosa', 'Patel', 'Novak', 'Okafor', 'Lindqvist', 'Moreau', 'Tanaka', 'Kowalski', 'Haddad', 'Murphy', 'Silva', 'Becker', 'Nguyen', 'Ivanova', 'Byrne', 'Costa'];
+/** a few nods to FPV pilots among the shops */
+const FPV_SHOPS = ['Prop Wash Laundry', 'Turtle Mode Tacos', 'Blackbox Coffee', 'Failsafe Insurance', 'Freestyle Bikes', 'Yaw Spin Yoga', 'Power Loop Cycles', 'Dive Bar'];
+const MID = ['Apartments', 'House', 'Hotel', 'Offices', 'Medical Centre', 'Court', 'Lofts', 'Chambers', 'Library', 'Studios'];
+const TALL = ['Tower', 'Plaza', 'Centre', 'Bank', 'Trust', 'Insurance', 'Exchange', 'Heights', 'House', 'Group'];
+
+function buildingName(r: Rng, used: Set<string>, floors: number): string {
+    let name = '';
+    for (let k = 0; k < 20; k++) {
+        if (floors <= 4) {
+            const u = r.int(0, 99);
+            name = u < 8 ? r.pick(FPV_SHOPS) : u < 50 ? `${r.pick(SURNAMES)}'s ${r.pick(SHOPS)}` : `${r.pick(NAME_WORDS)} ${r.pick(SHOPS)}`;
+        } else if (floors <= 10) name = `${r.pick(NAME_WORDS)} ${r.pick(MID)}`;
+        else name = `${r.pick(NAME_WORDS)} ${r.pick(TALL)}`;
+        if (!used.has(name)) break;
+    }
+    used.add(name);
+    return name;
 }
 
 /** A steel frame under construction: columns and beams, no walls, a crane. */
@@ -401,12 +487,95 @@ function construction(b: LevelBuilder, x0: number, z0: number): void {
         // a few decks of planks
         if (k % 2 === 0) b.box('wood', x0 + 6, y, z0 + 6, x0 + 26, y + 0.1, z0 + 26);
     }
-    // tower crane: mast, jib, counter-jib
-    const cx = x0 + 31;
-    const cz = z0 + 31;
-    b.block('metal', cx, cz, 1.6, 1.6, 0.15, 45);
-    b.box('metal', cx - 12, 45, cz - 0.6, cx + 40, 46.5, cz + 0.6);
-    b.box('concrete', cx - 12, 43, cz - 1.5, cx - 6, 45, cz + 1.5);
+    towerCrane(b, x0 + 31, z0 + 31);
+}
+
+/**
+ * A flat-top tower crane, after the Liebherr 172 EC-B 8 Litronic (Liebherr's FEM technical data sheet,
+ * "172 EC-B 8 Litronic", read 2026-10-18): a 16 EC tower of 1.6 x 1.6 m sections 3.9 m long, a 50 m jib (one of
+ * its listed jib lengths), a 13.4 m counter-jib, and for that jib 7 ballast blocks of 3150 x 1180 x 280 mm
+ * (2.5 t each). Member sizes, the jib's cross-section and the cab are estimates; the hoist rope is drawn 5 cm
+ * thick (a real one is about 16 mm [estimate]) so it shows on screen and in the collision.
+ * Every member is a real bar with gaps between, so the quad can fly through the lattice.
+ */
+function towerCrane(b: LevelBuilder, cx: number, cz: number): void {
+    const SEC = 3.9; // tower section length, m
+    const N = 12; // sections: the slewing unit sits at 0.65 + 46.8 m
+    const HW = 0.8; // half the tower's width
+    const CH = 0.14; // chord (corner post) size [estimate]
+    const BR = 0.07; // bracing size [estimate]
+    const base = 0.65;
+    // the foundation block the tower is anchored in (4.5 m square, as the data sheet's foundation anchors)
+    b.block('concrete', cx, cz, 4.5, 4.5, 0.15, base - 0.15);
+    const top = base + N * SEC;
+    const corners = [[-HW, -HW], [HW, -HW], [HW, HW], [-HW, HW]];
+    for (const [dx, dz] of corners) b.block('crane', cx + dx, cz + dz, CH, CH, base, N * SEC);
+    // each face: a strut at every section joint and one diagonal per section, zigzagging up the tower
+    for (let s = 0; s <= N; s++) {
+        const y = base + s * SEC;
+        for (let f = 0; f < 4; f++) {
+            const [ax, az] = corners[f], [bx, bz] = corners[(f + 1) % 4];
+            if (s > 0 && s < N) b.bar('crane', [cx + ax, y, cz + az], [cx + bx, y, cz + bz], BR);
+            if (s === N) continue;
+            const up = (s + f) % 2 === 0;
+            b.bar('crane', [cx + ax, up ? y : y + SEC, cz + az], [cx + bx, up ? y + SEC : y, cz + bz], BR);
+        }
+    }
+    // the slewing unit, with the operator's cab on the jib's right: a painted box with a big front window looking
+    // along the jib, side windows and a floor window, as tower crane cabs have
+    b.block('crane', cx, cz, 2.4, 2.4, top, 1.0);
+    const sy = top + 1.0;
+    b.box('crane', cx + 0.3, top + 0.2, cz + 1.2, cx + 2.1, top + 2.6, cz + 2.9);
+    b.box('glass', cx + 2.1, top + 0.5, cz + 1.3, cx + 2.16, top + 2.45, cz + 2.8, FACE.nx);
+    b.box('glass', cx + 0.9, top + 1.2, cz + 2.9, cx + 1.95, top + 2.4, cz + 2.95, FACE.nz);
+    b.box('crane', cx + 0.25, top + 2.6, cz + 1.15, cx + 2.3, top + 2.75, cz + 2.95);
+    // the jib along +x: a triangular lattice 1.6 m wide and 1.8 m deep [estimates], panels of 2.5 m. The trolley
+    // runs on the two bottom chords.
+    const L = 50, P = 2.5, JW = 0.8, JD = 1.8;
+    const j0 = cx + 1.2;
+    const lo = (x: number, side: number): number[] => [x, sy, cz + side * JW];
+    const hi = (x: number): number[] => [x, sy + JD, cz];
+    b.bar('crane', lo(j0, -1), lo(cx + L, -1), CH);
+    b.bar('crane', lo(j0, 1), lo(cx + L, 1), CH);
+    b.bar('crane', hi(j0), hi(cx + L - 1), CH);
+    // a Warren truss in each sloping face (bottom chord node, top chord node half a panel on, next bottom node),
+    // a strut and a diagonal across the bottom face every panel
+    const tip = cx + L;
+    for (let x = j0; x < tip - 0.01; x += P) {
+        const xn = Math.min(x + P, tip), xh = Math.min(x + P / 2, tip - 1);
+        b.bar('crane', lo(x, -1), lo(x, 1), BR);
+        b.bar('crane', lo(x, -1), lo(xn, 1), BR);
+        for (const side of [-1, 1]) {
+            b.bar('crane', lo(x, side), hi(xh), BR);
+            b.bar('crane', hi(xh), lo(xn, side), BR);
+        }
+    }
+    b.bar('crane', lo(tip, -1), lo(tip, 1), BR);
+    b.bar('crane', lo(tip, -1), hi(tip - 1), BR);
+    b.bar('crane', lo(tip, 1), hi(tip - 1), BR);
+    // the counter-jib along -x: two box beams 2 m apart with a walkway between, the hoist winch, and the
+    // ballast hanging at its end
+    const C = 13.4;
+    const c1 = cx - 1.2, c0 = cx - C;
+    for (const side of [-1, 1]) b.box('crane', c0, sy, cz + side * 1.0 - 0.12, c1, sy + 0.45, cz + side * 1.0 + 0.12);
+    for (let x = c0; x <= c1; x += 2.4) b.box('crane', x, sy, cz - 0.88, x + 0.12, sy + 0.2, cz + 0.88);
+    b.box('metal', c0 + 1, sy + 0.2, cz - 0.4, c1 - 0.5, sy + 0.24, cz + 0.4); // walkway grating
+    for (const side of [-1, 1]) b.box('crane', c0 + 1, sy + 1.1, cz + side * 1.0 - 0.03, c1, sy + 1.16, cz + side * 1.0 + 0.03); // hand rails
+    for (let x = c0 + 1; x <= c1; x += 3) for (const side of [-1, 1]) b.box('crane', x, sy + 0.45, cz + side * 1.0 - 0.03, x + 0.06, sy + 1.1, cz + side * 1.0 + 0.03);
+    b.box('metal', cx - 6.5, sy + 0.24, cz - 0.7, cx - 4.5, sy + 1.4, cz + 0.7); // hoist winch
+    b.box('metal', cx - 3.8, sy + 0.24, cz - 0.7, cx - 2.6, sy + 2.0, cz - 0.1); // switch cabinet
+    for (let k = 0; k < 7; k++) {
+        const x = c0 + 0.1 + k * 0.29;
+        b.box('concrete', x, sy + 0.45 - 3.15, cz - 0.59, x + 0.28, sy + 0.45, cz + 0.59);
+    }
+    // the trolley 20 m out on the jib, its hook block hanging on two falls of rope above the steel frame
+    const tx = cx + 20, hook = 30;
+    b.box('crane', tx - 0.9, sy - 0.5, cz - 0.95, tx + 0.9, sy, cz + 0.95);
+    for (const dx of [-0.3, 0.3]) b.bar('metal', [tx + dx, sy - 0.5, cz], [tx + dx, hook + 1.1, cz], 0.05);
+    b.box('crane', tx - 0.5, hook + 0.3, cz - 0.2, tx + 0.5, hook + 1.1, cz + 0.2);
+    b.box('metal', tx - 0.06, hook - 0.3, cz - 0.06, tx + 0.06, hook + 0.3, cz + 0.06);
+    b.box('metal', tx - 0.06, hook - 0.42, cz - 0.06, tx + 0.3, hook - 0.3, cz + 0.06);
+    b.box('metal', tx + 0.24, hook - 0.42, cz - 0.06, tx + 0.3, hook - 0.15, cz + 0.06);
 }
 
 /**
@@ -491,6 +660,8 @@ function roadMarkings(b: LevelBuilder): void {
 
 function city(b: LevelBuilder, r: Rng): void {
     const BLOCK = PITCH - ROAD;
+    const names = new Rng(7);
+    const used = new Set<string>();
     roadMarkings(b);
     for (let a = 0; a < 12; a++) {
         for (let c = 0; c < 5; c++) {
@@ -500,6 +671,7 @@ function city(b: LevelBuilder, r: Rng): void {
             const x1 = x0 + BLOCK;
             b.box('sidewalk', x0, 0, z0, x1, 0.15, z1);
             b.blocks.push({ x0, z0, x1, z1, y: 0.15 });
+            const blk: BlockRef = { x0, z0, x1, z1, index: b.blocks.length - 1 };
             // (not on the corners: they are for the signal poles and the people waiting at the crossings, traffic network.ts)
             // street lamps by the kerb, 4 m along from each corner: an arm out over the road and the lamp under it
             for (const [lx, lz, out] of [[x0 + 0.4, z0 + 4, -1], [x1 - 0.4, z0 + 4, 1], [x0 + 0.4, z1 - 4, -1], [x1 - 0.4, z1 - 4, 1]]) {
@@ -532,18 +704,18 @@ function city(b: LevelBuilder, r: Rng): void {
             }
             const set = 2 + r.int(0, 3);
             const split = r.int(0, 2);
-            if (split === 0) building(b, r, x0 + set, z0 + set, x1 - set, z1 - set, maxFloors);
+            if (split === 0) building(b, r, names, used, blk, x0 + set, z0 + set, x1 - set, z1 - set, maxFloors);
             else if (split === 1) {
                 const mid = x0 + BLOCK / 2;
-                building(b, r, x0 + set, z0 + set, mid - 2, z1 - set, maxFloors);
-                building(b, r, mid + 2, z0 + set, x1 - set, z1 - set, maxFloors);
+                building(b, r, names, used, blk, x0 + set, z0 + set, mid - 2, z1 - set, maxFloors);
+                building(b, r, names, used, blk, mid + 2, z0 + set, x1 - set, z1 - set, maxFloors);
             } else {
                 const mx = x0 + BLOCK / 2;
                 const mz = z0 + BLOCK / 2;
-                building(b, r, x0 + set, z0 + set, mx - 2, mz - 2, maxFloors);
-                building(b, r, mx + 2, z0 + set, x1 - set, mz - 2, maxFloors);
-                building(b, r, x0 + set, mz + 2, mx - 2, z1 - set, maxFloors);
-                building(b, r, mx + 2, mz + 2, x1 - set, z1 - set, maxFloors);
+                building(b, r, names, used, blk, x0 + set, z0 + set, mx - 2, mz - 2, maxFloors);
+                building(b, r, names, used, blk, mx + 2, z0 + set, x1 - set, mz - 2, maxFloors);
+                building(b, r, names, used, blk, x0 + set, mz + 2, mx - 2, z1 - set, maxFloors);
+                building(b, r, names, used, blk, mx + 2, mz + 2, x1 - set, z1 - set, maxFloors);
             }
         }
     }

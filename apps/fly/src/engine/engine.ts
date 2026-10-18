@@ -12,6 +12,7 @@ import { selftestSticks } from '../selftest';
 import { levelGroup, environment } from '../render/world';
 import { CraftView } from '../render/view';
 import { TrafficView } from '../render/traffic';
+import { BuildingsView } from '../render/buildings';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { lensById } from '../render/lenses';
@@ -59,6 +60,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const trafficView = new TrafficView();
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);
+    const buildingsView = new BuildingsView(level);
+    scene.add(buildingsView.group);
     const view = new CraftView();
     view.uptiltDeg = cfg.uptiltDeg;
     view.fovDeg = cfg.fovDeg;
@@ -81,7 +84,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let paused = true;
     let lookDx = 0, lookDy = 0;
 
-    const fly = { session, view, sun, renderer, scene, S, trafficView, freeCam, radio, fisheye };
+    const fly = { session, view, sun, renderer, scene, S, trafficView, buildingsView, freeCam, radio, fisheye };
 
     function handle(m: PageMsg): void {
         switch (m.type) {
@@ -200,6 +203,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             post(hudMsg);
         }
         trafficView.update(session.sim.tick);
+        buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
         if (fisheye.active && (freeCam.active || view.mode === 'fpv')) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
         else renderer.render(scene, view.camera);
@@ -228,6 +232,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         cam.updateProjectionMatrix();
         const p = cam.position;
         trafficView.update(session.sim.tick);
+        buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(p);
         for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
             // looking straight up or down, the camera's up must not be along the view
