@@ -11,7 +11,7 @@ import type { Place } from './route';
 export const DT = 0.001;
 
 /** Bumped with any change that moves a mover or changes a shape: part of the world hash (replays). */
-export const TRAFFIC_VERSION = 3;
+export const TRAFFIC_VERSION = 4;
 
 export interface TrafficConfig {
     cars: boolean;
@@ -48,9 +48,9 @@ export interface StaticBox {
     z1: number;
 }
 
-/** A signal head for the renderer: where its lamps are and which way they face. */
+/** A signal head for the renderer: where its lamps are and which way they face ('arrow': a left-turn arrow head). */
 export interface SignalHead {
-    kind: 'car' | 'walk';
+    kind: 'car' | 'arrow' | 'walk';
     x: number;
     y: number;
     z: number;
@@ -59,7 +59,7 @@ export interface SignalHead {
     fz: number;
 }
 
-/** What a head shows: car heads 'red' | 'yellow' | 'green'; walk heads 'walk' | 'flash' | 'stop' (flash: blinking). */
+/** What a head shows: car and arrow heads 'red' | 'yellow' | 'green'; walk heads 'walk' | 'flash' | 'stop' (flash: blinking). */
 export type Lamp = 'red' | 'yellow' | 'green' | 'walk' | 'flash' | 'stop';
 
 export interface TrafficModel {

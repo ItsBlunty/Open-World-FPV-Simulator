@@ -1,5 +1,5 @@
 // The traffic in Three.js: toy cars (candy colours, big wheels that turn, brake lights), bean people (eyes,
-// swinging legs, some in party hats), and the signal poles with their lamps. Instanced: one draw per part
+// swinging legs, some in party hats), and the signal poles with their lamps (left-turn heads with arrows). Instanced: one draw per part
 // for every car or person. Each frame draws the traffic model at the sim's tick, so what is drawn is where
 // the collision is (the shapes match packages/traffic CAR and PERSON). Drawing never feeds back into the sim.
 
@@ -178,23 +178,33 @@ export class TrafficView {
             });
             mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
         }
-        // the lamps: three per car head (red, yellow, green from the top), one per walk head
-        let nLamps = 0;
-        for (const s of model.signals) nLamps += s.kind === 'car' ? 3 : 1;
-        if (!nLamps) return;
-        const disc = new THREE.CylinderGeometry(0.11, 0.11, 0.04, 16).rotateZ(Math.PI / 2); // facing +x
-        const lamps = this.add('lamp', instanced(disc, material({ basic: true }), nLamps, false));
-        let k = 0;
+        // the lamps: three per car head (red, yellow, green from the top), three arrows per arrow head, one per walk head
+        let nLamps = 0, nArrows = 0;
         for (const s of model.signals) {
-            // +x of the disc along the way the lamps face
+            if (s.kind === 'arrow') nArrows += 3;
+            else nLamps += s.kind === 'car' ? 3 : 1;
+        }
+        const disc = new THREE.CylinderGeometry(0.11, 0.11, 0.04, 16).rotateZ(Math.PI / 2); // facing +x
+        // an arrow pointing along +z (the driver's left, seen from the lamp's front at +x), facing +x
+        const shape = new THREE.Shape();
+        shape.moveTo(-0.09, -0.03).lineTo(0.02, -0.03).lineTo(0.02, -0.075).lineTo(0.1, 0).lineTo(0.02, 0.075)
+            .lineTo(0.02, 0.03).lineTo(-0.09, 0.03).closePath();
+        const arrow = new THREE.ExtrudeGeometry(shape, { depth: 0.04, bevelEnabled: false }).rotateY(-Math.PI / 2).translate(0.02, 0, 0);
+        const lamps = nLamps ? this.add('lamp', instanced(disc, material({ basic: true }), nLamps, false)) : null;
+        const arrows = nArrows ? this.add('arrowLamp', instanced(arrow, material({ basic: true }), nArrows, false)) : null;
+        let k = 0, a = 0;
+        for (const s of model.signals) {
+            // +x of the lamp along the way it faces
             this.r.set(s.fx, 0, -s.fz, 0, 0, 1, 0, 0, s.fz, 0, s.fx, 0, 0, 0, 0, 1);
-            const rows = s.kind === 'car' ? [0.3, 0, -0.3] : [0];
+            const rows = s.kind === 'walk' ? [0] : [0.3, 0, -0.3];
             for (const dy of rows) {
                 this.m.copy(this.r).setPosition(s.x, s.y + dy, s.z);
-                lamps.setMatrixAt(k++, this.m);
+                if (s.kind === 'arrow') arrows!.setMatrixAt(a++, this.m);
+                else lamps!.setMatrixAt(k++, this.m);
             }
         }
-        lamps.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+        lamps?.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+        arrows?.instanceMatrix.setUsage(THREE.StaticDrawUsage);
     }
 
     /** Every mover where it is at `tick`, wheels and legs turned by how far it went, lamps lit. */
@@ -286,23 +296,25 @@ export class TrafficView {
     }
 
     private updateLamps(model: TrafficModel, tick: number): void {
-        const lamps = this.meshes.lamp;
-        if (!lamps) return;
+        const lamps = this.meshes.lamp, arrows = this.meshes.arrowLamp;
+        if (!lamps && !arrows) return;
         // 'flash' blinks at 1 Hz
         const blinkOn = Math.floor(tick / 500) % 2 === 0;
-        let k = 0;
+        let k = 0, a = 0;
         model.signals.forEach((s, hIdx) => {
             const on: Lamp = model.lamp(hIdx, tick);
-            if (s.kind === 'car') {
-                for (const c of ['red', 'yellow', 'green'] as const) {
-                    this.c.setHex(on === c ? LIT[c] : UNLIT);
-                    lamps.setColorAt(k++, this.c);
-                }
-            } else {
+            if (s.kind === 'walk') {
                 this.c.setHex(on === 'walk' ? WALK : on === 'flash' && !blinkOn ? UNLIT : DONT_WALK);
                 lamps.setColorAt(k++, this.c);
+                return;
+            }
+            for (const c of ['red', 'yellow', 'green'] as const) {
+                this.c.setHex(on === c ? LIT[c] : UNLIT);
+                if (s.kind === 'arrow') arrows.setColorAt(a++, this.c);
+                else lamps.setColorAt(k++, this.c);
             }
         });
-        if (lamps.instanceColor) lamps.instanceColor.needsUpdate = true;
+        if (lamps?.instanceColor) lamps.instanceColor.needsUpdate = true;
+        if (arrows?.instanceColor) arrows.instanceColor.needsUpdate = true;
     }
 }

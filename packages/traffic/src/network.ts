@@ -8,11 +8,13 @@
 // interpolated between the two steps around it. Going back in time restarts from a checkpoint.
 //
 // Junctions (a design, not a measured city): one lane each way, LANE m right of the centre line. Each
-// junction runs a fixed 60 s cycle: north-south green, then east-west green, then an all-way walk for
-// people ("scramble"), with yellow and all-red between. Cars go straight or turn right; a left turn only
-// where there is no road straight ahead (so never across oncoming traffic). No car movement crosses
-// another one in the same phase, and people only cross while every car has red, so nothing needs to
-// yield. A car does not enter a junction it cannot leave ("don't block the box").
+// junction runs a fixed 84 s cycle like a city's: north-south left-turn arrows, north-south straight and
+// right, east-west arrows, east-west straight and right, then an all-way walk for people ("scramble"), with
+// yellow and all-red between. Cars go straight, turn right or turn left, each on its own light: a left turn
+// that crosses an oncoming lane has an arrow, one with nothing oncoming (a T's stem, a corner) goes with the
+// straight light. No car movement crosses another one in the same phase (the two opposing left turns pass
+// each other), and people only cross while every car has red, so nothing needs to yield: cars only follow
+// their light. A car does not enter a junction it cannot leave ("don't block the box").
 //
 // Car following: the Intelligent Driver Model (Treiber, Hennecke, Helbing 2000, Phys. Rev. E 62, 1805)
 // with typical urban parameters [estimates]. Determinism: + - * /, Math.sqrt, Math.floor, Math.imul.
@@ -32,9 +34,13 @@ const CHECKPOINT_STEPS = 1200;
 /** Lane centre right of the road's centre line, m; stop line (a stopped car's front) from the junction centre, m */
 const LANE = 4;
 const STOP = 13;
-/** Turn radii through a junction, m, and the sideways acceleration that sets the speed in them, m/s^2 [estimates] */
+/**
+ * Turn radii through a junction, m, and the sideways acceleration that sets the speed in them, m/s^2 [estimates].
+ * A left turn's arc starts 0.1 m past the stop line, so the two opposing left turns on one arrow keep to their own
+ * side of the junction's centre and pass each other: their paths 1.3 m either side of it, the cars' corners 0.5 m apart.
+ */
 const R_RIGHT = 6;
-const R_LEFT = 10;
+const R_LEFT = STOP + LANE - 0.1;
 const A_LAT = 2.5;
 /** Fastest straight through a junction and along a road: 50 km/h, a common urban limit */
 const V_ROAD = 13.9;
@@ -52,11 +58,16 @@ const BRAKE_LIGHTS = -0.8;
 /** a stopped car's front this far before the stop line, m */
 const STOP_MARGIN = 0.3;
 
-/** Signal cycle (ms of sim time) [design choices]: green, yellow, all-red per car phase, then walk, flashing, all-red */
-const CYCLE = 60000;
-const NS_G = 15000, NS_Y = 18000, NS_R = 20000;
-const EW_G = 35000, EW_Y = 38000, EW_R = 40000;
-const PED_W = 46000, PED_F = 58000;
+/**
+ * Signal cycle (ms of sim time) [design choices]. Car light groups: 0 north-south arrows, 1 north-south straight and
+ * right, 2 east-west arrows, 3 east-west straight and right. Each group in turn: green from G0, yellow from Y0, all-red
+ * from R0 (until the next group's green); then walk, flashing and all-red for people.
+ */
+const CYCLE = 84000;
+const G0 = [0, 12000, 32000, 44000];
+const Y0 = [7000, 27000, 39000, 59000];
+const R0 = [10000, 30000, 42000, 62000];
+const PED_W = 64000, PED_F = 70000, PED_R = 82000;
 
 /** People: corner hub in from both kerbs, crossing ends in from the kerb, sidewalk lane offset, queue spacing, m */
 const HUB_IN = 1.3;
@@ -93,6 +104,8 @@ interface Elem {
     vmax: number;
     /** movement: how far along it the turn is done (0 straight), so cars on it and its siblings are apart */
     split: number;
+    /** movement: the light group it follows (see CYCLE) */
+    group: number;
     /** link: the movements that lead onto it */
     feeders: number[];
 }
@@ -111,10 +124,10 @@ interface Crossing {
     dz: number;
 }
 
-/** what a signal head shows: car heads by approach axis, walk heads by junction */
+/** what a signal head shows: car and arrow heads by light group, walk heads by junction */
 interface HeadRef {
     j: number;
-    axis: number;
+    group: number;
     walk: boolean;
 }
 
@@ -201,7 +214,7 @@ export class NetTraffic implements TrafficModel {
         this.zs = [...new Set([...b0.map((b) => b.z0 - h), ...b0.map((b) => b.z1 + h)])].sort((a, b) => a - b);
         this.walkY = b0.length ? b0[0].y : 0.15;
         const nx = this.xs.length, nz = this.zs.length;
-        for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) this.offset.push(((ix * 13 + iz * 29) % 60) * 1000);
+        for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) this.offset.push(((ix * 13 + iz * 29) % (CYCLE / 1000)) * 1000);
         this.buildRoads();
         this.buildSignals();
         this.buildWalks(level);
@@ -293,6 +306,12 @@ export class NetTraffic implements TrafficModel {
         return [this.jx(j) + DX[k] * d + DX[rk] * r, this.jz(j) + DZ[k] * d + DZ[rk] * r];
     }
 
+    /** A lane comes into junction j heading against heading k (from the junction ahead). */
+    private oncoming(j: number, k: number): boolean {
+        const n = this.neighbour(j, k);
+        return n >= 0 && this.linkOf[n * 4 + ((k + 2) % 4)] >= 0;
+    }
+
     private buildRoads(): void {
         const nJ = this.xs.length * this.zs.length;
         for (let j = 0; j < nJ; j++) for (let k = 0; k < 4; k++) {
@@ -301,23 +320,20 @@ export class NetTraffic implements TrafficModel {
             const a = this.at2(j, k, STOP, LANE), b = this.at2(n, k, -STOP, LANE);
             const route = pathThrough([a, b], 0, false, 0);
             this.linkOf.push(this.elems.length);
-            this.elems.push({ route, len: route.length, link: true, j: n, dir: k, out: -1, moves: [], vmax: V_ROAD, split: 0, feeders: [] });
+            this.elems.push({ route, len: route.length, link: true, j: n, dir: k, out: -1, moves: [], vmax: V_ROAD, split: 0, group: -1, feeders: [] });
         }
         for (let j = 0; j < nJ; j++) this.movesAt.push([]);
-        // the turns at the end of each link: straight, right, and left only where nothing comes the other way
+        // the turns at the end of each link: straight, right and left, where there is a road
         const nLinks = this.elems.length;
         const turns: number[][] = [];
         for (let e = 0; e < nLinks; e++) {
             const el = this.elems[e];
             const j = el.j, k = el.dir;
-            const ahead = this.linkOf[j * 4 + k];
-            turns.push([k, (k + 1) % 4, (k + 3) % 4].filter((out) =>
-                this.linkOf[j * 4 + out] >= 0 && !(out === (k + 3) % 4 && ahead >= 0)));
+            turns.push([k, (k + 1) % 4, (k + 3) % 4].filter((out) => this.linkOf[j * 4 + out] >= 0));
         }
-        // Those rules leave a trap: the lane round the grid's edge the other way from the clock can never turn
-        // off (right is out of the city, left has oncoming traffic), so cars that joined it would circle it for
-        // ever and fill it. A car never turns into a lane from which it cannot reach every other one: a link is
-        // dead if it reaches fewer links than the best connected one (only dead links lead on from a dead link).
+        // A car never turns into a lane from which it cannot reach every other one (cars there would circle it for
+        // ever and fill it): a link is dead if it reaches fewer links than the best connected one. On a full grid
+        // with left turns no link is dead; the check stays for maps where one would be.
         const reach = (e0: number): number => {
             const seen = new Uint8Array(nLinks);
             const todo = [e0];
@@ -347,6 +363,9 @@ export class NetTraffic implements TrafficModel {
                 let route: Route;
                 let vmax = V_ROAD;
                 let split = 0;
+                // a left turn across an oncoming lane has its arrow; the rest go on the straight light
+                const oncoming = out === (k + 3) % 4 && this.oncoming(j, k);
+                const group = (k % 2 === 1 ? 0 : 2) + (oncoming ? 0 : 1);
                 if (out === k) route = pathThrough([p0, p1], 0, false, 0);
                 else {
                     // the corner where the in and out lane lines meet: LANE back (right turn) or ahead (left)
@@ -362,7 +381,7 @@ export class NetTraffic implements TrafficModel {
                 el.moves.push(m);
                 this.movesAt[j].push(m);
                 this.elems[ol].feeders.push(m);
-                this.elems.push({ route, len: route.length, link: false, j, dir: k, out: ol, moves: el.moves, vmax, split, feeders: [] });
+                this.elems.push({ route, len: route.length, link: false, j, dir: k, out: ol, moves: el.moves, vmax, split, group, feeders: [] });
             }
         }
     }
@@ -387,16 +406,23 @@ export class NetTraffic implements TrafficModel {
             box(j, this.at2(j, k, pd - 0.15, LANE - 0.18), this.at2(j, k, pd + 0.15, LANE + 0.18), 4.7, 5.65);
             const face = this.at2(j, k, pd - 0.16, LANE);
             this.signals.push({ kind: 'car', x: face[0], y: 5.15, z: face[1], fx: -DX[k], fz: -DZ[k] });
-            this.heads.push({ j, axis: k % 2, walk: false });
+            this.heads.push({ j, group: k % 2 === 1 ? 1 : 3, walk: false });
+            // the left-turn arrow head, left of the other, where a left turn crosses an oncoming lane
+            if (this.linkOf[j * 4 + ((k + 3) % 4)] >= 0 && this.oncoming(j, k)) {
+                box(j, this.at2(j, k, pd - 0.15, LANE - 1.08), this.at2(j, k, pd + 0.15, LANE - 0.72), 4.7, 5.65);
+                const af = this.at2(j, k, pd - 0.16, LANE - 0.9);
+                this.signals.push({ kind: 'arrow', x: af[0], y: 5.15, z: af[1], fx: -DX[k], fz: -DZ[k] });
+                this.heads.push({ j, group: k % 2 === 1 ? 0 : 2, walk: false });
+            }
             // walk heads: across the approach road (facing left of the heading) and across the cross road (facing ahead)
             const rk = (k + 1) % 4;
             const w1 = this.at2(j, k, pd, pr - 0.22), w2 = this.at2(j, k, pd + 0.22, pr);
             box(j, this.at2(j, k, pd - 0.12, pr - 0.34), this.at2(j, k, pd + 0.12, pr - 0.12), 2.5, 2.9);
             box(j, this.at2(j, k, pd + 0.12, pr - 0.12), this.at2(j, k, pd + 0.34, pr + 0.12), 2.5, 2.9);
             this.signals.push({ kind: 'walk', x: w1[0] - DX[rk] * 0.13, y: 2.7, z: w1[1] - DZ[rk] * 0.13, fx: -DX[rk], fz: -DZ[rk] });
-            this.heads.push({ j, axis: 0, walk: true });
+            this.heads.push({ j, group: -1, walk: true });
             this.signals.push({ kind: 'walk', x: w2[0] + DX[k] * 0.13, y: 2.7, z: w2[1] + DZ[k] * 0.13, fx: DX[k], fz: DZ[k] });
-            this.heads.push({ j, axis: 0, walk: true });
+            this.heads.push({ j, group: -1, walk: true });
         }
     }
 
@@ -441,29 +467,27 @@ export class NetTraffic implements TrafficModel {
 
     // ------------------------------------------------------------ signals
 
-    /** Car signal for an approach axis (0 east-west, 1 north-south) at junction j and tick. */
-    carSignal(j: number, axis: number, tick: number): 'red' | 'yellow' | 'green' {
+    /** Car light of a group (see CYCLE) at junction j and tick. */
+    carSignal(j: number, group: number, tick: number): 'red' | 'yellow' | 'green' {
         const c = (Math.floor(tick) + this.offset[j]) % CYCLE;
-        if (axis === 1) return c < NS_G ? 'green' : c < NS_Y ? 'yellow' : 'red';
-        if (c < NS_R) return 'red';
-        return c < EW_G ? 'green' : c < EW_Y ? 'yellow' : 'red';
+        return c < G0[group] || c >= R0[group] ? 'red' : c < Y0[group] ? 'green' : 'yellow';
     }
 
-    /** ms of yellow left for an approach axis at junction j and tick (only meaningful while it shows yellow) */
-    private yellowLeft(j: number, axis: number, tick: number): number {
+    /** ms of yellow left for a light group at junction j and tick (only meaningful while it shows yellow) */
+    private yellowLeft(j: number, group: number, tick: number): number {
         const c = (Math.floor(tick) + this.offset[j]) % CYCLE;
-        return (axis === 1 ? NS_Y : EW_Y) - c;
+        return R0[group] - c;
     }
 
     walkSignal(j: number, tick: number): 'walk' | 'flash' | 'stop' {
         const c = (Math.floor(tick) + this.offset[j]) % CYCLE;
-        if (c < EW_R) return 'stop';
-        return c < PED_W ? 'walk' : c < PED_F ? 'flash' : 'stop';
+        if (c < PED_W || c >= PED_R) return 'stop';
+        return c < PED_F ? 'walk' : 'flash';
     }
 
     lamp(h: number, tick: number): Lamp {
         const r = this.heads[h];
-        return r.walk ? this.walkSignal(r.j, tick) : this.carSignal(r.j, r.axis, tick);
+        return r.walk ? this.walkSignal(r.j, tick) : this.carSignal(r.j, r.group, tick);
     }
 
     staticsNear(x: number, z: number, reach: number): readonly StaticBox[] {
@@ -476,15 +500,15 @@ export class NetTraffic implements TrafficModel {
 
     // ------------------------------------------------------------ for tests
 
-    /** What mover i is doing at the current step: a car's element, junction, approach axis, distance and speed; a person's phase and crossing junction. */
-    inspect(i: number): { link: boolean; j: number; axis: number; s: number; v: number; phase: number } {
+    /** What mover i is doing at the current step: a car's element, junction, light group (of the movement it is on or takes next), distance and speed; a person's phase and crossing junction. */
+    inspect(i: number): { link: boolean; j: number; group: number; s: number; v: number; phase: number } {
         if (i < this.nCars) {
             const o = i * CN, el = this.elems[this.cars[o + C_E]];
-            return { link: el.link, j: el.j, axis: el.dir % 2, s: this.cars[o + C_S], v: this.cars[o + C_V], phase: -1 };
+            return { link: el.link, j: el.j, group: this.elems[el.link ? this.cars[o + C_NEXT] : this.cars[o + C_E]].group, s: this.cars[o + C_S], v: this.cars[o + C_V], phase: -1 };
         }
         const o = (i - this.nCars) * PN;
         const ph = this.people[o + P_PH];
-        return { link: false, j: ph >= 1 && ph <= 3 ? this.crossings[this.people[o + P_C]].j : -1, axis: -1, s: this.people[o + P_S], v: this.people[o + P_V], phase: ph };
+        return { link: false, j: ph >= 1 && ph <= 3 ? this.crossings[this.people[o + P_C]].j : -1, group: -1, s: this.people[o + P_S], v: this.people[o + P_V], phase: ph };
     }
 
     /** Every path a mover can take: car lanes and turns, and people's sidewalk, queue and crossing edges (y: the ground). */
@@ -649,9 +673,9 @@ export class NetTraffic implements TrafficModel {
         return free >= 2 * CAR.bodyHalfL + IDM_S0 + 1;
     }
 
-    /** No car is in junction j on a movement of the other axis (crossing traffic still clearing the box). */
-    private boxClear(j: number, axis: number): boolean {
-        for (const m of this.movesAt[j]) if (this.elems[m].dir % 2 !== axis && this.lists[m].length) return false;
+    /** No car is in junction j on a movement of another light group (the last phase's cars still clearing the box). */
+    private boxClear(j: number, group: number): boolean {
+        for (const m of this.movesAt[j]) if (this.elems[m].group !== group && this.lists[m].length) return false;
         return true;
     }
 
@@ -667,15 +691,16 @@ export class NetTraffic implements TrafficModel {
             if (!el.link || this.lists[e].length === 0) continue;
             const i = this.lists[e][0], o = i * CN;
             if (c[o + C_GO] === 2) continue;
-            const axis = el.dir % 2;
-            const sig = this.carSignal(el.j, axis, tick);
+            // its light: the one for the movement it takes
+            const mv = this.elems[c[o + C_NEXT]], group = mv.group;
+            const sig = this.carSignal(el.j, group, tick);
             const v = c[o + C_V];
             const toStop = this.stopPos(e) - c[o + C_S];
             const stopDist = (v * v) / (2 * B_YELLOW);
             let go = false;
-            if (sig !== 'red' && this.room(this.elems[c[o + C_NEXT]].out) && this.boxClear(el.j, axis)) {
+            if (sig !== 'red' && this.room(mv.out) && this.boxClear(el.j, group)) {
                 if (sig === 'green') go = true;
-                else go = toStop < stopDist && el.len - c[o + C_S] < v * (this.yellowLeft(el.j, axis, tick) * 0.001 - STEP);
+                else go = toStop < stopDist && el.len - c[o + C_S] < v * (this.yellowLeft(el.j, group, tick) * 0.001 - STEP);
             }
             c[o + C_GO] = !go ? 0 : toStop <= stopDist ? 2 : 1;
         }

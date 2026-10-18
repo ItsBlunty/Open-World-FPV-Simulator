@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), and after solid traffic (sim-core/0.5.0, map v3).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), and after left-turn arrows (2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -26,8 +26,12 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **The owner liked the look pass and asked for solid cars and people, signals and performance settings: built (§0e).
   Waiting for the owner to fly into cars, ride a car roof, hit a signal arm, and look at the traffic and the new
   "Graphics and performance" settings.** Then M2 (physics review).
+- **Left-turn arrows (owner, 2026-10-18, §0e "Left turns"):** the owner asked to fix the empty edge lane so cars drive
+  around naturally, and corrected Claude's first attempt (give-way rules for left turns): **"the only rule needs to
+  be follow the traffic lights"**, with cycles and turning arrows like a real city. Built that way: cars turn left
+  everywhere on protected arrows and only ever follow their own light. **Waiting for the owner to look at it.**
 - sim-core is now `sim-core/0.5.0` (moving surfaces; still worlds bit-identical); the self-test hash is `cd45c59c…`
-  and the new traffic hash `1085c3d9…` (Node and Chrome 155 match on WebGPU and WebGL 2; Firefox not re-checked).
+  and the traffic hash `4479b371…` (traffic v4, arrows; Node and Chrome 155 match on WebGPU; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -165,15 +169,14 @@ performance settings."
   is bit-identical (every earlier hash, the self-test's included, unchanged). Movers are kinematic: a quad never
   slows a car.
 - `packages/traffic`: `route.ts` (paths: straights and quarter circles, dmath sin/cos), `model.ts` (`TrafficModel`,
-  `CAR`/`PERSON` shapes, `TrafficConfig {cars, people, signals}`, `TRAFFIC_VERSION` 3), `loops.ts` (signals off: cars
+  `CAR`/`PERSON` shapes, `TrafficConfig {cars, people, signals}`, `TRAFFIC_VERSION` 4), `loops.ts` (signals off: cars
   loop each block 3 m off the kerb, people loop the sidewalk), `network.ts` (signals on, below), `world.ts`
   (`TrafficWorld`: mesh + movers + still signal boxes), `make.ts` (`makeTraffic`, `worldSha256`: the life header's
   collisionSha256 is the level hash, or a hash over it + the traffic config).
 - `network.ts`: a 20 Hz traffic sim in lockstep with the tick, interpolated between steps, restarting from a
   checkpoint (every 60 s) when time goes back. One lane each way 4 m right of the centre line, stop line 13 m from
-  the junction centre. Each junction runs a 60 s cycle: N-S green 15 s / yellow 3 / all-red 2, E-W the same, then an
-  all-way pedestrian scramble: walk 6 s, flashing 12 s, all-red 2; offset ((ix*13 + iz*29) mod 60) s. Cars go
-  straight (60 %) or turn right; left only where there is no road ahead. Following: IDM (Treiber 2000), slowing for
+  the junction centre. Signal cycle and turns: see "Left turns" below (until 2026-10-18 it was a 60 s cycle, N-S
+  then E-W 15 s green each, no left turns across oncoming traffic). Following: IDM (Treiber 2000), slowing for
   turns, "don't block the box". People walk hub to hub, queue at crossings and cross only on WALK.
 - Fixes made to pass the 10-minute test (commit `906af21`; each found by logging every violation):
   - Red runs: a car's go-ahead was set once on green, even 100 m out, and kept, so it arrived on red. Now it is
@@ -186,8 +189,8 @@ performance settings."
   - **A trap that jammed the network:** the anticlockwise lane round the grid's edge has no way off (right is out of
     the city, left has oncoming traffic, corners force a left onto the next edge), so cars that joined it circled
     for ever; mean speed fell from 3.0 to 1.4 m/s over 30 min, one car stood still 20 min. Now no car turns into a
-    link that cannot reach the rest of the network (computed, not hand-listed). **Side effect to tell the owner:**
-    that anticlockwise edge lane is always empty. A protected left-turn phase would let it be used; not built.
+    link that cannot reach the rest of the network (computed, not hand-listed). That left the anticlockwise edge
+    lane always empty; fixed on 2026-10-18 by left-turn arrows (below), and the check now finds no dead link.
   - Result over 10 min: overlaps 0, red runs 0, crossers near cars 0, 1606 crossings, mean car speed 3.08 m/s,
     steady over 30 min, longest stand-still 44.6 s (under one cycle). The low mean is the lights' doing (15 s green
     in 60 per approach); the test now checks flow (longest wait, last minute vs the run) and mean > 2.5.
@@ -216,12 +219,41 @@ performance settings."
   (Measured by rendering in a loop and waiting for the GPU queue; the page's fps counter is meaningless when the
   automation tab is in the background, and the first series after an idle spell is slow while the GPU clocks up.)
 
-**For the owner to try (handling changes):** fly into cars and people, ride a car roof, hit a signal arm and pole,
-turn each setting off and on. Ask: do hits on cars feel right (friction 0.4 as on concrete, cars never slow)? Is the
-traffic density, speed and light timing fun? Should the empty edge lane get a left-turn phase?
+**Left turns (owner, 2026-10-18): "fix the empty edge, cars should be able to drive around naturally".**
+- Claude first made left turns give way to oncoming traffic (gap checks, waiting in the junction). The owner stopped
+  it: *"The traffic lights should have cycles like a normal city. The cars go when they can go because the light is
+  green. Turning arrows on the lights if needed ... the only rule needs to be follow the traffic lights right?"*
+  That code was thrown away. **Rule for this model: cars only follow their light; no give-way logic.**
+- Built (`network.ts`): cars go straight (60 %), right or left
+  wherever there is a road. The 84 s cycle, offsets ((ix*13 + iz*29) mod 84) s, has car light groups:
+  0 N-S left arrows 7 s green / 3 yellow / 2 all-red; 1 N-S straight and right 15 / 3 / 2; 2 E-W arrows 7 / 3 / 2;
+  3 E-W straight and right 15 / 3 / 2; then the scramble: walk 6, flashing 12, all-red 2. Each movement has a
+  `group`; a car reads the light of the movement it takes; `boxClear` waits for other groups' cars to leave the box.
+  A left turn with nothing oncoming (a T's stem, a grid corner) goes on the straight light and has no arrow head.
+- Geometry: the left-turn arc starts 0.1 m past the stop line (`R_LEFT = STOP + LANE - 0.1` = 16.9 m), so the two
+  opposing left turns on one arrow stay on their own side of the junction centre (paths 1.3 m either side, car
+  corners 0.5 m apart): no movement crosses another in the same phase.
+- Signals: an arrow head (`SignalHead.kind 'arrow'`, a solid box too) on the mast arm 0.9 m left of the main head;
+  the renderer draws its three lamps as arrows pointing to the driver's left (`arrowLamp` instanced mesh).
+- Tried and measured, not kept: split phasing (each approach its own green, no arrows): 1.62 m/s; arrows 5 s with
+  straight 20 s (90 s cycle): 1.76 m/s. Kept: 7 s arrows, 84 s cycle: 1.89 m/s.
+- **Cost to tell the owner:** mean car speed fell from 3.08 to 1.89 m/s. Straight-on now has 15 s green in 84 (was 15
+  in 60), and with one lane a straight car behind a car waiting for its arrow waits too. Real cities fix that with
+  left-turn pockets (a short extra lane) or coordinated "green wave" offsets; neither is built. Ask the owner.
+- Evidence: all 44 files / 406 tests pass. 10-minute test: overlaps 0, red runs 0, crossers near cars 0, arrow turns
+  > 150 (about 313), longest stand-still under one cycle (73 s < 84), mean 1.89 m/s (bound now > 1.6). Over 30 min:
+  1.92, 1.86, 1.84, 1.83, 1.86, 1.88 m/s per 5 min (no jam growing), 984 arrow turns, 25 cars on the 34
+  anticlockwise edge links at the end. `?selftest` MATCH in Chrome (flight `cd45c59c…`, traffic `4479b371…`).
+  Screenshot of an arrow head lit red: `C:\Users\vhdbl\AppData\Local\Temp\claude-chrome-screenshots-GYM1tn\screenshot-1792314003439-15.jpg`
+  (zoom: `...-16.png`).
 
-**Left open:** Firefox `?selftest`; a protected left-turn phase; cars do not react to the quad; the chase camera
-still has no collision (§5).
+**For the owner to try (handling changes):** fly into cars and people, ride a car roof, hit a signal arm and pole,
+turn each setting off and on, watch a junction through a whole cycle. Ask: do hits on cars feel right (friction 0.4
+as on concrete, cars never slow)? Is the traffic density, speed and light timing fun? Is the slower traffic with
+arrows OK, or add left-turn pockets / green-wave offsets / shorter cycle?
+
+**Left open:** Firefox `?selftest`; WebGL 2 `?selftest` not re-run after the arrows; left-turn pockets or green waves
+if the owner wants faster traffic; cars do not react to the quad; the chase camera still has no collision (§5).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
