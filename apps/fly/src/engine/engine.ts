@@ -13,6 +13,8 @@ import { levelGroup, environment } from '../render/world';
 import { CraftView } from '../render/view';
 import { TrafficView } from '../render/traffic';
 import { FreeCam } from '../render/freecam';
+import { FisheyeView } from '../render/fisheye';
+import { lensById } from '../render/lenses';
 import { HUD_HZ } from './protocol';
 import type { EngineMsg, EngineSettings, InitMsg, PageMsg, Port } from './protocol';
 import { RadioLink } from './radio-link';
@@ -62,6 +64,15 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     view.fovDeg = cfg.fovDeg;
     view.resize(size.width, size.height);
     scene.add(view.craft);
+    /** the FPV camera's lens (render/fisheye.ts); the chase and free cameras stay flat */
+    const fisheye = new FisheyeView();
+    const bufferSize = new THREE.Vector2();
+    const fitFisheye = (): void => {
+        renderer.getDrawingBufferSize(bufferSize);
+        fisheye.setSize(bufferSize.x, bufferSize.y);
+    };
+    fisheye.setLens(lensById(cfg.lens));
+    fitFisheye();
     if (params.get('cam') === 'chase') view.setMode('chase');
     /** "Look around" without a radio: fly the camera with WASD and the mouse */
     const freeCam = new FreeCam();
@@ -70,7 +81,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let paused = true;
     let lookDx = 0, lookDy = 0;
 
-    const fly = { session, view, sun, renderer, scene, S, trafficView, freeCam, radio };
+    const fly = { session, view, sun, renderer, scene, S, trafficView, freeCam, radio, fisheye };
 
     function handle(m: PageMsg): void {
         switch (m.type) {
@@ -92,11 +103,15 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     view.uptiltDeg = cfg.uptiltDeg;
                     view.fovDeg = cfg.fovDeg;
                     view.updateFov();
+                    fisheye.setLens(lensById(cfg.lens));
                 } else if (m.what === 'flight') session.setOverrides(cfg.overrides);
                 else if (m.what === 'traffic') {
                     session.setTraffic(cfg.traffic);
                     trafficView.rebuild(session.traffic);
-                } else if (m.what === 'graphics') renderer.setPixelRatio(pixelRatio());
+                } else if (m.what === 'graphics') {
+                    renderer.setPixelRatio(pixelRatio());
+                    fitFisheye();
+                }
                 else if (m.what === 'spawn') {
                     const s = level.spawns.find((x) => x.id === cfg.spawn);
                     if (s) session.setSpawn(s);
@@ -107,6 +122,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 renderer.setPixelRatio(pixelRatio());
                 renderer.setSize(size.width, size.height, false);
                 view.resize(size.width, size.height);
+                fitFisheye();
                 break;
             case 'view':
                 if (!freeCam.active) view.setMode(view.mode === 'fpv' ? 'chase' : 'fpv');
@@ -185,7 +201,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         }
         trafficView.update(session.sim.tick);
         sun.follow(view.camera.position);
-        renderer.render(scene, view.camera);
+        if (fisheye.active && view.mode === 'fpv' && !freeCam.active) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
+        else renderer.render(scene, view.camera);
     }
 
     warmUp();
@@ -217,6 +234,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             cam.up.set(0, y === 0 ? 1 : 0, y === 0 ? 0 : -1);
             cam.lookAt(p.x + x, p.y + y, p.z + z);
             renderer.render(scene, cam);
+            // the lens faces draw into half-float multisampled targets: other pipelines than the canvas's
+            fisheye.warmUp(renderer, scene, cam);
         }
         cam.up.set(0, 1, 0);
         cam.position.copy(pos);

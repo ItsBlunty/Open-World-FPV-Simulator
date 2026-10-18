@@ -7,6 +7,7 @@ import { profileProblem } from '@owfpv/input';
 import type { RadioProfile, StickMode } from '@owfpv/input';
 import { copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
+import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
 
 export interface Settings {
     version: 1;
@@ -14,6 +15,11 @@ export interface Settings {
     uptiltDeg: number;
     /** horizontal field of view, deg (owner's default 120, 2026-10-17) */
     fovDeg: number;
+    /**
+     * FPV camera lens: a Gyroflow calibration's id (render/lenses), or 'none' for the flat camera with the FOV slider.
+     * Default the Caddx Ratel 2 (owner, 2026-10-18).
+     */
+    lens: string;
     /** the pilot's own rates; null flies the preset's */
     rates: RatesConfig | null;
     /** flight mode when the radio has no mode switch */
@@ -44,6 +50,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     version: 1,
     uptiltDeg: 20,
     fovDeg: 120,
+    lens: DEFAULT_LENS,
     rates: null,
     mode: 'acro',
     stickMode: 2,
@@ -83,6 +90,7 @@ export function loadSettings(): Settings {
     if (!s || s.version !== 1) return out;
     if (typeof s.uptiltDeg === 'number' && s.uptiltDeg >= 0 && s.uptiltDeg <= 80) out.uptiltDeg = s.uptiltDeg;
     if (typeof s.fovDeg === 'number' && s.fovDeg >= 60 && s.fovDeg <= 160) out.fovDeg = s.fovDeg;
+    if (s.lens === NO_LENS || (typeof s.lens === 'string' && lensById(s.lens))) out.lens = s.lens;
     if (s.rates && typeof s.rates === 'object') out.rates = copyRates(s.rates);
     if (s.mode === 'acro' || s.mode === 'angle' || s.mode === 'horizon') out.mode = s.mode;
     if (s.stickMode === 1 || s.stickMode === 2 || s.stickMode === 3 || s.stickMode === 4) out.stickMode = s.stickMode;

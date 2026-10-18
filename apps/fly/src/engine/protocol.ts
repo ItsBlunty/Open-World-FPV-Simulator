@@ -13,6 +13,8 @@ import type { TrafficConfig } from '@owfpv/traffic';
 export interface EngineSettings {
     uptiltDeg: number;
     fovDeg: number;
+    /** FPV lens id (render/lenses), or 'none' for the flat camera */
+    lens: string;
     renderScale: number;
     overrides: ParamOverrides;
     traffic: TrafficConfig;

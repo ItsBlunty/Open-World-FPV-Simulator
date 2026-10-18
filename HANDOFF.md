@@ -1,13 +1,13 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18), and after the fisheye lens (2026-10-18).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 47 test files, 420 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 48 test files, 431 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
@@ -60,6 +60,10 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **State of Firefox (2026-10-18):** Boxer as a gamepad ~219 Hz (Firefox's own cap ~250), 120 fps; the engine runs on
   the page (`?render=worker` opt-in, stutters); WebHID is Chrome-only (Boxer 500 Hz there). Measuring tools for the
   next round are in `docs/evidence/2026-10-18-firefox-stutter/` (§0l "Tools").
+- **Firefox is shelved (owner, 2026-10-18):** "We're going to shelve firefox support for now and come back to it when
+  the rest of things are complete". Checks run in Chrome only until then; §0h-§0l and the tools in §0l stay for later.
+- **Fisheye FPV camera (owner, 2026-10-18, §0m, renderer only):** real lens calibrations from Gyroflow; default Caddx
+  Ratel 2. **Waiting for the owner to fly it** (what the pilot sees changes; the physics do not).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools. The owner tests on the **Pages build**, never local tabs: never start dev servers
@@ -587,6 +591,77 @@ traffic parts). Flight 1's 4 mid-flight shadow shader builds (§0k) are unexplai
   `__fly` inject a `<script>` element and pass results back through a hidden DOM element. `__fly.ask(code)` runs code
   in the engine (`fly.renderer`, `fly.session`, `fly.sun`, ...).
 
+## 0m. Fisheye FPV camera with Gyroflow lens profiles (owner, 2026-10-18): built, waiting for the owner to fly
+
+**Asked:** "lets work on fisheye for the camera, and I want you to fetch gyroflow and use that for the lens profiles."
+**Owner's choices** (asked 2026-10-18): default lens the Caddx Ratel 2 (analog); a camera picture that does not match
+the screen's shape is fitted with black bars; a short curated list (not all 9 773 profiles); the field-of-view slider
+is hidden while a lens is chosen. Method: Claude explained the three ways (below); the owner chose the face cameras.
+
+**Research (sources read):**
+- https://github.com/gyroflow/lens_profiles (commit `886fc61`, **CC0**): 9 773 profiles; every FPV-brand one (Caddx,
+  DJI, Foxeer, Hawkeye, RunCam, Walksnail, ~930) uses `opencv_fisheye`: a ray at θ off the axis lands at normalised
+  radius θ(1 + k1θ² + k2θ⁴ + k3θ⁶ + k4θ⁸). Only that model is supported.
+- https://github.com/gyroflow/gyroflow (commit `5fa0309`, GPL-3.0-or-later): `opencv_fisheye.rs` (distort,
+  undistort by Newton) and `mod.rs` (`radial_distortion_limit`: where the curve folds back). Ported to
+  `apps/fly/src/render/lens.ts` with Gyroflow's copyright line.
+- Many community calibrations fold back inside their own picture (garbage corners). The original Ratel (Nazgul5 V1
+  stock) and the PAL Ratel 2 file both do; `lensFromGyroflow` rejects such profiles.
+- These lenses are 117-132 deg wide and 130-159 deg corner to corner. **Ways to draw that:** (1) one wide flat render
+  warped afterwards: cheapest, but a flat render stretches without bound towards 180 deg, so these corners need ~3x
+  the screen's size per side or a blurry centre; (2) bending vertices in the vertex shader: one pass, but straight
+  triangle edges stay straight (our map is big boxes); (3) several cropped face cameras then a remap: exact, costs
+  scene passes. Chosen: (3).
+- Three.js r186 source: `ShadowNode.updateBefore` redraws the shadow map once per camera per frame (so each face would
+  redraw it; `shadow.autoUpdate` is switched off after the first face); rendering to a render target applies no tone
+  mapping or colour conversion (`Renderer.isOutputTarget`); the full-screen pass to the canvas does.
+
+**Built:**
+- `render/lenses/`: 15 calibrations copied unchanged (README: source path, calibrator, date), list in `index.ts`
+  (`LENSES`, `DEFAULT_LENS` = `caddx-ratel-2`, `NO_LENS` = `'none'`). Chosen per camera: no fold inside the picture,
+  then low RMS error and more images, official first. The Ratel 2 file is the only Ratel 2 one that does not fold
+  (NTSC capture, 14 images, RMS 0.46; 128 x 103 deg, 156 diagonal).
+- `render/lens.ts` (pure, tested): the model, `lensFov`, and `lensLayout(profile, w, h)`: fits the picture with bars,
+  a 1024-entry radius -> angle table, and for each face the crop (tangent units) and size (enough texels that one
+  screen pixel never spans less than one; measured over a 256-wide grid plus the picture's edges; 2 spare texels).
+  Faces: front/back/right/left by heading, up/down only past `SIDE_REACH` = 2 (63 deg), so every listed lens needs 3
+  faces. Principal point: the picture is centred on the lens axis (calibrations are off by up to 5 %: one camera's
+  sensor mounting; the uptilt sets the horizon).
+- `render/fisheye.ts` (`FisheyeView`): per face a `PerspectiveCamera` (frustum cut to the crop with `setViewOffset`,
+  so Three.js keeps its reversed depth) into a half-float 4x MSAA render target; a `QuadMesh` TSL pass maps each
+  screen pixel -> normalised point -> θ (table, `textureLoad` + blend: float textures need not filter) -> ray -> face
+  -> `texture().level(0)` (sampled inside branches). A render target's v runs from its top row (found by looking:
+  the first build was upside down).
+- `engine.ts`: the FPV view goes through the lens when one is set; chase and free cameras stay flat; the faces follow
+  the drawing buffer (resize, resolution slider); the warm-up also draws into a face-format target and the lens pass.
+  `__fly.ask('return fly.fisheye.layout')` shows the faces.
+- Settings: `lens` (default `caddx-ratel-2`); a "Lens" dropdown in Settings > FPV camera lists each lens with its
+  horizontal x vertical FOV; "Flat (no fisheye)" brings back the FOV slider.
+
+**Evidence (Chrome 155, WebGPU, production build, 1920 x 863 canvas, Ratel 2):**
+- `pnpm test`: 48 files, 431 tests (new `apps/fly/test/lens.test.ts`: undistort inverts distort on all 15 lenses;
+  Ratel 2 FOV 128/103/156, as a separate Python check of the file gave; the folding Ratel 1 is rejected; every
+  picture ray lands inside its face's crop at 3 screen sizes; front-face resolution ~= screen at the centre; 3 faces
+  per lens). Typecheck clean. `?selftest`: flight and traffic MATCH.
+- Frame cost (render 120 times in a loop, wait for the GPU queue; CPU / total ms per frame):
+
+  | View | Flat 120 deg | Lens, 5 cube faces (first build) | Lens, 3 faces (built) |
+  |---|---|---|---|
+  | Park | 0.44 / 0.49 | 2.18 / 2.32 | 1.37 / 1.43 |
+  | City from 65 m | 0.43 / 0.50 | - | 1.45 / 1.54 |
+
+  Draw calls: 71 flat, 127-130 with the lens. The cost is CPU (each face is a scene pass; the map's big meshes are in
+  every face), not pixels. The HUD showed 120 fps with the lens.
+- Screenshots: park `C:\Users\vhdbl\AppData\Local\Temp\claude-chrome-screenshots-GYM1tn\screenshot-1792333800574-18.jpg`,
+  city `...-1792333951664-19.jpg`, the front/right face border zoomed (no seam) `...-1792333960250-20.png`.
+
+**For the owner to try:** fly with the Ratel 2 and a few others (Settings > FPV camera > Lens). Does it look like
+your goggles? Is the uptilt still right (a fisheye shows more sky and ground at the edges)? Black bars OK?
+
+**Left open:** Firefox not checked (shelved). The calibrations are of recorded video (DVR / onboard), which may be
+framed a little differently from the live goggle feed. No vignetting, analog noise or video latency. The chase and
+free cameras stay flat. If the CPU cost matters later: fewer draws per face (merge small meshes, fewer materials).
+
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
 - Original repo: https://github.com/AndriiShramko/ShramkoGSFPV (MIT). Owner's fork, same commit, used as the copy
@@ -676,7 +751,7 @@ traffic parts). Flight 1's 4 mid-flight shadow shader builds (§0k) are unexplai
   and it got pinned against the ceiling with the throttle at zero (physics-review F2). Fixed for now by roomier
   rewind spots (`REWIND_MARGIN_M` 0.5 m) and a director rule for being pinned; the physics cause is for M2.
 - **Not done / known gaps:** no real-radio test yet; no fisheye lens (the 120° camera is rectilinear, so the edges
-  stretch); no shadows; no sound; the gamepad path is untested on hardware; the HUD has no flight timer (not asked).
+  stretch; done 2026-10-18, §0m); no shadows; no sound; the gamepad path is untested on hardware; the HUD has no flight timer (not asked).
 
 ### First-flight checklist for the owner
 1. `pnpm dev`, open the page in Chrome, plug in the Boxer, choose "USB Joystick (HID)" on the radio.
@@ -719,7 +794,7 @@ Decided so far: see SPEC.md §7 (license GPL-3.0-or-later, GPL for sim-core chan
 **Asked and answered at the start of M1:** see SPEC.md §7.
 
 **Open from M1:** loading glTF levels into `MeshContactWorld` (not needed while the map is code; needed when CC0 assets
-replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real HID descriptor as a test fixture.
+replace the blockout), the Boxer's real HID descriptor as a test fixture.
 
 **Open from the 0.3.1-0.4.0 fixes (2026-10-17), to ask or offer the owner:**
 - **To do (owner, 2026-10-17: "put chase cam on a list"):** the chase camera (C key) has no collision and can sit

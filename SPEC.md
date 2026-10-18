@@ -77,7 +77,10 @@ and the review's own physics test cases. Note the author's own preset values are
 - Radio setup: a wizard that walks the pilot through moving each stick and switch, for stick modes 1-4, and saves the
   calibration per device (owner, 2026-10-17).
 - Rates: the preset's by default, plus a box to type the pilot's own Betaflight or Actual rates (owner, 2026-10-17).
-- FPV camera: 20° uptilt and 120° field of view by default, both adjustable (owner, 2026-10-17).
+- FPV camera: 20° uptilt and 120° field of view by default, both adjustable (owner, 2026-10-17). Real fisheye lenses
+  from Gyroflow's lens profiles, a short list of popular FPV cameras, Caddx Ratel 2 by default; black bars where the
+  camera's picture is narrower than the screen; the FOV slider only for the flat lens (owner, 2026-10-18).
+- Browsers: Firefox support is shelved until the rest is complete; Chrome / Edge only for now (owner, 2026-10-18).
 - HUD for M1: battery voltage, armed / flight mode, throttle and speed (owner, 2026-10-17).
 - Playtest builds: published to GitHub Pages (owner, 2026-10-17).
 - Default drone: a 5" freestyle quad, sim-core's `nazgulf5v3-6s` preset (owner, 2026-10-17). Several of its values
@@ -162,3 +165,8 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | (owner's request) Level look | A general pass; bando columns must run unbroken like a real building's |
 | 2026-10-17 | People and cars: drawn only, or solid? | Solid, stylised to look fun, with settings to turn them off |
 | 2026-10-17 | (owner's request) Traffic | Stoplights, more realistic driving, people waiting at crossings, crossing lights; a toggle in the performance settings |
+| 2026-10-18 | (owner's request) Fisheye FPV camera from Gyroflow lens profiles: default lens? | Caddx Ratel 2 (analog) |
+| 2026-10-18 | A camera picture of another shape than the screen? | Fit with black bars |
+| 2026-10-18 | Which profiles to offer? | A short curated list |
+| 2026-10-18 | The FOV slider with a lens? | Hide it |
+| 2026-10-18 | Fisheye method: wide render + warp, vertex bending, or cropped face cameras + remap? | Face cameras (exact); Firefox shelved for now |

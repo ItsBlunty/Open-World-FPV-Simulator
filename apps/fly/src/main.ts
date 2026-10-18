@@ -40,7 +40,7 @@ function trafficConfig(): TrafficConfig {
 }
 
 function engineSettings(): EngineSettings {
-    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, renderScale: settings.renderScale, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
+    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
 }
 
 // ---------------------------------------------------------------- keys, mouse, free-fly camera (state)

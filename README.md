@@ -15,7 +15,7 @@ that rewards deliberate practice. Early development: the first blockout map is f
 | `packages/world-mesh` | Collision against triangle meshes for sim-core (its `ContactWorld`), plus ray and sphere queries. |
 | `packages/input` | Radio input without the browser: HID report reading (from ShramkoGSFPV, MIT), radio profiles, the calibration wizard. |
 | `packages/maps` | Levels as code: the first map's blockout geometry, its collision triangles and spawn points. |
-| `apps/fly` | The simulator page: Three.js rendering (WebGPU, WebGL 2 fallback), radio setup, FPV camera, HUD, settings. |
+| `apps/fly` | The simulator page: Three.js rendering (WebGPU, WebGL 2 fallback), radio setup, FPV camera with real fisheye lenses, HUD, settings. |
 
 ## Development
 
@@ -34,4 +34,7 @@ flight, no radio needed), `?webgl` (force WebGL 2), `?spawn=bando`, `?cam=chase`
 ## License
 
 GPL-3.0-or-later (see [`LICENSE`](LICENSE)). Included third-party code keeps its own license and copyright
-notices; `packages/sim-core` contains MIT code by Andrii Shramko.
+notices; `packages/sim-core` contains MIT code by Andrii Shramko. The FPV lens model (`apps/fly/src/render/lens.ts`)
+is ported from [Gyroflow](https://github.com/gyroflow/gyroflow) (GPL-3.0-or-later, © 2022 Adrian), and the lens
+calibrations are from Gyroflow's [lens profile database](https://github.com/gyroflow/lens_profiles) (CC0); credits
+in `apps/fly/src/render/lenses/README.md`.

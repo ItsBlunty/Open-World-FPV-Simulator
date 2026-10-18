@@ -6,6 +6,8 @@
 import { RATE_AXES, RATE_FIELDS, copyRates, fitRates, fullStickRates, readField, shownText, withField } from '@owfpv/sim-core';
 import type { FlightMode, RateAxis, RateFieldName, RatesConfig, RatesType } from '@owfpv/sim-core';
 import type { Settings } from '../settings';
+import { LENSES, NO_LENS } from '../render/lenses';
+import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
 
 const FIELD_LABEL: Record<RateFieldName, string> = {
@@ -101,7 +103,17 @@ export class SettingsUi {
             h('h1', {}, 'Settings'),
             h('h2', {}, 'FPV camera'),
             this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
-            this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); }),
+            h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
+                h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
+                    h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
+                    ...LENSES.map((l) => {
+                        const f = lensFov(l);
+                        return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
+                    }))),
+            // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
+            s.lens === NO_LENS
+                ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })
+                : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.`),
             h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
             h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
                 ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
