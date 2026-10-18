@@ -663,6 +663,12 @@ your goggles? Is the uptilt still right (a fisheye shows more sky and ground at 
 framed a little differently from the live goggle feed. No vignetting, analog noise or video latency. The chase camera
 stays flat. If the CPU cost matters later: fewer draws per face (merge small meshes, fewer materials).
 
+## 0n. Repo link on the main menu (owner, 2026-10-18): done
+
+The main menu shows "Source code, issues and updates: github.com/ItsBlunty/Open-World-FPV-Simulator" under the
+subtitle (`apps/fly/src/main.ts` `renderMenu`). It opens in a new tab so the sim keeps running. Links use the accent
+colour (`style.css`). Evidence: typecheck clean, production build OK. Nothing left open.
+
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
 - Original repo: https://github.com/AndriiShramko/ShramkoGSFPV (MIT). Owner's fork, same commit, used as the copy

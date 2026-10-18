@@ -302,6 +302,8 @@ function renderMenu(): void {
     clear(menuBody,
         h('h1', {}, 'Open World FPV Simulator'),
         h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S).'),
+        h('p', { class: 'muted' }, 'Source code, issues and updates: ',
+            h('a', { href: 'https://github.com/ItsBlunty/Open-World-FPV-Simulator', target: '_blank', rel: 'noopener' }, 'github.com/ItsBlunty/Open-World-FPV-Simulator')),
         h('h2', {}, 'Radio'),
         status,
         menuMsg ? h('p', { class: 'hint' }, menuMsg) : null,
