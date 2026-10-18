@@ -29,8 +29,10 @@ source; **[secondary]** = from a fan guide or summary, not from the maker.
   one axis, a loop of the flight path, a held state such as inverted or diving, a gap). Grade each element and each
   trick F3A-style, with every deduction shown to the pilot. Start with five tricks: flip, roll, power loop, split-S,
   dive. Machine learning is not a fit for now (no labelled data, hard to explain, harder to keep deterministic).
-- **Before building:** the owner should settle the questions at the end, mainly what a "good" power loop is. Matty
-  Fleischer, whose name is on the Matty flip, writes that an oblong power loop is sometimes the right one.
+- **Before building:** the owner should settle the questions at the end, mainly what a "good" power loop is. The
+  pilot Matty Fleischer writes that an oblong power loop is sometimes the right one. (Correction: the first version of
+  this note said the Matty flip carries his name. No source said so; it is named after MattyStuntz, see §9.)
+- **Follow-up (§9, §10):** exact trick definitions from public sources, and a power-loop consensus from 18 sources.
 
 ### 1. How existing sims grade freestyle
 
@@ -284,6 +286,145 @@ trick log, showing the path flown, a replay from FPV or chase cam, and a ghost o
 shown at the spot, the open-world goal being full stars everywhere; 9 porting PyFlightCoach code is allowed (keep its
 notices); 10 save flights in the browser first.
 
+### 9. Trick definitions from public sources (owner: "write them up from public sources")
+
+**What I read (2026-10-18).** In full: Rotor Riot's Tricktionary (§3) and its 15-video "Trick Series" list (support
+doc, 2021), with the auto-generated transcripts of 7 of those videos, each taught by a named pilot; ProWhooper's
+tricktionary (Tyrantt's Pro Whooper, a whoop freestyle competition with over 80 tricks, points per trick and published
+rules); WREKD's list (§3); and transcripts of 25 more tutorials by Joshua Bardwell, Le Drib, Drew (Rotor Riot),
+Phantom, Patrick Watkins, VIK FPV, Bacon Ninja, Infinity Loops, MaiOnHigh, TuxedoFPV, FPV Academy (GetFPV) and DRL's
+FPV 101.
+Transcripts are YouTube's automatic captions: the words are sometimes garbled, the stick movements on screen are not in
+them, and five silent text-overlay tutorials (headmazta) had nothing to read. Blogs that read like generated text
+(uavmodel.com and similar, with contradictory throttle numbers) are left out. The full list is under Sources.
+
+**General findings.**
+- Pilots build tricks from three basics: roll, flip, yaw spin (Rotor Riot Tricktionary; Rotor Riot "Rolls, Flips, and
+  Spins", 2016; Charpu: "you can start combining the halves"). Fractions of them (half, full, 540) are the words pilots
+  use, so detectors should count rotation in half turns.
+- Throttle is what separates tricks that look the same from the stick: a flip or roll with throttle held becomes a
+  loop or a barrel roll (Chad and Tommy, Rotor Riot 2016); a power loop with the throttle cut too early becomes a
+  "teardrop" that "is not a power loop" (Bardwell 2016). So detectors must look at the path, not just the rotation.
+- Camera uptilt changes how a trick looks, not what it is: with uptilt, a plain yaw while flying forward tilts the
+  view, so pilots mix roll and yaw to keep a spin flat (Chad and Tommy; Le Drib; Bardwell "10 tricks"). Detectors must
+  use the body and path, never the camera view, except where a definition asks for an object to stay in view.
+- Names disagree at the edges (below), and in a challenge the game names the trick, so the first detectors only need
+  to confirm one named trick at one place (owner: challenges first).
+
+**How to read the detector lines.** All angles are summed from the body rates (`wx`, `wy`, `wz` in sim-core's `S`):
+"pitch +360°" means one full turn about the body's right axis, nose forward first. (Check the signs against
+`packages/sim-core/src/sim.ts`: Betaflight's pilot convention is pitch + = nose down.) "Path" is the centre of
+gravity's track; "heading" is the direction of horizontal velocity. A challenge gives the place: a hand-marked gap
+(a rectangle with a "forward" side) or an object's box. Every number marked [estimate] is a starting value to tune by
+flying.
+
+| Trick | Sources say | Where they disagree | Chosen definition (why) |
+|---|---|---|---|
+| **Flip** (front / back) | ProWhooper: "a 360° pitch forward or backward with a consistent motion". Chad and Tommy: done at zero throttle, after a small throttle blip, so the quad stays "within your three-dimensional space"; with throttle held it "almost looks like a loop". Bardwell: stop "with the horizon perfectly level", no overshoot or undershoot. | Snap vs. slow or varied speed (Bardwell prefers "fast slow" flips and calls snaps less interesting; Chad and Tommy show both). | One full turn in pitch at low throttle, the path not looping. Speed is style, so it is not part of the definition. |
+| **Roll** (axial / barrel) | ProWhooper: "a 360° roll left or right with a smooth and continuous motion". Rotor Riot Tricktionary: a barrel roll is one where "you use power to actually go spiral". Chad and Tommy: throttle on turns a roll into a barrel roll that loses height. | Whether a barrel roll is a separate trick (Rotor Riot: yes; ProWhooper lists only "roll"). | Two tricks: axial roll (path straight) and barrel roll (path spirals, as F3A's barrel roll). |
+| **Power loop** | All 18 sources in §10: under or through an object, pitch back with power, over the top inverted at low throttle, back down and through the same place, same direction. ProWhooper: "fly beneath an object ... until you're fully inverted. Cut the throttle while continuing to pitch back ... pass back under the object". | Whether an object is required (see §10); "power on the whole time" (Bardwell 10 tricks: "some people feel" so; he floats the end). | As ProWhooper and Bardwell L15 ("technically to make it a true power loop you go back through the obstacle"). Open-air loops are a separate, easier challenge. |
+| **Split-S** | ProWhooper: fly over an object, 180° roll, dive down its back, pitch back and throttle to level out, pass under it. Rotor Riot Tricktionary: roll 180°, then go back the way you came. Skitzo (Rotor Riot): thrust up, half roll inverted, dive under or between something. Le Drib: half roll then half pitch; also done as a half yaw or a blended "cartwheel". Bardwell (proximity split-S): drop the throttle during the roll so the quad flies "like it's been shot out of a cannon"; exits need not be exactly 180°, a "270" works too. Alias "S-turn" (Rotor Riot support doc). | The order and mix of roll and pitch (Le Drib: "technically" still a split-S when pitched first); exit angle 180° vs any. | Half roll to inverted, then a downward half loop, ending upright with the heading reversed (180° ± 45° [estimate]), through or under the challenge's object. Variants (yaw entry, 270) are later tricks. |
+| **Immelmann** | ProWhooper: "begin a Powerloop, but at the peak ... a rapid 180° Roll". Rotor Riot Tricktionary: "you climb, go back, then roll out". Rotor Riot (DJI series): roll out at the top of a power loop. MaiOnHigh calls it a "reversed split-S". | None found. | Half loop up, half roll at the top, ending upright with the heading reversed and higher (F3A's definition too). |
+| **Dive** | Rotor Riot Tricktionary: "diving by using a nose down stall". ProWhooper "building dive": climb, preferably 12 m or more, cut throttle, pitch down, pitch back to level near the ground; "the closer you are to an object during the dive, the more visually appealing". Le Drib: split-S into it, nose down along the building face, throttle "all the way down or just very very low", pull out smoothly, not abruptly at the bottom. Drew and Steele: the lens "pointing like straight down" looks good. Bardwell: idle thrust pushes you away from the wall; pitch past vertical to counter it. Liftoff scores dives by how long they last. | Height (ProWhooper's 12 m is a whoop competition's number); how vertical. | A held state: nose and path within 30° of straight down [estimate], throttle near idle, for at least 1.0 s [estimate], ending in a pull-out to level flight without touching the ground. In a challenge: along the marked face. |
+| **Matty flip** | Bardwell (Lesson 19): named after a pilot called Matty, one of the few tricks traceable to one person; "fly over an obstacle ... pitch forward and then fly backwards underneath the obstacle", "almost kind of like a backwards or inverse power loop"; off throttle while inverted, then throttle to pull backwards through. MattyStuntz himself (Rotor Riot, 2018) teaches finding the pitch angle that keeps the quad "not going down or up but rather just going in the backward motion". ProWhooper: "a partial front flip over it while attempting to keep the object in your view as you descend ... level out and fly backwards beneath the object". Rotor Riot Tricktionary: same. Alias "Backward Swing" (Rotor Riot support doc); Le Drib's tutorial title calls it a "backwards powerloop". | Keeping the object in view (Bardwell: many pilots don't, as it makes you swing wide); WREKD's one line ("roll backward over an obstacle") does not match the others. | Over the object, forward pitch of 180-300° [estimate] while the path drops behind it, ending nose-up and flying backwards (velocity along the body's back) under or through the object. |
+| **Rubik's cube** | Rotor Riot Tricktionary: half flip forward, 360 roll, half flip forward "or some combination". ProWhooper: "a 180° flip, then ... a 360° roll, and ... another 180° flip in the same direction as the first one" (and "Cubik's Rube": 180 roll, 360 flip, 180 roll). Charpu (Rotor Riot): any combination of halves, e.g. half flip, full roll, half flip; it helps if all axes take the same time per turn. VIK FPV: half flip, roll, half flip, front or back "as long as you are consistent". WREKD: "four quick half-rolls and flips". | Strict pattern vs any combination; flip direction. | ProWhooper's pattern: half flip, full roll, half flip in the same pitch direction, quickly linked [estimate: each gap under 0.3 s], ending upright on the entry heading. It is the only exact, checkable version; Cubik's Rube can be a separate trick. |
+| **Yaw spin** | ProWhooper: "a continuous 360° Yaw to either the left or right without any interruptions". Chad and Tommy, Bardwell: while flying forward a plain yaw looks wrong (ground, sky, ground); mix roll to keep it flat. Bardwell: drop throttle so you "come out of it ... still going the same direction". | Flat or not (a look, set by camera tilt). | At least 360° of yaw while upright, the path keeping its heading (within 30° [estimate]). Flatness is graded, not required. |
+| **Inverted yaw spin** | ProWhooper: "a 180° Pitch/Roll to invert, ... an inverted 360° Yaw spin, and conclude with a Flip/Roll in the same direction". Charpu (Rotor Riot): half loop, 360 yaw spin, another half loop, "keep going forward"; throttle cut; similar rates on all axes help. Patrick Watkins: zero throttle during the yaw; "180 for me is good enough"; best is a quick entry and a slow yaw. Le Drib: "I wouldn't say that there's a right or wrong way" to the flatness. | 180° vs 360° of yaw; how to exit. | ProWhooper's version: half turn to inverted, at least 360° of yaw while inverted at low throttle, half turn back upright. A 180° version could be a separate, easier trick. |
+| **Orbit** | ProWhooper: "fly your drone around an object in a circular path while keeping the object centered in your camera view"; "a smooth, consistent circle". Bardwell (orbits "as made famous by Mr. Steele"): "nose in yaw spins"; the nearer the object to the screen's centre, "the more of a sort of a pure yaw spin"; top pilots keep it slightly inside the centre; keep a constant distance and altitude. Rotor Riot Tricktionary: go around a stationary object, "orbiting it 360 degrees". WREKD: "consistent radius and speed". | How centred the object must be. | One full circle (≥ 360°) around the challenge's object with the nose pointing at it (within 30° [estimate]). Radius, height and speed steadiness are graded. Inverted orbits ("trippy spin") are a separate trick. |
+
+**Detector sketches (for the challenge version; thresholds [estimate]).**
+- *Flip:* pitch total reaches ±330° within 1.2 s; roll and yaw totals each under 60° meanwhile; throttle stick under
+  30 % for most of it; the velocity direction turns less than 90° (else it was a loop). Graded: steady rate, crisp
+  start and stop, off-axis wobble, exit attitude level, height lost. Double flip: 690°.
+- *Roll:* the same on roll. Axial if the path stays within ~0.5 m of a straight line; barrel if it circles a line.
+- *Power loop:* see §10.
+- *Split-S:* roll ±180° (± 40°) first, while pitch and yaw stay small; then pitch up through 150-210° until upright;
+  height falls; heading changes by 180° ± 45°; in a challenge, the path passes over the object then under or through
+  it. *Immelmann:* the reverse order, height rises.
+- *Dive:* held state as in the table; graded on straightness, closeness to the marked face, pull-out smoothness.
+- *Matty flip:* forward pitch of 180-300° over the object; ends with velocity pointing out of the quad's back (dot
+  product of velocity and body back axis > 0.7) and passes under or through the object.
+- *Rubik's cube:* pitch 180° (± 40°), then roll 360° (± 60°), then pitch 180° in the same direction, each starting
+  within 0.3 s of the last ending; total under 2.5 s; ends upright on the entry heading (± 30°).
+- *Yaw spin / inverted yaw spin:* yaw total ≥ 330° while body up stays above (or below) the horizon; for inverted,
+  preceded and followed by half turns.
+- *Orbit:* the horizontal path turns ≥ 360° around a centre inside the object's box; nose-to-object angle under 30°
+  for 80 % of the circle.
+
+### 10. What makes a good power loop: consensus and dissent (owner: "get some kind of consensus")
+
+18 sources: Bardwell (2016 trick tutorial; Lessons 15, 16 and 18 of his 2024 series; "10 tricks", 2019; "more uptilt",
+2023); StingersSwarm (Rotor Riot Trick Series, 2016); Drew (Rotor Riot "First Flight to Freestyle", 2021); FPV Academy
+(GetFPV, 2023); Phantom (proximity power loops); VIK FPV ("How to fix your power loop"); Bacon Ninja; Infinity Loops;
+DRL FPV 101; TuxedoFPV (IGOW 4); Le Drib (blind-gap power loops); Matty Fleischer (§3); ProWhooper (definition and its
+"constant loop motion" penalty). Counts below are how many said it, not a vote among all 18 (most only talk about part
+of the trick).
+
+**Consensus (no source disagrees):**
+1. **Back through the same place, same direction.** "Technically to make it a true power loop you go back through the
+   obstacle" (Bardwell L15); "else it is not a true power loop" (Bacon Ninja); "it's not a power loop unless you power
+   loop around something" (Drew, Rotor Riot); also ProWhooper, DRL, Fleischer, FPV Academy ("the end point is the same
+   as the start point"). Open-air loops are taught as practice (Bardwell, Infinity Loops, Drew, FPV Academy).
+2. **Fling backwards: no teardrop.** Throttle must stay on past vertical so the quad moves backwards over the top;
+   cutting it early gives "kind of a teardrop move ... but it's not a power loop" (Bardwell 2016; also Bardwell L15,
+   "10 tricks"; Infinity Loops; Drew: "you power up and then you flip out of it").
+3. **Steady rotation.** Hold the pitch stick still; "a good loop has a consistent rotational speed" (Drew); "ideally
+   your pitch stick will be at the same position through the whole move" (Bardwell 2016); "constant down on the pitch"
+   (StingersSwarm). ProWhooper takes 35 % off for "breaking constant loop motion". Same as F3A's "no segments" rule.
+4. **Throttle: on climbing, near idle inverted, bled back on smoothly.** Cut around the top: when the horizon appears
+   (FPV Academy), when the object leaves the view (StingersSwarm), around 12 to 1 o'clock (Bardwell). "You don't really
+   want to chop throttle ... you want to bleed off the throttle" and an abrupt catch makes the quad wobble (Drew);
+   "a smooth onset of throttle during the catch giving the impression of one seamless flow" (FPV Academy). Full
+   throttle all the way sends you "really really high or really far back" (StingersSwarm).
+5. **Tight to the object.** "Really good power loops are nice and tight to the obstacle" (Bardwell L15); huge loops
+   "to the moon" look like a beginner's (Bardwell L15, L18); also VIK, Phantom ("staying really close to my target"),
+   DRL ("as close to your obstacle as possible throughout the maneuver").
+6. **On axis.** Approach level and straight, no roll or yaw in the loop; a crooked entry makes it "spiral" or
+   "corkscrew" out of line (Bardwell L18; Drew; FPV Academy; StingersSwarm: "a little bit off axis").
+7. **Exit at the entry height, on the entry line.** "You should ideally exit these loops at the same altitude that you
+   enter them" (Bardwell 2016, again in L18); FPV Academy.
+
+**Dissent and open points:**
+- **Round or not.** Most treat a round loop as the goal ("try and make it a perfect round power loop", Bardwell L18;
+  "nice smooth circles", L15; StingersSwarm: "the loop looked perfect"). Dissent: a harder pop gives an oblong loop that
+  clears tall objects with less run-up (Fleischer); climbing a wall makes "a stretchy oval" or a near "square" on
+  purpose (Bardwell L16); a quicker pitch at the top is fine "if that's what you want ... being intentional with it and
+  not doing that because you're panicking" (Drew). **Reading:** the shape should fit the object: round in the open or
+  around a compact object, stretched along a tall one. Steady rotation (point 3) and tightness (point 5) capture what
+  all of them want; geometric roundness alone does not.
+- **Keeping the object in view.** StingersSwarm, Bardwell L15 and Fleischer want it in view all the way round; it
+  depends on camera uptilt (Bardwell 2023: 45° makes it much easier than 25°; Bacon Ninja flies 15° and warns not to set
+  uptilt for one trick). Grading "in view" would favour high uptilt.
+- **Throttle at the top.** A full-throttle blip at the apex to clear a deep object (StingersSwarm; Infinity Loops: "a
+  little bit more of a flick" for a wide one) vs. low throttle from the horizon on (FPV Academy); both fit point 4, as
+  the size of the object sets the pop.
+- **Wind.** Bacon Ninja's loops were pushed off by 20-40 mph gusts; real pilots correct for it. Our sim has wind.
+
+**Proposed power-loop grade (challenge with a marked gap or object; numbers [estimate]).**
+- *Must (else "not a power loop", with the reason shown):* passes the gap forward, then back through it forward again
+  within 8 s; backward speed of at least 1 m/s at some point while inverted (no teardrop); total pitch 300-420°, with
+  roll and yaw totals under 60°.
+- *Graded, F3A-style from 10:* rotation steadiness (spread of pitch rate after the entry; a pause in rotation counts as
+  "broken loop motion", -2); tightness (largest distance from the object's box, against a par set per challenge); on
+  axis (lean of the loop's plane, 1 point per 15°); exit height vs entry (0.5 per 1 m [estimate]); exit heading vs entry
+  (1 point per 15°); throttle smoothness (stick rate of change during the catch, against a par); roundness counted only
+  in open-air challenges.
+- *Ghost of the perfect version* (owner's idea): the par values come from a reference flight per challenge (the
+  owner's own best, or a computed path); that same flight is the ghost.
+
+**Questions for the owner (from §9 and §10).**
+1. Power loop shape: grade steady rotation and tightness (the consensus), with roundness only in open-air challenges?
+   Or roundness everywhere?
+2. Should "keeping the object in view" count? It rewards high camera uptilt.
+3. Rubik's cube: only ProWhooper's exact pattern (half flip, full roll, half flip, same direction), or any mix of
+   halves (Charpu)?
+4. Inverted yaw spin: 360° only, or also an easier 180° version?
+5. Orbit: one full circle enough? How centred must the object be?
+6. Split-S exits: exactly reversed (180°) only, or also 270° and other turns as named variants?
+7. Wind in challenges: off, fixed per challenge, or the world's wind?
+8. Point values: ProWhooper gives each trick base points (flip 50, power loop 200, Rubik's cube 325, inverted yaw spin
+   400, outdoors). Use these as a starting difficulty scale for the stars, or set our own?
+
 ### Sources
 
 - Liftoff, Steam announcements, read via the Steam news API (2026-10-18): Milestone 0.11.0 (2017-10-10), 0.11.1,
@@ -312,3 +453,31 @@ notices); 10 save flights in the browser first.
 - Travert, "Flight Regime and Maneuver Recognition for Complex Maneuvers", ERAU MSc thesis 2009,
   https://commons.erau.edu/db-theses/200 (abstract only).
 - dronesport.fr, "Drone freestyle FPV: guide complet 2026" (claim not supported by the FAI volume above).
+
+Added for §9-§10 (read 2026-10-18; videos read as YouTube's automatic captions, https://www.youtube.com/watch?v=ID):
+- ProWhooper (Tyrantt's Pro Whooper) tricktionary, trick pages (flip, roll, double flip, powerloop, maverick loop,
+  power flip, power roll, split S, Immelmann, building dive, Matty flip, half / beginner / anti / power Matty,
+  Rubik's cube, Cubik's Rube, yaw spin, inverted yaw spin, orbits, trippy spin, segmented flips, juicy flick) and
+  "Complete Rules Overview": https://prowhooper.com/tricktionary/ , https://prowhooper.com/rules-overview/
+- Rotor Riot support doc "How do I do freestyle tricks?" (2021-10-26), the Trick Series list:
+  https://rotorriotsupport.helpscoutdocs.com/article/35-how-do-i-do-freestyle-tricks
+- IntoFPV thread "Freestyle Tricktionary" (2023-12), pointing to ProWhooper: https://intofpv.com/archive/index.php/thread-25017.html
+- Rotor Riot Trick Series: Rolls, Flips, and Spins with Chad and Tommy (2016-07-11, EbAwSQF0Ks0); Split-S with Skitzo
+  (2016-12-04, t561TF9s9xk); Power Loops with StingersSwarm (2016-12-06, LSwz3F2pjYg); Inverted Yaw-Spins with Charpu
+  (2016-12-19, jnj2Rggr55s); Rubiks Cube with Charpu (2016-12-26, xvRKoKHmkNE); Dives with Drew and Steele (2017-07-17,
+  YIq5tXVm8Mk); Mattyflip with MattyStuntz (2018-01-28, Twcj_8k_-vk). Orbits with Mr Steele (-7xgB99JLJo) had no
+  captions. Also Rotor Riot "How to POWER LOOP A Freestyle Drone" (Drew, 2021-06-07, SeAoaiZY98w).
+- Joshua Bardwell: How To Do Power Loops (2016-03-11, T1vzjPa5260); How To Do A Proximity Split S (2016-01-15,
+  CyhEUMpFoyA); How To Do FPV Orbits (2016-09-27, qycbKimdr_I); How To 10 FPV Freestyle Tricks (2019-07-11,
+  0EqJ9C8KuTQ); The secret to great power loops is more uptilt (2023-01-06, tyQcyXJMWpY); Learn to Fly Lessons 15
+  (2024-01-26, j-fJIPVe3fs), 16 (2024-01-30, ziNq8F1xbeY), 18 (2024-04-04, Sryd8oZIo4s), 19 Matty Flip (2024-04-05,
+  v25IwLExF80); Tips for Diving (livestream clip, 2022-05-30, LyaR1eYkNfY).
+- Le Drib: how to Split S (2018-09-27, 7U39hW0I4Ak); how to BUILDING DIVE (2018-02-18, 9YH1GzPw01Y); how to INVERTED
+  YAW SPIN (2017-11-15, UwE4qKzrIbU); how to POWER LOOP BLIND GAPS (2018-03-21, KjoS6SjFBwc); "how to MATTYFLIP
+  (backwards powerloop)" (2017-02-08, 625wUUsPqwk; title only, no captions).
+- FPV Academy / GetFPV, How To Powerloop an FPV Drone (2023-08-22, LTl0780qgCE); Phantom, Proximity Power Loops
+  (2021-02-25, zfhcBwVs_gE); VIK FPV, How to FIX your POWER LOOP (2020-11-16, s_ydaptn6no) and How to FIX your RUBIKS
+  CUBE (2021-01-07, Iuv5nluun0E); Bacon Ninja FPV, Power loops for FPV newbs (2022-12-31, JpMY2OgyywU); Infinity Loops,
+  How Do You Powerloop? (2021-02-03, 5OOE8PTAHNs); Drone Racing League, FPV 101 Learning Power Loops (2022-12-16,
+  qrKuIGemAsM); TuxedoFPV, Powerloop indoors (2023-05-09, xzxyEjIe-2g); Patrick Watkins, INVERTED YAW SPIN (2021-04-29,
+  02x7HyC2U1E); MaiOnHigh, Reversed Split-S (Immelmann) (2024-05-04, CbH-XDqKtPg).

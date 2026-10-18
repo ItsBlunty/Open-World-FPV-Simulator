@@ -31,8 +31,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 ## Left open (not started)
 
-- Freestyle grading: owner answered all 10 (challenges first, stars per challenge, save flights first). Still to do:
-  trick definitions from public sources and a power-loop consensus (owner asked for both). [freestyle-grading]
+- Freestyle grading: owner answered all 10 (challenges first, stars per challenge, save flights first). Trick
+  definitions (§9) and a power-loop consensus (§10) written; 8 owner questions at the end of §10. [freestyle-grading]
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]
