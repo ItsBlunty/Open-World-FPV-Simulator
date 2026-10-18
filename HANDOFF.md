@@ -632,7 +632,8 @@ is hidden while a lens is chosen. Method: Claude explained the three ways (below
   screen pixel -> normalised point -> θ (table, `textureLoad` + blend: float textures need not filter) -> ray -> face
   -> `texture().level(0)` (sampled inside branches). A render target's v runs from its top row (found by looking:
   the first build was upside down).
-- `engine.ts`: the FPV view goes through the lens when one is set; chase and free cameras stay flat; the faces follow
+- `engine.ts`: the FPV view and the free "Look around" camera go through the lens when one is set (the free camera
+  was flat at first; owner, 2026-10-18: "the free fly camera should also have lens applied"); the chase camera stays flat; the faces follow
   the drawing buffer (resize, resolution slider); the warm-up also draws into a face-format target and the lens pass.
   `__fly.ask('return fly.fisheye.layout')` shows the faces.
 - Settings: `lens` (default `caddx-ratel-2`); a "Lens" dropdown in Settings > FPV camera lists each lens with its
@@ -659,8 +660,8 @@ is hidden while a lens is chosen. Method: Claude explained the three ways (below
 your goggles? Is the uptilt still right (a fisheye shows more sky and ground at the edges)? Black bars OK?
 
 **Left open:** Firefox not checked (shelved). The calibrations are of recorded video (DVR / onboard), which may be
-framed a little differently from the live goggle feed. No vignetting, analog noise or video latency. The chase and
-free cameras stay flat. If the CPU cost matters later: fewer draws per face (merge small meshes, fewer materials).
+framed a little differently from the live goggle feed. No vignetting, analog noise or video latency. The chase camera
+stays flat. If the CPU cost matters later: fewer draws per face (merge small meshes, fewer materials).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

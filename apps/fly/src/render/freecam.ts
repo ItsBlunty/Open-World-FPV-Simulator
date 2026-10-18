@@ -10,7 +10,7 @@ const SPEED = 10;
 const FAST = 4;
 /** radians per pixel of mouse movement */
 const LOOK = 0.0025;
-/** vertical FOV, deg: a normal lens, like the chase camera */
+/** vertical FOV, deg, when no fisheye lens is chosen (with one, the lens sets the view: engine.ts) */
 const FOV = 60;
 
 export class FreeCam {

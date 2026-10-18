@@ -64,7 +64,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     view.fovDeg = cfg.fovDeg;
     view.resize(size.width, size.height);
     scene.add(view.craft);
-    /** the FPV camera's lens (render/fisheye.ts); the chase and free cameras stay flat */
+    /** the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat */
     const fisheye = new FisheyeView();
     const bufferSize = new THREE.Vector2();
     const fitFisheye = (): void => {
@@ -201,7 +201,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         }
         trafficView.update(session.sim.tick);
         sun.follow(view.camera.position);
-        if (fisheye.active && view.mode === 'fpv' && !freeCam.active) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
+        if (fisheye.active && (freeCam.active || view.mode === 'fpv')) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
         else renderer.render(scene, view.camera);
     }
 
