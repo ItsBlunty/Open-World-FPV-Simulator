@@ -1,10 +1,10 @@
 // The page: the menus, the HUD and every input (radio, keyboard, mouse). The engine (flight session, Three.js
-// scene, frame loop: engine/engine.ts) runs in a worker drawing to this page's canvas, so this thread stays free
-// for input (owner, 2026-10-18; HANDOFF.md §0h: Firefox applies gamepad updates on the page's main thread). Where a
-// worker cannot draw, or with ?render=main, the same engine runs on the page. URL options: ?selftest runs the
-// determinism check, ?demo flies the self-test's scripted sticks in real time (no radio needed), ?webgl forces
-// WebGL 2, ?spawn=<id> starts at a spawn point, ?cam=chase starts in the chase view, ?noshadows turns the sun's
-// shadows off (for slow GPUs, and to measure what they cost), ?render=main keeps the engine on the page.
+// scene, frame loop: engine/engine.ts) runs on this page by default. ?render=worker runs it in a worker drawing to
+// this page's canvas instead (HANDOFF.md §0i): input arrives sooner there, but the owner felt stutters every 5-10 s
+// in Firefox and chose the page (2026-10-18). URL options: ?selftest runs the determinism check, ?demo flies the
+// self-test's scripted sticks in real time (no radio needed), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
+// point, ?cam=chase starts in the chase view, ?noshadows turns the sun's shadows off (for slow GPUs, and to measure
+// what they cost), ?render=worker runs the engine in a worker.
 
 import './style.css';
 import { compileParams } from '@owfpv/sim-core';
@@ -152,7 +152,7 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
 
 const engineWhere = (): string => (worker ? 'in a worker' : 'on the page');
 const workerCanvas = typeof canvas.transferControlToOffscreen === 'function' && typeof Worker !== 'undefined';
-if (workerCanvas && params.get('render') !== 'main') startWorkerEngine();
+if (workerCanvas && params.get('render') === 'worker') startWorkerEngine();
 else startPageEngine();
 addEventListener('resize', () => send({ type: 'resize', width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));
 

@@ -1,7 +1,7 @@
-// What the page and the engine say to each other (owner, 2026-10-18: the renderer and the sim moved off the page's
+// What the page and the engine say to each other (owner, 2026-10-18: so the renderer and the sim can run off the page's
 // main thread). The page keeps the DOM and every input; the engine owns the flight session, the Three.js scene and
-// the frame loop. It runs in a worker drawing to an OffscreenCanvas, or on the page through the same messages when
-// that is not available (?render=main forces it). HANDOFF.md §0h has why: Firefox applies gamepad updates on the
+// the frame loop. It runs on the page through these messages (the default), or with ?render=worker in a worker drawing
+// to an OffscreenCanvas (HANDOFF.md §0i; the owner felt stutters there). §0h has why: Firefox applies gamepad updates on the
 // page's main thread, so a page busy drawing sees them late and merged.
 //
 // Clocks: a worker's performance.now() counts from its own timeOrigin, not the page's. Input stamps are page time;

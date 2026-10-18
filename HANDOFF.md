@@ -45,9 +45,11 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Firefox gamepad fix (owner, 2026-10-18, §0h):** the Boxer in Joystick mode was never seen by "Use gamepad" in
   Firefox. Not a Web Serial matter (the owner asked about it; see §0h). The owner: "it works now", but ~200 Hz and
   **24 fps with the radio attached** (120 without). Fixed: the gamepad poll no longer spins on the main thread (§0h
-  "Frame rate"). Flown: frame rate holds, sticks okay at ~140 Hz. Then (owner: "do this"): **the engine runs in a
-  worker** and the gamepad clock no longer has a 4 ms floor (§0i). **Waiting for the owner to fly it in Firefox and
-  Chrome** (handling: Firefox should read the Boxer ~200+ times a second; `?render=main` is the old layout for A/B).
+  "Frame rate"). Flown: frame rate holds, sticks okay at ~140 Hz. Then the gamepad clock lost its 4 ms floor and the
+  engine can run in a worker (§0i). **Flown (owner):** Firefox gamepad 225 Hz in the worker but "slight stutters every
+  5 to 10 seconds"; 219 Hz on the page with no stutter. **Owner's choice: the engine stays on the page** (default);
+  `?render=worker` keeps the worker. Chrome WebHID fine either way; Chrome gamepad 185-191 Hz (Chrome samples
+  gamepads every 4 ms itself, §0i).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -430,7 +432,7 @@ plan"; keep the worker timer until then.
 - Built: §0i. Claude in Chrome cannot drive Firefox: the probe ran in
 throwaway Firefox windows, which pop up on the owner's screen (ask first, see memory).
 
-## 0i. Render worker and a faster gamepad clock (owner, 2026-10-18): built, waiting for the owner to fly
+## 0i. Render worker and a faster gamepad clock (owner, 2026-10-18): flown; engine stays on the page
 
 **Asked:** the owner approved the plan (§0h): "1. yes [open browser windows] 2. yes [keep a fallback]". The Boxer's
 real rate is 500 Hz (Chrome WebHID).
@@ -463,7 +465,15 @@ scenes get heavier.
 Esc pause, spawn menu, FOV slider, canvas size) and a simulated radio through `onRaw` (arm with Space, climb at 0.4
 throttle, stale disarm) work in both. 46 test files, 417 tests (new: `engine-link.test.ts`); typecheck clean.
 
-**Left open:** not flown with the Boxer: Firefox's real gamepad rate now (expected ~200+ Hz of the Boxer's 500;
+**Flown (owner, 2026-10-18):** "in the new version im getting slight stutters every 5 to 10 seconds. Update rate in
+firefox shows 225hz, however, now when I do ?render=main, I get 219hz and no stutter. Id prefer to keep it in main".
+Chrome: "fine in HID mode either way", gamepad mode 185-191 Hz with the Boxer. **Done:** the default is the engine on
+the page; `?render=worker` opts into the worker (main.ts). So the Boxer in Firefox went ~140 -> 219 Hz from the clock
+alone. Chrome's gamepad path is capped by Chrome: `device/gamepad/gamepad_provider.cc` (chromium `main`, read
+2026-10-18) `kPollingIntervalMilliseconds = 4;  // ~250 Hz`; use WebHID in Chrome.
+**Left open (worker):** the stutter's cause is not found (not reproduced by Claude; candidates to measure: garbage
+from the 30 Hz HUD snapshots, Firefox's OffscreenCanvas presentation, worker GC). Earlier list, for when the worker
+is picked up again: Firefox's real gamepad rate now (expected ~200+ Hz of the Boxer's 500;
 Firefox drains raw input every 4 ms, so at most ~250), Chrome WebHID still 500 Hz, and feel in both. Window resize
 while running not exercised (the start size is right). CPU cost of the new clock not measured (about 600 tiny tasks/s
 on the page and in its worker). WebHID could later be opened inside the engine worker (Chrome 131+).

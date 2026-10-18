@@ -9,8 +9,8 @@
 // five deep, HTML timer nesting), which beats against Firefox's own ~4-5 ms gamepad updates and misses
 // some (owner's Boxer, 500 Hz: ~140 Hz). So each 1 ms timeout is set from a message task instead, where
 // the nesting level starts again: Firefox 158 ticks ~665/s, Chrome 155 ~544/s, gaps 1-2 ms, no spinning
-// (docs/evidence/2026-10-18-render-worker/). This needs a page whose main thread is not busy drawing: the
-// engine runs in a worker (engine/engine.ts). Each new sample keeps its Gamepad.timestamp (below).
+// (docs/evidence/2026-10-18-render-worker/). The owner's Boxer (500 Hz) in Firefox 158: 219 Hz with the engine
+// on the page, 225 Hz with it in a worker (was ~140). Each new sample keeps its Gamepad.timestamp (below).
 // Chromium traps: an axis may read exactly 0.0 until it has once been near centre,
 // and a pad only appears after a deflection > 0.5 — the arm gate's "passed centre" rule covers it.
 // Some pads (e.g. a DJI controller) report only changes: Gamepad.timestamp stands still while the

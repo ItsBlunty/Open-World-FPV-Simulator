@@ -1,6 +1,6 @@
 // The engine: the flight session, the Three.js scene and the frame loop (physics up to now, then draw). It talks to
 // the page only through `Port` messages (protocol.ts), so the same code runs in a worker on an OffscreenCanvas
-// (worker.ts) or on the page (main.ts, when no worker canvas is available or with ?render=main).
+// (worker.ts, ?render=worker) or on the page (main.ts, the default).
 
 import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
