@@ -153,6 +153,10 @@ async function connectHid(): Promise<void> {
 }
 
 function connectGamepad(): void {
+    if (!navigator.getGamepads) {
+        menuMsg = 'This browser gives the page no gamepads. Open the sim from localhost or https.';
+        return renderMenu();
+    }
     const pad = new GamepadSource();
     menuMsg = 'Move a stick or press a button on the controller…';
     renderMenu();

@@ -19,3 +19,6 @@ upstream repository root. Everything else in this app is ours, GPL-3.0-or-later.
 3. `reconnect.ts`: upstream's `Profile` type is our `RadioProfile` (`import type { RadioProfile as Profile }`).
 4. `hid.ts`: `makeHidReader(d)` casts the device to the reader's own descriptor type, because the WebHID typings we use
    (`@types/w3c-web-hid`) mark `reportId` optional where upstream's own typings did not. No behaviour change.
+5. `gamepad.ts` (owner, 2026-10-18): a pad that the poll finds in `getGamepads()` is announced through `onConnect`
+   as if `gamepadconnected` had fired (a pad touched before `start()` sends no event); `onConnect` fires once, for the
+   adopted pad only, not for later pads or reconnects.

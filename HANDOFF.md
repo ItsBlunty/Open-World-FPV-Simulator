@@ -1,13 +1,13 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 44 test files, 406 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 45 test files, 413 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
@@ -42,6 +42,8 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **World pass, map v4 (owner, 2026-10-18, §0g):** bando beams so walls never float, the roof tank on steel beams,
   real recessed city windows, see-through car windows with riders, car-park ramps, street-lamp heads, the south-east
   water tower's braces. **Waiting for the owner to look at it and fly it** (handling: window reveals and beams are solid).
+- **Firefox gamepad fix (owner, 2026-10-18, §0h):** the Boxer in Joystick mode was never seen by "Use gamepad" in
+  Firefox. Not a Web Serial matter (the owner asked about it; see §0h). **Waiting for the owner to try it in Firefox.**
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools.
@@ -339,6 +341,35 @@ bando, its roof tank, a brick street, a glass tower corner and cars with riders 
 **Left open:** the owner to look and fly (do the window sills and beams feel right to fly along?); no frame-time
 measurement after the 5x triangle count (the GPU cost was 0.5-2.3 ms before; worth a check on the owner's machine);
 the underside of slabs renders very dark (the hemisphere light's ground colour), unchanged by this pass.
+
+## 0h. Boxer not seen in Firefox (owner, 2026-10-18): gamepad connect fix, waiting for the owner
+
+**Asked:** "add webserial support so that firefox can use radios", then: "I want to run it in HID/Joystick mode";
+in Firefox "Use gamepad" kept saying "move a stick or press a button" and never saw the Boxer (Chrome's WebHID path
+works fine).
+
+**Why not Web Serial:** Firefox 151 (desktop) has Web Serial (hacks.mozilla.org, 2026-05), but it opens serial (COM)
+ports only. A radio in USB Joystick mode is an HID device, not a serial port. EdgeTX's USB serial (VCP) modes
+(`UartModes` in `radio/src/dataconstants.h`, `radio/src/serial.cpp`: telemetry mirror, telemetry, SBUS trainer, Lua,
+CLI, GPS, debug, SpaceMouse, external module) send no stick channels to a computer either. Firefox has no WebHID, so
+its only path for a joystick-mode radio is the Gamepad API, which the sim already has.
+
+**Cause found in the code:** `connectGamepad` (main.ts) waited only for the `gamepadconnected` event. A browser fires
+it once per page, the first time the pad is touched. A stick moved before "Use gamepad" was clicked used up the
+event, so the menu waited forever. The poll loop already found the pad in `navigator.getGamepads()` but never said so.
+
+**Built:** `devices/gamepad.ts` (upstream change 5 in `apps/fly/UPSTREAM.md`): a pad the poll finds is adopted and
+announced like the event's; each source announces one pad once (a second pad no longer re-runs `useDevice`).
+`main.ts`: with no Gamepad API at all (page not on localhost/https) the menu says so instead of waiting.
+
+**Evidence:** `apps/fly/test/gamepad-connect.test.ts` (fake `getGamepads`): the old code fails 2 of 3 (pad present
+before start never announced; a second pad announced), the new code passes 3 of 3. Full suite: 45 files, 413 tests
+pass; `pnpm --filter @owfpv/fly typecheck` clean.
+
+**Left open:** not tried on hardware, and Claude has no way to drive Firefox here. If the owner still sees nothing
+after moving a stick, the cause is in Firefox itself (it does not list the Boxer): check a gamepad tester page in
+Firefox, `about:support` (Gamepad section), and that `privacy.resistFingerprinting` is off (it hides gamepads).
+Firefox's input rate and stamps for this pad are not measured yet.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

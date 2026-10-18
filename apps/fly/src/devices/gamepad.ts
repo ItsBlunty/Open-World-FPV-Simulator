@@ -10,6 +10,10 @@
 // (arrival = this poll) before the arm gate's 100 ms stale rule would disarm them in flight. A pad
 // that is gone sends nothing, so the gate still goes stale and disarms.
 //
+// Connecting (owner, 2026-10-18): a browser fires 'gamepadconnected' once per page, the first time
+// the pad is touched. A pad touched before start() (Firefox: moved before "Use gamepad" was clicked)
+// sends no second event, so the poll also adopts a pad it finds in getGamepads() and announces it.
+//
 // The stamp (v0.8, the owner's item 7): a new sample is stamped with Gamepad.timestamp, the moment
 // the browser's gamepad thread took it (the page clock, as WebHID's event.timeStamp), not the moment
 // this loop got to it: while the main thread draws a heavy scan the loop waits, and the physics,
@@ -70,12 +74,15 @@ export class GamepadSource {
     }
 
     private onConn = (e: GamepadEvent): void => {
-        if (this.index < 0) {
-            this.index = e.gamepad.index;
-            this.id = e.gamepad.id;
-        }
-        this.onConnect?.(e.gamepad);
+        if (this.index >= 0) return; // the poll adopted it first, or another pad came along
+        this.adopt(e.gamepad);
     };
+
+    private adopt(g: Gamepad): void {
+        this.index = g.index;
+        this.id = g.id;
+        this.onConnect?.(g);
+    }
 
     private loop(): void {
         if (!this.running) return;
@@ -98,8 +105,8 @@ export class GamepadSource {
         // never another pad once one is chosen: its axes through this pad's profile could arm
         for (const p of pads) {
             if (!mine(p)) continue;
-            this.index = p.index;
-            this.id = p.id;
+            if (this.index < 0) this.adopt(p);
+            else this.index = p.index;
             return p;
         }
         return null;
