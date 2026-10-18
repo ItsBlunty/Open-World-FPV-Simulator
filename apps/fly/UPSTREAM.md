@@ -24,3 +24,6 @@ upstream repository root. Everything else in this app is ours, GPL-3.0-or-later.
    adopted pad only, not for later pads or reconnects.
 6. `gamepad.ts` (owner, 2026-10-18): the poll runs on a worker's 1 ms timer (`startClock`) instead of upstream's
    MessageChannel spin, which starved Firefox's frames (120 -> 25 fps). Measurements: `docs/evidence/2026-10-18-gamepad-clock/`.
+7. `gamepad.ts` (owner, 2026-10-18): the worker clock sets each 1 ms timeout from a message task (no 4 ms timer clamp:
+   ~665 ticks/s in Firefox, ~544 in Chrome) and the poll gate is 0.5 ms (was 2 ms); the stamp comment notes that
+   Firefox's Gamepad.timestamp is the main-thread apply time. Evidence: `docs/evidence/2026-10-18-render-worker/`.

@@ -1,11 +1,17 @@
 // The flight HUD (owner's choice for M1, 2026-10-17): battery voltage, armed / flight mode, throttle
 // and speed, plus crash and arming prompts; the craft's health since the damage model (owner,
 // 2026-10-17; sim-core/0.3.0); turtle mode and the tilted-arming prompt (sim-core/0.4.0). Reads the sim state;
-// changes nothing.
+// changes nothing. Since the engine left the page (2026-10-18) it reads a copy the engine sends (HUD_HZ a second).
 
 import { S, modeFromChannel } from '@owfpv/sim-core';
-import type { Sim } from '@owfpv/sim-core';
 import { h } from './dom';
+
+/** What the HUD reads of a sim: its state, channels and two params (a Sim, or the engine's snapshot of one). */
+export interface HudSim {
+    s: ArrayLike<number>;
+    ch: ArrayLike<number>;
+    p: { cells: number; crashOn: boolean };
+}
 
 export interface HudExtra {
     /** ticks until the automatic respawn, or null */
@@ -30,7 +36,7 @@ export class Hud {
         this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, h('div', { class: 'cross' }), this.bottom);
     }
 
-    update(sim: Sim, x: HudExtra): void {
+    update(sim: HudSim, x: HudExtra): void {
         const s = sim.s;
         const cells = sim.p.cells;
         const v = s[S.volt];

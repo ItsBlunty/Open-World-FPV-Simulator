@@ -1,12 +1,16 @@
 // From ShramkoGSFPV apps/fly/src/devices/gamepad.ts, commit 8c90f535 (MIT, Copyright (c) 2026 Andrii Shramko;
 // see ../../LICENSE-MIT and ../../NOTICE). Local changes are listed in ../../UPSTREAM.md.
 
-// Gamepad API (compatibility path; many radios also appear as gamepads). Polled on a worker's 1 ms
+// Gamepad API (compatibility path; many radios also appear as gamepads). Polled on a worker's ~1 ms
 // clock, not in requestAnimationFrame, so input sampling is independent of the frame rate. The clock
 // (owner, 2026-10-18): upstream spun a MessageChannel loop for ~500 Hz, which in Firefox 158 starves
-// drawing (120 -> 25 fps with 6 ms of frame work; Chrome 155 kept 119). A worker's timer posting to
-// the page leaves the frames alone in both (120 fps); Firefox clamps it to ~4 ms, so it polls ~140 Hz
-// at that load (Chrome ~130, the spin ~220). Each new sample keeps its Gamepad.timestamp (below).
+// drawing (120 -> 25 fps with 6 ms of frame work; Chrome 155 kept 119). A worker posting each tick to
+// the page leaves the frames alone. A plain setInterval(1) is clamped to ~4 ms (timers set from timers
+// five deep, HTML timer nesting), which beats against Firefox's own ~4-5 ms gamepad updates and misses
+// some (owner's Boxer, 500 Hz: ~140 Hz). So each 1 ms timeout is set from a message task instead, where
+// the nesting level starts again: Firefox 158 ticks ~665/s, Chrome 155 ~544/s, gaps 1-2 ms, no spinning
+// (docs/evidence/2026-10-18-render-worker/). This needs a page whose main thread is not busy drawing: the
+// engine runs in a worker (engine/engine.ts). Each new sample keeps its Gamepad.timestamp (below).
 // Chromium traps: an axis may read exactly 0.0 until it has once been near centre,
 // and a pad only appears after a deflection > 0.5 — the arm gate's "passed centre" rule covers it.
 // Some pads (e.g. a DJI controller) report only changes: Gamepad.timestamp stands still while the
@@ -18,12 +22,14 @@
 // the pad is touched. A pad touched before start() (Firefox: moved before "Use gamepad" was clicked)
 // sends no second event, so the poll also adopts a pad it finds in getGamepads() and announces it.
 //
-// The stamp (v0.8, the owner's item 7): a new sample is stamped with Gamepad.timestamp, the moment
-// the browser's gamepad thread took it (the page clock, as WebHID's event.timeStamp), not the moment
+// The stamp (v0.8, the owner's item 7): a new sample is stamped with Gamepad.timestamp, not the moment
 // this loop got to it: while the main thread draws a heavy scan the loop waits, and the physics,
 // which applies an input at its stamp (simclock.ts), would then start the move that much later.
 // Measured on a release drawing a scan at the owner's 30 Hz with 25 ms of load per frame
 // (tools/bench/scripts/input-latency-probe.mjs, evidence/2026-10-16/v08-b-latency.json).
+// Firefox (source read 2026-10-18, dom/gamepad/Gamepad.cpp UpdateTimestamp): the timestamp is when the
+// page's main thread applied the update, not when the gamepad thread read it, so there it is only as
+// early as the main thread is free; another reason the engine left it.
 // gamepadStamp has the rule: a repeat keeps its arrival, and stamps never go backwards.
 
 import { FRAME_BUTTONS } from '@owfpv/input';
@@ -48,9 +54,10 @@ export function gamepadKey(g: Gamepad): string {
     return `gp:${g.id}:${g.axes.length}:${g.buttons.length}:${g.mapping}`;
 }
 
-const CLOCK_SRC = 'setInterval(() => postMessage(0), 1);';
+// each 1 ms timeout is set from a message task, so the timer nesting level never builds up to the 4 ms clamp
+const CLOCK_SRC = 'const mc = new MessageChannel(); mc.port1.onmessage = () => setTimeout(tick, 1); function tick() { postMessage(0); mc.port2.postMessage(0); } tick();';
 
-/** Calls `tick` every ~1 ms from a worker's timer (a page interval where there are no workers, as in Node tests); returns its stop. */
+/** Calls `tick` every ~1-2 ms from a worker (a page interval where there are no workers, as in Node tests); returns its stop. */
 function startClock(tick: () => void): () => void {
     if (typeof Worker === 'undefined') {
         const id = setInterval(tick, 1);
@@ -110,7 +117,8 @@ export class GamepadSource {
     private loop(): void {
         if (!this.running) return;
         const now = performance.now();
-        if (document.visibilityState === 'visible' && now - this.last >= 2) {
+        // ticks that arrive in one bunch (the page was busy) can see no new value: poll once
+        if (document.visibilityState === 'visible' && now - this.last >= 0.5) {
             this.last = now;
             this.poll(now);
         }

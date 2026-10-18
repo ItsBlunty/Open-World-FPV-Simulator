@@ -1,25 +1,19 @@
-// The page: builds the map, the flight session and the renderer, connects the radio, and runs the
-// frame loop (physics up to now, then draw). URL options: ?selftest runs the determinism check,
-// ?demo flies the self-test's scripted sticks in real time (no radio needed), ?webgl forces WebGL 2,
-// ?spawn=<id> starts at a spawn point, ?cam=chase starts in the chase view, ?noshadows turns the sun's
-// shadows off (for slow GPUs, and to measure what they cost).
+// The page: the menus, the HUD and every input (radio, keyboard, mouse). The engine (flight session, Three.js
+// scene, frame loop: engine/engine.ts) runs in a worker drawing to this page's canvas, so this thread stays free
+// for input (owner, 2026-10-18; HANDOFF.md §0h: Firefox applies gamepad updates on the page's main thread). Where a
+// worker cannot draw, or with ?render=main, the same engine runs on the page. URL options: ?selftest runs the
+// determinism check, ?demo flies the self-test's scripted sticks in real time (no radio needed), ?webgl forces
+// WebGL 2, ?spawn=<id> starts at a spawn point, ?cam=chase starts in the chase view, ?noshadows turns the sun's
+// shadows off (for slow GPUs, and to measure what they cost), ?render=main keeps the engine on the page.
 
 import './style.css';
-import * as THREE from 'three/webgpu';
-import { S, compileParams } from '@owfpv/sim-core';
+import { compileParams } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
-import { buildFirstMap } from '@owfpv/maps';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { FlightSession } from './session';
-import { SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest, selftestSticks } from './selftest';
 import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings';
-import { levelGroup, environment } from './render/world';
-import { CraftView } from './render/view';
-import { TrafficView } from './render/traffic';
-import { FreeCam } from './render/freecam';
 import { HidSource } from './devices/hid';
 import { GamepadSource, gamepadKey } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
@@ -27,12 +21,13 @@ import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
 import { SettingsUi } from './ui/settings-ui';
 import { h, clear } from './ui/dom';
+import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port } from './engine/protocol';
 
 const params = new URLSearchParams(location.search);
 const preset = nazgul as unknown as PresetJson;
-const level = buildFirstMap();
 const settings = loadSettings();
 const presetRates = compileParams(preset).rates;
+const demo = params.has('demo');
 
 function overrides(): ParamOverrides {
     // crashOn always set: off means every hit is a bounce, no damage, no crash (the owner's default for now)
@@ -43,57 +38,129 @@ function trafficConfig(): TrafficConfig {
     return { cars: settings.cars, people: settings.people, signals: settings.signals };
 }
 
-const session = new FlightSession({
-    preset,
-    overrides: overrides(),
-    level,
-    traffic: trafficConfig(),
-    spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? settings.spawn)) ?? level.spawns[0]
-});
+function engineSettings(): EngineSettings {
+    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, renderScale: settings.renderScale, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
+}
 
-// ---------------------------------------------------------------- renderer
+// ---------------------------------------------------------------- keys, mouse, free-fly camera (state)
 
-// reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
-// and Three.js falls back to normal depth without it
-const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
-const pixelRatio = (): number => Math.min(devicePixelRatio, 2) * settings.renderScale;
-renderer.setPixelRatio(pixelRatio());
-renderer.setSize(innerWidth, innerHeight);
-document.body.append(renderer.domElement);
-await renderer.init();
-const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
+/** "Look around" without a radio: the engine flies the camera; the page captures the mouse and sends what moves it */
+const held = new Set<string>();
+let dragging = false;
+let lookDx = 0, lookDy = 0;
+let camDirty = false;
+
+function attachMouse(c: HTMLCanvasElement): void {
+    // dragging with a button held also steers, for when the browser refuses pointer lock
+    c.addEventListener('mousedown', () => {
+        if (!lookAround()) return;
+        dragging = true;
+        if (!mouseCaptured()) c.requestPointerLock()?.catch(() => undefined);
+    });
+}
+
+// ---------------------------------------------------------------- engine
 
 // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
 const shadowsOn = settings.shadows && !params.has('noshadows');
-renderer.shadowMap.enabled = shadowsOn;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+let canvas = newCanvas();
+let engine: Port;
+let worker: Worker | null = null;
+let engineReady = false;
+let backend = 'starting…';
+let spawns: { id: string; name: string }[] = [];
+let spawnId = params.get('spawn') ?? settings.spawn;
+let hudSnap: HudSnapshot | null = null;
+const asks = new Map<number, (r: { ok: boolean; value: unknown }) => void>();
+let askId = 0;
+let sentPaused: boolean | null = null;
 
-const scene = new THREE.Scene();
-const sun = environment(scene);
-scene.add(levelGroup(level));
-const trafficView = new TrafficView();
-trafficView.rebuild(session.traffic);
-scene.add(trafficView.group);
-const view = new CraftView();
-view.uptiltDeg = settings.uptiltDeg;
-view.fovDeg = settings.fovDeg;
-view.resize(innerWidth, innerHeight);
-scene.add(view.craft);
-if (params.get('cam') === 'chase') view.setMode('chase');
-/** "Look around" without a radio: fly the camera with WASD and the mouse */
-const freeCam = new FreeCam(renderer.domElement);
-addEventListener('resize', () => {
-    renderer.setSize(innerWidth, innerHeight);
-    view.resize(innerWidth, innerHeight);
-});
+function newCanvas(): HTMLCanvasElement {
+    const c = document.createElement('canvas');
+    document.body.prepend(c);
+    attachMouse(c);
+    return c;
+}
+
+function initMsg(): InitMsg {
+    return {
+        type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
+        search: location.search, shadows: shadowsOn, settings: engineSettings()
+    };
+}
+
+function send(m: PageMsg): void {
+    engine.postMessage(m);
+}
+
+function startWorkerEngine(): void {
+    const w = new Worker(new URL('./engine/worker.ts', import.meta.url), { type: 'module' });
+    worker = w;
+    w.onmessage = onEngine;
+    w.onerror = (e) => fallBack(e.message || 'the engine worker failed to load');
+    const off = canvas.transferControlToOffscreen();
+    w.postMessage({ ...initMsg(), canvas: off }, [off]);
+    engine = w;
+}
+
+/** The engine on this page, through a MessageChannel: the same messages as a worker. */
+function startPageEngine(): void {
+    const mc = new MessageChannel();
+    mc.port1.onmessage = onEngine;
+    engine = mc.port1;
+    const enginePort = mc.port2 as unknown as Port;
+    void import('./engine/engine').then(({ startEngine }) => startEngine(enginePort, canvas, initMsg())).catch((err: unknown) => {
+        onEngine({ data: { type: 'error', message: err instanceof Error ? err.message : String(err) } } as MessageEvent<EngineMsg>);
+    });
+}
+
+/** The worker could not start the engine: run it on the page instead, on a fresh canvas (the old one was transferred). */
+function fallBack(why: string): void {
+    if (!worker || engineReady) return;
+    console.warn(`Engine worker failed (${why}); running the engine on the page.`);
+    worker.terminate();
+    worker = null;
+    canvas.remove();
+    canvas = newCanvas();
+    startPageEngine();
+    // what the worker was told is lost with it
+    sentPaused = null;
+    syncPause();
+    send({ type: 'radio', on: profile !== null });
+}
+
+function onEngine(e: MessageEvent<EngineMsg>): void {
+    const m = e.data;
+    if (m.type === 'ready') {
+        engineReady = true;
+        backend = m.backend;
+        spawns = m.spawns;
+        spawnId = m.spawn;
+        renderMenu();
+    } else if (m.type === 'hud') {
+        hudSnap = m.hud;
+        drawHud();
+    } else if (m.type === 'error') {
+        if (worker && !engineReady) return fallBack(m.message);
+        menuMsg = `The renderer failed: ${m.message}`;
+        renderMenu();
+    } else if (m.type === 'answer') {
+        asks.get(m.id)?.({ ok: m.ok, value: m.value });
+        asks.delete(m.id);
+    }
+}
+
+const engineWhere = (): string => (worker ? 'in a worker' : 'on the page');
+const workerCanvas = typeof canvas.transferControlToOffscreen === 'function' && typeof Worker !== 'undefined';
+if (workerCanvas && params.get('render') !== 'main') startWorkerEngine();
+else startPageEngine();
+addEventListener('resize', () => send({ type: 'resize', width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));
 
 // ---------------------------------------------------------------- input
 
 interface Device { kind: 'hid' | 'gamepad'; key: string; name: string; hid?: HidSource; pad?: GamepadSource }
 let device: Device | null = null;
 let profile: RadioProfile | null = null;
-let lastFrameT = -Infinity;
-let lastArmOn = false;
 let keyArm = false;
 /** the turtle switch for a radio without one (T key) */
 let keyTurtle = false;
@@ -110,12 +177,16 @@ function onRaw(f: RawFrame): void {
     }
     if (!profile || demo) return;
     mapFrame(profile, f, ch, { arm: profile.arm ? undefined : keyArm, turtle: profile.turtle ? undefined : keyTurtle, fallbackMode: settings.mode });
-    session.input(ch, f.t);
-    lastFrameT = f.t;
-    lastArmOn = ch[4] > 0;
+    // the engine stamps it on its own clock (protocol.ts pageToEngineMs) and disarms a radio that went quiet
+    send({ type: 'input', ch, t: f.t });
     const r = switchOn(profile.reset, f);
-    if (r && !resetWas) session.resetToSpawn();
+    if (r && !resetWas) send({ type: 'reset' });
     resetWas = r;
+}
+
+function setProfile(p: RadioProfile | null): void {
+    profile = p;
+    send({ type: 'radio', on: p !== null });
 }
 
 function useDevice(d: Device, p: RadioProfile | null): void {
@@ -124,7 +195,7 @@ function useDevice(d: Device, p: RadioProfile | null): void {
         device.pad?.stop();
     }
     device = d;
-    profile = p;
+    setProfile(p);
     if (d.hid) d.hid.onFrame = onRaw;
     if (d.pad) d.pad.onFrame = onRaw;
     settings.lastDevice = d.key;
@@ -184,7 +255,6 @@ const menuBody = h('div');
 const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
 document.body.append(hud.el, menu, setup.el, settingsUi.el);
 let menuMsg = '';
-const demo = params.has('demo');
 
 function anyOverlay(): boolean {
     return !menu.classList.contains('hidden') || setup.open || settingsUi.open;
@@ -192,7 +262,7 @@ function anyOverlay(): boolean {
 
 function showMenu(on: boolean): void {
     menu.classList.toggle('hidden', !on);
-    if (on && freeCam.mouseCaptured) document.exitPointerLock();
+    if (on && mouseCaptured()) document.exitPointerLock();
     if (on) renderMenu();
 }
 
@@ -204,7 +274,7 @@ function openSetup(): void {
         saveProfile(p);
         settings.stickMode = p.stickMode;
         saveSettings(settings);
-        profile = p;
+        setProfile(p);
         showMenu(true);
     }, () => showMenu(true));
 }
@@ -214,17 +284,10 @@ function openSettings(): void {
     settingsUi.show({
         settings,
         presetRates,
-        onCamera: () => {
-            view.uptiltDeg = settings.uptiltDeg;
-            view.fovDeg = settings.fovDeg;
-            view.updateFov();
-        },
-        onFlight: () => session.setOverrides(overrides()),
-        onTraffic: () => {
-            session.setTraffic(trafficConfig());
-            trafficView.rebuild(session.traffic);
-        },
-        onGraphics: () => renderer.setPixelRatio(pixelRatio()),
+        onCamera: () => send({ type: 'settings', what: 'camera', settings: engineSettings() }),
+        onFlight: () => send({ type: 'settings', what: 'flight', settings: engineSettings() }),
+        onTraffic: () => send({ type: 'settings', what: 'traffic', settings: engineSettings() }),
+        onGraphics: () => send({ type: 'settings', what: 'graphics', settings: engineSettings() }),
         shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows'),
         save: () => saveSettings(settings),
         close: () => { settingsUi.hide(); showMenu(true); }
@@ -250,88 +313,99 @@ function renderMenu(): void {
             'EdgeTX radio: plug in USB and choose "USB Joystick (HID)". Turning off the radio\'s internal and external RF modules makes EdgeTX run its mixer at 1000 Hz (EdgeTX manual, USB Joystick).',
             hidOk ? '' : ' This browser has no WebHID (use Chrome or Edge), so only the gamepad path works here.'),
         h('h2', {}, 'Where to start'),
-        h('div', { class: 'row' }, h('select', { onchange: (e: Event) => {
-            const s = level.spawns.find((x) => x.id === (e.target as HTMLSelectElement).value);
-            if (!s) return;
-            settings.spawn = s.id;
-            saveSettings(settings);
-            session.setSpawn(s);
-        } }, ...level.spawns.map((s) => h('option', { value: s.id, selected: s.id === session.spawn.id }, s.name)))),
+        h('div', { class: 'row' }, spawns.length === 0
+            ? h('span', { class: 'muted' }, 'Loading the map…')
+            : h('select', { onchange: (e: Event) => {
+                const id = (e.target as HTMLSelectElement).value;
+                settings.spawn = id;
+                spawnId = id;
+                saveSettings(settings);
+                send({ type: 'settings', what: 'spawn', settings: engineSettings() });
+            } }, ...spawns.map((s) => h('option', { value: s.id, selected: s.id === spawnId }, s.name)))),
         h('div', { class: 'row' },
             h('button', { onclick: openSettings }, 'Settings (camera, traffic, graphics, rates)'),
             h('span', { class: 'spacer' }),
             h('button', { class: 'primary', onclick: () => showMenu(false) }, profile || demo ? 'Fly' : 'Look around')),
         h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm, T turtle mode (only if your radio has no switch for them).'),
         h('p', { class: 'note' }, 'Look around (no radio): click to steer with the mouse · WASD move · Space / E up, Q down · Shift faster · R back to the quad.'),
-        h('p', { class: 'note' }, `Renderer: ${backend}. GPL-3.0-or-later; flight model from ShramkoGSFPV by Andrii Shramko (MIT).`)
+        h('p', { class: 'note' }, `Renderer: ${backend}, ${engineWhere()}. GPL-3.0-or-later; flight model from ShramkoGSFPV by Andrii Shramko (MIT).`)
     );
 }
+
+// ---------------------------------------------------------------- keys, mouse, free-fly camera (events)
+
+function lookAround(): boolean {
+    return !profile && !demo;
+}
+
+function mouseCaptured(): boolean {
+    return document.pointerLockElement === canvas;
+}
+
+addEventListener('mouseup', () => { dragging = false; });
+addEventListener('mousemove', (e) => {
+    if (!lookAround() || !(mouseCaptured() || dragging)) return;
+    lookDx += e.movementX;
+    lookDy += e.movementY;
+    camDirty = true;
+});
+addEventListener('keyup', (e) => { if (held.delete(e.code)) camDirty = true; });
+addEventListener('blur', () => { held.clear(); camDirty = true; });
 
 addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
         if (setup.open || settingsUi.open) return;
         showMenu(menu.classList.contains('hidden'));
     } else if (anyOverlay()) return;
-    else if (e.code === 'KeyR' && freeCam.active) freeCam.enter(view.camera);
-    else if (e.code === 'KeyR') session.resetToSpawn();
-    else if (freeCam.active) return;
-    else if (e.code === 'KeyC') view.setMode(view.mode === 'fpv' ? 'chase' : 'fpv');
+    else if (e.code === 'KeyR' && lookAround()) send({ type: 'freecam', keys: [...held], dx: 0, dy: 0, enter: true });
+    else if (e.code === 'KeyR') send({ type: 'reset' });
+    else if (lookAround()) {
+        held.add(e.code);
+        camDirty = true;
+    } else if (e.code === 'KeyC') send({ type: 'view', mode: 'toggle' });
     else if (e.code === 'Space' && profile && !profile.arm) keyArm = !keyArm;
     else if (e.code === 'KeyT' && profile && !profile.turtle) keyTurtle = !keyTurtle;
 });
 
-// ---------------------------------------------------------------- frame loop
+// ---------------------------------------------------------------- page loop (UI only; the engine has its own)
 
-let prevT = performance.now();
-let fps = 0;
-function frame(): void {
-    const now = performance.now();
-    const dt = (now - prevT) / 1000;
-    prevT = now;
-    fps = fps * 0.95 + (dt > 0 ? 1 / dt : 0) * 0.05;
-    setup.render();
+function syncPause(): void {
     const paused = anyOverlay() || document.visibilityState !== 'visible';
-    session.pause(paused, now);
-    if (!paused) {
-        if (demo) session.input(selftestSticks(session.sim.tick, ch), now);
-        // a radio that stopped sending (unplugged, asleep) must not keep the quad armed
-        else if (profile && lastArmOn && now - lastFrameT > 150) {
-            ch[4] = -1;
-            session.input(ch, now);
-            lastArmOn = false;
-        }
-        session.advance(now);
-    }
-    view.update(session.sim.s, dt);
-    const lookAround = !profile && !demo;
-    if (lookAround && !freeCam.active) freeCam.enter(view.camera);
-    else if (!lookAround && freeCam.active) {
-        freeCam.exit();
-        view.updateFov();
-        view.update(session.sim.s, dt);
-    }
-    if (freeCam.active) {
-        freeCam.apply(view.camera, dt, paused);
-        view.craft.visible = true;
-    }
-    const pend = session.director.pending();
-    hud.update(session.sim, {
-        respawnIn: pend ? pend.atTick - session.sim.tick : null,
+    if (paused === sentPaused) return;
+    sentPaused = paused;
+    send({ type: 'pause', on: paused });
+}
+document.addEventListener('visibilitychange', syncPause);
+
+function drawHud(): void {
+    const x = hudSnap;
+    if (!x) return;
+    hud.update(x, {
+        respawnIn: x.respawnIn,
         hasRadio: profile !== null || demo,
-        noRadioHint: freeCam.mouseCaptured
+        noRadioHint: mouseCaptured()
             ? 'WASD move · Space / E up, Q down · Shift faster'
             : 'No radio set up — click to look around, Esc for the menu',
         armHint: profile && !profile.arm ? 'DISARMED — throttle down, press Space to arm' : 'DISARMED — throttle down, flip the arm switch',
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
-        footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(fps)} fps · ${view.mode.toUpperCase()}`
+        footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(x.fps)} fps · ${x.freeCam ? 'LOOK AROUND' : x.mode.toUpperCase()}`
     });
-    trafficView.update(session.sim.tick);
-    sun.follow(view.camera.position);
-    renderer.render(scene, view.camera);
 }
 
-renderMenu();
-if (params.has('selftest')) {
+function pageFrame(): void {
+    setup.render();
+    syncPause();
+    if (camDirty) {
+        send({ type: 'freecam', keys: [...held], dx: lookDx, dy: lookDy, enter: false });
+        lookDx = lookDy = 0;
+        camDirty = false;
+    }
+    requestAnimationFrame(pageFrame);
+}
+
+async function runSelftestPage(): Promise<void> {
+    const [{ SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest }, { buildFirstMap }] = await Promise.all([import('./selftest'), import('@owfpv/maps')]);
+    const level = buildFirstMap();
     const r = runSelftest(preset, level);
     const traffic = runTrafficSelftest(level);
     const flightOk = r.hash === SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
@@ -343,12 +417,29 @@ if (params.has('selftest')) {
             ? 'MATCH: this browser flies and moves the traffic bit-identically to Node.'
             : `MISMATCH with Node (flight ${flightOk ? 'matches' : 'differs'}, traffic ${trafficOk ? 'matches' : 'differs'})`),
         h('pre', { class: 'note', id: 'selftest' }, JSON.stringify(result, null, 2)));
-} else void reconnect();
+}
+
+renderMenu();
+if (params.has('selftest')) void runSelftestPage();
+else void reconnect();
 if (demo) showMenu(false);
-renderer.setAnimationLoop(frame);
+syncPause();
+requestAnimationFrame(pageFrame);
+
 // for checks from the browser console and automated tests
 (globalThis as { __fly?: unknown }).__fly = {
-    session, view, sun, renderer, scene, S, trafficView,
+    settings,
+    get engine(): string {
+        return `${backend} ${engineWhere()}${engineReady ? '' : ' (starting)'}`;
+    },
+    /** run `code` in the engine with `fly` (session, view, renderer, scene, S, trafficView, freeCam, radio) in scope; resolves to its cloned return value */
+    ask(code: string): Promise<unknown> {
+        const id = ++askId;
+        return new Promise((resolve, reject) => {
+            asks.set(id, (r) => (r.ok ? resolve(r.value) : reject(new Error(String(r.value)))));
+            send({ type: 'ask', id, code });
+        });
+    },
     /** a simulated radio for UI checks: frames go through the same path as a real one's reports */
     fakeRadio(): (f: RawFrame) => void {
         useDevice({ kind: 'hid', key: 'test:simulated', name: 'Simulated radio' }, loadProfile('test:simulated'));

@@ -1,0 +1,81 @@
+// What the page and the engine say to each other (owner, 2026-10-18: the renderer and the sim moved off the page's
+// main thread). The page keeps the DOM and every input; the engine owns the flight session, the Three.js scene and
+// the frame loop. It runs in a worker drawing to an OffscreenCanvas, or on the page through the same messages when
+// that is not available (?render=main forces it). HANDOFF.md §0h has why: Firefox applies gamepad updates on the
+// page's main thread, so a page busy drawing sees them late and merged.
+//
+// Clocks: a worker's performance.now() counts from its own timeOrigin, not the page's. Input stamps are page time;
+// the engine shifts them by `pageToEngineMs` before the sim clock sees them.
+
+import type { ParamOverrides } from '@owfpv/sim-core';
+import type { TrafficConfig } from '@owfpv/traffic';
+
+export interface EngineSettings {
+    uptiltDeg: number;
+    fovDeg: number;
+    renderScale: number;
+    overrides: ParamOverrides;
+    traffic: TrafficConfig;
+    spawn: string;
+}
+
+export interface InitMsg {
+    type: 'init';
+    /** the page's performance.timeOrigin */
+    timeOrigin: number;
+    /** CSS pixels and the page's devicePixelRatio */
+    width: number;
+    height: number;
+    dpr: number;
+    /** location.search: ?webgl, ?spawn, ?cam, ?noshadows, ?demo */
+    search: string;
+    shadows: boolean;
+    settings: EngineSettings;
+}
+
+export type PageMsg =
+    | InitMsg
+    /** one mapped stick frame (sim-core channels) with its page time */
+    | { type: 'input'; ch: Float32Array; t: number }
+    /** a radio profile is in use (the stale-radio disarm and the free-fly camera depend on it) */
+    | { type: 'radio'; on: boolean }
+    | { type: 'pause'; on: boolean }
+    | { type: 'reset' }
+    | { type: 'settings'; what: 'camera' | 'flight' | 'traffic' | 'graphics' | 'spawn'; settings: EngineSettings }
+    | { type: 'resize'; width: number; height: number; dpr: number }
+    | { type: 'view'; mode: 'toggle' }
+    /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
+    | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
+    /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
+    | { type: 'ask'; id: number; code: string };
+
+export interface HudSnapshot {
+    /** sim-core's state vector and channels, copied */
+    s: Float64Array;
+    ch: Float32Array;
+    p: { cells: number; crashOn: boolean };
+    respawnIn: number | null;
+    fps: number;
+    mode: 'fpv' | 'chase';
+    freeCam: boolean;
+}
+
+export type EngineMsg =
+    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string }
+    | { type: 'hud'; hud: HudSnapshot }
+    | { type: 'error'; message: string }
+    | { type: 'answer'; id: number; ok: boolean; value: unknown };
+
+/** Something both a worker and a MessagePort are. */
+export interface Port {
+    postMessage(msg: unknown, transfer?: Transferable[]): void;
+    onmessage: ((e: MessageEvent) => void) | null;
+}
+
+/** ms to add to a page time to get the engine's performance.now() time for the same moment. */
+export function pageToEngineMs(pageOrigin: number, engineOrigin: number): number {
+    return pageOrigin - engineOrigin;
+}
+
+/** HUD snapshots per second the engine sends (DOM work on the page is kept off its main thread's budget). */
+export const HUD_HZ = 30;

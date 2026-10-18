@@ -1,6 +1,7 @@
 // The free-fly camera for "Look around" (no radio set up): WASD moves, the mouse steers once the canvas has
 // captured it (click; or drag with a button held), Space / E up, Q down, Shift faster. Rendering only: it moves the Three.js camera and never
-// touches the sim, so it uses the frame time freely.
+// touches the sim, so it uses the frame time freely. No DOM since the engine left the page (2026-10-18): the page
+// captures the mouse and hands in the held keys and mouse movement (main.ts, engine/protocol.ts 'freecam').
 
 import * as THREE from 'three/webgpu';
 
@@ -16,32 +17,22 @@ export class FreeCam {
     active = false;
     private yaw = 0;
     private pitch = 0;
-    private dragging = false;
     private readonly pos = new THREE.Vector3();
     private readonly keys = new Set<string>();
     private readonly euler = new THREE.Euler(0, 0, 0, 'YXZ');
     private readonly move = new THREE.Vector3();
 
-    constructor(private readonly canvas: HTMLCanvasElement) {
-        // dragging with a button held also steers, for when the browser refuses pointer lock
-        canvas.addEventListener('mousedown', () => {
-            if (!this.active) return;
-            this.dragging = true;
-            if (!this.mouseCaptured) canvas.requestPointerLock()?.catch(() => undefined);
-        });
-        addEventListener('mouseup', () => { this.dragging = false; });
-        addEventListener('mousemove', (e) => {
-            if (!this.active || !(this.mouseCaptured || this.dragging)) return;
-            this.yaw -= e.movementX * LOOK;
-            this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch - e.movementY * LOOK));
-        });
-        addEventListener('keydown', (e) => { if (this.active) this.keys.add(e.code); });
-        addEventListener('keyup', (e) => this.keys.delete(e.code));
-        addEventListener('blur', () => this.keys.clear());
+    /** The keys held now (KeyboardEvent.code). */
+    setKeys(codes: readonly string[]): void {
+        this.keys.clear();
+        if (this.active) for (const c of codes) this.keys.add(c);
     }
 
-    get mouseCaptured(): boolean {
-        return document.pointerLockElement === this.canvas;
+    /** Mouse movement, pixels (the page sends it only while the mouse is captured or dragging). */
+    look(dx: number, dy: number): void {
+        if (!this.active) return;
+        this.yaw -= dx * LOOK;
+        this.pitch = Math.max(-1.55, Math.min(1.55, this.pitch - dy * LOOK));
     }
 
     /** Start from where the camera is now, so switching in does not jump. */
@@ -57,7 +48,6 @@ export class FreeCam {
     exit(): void {
         this.active = false;
         this.keys.clear();
-        if (this.mouseCaptured) document.exitPointerLock();
     }
 
     /** Move by the held keys and place the camera (call after CraftView.update, which it overrides). */

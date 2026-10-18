@@ -1,0 +1,16 @@
+<!doctype html><meta charset=utf-8><title>clock</title><script>
+const mode = new URLSearchParams(location.search).get('mode');
+const src = {
+  int1: 'setInterval(() => postMessage(0), 1);',
+  // each 1 ms timer is set from a message task, so the timer nesting level never builds up (no 4 ms clamp)
+  bounce: 'const mc = new MessageChannel(); mc.port1.onmessage = () => setTimeout(tick, 1); function tick() { postMessage(0); mc.port2.postMessage(0); } tick();'
+}[mode];
+const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+let n = 0, gaps = [], last = 0;
+w.onmessage = () => { const t = performance.now(); n++; if (last) gaps.push(t - last); last = t; };
+setTimeout(() => { n = 0; gaps = []; last = 0; setTimeout(() => {
+  gaps.sort((a, b) => a - b);
+  const q = (f) => gaps[Math.floor(gaps.length * f)];
+  fetch('/result', { method: 'POST', body: JSON.stringify({ mode, ticksPerS: n / 3, gapP05: q(0.05), gapP50: q(0.5), gapP95: q(0.95), ua: navigator.userAgent.replace(/.*(Firefox|Chrome)\/(\d+).*/, '$1 $2') }) });
+}, 3000); }, 1000);
+</script>

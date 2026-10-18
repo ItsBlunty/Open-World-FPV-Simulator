@@ -1,3 +1,5 @@
 {"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":115.57035803497087,"done":true,"mainTicksPerS":247.6,"tickGapP50":4,"tickGapP95":5,"clock":"single"}
 {"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":118.73438800999168,"done":true,"mainTicksPerS":1002.4,"tickGapP50":0,"tickGapP95":5,"clock":"stagger"}
 {"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":118.55670103092783,"done":true,"mainTicksPerS":244.4,"tickGapP50":4,"tickGapP95":5,"clock":"single"}
+{"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGPU","workerFps":118.07749875270248,"done":true,"mainTicksPerS":243.6,"tickGapP50":4,"tickGapP95":5,"clock":"single"}
+{"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGPU","workerFps":117.79210609690152,"done":true,"mainTicksPerS":260.6,"tickGapP50":4,"tickGapP95":4.600000023841858,"clock":"single"}
