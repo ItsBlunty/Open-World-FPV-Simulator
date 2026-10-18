@@ -669,6 +669,19 @@ The main menu shows "Source code, issues and updates: github.com/ItsBlunty/Open-
 subtitle (`apps/fly/src/main.ts` `renderMenu`). It opens in a new tab so the sim keeps running. Links use the accent
 colour (`style.css`). Evidence: typecheck clean, production build OK. Nothing left open.
 
+**Menu pass (owner, 2026-10-18): "reorganize the menu to be more clear, hide USB radio if the browser doesnt support
+webusb, make a disclaimer for firefox users".** The sim uses WebHID (not WebUSB) for radios, so "Connect USB radio"
+is hidden when `navigator.hid` is missing; the gamepad button is then called "Connect radio or gamepad". The menu
+(`main.ts` `renderMenu` and the functions above it) is now: title + GitHub link; a browser notice (Firefox: radios
+only as a gamepad, at most ~250 reads/s, may stutter, use Chrome or Edge; any other browser without WebHID: a shorter
+note); "1 · Controller" (status dot, connect buttons, "Run radio setup" highlighted when a radio is connected but not
+set up, "How to connect a radio" steps folded away, the EdgeTX 1000 Hz tip inside); "2 · Start" (start point,
+Settings, Fly / Look around); "Controls" showing only the keys for the current mode (Space / T only when the radio
+has no arm / turtle switch); footer with renderer, licence, credit, repo link. Evidence: typecheck clean, build OK,
+headless screenshots `docs/evidence/2026-10-18-menu/menu-chrome.png` and `menu-firefox.png`.
+**Left open:** the connected-radio states (yellow "not set up", green "ready") were not screenshotted; Safari and
+mobile were not tried.
+
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
 - Original repo: https://github.com/AndriiShramko/ShramkoGSFPV (MIT). Owner's fork, same commit, used as the copy

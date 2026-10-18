@@ -21,6 +21,7 @@ import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
 import { SettingsUi } from './ui/settings-ui';
 import { h, clear } from './ui/dom';
+import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
 import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port } from './engine/protocol';
 
@@ -294,43 +295,105 @@ function openSettings(): void {
     });
 }
 
-function renderMenu(): void {
-    const hidOk = HidSource.supported();
+const REPO = 'https://github.com/ItsBlunty/Open-World-FPV-Simulator';
+const isFirefox = /firefox\//i.test(navigator.userAgent);
+/** the "How to connect a radio" box stays open across menu redraws */
+let helpOpen = false;
+
+/** Firefox is shelved (HANDOFF.md, owner 2026-10-18); other browsers without WebHID only lose the direct USB path */
+function browserNotice(hidOk: boolean): HTMLElement | null {
+    if (isFirefox) {
+        return h('div', { class: 'callout' },
+            h('strong', {}, 'Firefox: limited support for now. '),
+            'Radios work only as a gamepad, which Firefox reads at most about 250 times a second, and you may see short stutters. ',
+            'For the best experience use Chrome or Edge, which read a USB radio directly at its full rate.');
+    }
+    if (!hidOk) {
+        return h('div', { class: 'callout' },
+            h('strong', {}, 'This browser cannot read a USB radio directly '), '(no WebHID). ',
+            'Radios and gamepads still work through "Connect radio or gamepad". For the full input rate use Chrome or Edge on a computer.');
+    }
+    return null;
+}
+
+function controllerSection(hidOk: boolean): Child[] {
+    const needsSetup = device !== null && profile === null;
     const status = device
-        ? h('div', {}, h('span', { class: profile ? 'status-ok' : 'warn' }, `${device.name}`), profile ? ` — set up (Mode ${profile.stickMode})` : ' — not set up yet: run Radio setup')
-        : h('div', { class: 'muted' }, 'No radio connected.');
-    clear(menuBody,
-        h('h1', {}, 'Open World FPV Simulator'),
-        h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S).'),
-        h('p', { class: 'muted' }, 'Source code, issues and updates: ',
-            h('a', { href: 'https://github.com/ItsBlunty/Open-World-FPV-Simulator', target: '_blank', rel: 'noopener' }, 'github.com/ItsBlunty/Open-World-FPV-Simulator')),
-        h('h2', {}, 'Radio'),
+        ? h('div', { class: 'status' },
+            h('span', { class: `dot ${profile ? 'ok' : 'pending'}` }),
+            h('strong', {}, device.name),
+            h('span', { class: 'muted' }, profile ? ` · ready (Mode ${profile.stickMode})` : ' · connected, not set up yet'))
+        : h('div', { class: 'status' }, h('span', { class: 'dot' }), h('span', { class: 'muted' }, 'No radio connected. You can still look around the map with the mouse and keyboard.'));
+    const help = h('details', { class: 'help', ontoggle: (e: Event) => { helpOpen = (e.target as HTMLDetailsElement).open; } },
+        h('summary', {}, 'How to connect a radio'),
+        h('ol', {},
+            h('li', {}, 'Plug the radio into the computer by USB. On an EdgeTX radio choose "USB Joystick (HID)".'),
+            h('li', {}, hidOk ? 'Click "Connect USB radio" and pick it from the list. (A gamepad or other controller: "Connect gamepad", then move a stick.)' : 'Click "Connect radio or gamepad", then move a stick.'),
+            h('li', {}, 'Run "Radio setup" once. It asks you to move each stick and flip your arm, mode, respawn and turtle switches, and remembers them for next time.')),
+        h('p', { class: 'note' }, 'Tip: turning off the radio\'s internal and external RF modules makes EdgeTX run its mixer at 1000 Hz (EdgeTX manual, USB Joystick).'));
+    help.open = helpOpen;
+    return [
+        h('h2', {}, '1 · Controller'),
         status,
         menuMsg ? h('p', { class: 'hint' }, menuMsg) : null,
         h('div', { class: 'row' },
-            h('button', { onclick: () => void connectHid(), disabled: !hidOk }, 'Connect USB radio'),
-            h('button', { onclick: connectGamepad }, 'Use gamepad / other controller'),
-            h('button', { onclick: openSetup, disabled: !device }, 'Radio setup')),
-        h('p', { class: 'note' },
-            'EdgeTX radio: plug in USB and choose "USB Joystick (HID)". Turning off the radio\'s internal and external RF modules makes EdgeTX run its mixer at 1000 Hz (EdgeTX manual, USB Joystick).',
-            hidOk ? '' : ' This browser has no WebHID (use Chrome or Edge), so only the gamepad path works here.'),
-        h('h2', {}, 'Where to start'),
-        h('div', { class: 'row' }, spawns.length === 0
-            ? h('span', { class: 'muted' }, 'Loading the map…')
-            : h('select', { onchange: (e: Event) => {
-                const id = (e.target as HTMLSelectElement).value;
-                settings.spawn = id;
-                spawnId = id;
-                saveSettings(settings);
-                send({ type: 'settings', what: 'spawn', settings: engineSettings() });
-            } }, ...spawns.map((s) => h('option', { value: s.id, selected: s.id === spawnId }, s.name)))),
+            hidOk ? h('button', { onclick: () => void connectHid() }, device?.kind === 'hid' ? 'Connect a different USB radio' : 'Connect USB radio') : null,
+            h('button', { onclick: connectGamepad }, hidOk ? 'Connect gamepad' : 'Connect radio or gamepad'),
+            device ? h('button', { class: needsSetup ? 'primary' : '', onclick: openSetup }, needsSetup ? 'Run radio setup' : 'Redo radio setup') : null),
+        help
+    ];
+}
+
+function startSection(): Child[] {
+    const flying = profile !== null || demo;
+    const where = spawns.length === 0
+        ? h('span', { class: 'muted' }, 'Loading the map…')
+        : h('select', { 'aria-label': 'Start point', onchange: (e: Event) => {
+            const id = (e.target as HTMLSelectElement).value;
+            settings.spawn = id;
+            spawnId = id;
+            saveSettings(settings);
+            send({ type: 'settings', what: 'spawn', settings: engineSettings() });
+        } }, ...spawns.map((s) => h('option', { value: s.id, selected: s.id === spawnId }, s.name)));
+    return [
+        h('h2', {}, '2 · Start'),
         h('div', { class: 'row' },
-            h('button', { onclick: openSettings }, 'Settings (camera, traffic, graphics, rates)'),
+            h('label', { class: 'muted' }, 'Start at'), where,
             h('span', { class: 'spacer' }),
-            h('button', { class: 'primary', onclick: () => showMenu(false) }, profile || demo ? 'Fly' : 'Look around')),
-        h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm, T turtle mode (only if your radio has no switch for them).'),
-        h('p', { class: 'note' }, 'Look around (no radio): click to steer with the mouse · WASD move · Space / E up, Q down · Shift faster · R back to the quad.'),
-        h('p', { class: 'note' }, `Renderer: ${backend}, ${engineWhere()}. GPL-3.0-or-later; flight model from ShramkoGSFPV by Andrii Shramko (MIT).`)
+            h('button', { onclick: openSettings, title: 'Camera, lens, rates, traffic, graphics' }, 'Settings'),
+            h('button', { class: device && !profile ? '' : 'primary', onclick: () => showMenu(false) }, flying ? 'Fly' : 'Look around')),
+        h('p', { class: 'note' }, flying
+            ? 'Settings has the FPV camera (lens, uptilt), rates, traffic and graphics.'
+            : 'Without a set-up radio, "Look around" flies a free camera so you can explore the map.')
+    ];
+}
+
+function controlsSection(): Child[] {
+    const keys = (rows: [string, string][]): HTMLElement =>
+        h('dl', { class: 'keys' }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
+    const rows: [string, string][] = profile || demo
+        ? [['Esc', 'menu'], ['R', 'back to the start point'], ['C', 'FPV / chase camera']]
+        : [['Click', 'steer with the mouse'], ['W A S D', 'move'], ['Space or E', 'up'], ['Q', 'down'], ['Shift', 'faster'], ['R', 'back to the quad'], ['Esc', 'menu']];
+    if (profile && !profile.arm) rows.push(['Space', 'arm / disarm (your radio has no arm switch set up)']);
+    if (profile && !profile.turtle) rows.push(['T', 'turtle mode (your radio has no turtle switch set up)']);
+    return [h('h2', {}, 'Controls'), keys(rows)];
+}
+
+function renderMenu(): void {
+    const hidOk = HidSource.supported();
+    clear(menuBody,
+        h('div', { class: 'title' },
+            h('h1', {}, 'Open World FPV Simulator'),
+            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗')),
+        h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S).'),
+        browserNotice(hidOk),
+        ...controllerSection(hidOk),
+        ...startSection(),
+        ...controlsSection(),
+        h('p', { class: 'note footer' },
+            `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,
+            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'source code and issues'),
+            '. Flight model from ShramkoGSFPV by Andrii Shramko (MIT).')
     );
 }
 
