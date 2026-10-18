@@ -120,3 +120,15 @@ of tilt does not arm (Betaflight's small_angle), so some attempts need a second 
 look slower (props in grass, broken props); not modelled. Reversed thrust is 0.73 of forward, from one thrust-stand
 test of a 7x5 prop (Tyto Robotics); a 5" prop's value is unknown. Full yaw in turtle mode spins a diagonal pair hard
 enough to lift a quad off upside down; a real one likely does too at full reverse power.
+
+### F5. Moving surfaces (added 2026-10-17, sim-core/0.5.0, for solid traffic)
+
+Cars and people are solid, so the contact solver now works on the craft's velocity relative to the surface it
+touches (the world reports each contact's surface velocity). Measured (`packages/sim-core/test/moving-surface.test.ts`,
+Pavo20): resting on a box that starts at 3 m/s, the craft is dragged at 3.87 m/s^2 (μg = 3.92 with MU 0.4, the one
+friction coefficient for every contact), then rides at 3.000000 m/s with the gyro at 6e-9 rad/s; a box driving into
+it at 2 m/s shoves it ahead with no sphere closer than 2 mm to the box. A still world is bit-identical to 0.4.0.
+For the review: friction is the same 0.4 on a car roof as on concrete; a car's push is not limited by the car's
+mass (movers are kinematic: a quad never slows a car, which is right for a 250 g quad and a 1.5 t car); fast
+impacts against a mover are found by the traffic world's sweep at the tick's pose of the movers (conservative
+advancement in `packages/traffic/src/world.ts`), not by a sweep of the relative motion.

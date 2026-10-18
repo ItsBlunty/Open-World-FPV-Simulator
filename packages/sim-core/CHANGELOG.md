@@ -2,6 +2,23 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## sim-core/0.5.0: moving surfaces (2026-10-17)
+
+Changes traces only in worlds whose surfaces move (new). A still world flies bit for bit as in 0.4.0: every earlier
+test and saved hash passes unchanged, the self-test hash included (`cd45c59c…`).
+
+- **`ContactWorld.at?(tick)`** (optional): a world with moving surfaces places them where they are at that tick. The
+  sim calls it at the start of every `step`, before any query, also while parked at the spawn. The surfaces must be a
+  function of the tick alone, so replays stay exact from the sticks.
+- **Surface velocity** (optional `vel` out-array on `ContactWorld.contacts()`, 3 numbers per contact, m/s world):
+  the sim zeroes it before each query, so a still world can ignore it. The contact solver works on the craft's
+  velocity relative to the surface: the speculative gap, the bounce of an impact and Coulomb friction all use it. A
+  craft resting on a box that drives off is dragged at μg until it matches the box's speed, then rides with it,
+  still; a box driving into a craft shoves it ahead (`test/moving-surface.test.ts`). A moving surface may be
+  reported up to its own travel in one tick beyond the query radius, so the solver sees an approach coming.
+- The contact record grows by the surface velocity (`CN` 25). `PlatformContact` passes `vel` to the world it wraps
+  (the disc itself stands still).
+
 ## sim-core/0.4.0: turtle mode (2026-10-17)
 
 Changes traces: every trace hash (the state has one more slot, `S.flip` at index 71, `S.size` 72). Flights that never

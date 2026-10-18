@@ -72,3 +72,7 @@ so `git diff` against it shows exactly what we changed.
    (small_angle, crash-flip arming and disarming). The state gains `S.flip`, the seam gains `Sim.motorDir`, the motor
    state is signed, `RespawnPolicy` gains `flipped`. Tests: new `test/crashflip.test.ts`, and in `packages/world-mesh`
    `test/turtle.test.ts`; `wind` and `log-v2-compat` check the new state size. `SIM_CORE_VERSION` is `sim-core/0.4.0`.
+10. `src/sim.ts`, `src/platform.ts`, `src/index.ts` (sim-core/0.5.0, changes traces only in worlds that move): moving
+   surfaces for solid traffic. `ContactWorld` gains an optional `at(tick)` (called at the start of every step) and an
+   optional `vel` out-array on `contacts()`; the contact solver works on velocity relative to the surface (`CN` 25).
+   Still worlds are bit-identical. Test: new `test/moving-surface.test.ts`. `SIM_CORE_VERSION` is `sim-core/0.5.0`.
