@@ -56,6 +56,7 @@ if (which === 'firefox') {
         return JSON.parse(r.result.result.value);
     };
     close = async () => { try { await cmd('Browser.close', {}); } catch {} };
+    globalThis.shot = async (file) => { const r = await cmd('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(file, Buffer.from(r.result.data, 'base64')); };
 }
 
 // wait until the engine is ready, then let it run, then read the HUD footer and count how many 1 ms worker-clock
@@ -283,16 +284,22 @@ const gcCheck = `(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < 150 && !(window.__fly && !__fly.engine.includes('starting')); i++) await sleep(100);
   const w = new Worker(URL.createObjectURL(new Blob(['const mc = new MessageChannel(); mc.port1.onmessage = () => setTimeout(tick, 1); function tick() { postMessage(0); mc.port2.postMessage(0); } tick();'], { type: 'text/javascript' })));
+  const variant = '${process.env.GPUVAR ?? ''}';
+  if (variant.includes('freeze')) await __fly.ask('fly.sun.follow = () => {}; return 1');
+  if (variant.includes('every')) await __fly.ask('const k = ' + variant.replace(/.*every/, '') + ', sh = fly.sun.light.shadow; sh.autoUpdate = false; let i = 0; const r = fly.renderer, r0 = r.render.bind(r); let last = 0; r.render = (sc, cam) => { const q = performance.now(); if (q - last > 2 && ++i % k === 0) sh.needsUpdate = true; last = q; return r0(sc, cam); }; return 1');
   let n = 0; w.onmessage = () => { n++; navigator.getGamepads(); }; if (${process.env.NOCLOCK ? 1 : 0}) w.terminate();
   const frames = []; let last = 0, on = true; const raf = (t) => { if (last) frames.push(t - last); last = t; if (on) requestAnimationFrame(raf); }; requestAnimationFrame(raf);
   await sleep(60000); on = false; w.terminate();
-  return JSON.stringify({ engine: __fly.engine, clockTicksPerS: Math.round(n / 60), frames: frames.length, over12_5: frames.filter((x) => x > 12.5).length, maxMs: +Math.max(...frames).toFixed(1) });
+  return JSON.stringify({ variant, engine: __fly.engine, clockTicksPerS: Math.round(n / 60), frames: frames.length, over12_5: frames.filter((x) => x > 12.5).length, maxMs: +Math.max(...frames).toFixed(1) });
 })()`;
 // which WebGPU objects Three.js creates per second while flying (each is a browser object with native memory)
 const gpuCheck = `(async () => {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < 150 && !(window.__fly && !__fly.engine.includes('starting')); i++) await sleep(100);
   await sleep(2000);
+  const variant = '${process.env.GPUVAR ?? ''}';
+  if (variant === 'freeze') await __fly.ask('fly.sun.follow = () => {}; return 1');
+  if (variant.startsWith('every')) await __fly.ask('const k = ' + variant.slice(5) + ', sh = fly.sun.light.shadow; sh.autoUpdate = false; let i = 0; const r = fly.renderer, r0 = r.render.bind(r); let last = 0; r.render = (sc, cam) => { const q = performance.now(); if (q - last > 2 && ++i % k === 0) sh.needsUpdate = true; last = q; return r0(sc, cam); }; return 1');
   const counts = {};
   const wrap = (proto, cls) => { if (!proto) return; for (const k of Object.getOwnPropertyNames(proto)) { if (!/^(create|begin|finish|writeBuffer|writeTexture|submit|setBindGroup|getCurrentTexture)/.test(k)) continue; const d = Object.getOwnPropertyDescriptor(proto, k); if (typeof d.value !== 'function') continue; const f = d.value; proto[k] = function (...a) { const key = cls + '.' + k; counts[key] = (counts[key] || 0) + 1; return f.apply(this, a); }; } };
   wrap(window.GPUDevice?.prototype, 'device'); wrap(window.GPUCommandEncoder?.prototype, 'encoder'); wrap(window.GPUQueue?.prototype, 'queue'); wrap(window.GPUTexture?.prototype, 'texture'); wrap(window.GPURenderPassEncoder?.prototype, 'pass'); wrap(window.GPUCanvasContext?.prototype, 'canvas');
@@ -300,7 +307,7 @@ const gpuCheck = `(async () => {
   await sleep(5000); on = false;
   const secs = (performance.now() - t0) / 1000;
   const perFrame = {}; for (const [k, v] of Object.entries(counts).sort((a, b) => b[1] - a[1])) perFrame[k] = +(v / frames).toFixed(2);
-  return JSON.stringify({ engine: __fly.engine, fps: Math.round(frames / secs), perFrame });
+  return JSON.stringify({ variant, engine: __fly.engine, fps: Math.round(frames / secs), perFrame });
 })()`;
 const runs = (process.argv[4] ?? 'demo,demo-main,demo-webgl,selftest').split(',');
 const urls = { demo: '?demo', 'demo-main': '?demo&render=main', 'demo-worker': '?demo&render=worker', 'demo-noshadows': '?demo&noshadows', 'demo-webgl': '?demo&webgl', 'demo-webgl-main': '?demo&webgl&render=main', selftest: '?selftest', menu: '' };
@@ -308,6 +315,7 @@ for (const r of runs) {
     await navigate(`${base}/${urls[r]}`);
     const out = await evalIn(r === 'selftest' ? selftest : process.env.CATCH ? catchRate : process.env.UI ? uiCheck : process.env.RADIO ? radioCheck : process.env.SPIN ? spinCheck : process.env.FLY ? flyCheck : process.env.SWEEP ? sweepCheck : process.env.GC ? gcCheck : process.env.GPU ? gpuCheck : measure);
     console.log(JSON.stringify({ browser: which, run: r, ...out }));
+    if (process.env.SHOT && globalThis.shot) { await globalThis.shot(process.env.SHOT); console.log('screenshot', process.env.SHOT); }
 }
 await close();
 await sleep(1500);

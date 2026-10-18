@@ -7,6 +7,7 @@
 import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
+import { shadowNeedsRecentre } from './shadow-follow';
 
 type FloatNode = THREE.Node<'float'>;
 
@@ -125,12 +126,14 @@ const SUN_DIR = new THREE.Vector3(-300, 500, 200).normalize();
 const SHADOW_HALF = 120;
 const SHADOW_MAP = 4096;
 
-/** The sun with its shadow; call follow() each frame with the camera's position. */
+/** The sun with its shadow; call follow() each frame with the camera's position (it moves only now and then: shadow-follow.ts). */
 export class Sun {
     readonly light: THREE.DirectionalLight;
     private readonly toLight = new THREE.Matrix4();
     private readonly fromLight = new THREE.Matrix4();
     private readonly c = new THREE.Vector3();
+    /** the square's centre in the light's frame, null before the first follow() */
+    private centre: THREE.Vector3 | null = null;
 
     constructor(scene: THREE.Scene) {
         const l = new THREE.DirectionalLight(0xfff4e0, 2.2);
@@ -153,10 +156,15 @@ export class Sun {
         this.toLight.copy(this.fromLight).invert();
     }
 
-    /** Centre the shadow square on p, moved in whole shadow texels so its edges do not crawl as the camera moves. */
+    /**
+     * Centre the shadow square on p when p has moved far enough from its centre (shadowNeedsRecentre), in whole shadow
+     * texels so the shadows of things that stand still land on the same texels after the move.
+     */
     follow(p: THREE.Vector3): void {
         const texel = (2 * SHADOW_HALF) / SHADOW_MAP;
         this.c.copy(p).applyMatrix4(this.toLight);
+        if (!shadowNeedsRecentre(this.centre, this.c)) return;
+        (this.centre ??= new THREE.Vector3()).copy(this.c);
         this.c.x = Math.round(this.c.x / texel) * texel;
         this.c.y = Math.round(this.c.y / texel) * texel;
         this.c.applyMatrix4(this.fromLight);

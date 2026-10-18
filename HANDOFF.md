@@ -1,13 +1,13 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18).
 
 ## 0. Where things stand (start here)
 
 - **M0 is done** (2026-10-17). **M1 is built and live** at https://itsblunty.github.io/Open-World-FPV-Simulator/
   (CI publishes every push to `main`; Pages is on). The owner is flying it with the Boxer.
-  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 46 test files, 417 tests.
+  Commands: `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev` (Node 22.12+, pnpm 10). 47 test files, 420 tests.
 - **§0a is done** (sim-core/0.3.0, commits `ecc89a2`, `fb45716`): the new contact solver fixes sticking and shaking;
   the damage model is built but **shelved by the owner** (off by default, every hit a bounce, toggle in Settings).
   **Waiting for the owner to fly the contacts** (bounces, sliding on walls and floors). Then M2 (physics review).
@@ -51,13 +51,19 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   `?render=worker` keeps the worker. Chrome WebHID fine either way; Chrome gamepad 185-191 Hz (Chrome samples
   gamepads every 4 ms itself, §0i).
 - **First-turn stutter (owner, 2026-10-18, §0j, renderer only):** the scene is drawn along six directions while the
-  map loads, so the first turn no longer hitches. **Waiting for the owner to reload and turn.**
-- **Firefox microstutters (owner, 2026-10-18, §0k):** measured in the owner's tab and a Firefox profile: about every
-  25-35 s, Firefox's garbage collection of WebGPU's per-draw memory (shadows double it). **Waiting for the owner to
-  fly Firefox with shadows off and with `?webgl`**, then to choose a fix.
+  map loads, so the first turn no longer hitches. The owner: Chrome "runs great, no issues at all".
+- **Firefox microstutters (owner, 2026-10-18, §0k, §0l):** measured in the owner's tab and a Firefox profile: about
+  every 25-35 s Firefox's garbage collection landed on frames heavy with WebGPU writes. The owner: WebGL 2 "flashes and
+  looks bad" (not an option); shadows off stopped the stutter. **Built (§0l): the sun's shadow square now moves only
+  every 16 m** (GPU writes 180 -> 69 a frame; 0-1 slow frames a minute instead of 3). **Waiting for the owner to fly
+  Firefox with shadows on** and to look at the far shadow edge (it jumps once per 16 m of travel, 104+ m away).
+- **State of Firefox (2026-10-18):** Boxer as a gamepad ~219 Hz (Firefox's own cap ~250), 120 fps; the engine runs on
+  the page (`?render=worker` opt-in, stutters); WebHID is Chrome-only (Boxer 500 Hz there). Measuring tools for the
+  next round are in `docs/evidence/2026-10-18-firefox-stutter/` (§0l "Tools").
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
-  work around it with other tools.
+  work around it with other tools. The owner tests on the **Pages build**, never local tabs: never start dev servers
+  for the owner, and stop every server or shell Claude starts before finishing (owner, 2026-10-18).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
 
@@ -171,7 +177,7 @@ walking and cars driving would add.
   would be steps the contact solver catches on; 2 cm is under half a 45 mm collision sphere). Dashed centre lines
   and zebra crossings on every city junction.
 - **Sun shadows** (`render/world.ts Sun`): 4096² map over 240 m around the camera, snapped to whole texels so it does
-  not crawl. Measured GPU time at 2560x1319 (WebGPU, owner's machine): street 2.3 ms with / 1.5 ms without, city
+  not crawl (since §0l it re-centres only every 16 m). Measured GPU time at 2560x1319 (WebGPU, owner's machine): street 2.3 ms with / 1.5 ms without, city
   overview 0.6 / 0.7, bando 0.55 / 0.6. `?noshadows` turns them off. Works on the WebGL 2 fallback too.
 - Map v2: 41 462 triangles (v1: 44 006), hash `57c76dcc…`. The self-test hash did not change (its flight is in the park).
 - **People and cars (asked, not built):** answered the owner with this estimate. Drawn only (they cannot be hit):
@@ -530,9 +536,56 @@ after loading (free camera 3.5-5.5 m -> 10.08 m in 1 s of W). `__fly.padClock` r
 the worker clock: 635/s, 100 %). 46 test files, 417 tests; typecheck clean; Firefox and Chrome UI, radio and
 self-test checks pass (results.md section 6).
 
-**Waiting for the owner:** fly Firefox with Settings -> Sun shadows off (reload), and with `?webgl`, and say whether
-the stutters go. Then choose among: shadows redrawn less often (e.g. 30-60 Hz), fewer shadow casters, WebGL 2 in
-Firefox, shadows off in Firefox. Each changes looks or feel; Claude has not picked one.
+**The owner tried both (2026-10-18):** "webgl2 is not useable for me because everything flashes and looks bad.
+Turning off sun shadows on the normal mode seems to stop the stutter. Lets try to fix it based on that". -> §0l.
+
+## 0l. Shadows without the Firefox stutter (owner, 2026-10-18): built, waiting for the owner to fly
+
+**Measured first** (local Firefox 158 window driven by `drive.mjs`, `?demo` 60 s, WebGPU calls counted per frame by
+wrapping `GPUDevice`/`GPUQueue`/`GPURenderPassEncoder` methods, `GPU=1`):
+| Firefox, flying ?demo | `writeBuffer` / frame | `setBindGroup` / frame |
+|---|---|---|
+| as it was | 180 | 113 |
+| shadow square frozen (`sun.follow` disabled) | 69 | 113 |
+| shadow map redrawn every 2nd frame (`shadow.autoUpdate = false`) | 157 | 99 |
+| every 4th frame | 146 | 93 |
+| shadows off | 27 | 54 |
+So redrawing the shadow map less often saves little; the cost is the square **moving**: `Sun.follow` re-centred it
+every frame (it moves in 6 cm texels, so in flight almost every frame), and every shadow-receiving object's shadow
+data is written again. With the square frozen, a 60 s startup-profiler flight had **0 slow frames** (max 8.3 ms)
+although Firefox's major GCs still came at 24.5 s and 58.2 s: the GC alone is not felt, a GC on a write-heavy frame is.
+
+**Built:** `render/shadow-follow.ts` (`shadowNeedsRecentre`, `RECENTRE_M = 16`, `RECENTRE_DEPTH_M = 100`) and
+`render/world.ts` `Sun.follow`: the square re-centres only when the camera is 16 m from its centre across the sun's
+view (or 100 m along it); still snapped to whole texels, so static shadows land on the same texels after a move. The
+shadow map is still drawn every frame (cars and the quad cast live shadows). Rendering only; no sim state.
+
+**Evidence** (`docs/evidence/2026-10-18-firefox-stutter/`): with the fix `writeBuffer` 69 a frame; two 60 s Firefox
+flights: 1 slow frame (16.7 ms) and 0 (max 8.3 ms), against 3 before. Chrome screenshot mid-flight
+(`shadows-demo.png`): trees and benches cast shadows. Firefox and Chrome: free camera 10.08 m/s, settings, simulated
+radio (arm, climb, stale disarm) and `?selftest` MATCH. 47 test files, 420 tests (new: `shadow-follow.test.ts`).
+
+**What it costs (tell the owner, ask to look):** shadows reach at least 104 m round the camera instead of 120 m, and
+the far edge of the shadows (104-136 m away; fog from 250 m) jumps once per 16 m of travel.
+
+**Left open:** not flown by the owner. The every-~30 s GC still happens (WebGPU in Firefox allocates per draw:
+`setBindGroup` 113 a frame); if a stutter remains, the next levers are fewer shadow casters and fewer draws (merging
+traffic parts). Flight 1's 4 mid-flight shadow shader builds (§0k) are unexplained.
+
+**Tools (for the next session; all in `docs/evidence/2026-10-18-firefox-stutter/`):**
+- `drive.mjs firefox|chrome <base url> <runs>`: launches a windowed browser with a throwaway profile (Firefox through
+  WebDriver BiDi on port 19333, Chrome through CDP on 19334; 9333 is someone else's) and runs checks chosen by env:
+  `UI=1`, `RADIO=1`, `SPIN=1`, `FLY=1`, `SWEEP=1`, `CATCH=1`, `GPU=1` (+`GPUVAR=freeze|every2`), `GC=1` (+`NOCLOCK=1`),
+  `SHOT=<png>` (Chrome screenshot), `WAIT=<ms>`. Runs: `demo`, `demo-main`, `demo-worker`, `demo-webgl`,
+  `demo-noshadows`, `selftest`, `menu`. Serve the build with `vite preview --port 18940` from `apps/fly`, and stop it.
+- Firefox GC counts: run with `MOZ_PROFILER_STARTUP=1 MOZ_PROFILER_STARTUP_FILTERS=GeckoMain
+  MOZ_PROFILER_STARTUP_FEATURES=nostacksampling MOZ_PROFILER_SHUTDOWN=<file.json>`, then `gcparse.mjs <file.json>`.
+- The owner's Firefox profile (shared link -> `https://storage.googleapis.com/profile-store/<hash>`, processed format,
+  stacks via `stackTable.prefixOffset`, sources via `sources.filename`): `gc.mjs`, `ticks.mjs`, `cpu.mjs`, `bail.mjs`,
+  `mapsamples.mjs` (maps bundle offsets to our source through a `vite build --sourcemap` of the same commit).
+- In the owner's tab: the claudecodebrowser extension (localhost:8765) runs scripts in an isolated world; to reach
+  `__fly` inject a `<script>` element and pass results back through a hidden DOM element. `__fly.ask(code)` runs code
+  in the engine (`fly.renderer`, `fly.session`, `fly.sun`, ...).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
