@@ -749,6 +749,8 @@ from the page's MathJax source); Johnson 2004, "Model for Vortex Ring State Infl
   (rotation < 3 rad/s; all samples 0.849 vs 1.365); the table is in physics-review G1.
 - The Nazgul (`sim-probe-output.txt`, classic in brackets): punch 24.2 m/s at 0.5 s (27.7), climb top 37.4 (43.1),
   75 deg punch top 145 km/h (164), level top speed 134 km/h (150), flat drop 26 m/s (16), dive unchanged.
+- Pages build (CI run 39143821831), Chrome 155 `?selftest`: MATCH (flight `af127b88…`, classic `cd45c59c…`, traffic
+  `80f0c9aa…`); the menu's Settings section shows the new "Physics" line.
 
 **For the owner to fly (Pages build):** punch-outs, fast forward flight (less throttle needed to hold height), dives
 and the catch, and a flat throttle-cut drop; then tick Settings > Physics > Classic physics and compare.
