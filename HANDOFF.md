@@ -30,7 +30,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 ## Left open (not started)
 
-- Freestyle grading: owner asked for research now (a write-up, no code). Not started.
+- Freestyle grading: research written (rules + F3A-style grades, 5-trick prototype); 10 owner questions at its end. [freestyle-grading]
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]
@@ -74,5 +74,6 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
+| `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick rules and grades; prototype plan |
 
 Owner decisions: `docs/decisions.md`.
