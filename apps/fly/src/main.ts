@@ -19,6 +19,7 @@ import { GamepadSource, gamepadKey, padClock } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
 import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
+import { LENSES } from './render/lenses';
 import { SettingsUi } from './ui/settings-ui';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
@@ -296,6 +297,28 @@ function openSettings(): void {
 }
 
 const REPO = 'https://github.com/ItsBlunty/Open-World-FPV-Simulator';
+
+/** an 8-tooth gear outline with a hole (24 x 24 box), drawn here rather than taken from an icon set */
+const GEAR_PATH = ((): string => {
+    const pt = (r: number, deg: number): string => {
+        const a = (deg * Math.PI) / 180;
+        return `${(12 + r * Math.cos(a)).toFixed(2)} ${(12 + r * Math.sin(a)).toFixed(2)}`;
+    };
+    const teeth = Array.from({ length: 8 }, (_, i) => {
+        const c = i * 45;
+        return [pt(7.6, c - 15), pt(10.5, c - 9), pt(10.5, c + 9), pt(7.6, c + 15)].join(' L ');
+    });
+    return `M ${teeth.join(' L ')} Z M 15.2 12 A 3.2 3.2 0 1 0 8.8 12 A 3.2 3.2 0 1 0 15.2 12 Z`;
+})();
+
+/** the gear alone (top-right corner), or the gear with a label */
+function gearButton(label?: string): HTMLButtonElement {
+    const b = h('button', { class: label ? 'gear-btn' : 'icon-btn', onclick: openSettings, title: 'Settings', 'aria-label': label ?? 'Settings' });
+    b.innerHTML = `<svg viewBox="0 0 24 24" width="${label ? 18 : 22}" height="${label ? 18 : 22}" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="${GEAR_PATH}"/></svg>`;
+    if (label) b.append(label);
+    return b;
+}
+
 const isFirefox = /firefox\//i.test(navigator.userAgent);
 /** the "How to connect a radio" box stays open across menu redraws */
 let helpOpen = false;
@@ -360,17 +383,34 @@ function startSection(): Child[] {
         h('div', { class: 'row' },
             h('label', { class: 'muted' }, 'Start at'), where,
             h('span', { class: 'spacer' }),
-            h('button', { onclick: openSettings, title: 'Camera, lens, rates, traffic, graphics' }, 'Settings'),
             h('button', { class: device && !profile ? '' : 'primary', onclick: () => showMenu(false) }, flying ? 'Fly' : 'Look around')),
-        h('p', { class: 'note' }, flying
-            ? 'Settings has the FPV camera (lens, uptilt), rates, traffic and graphics.'
-            : 'Without a set-up radio, "Look around" flies a free camera so you can explore the map.')
+        flying ? null : h('p', { class: 'note' }, 'Without a set-up radio, "Look around" flies a free camera so you can explore the map.')
+    ];
+}
+
+const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
+    h('dl', { class: cls }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
+
+/** what Settings holds, with the current values, so nobody has to guess that the camera and rates live there */
+function settingsSection(): Child[] {
+    const lens = LENSES.find((l) => l.id === settings.lens);
+    const camera = `uptilt ${settings.uptiltDeg}°, ${lens ? `${lens.label} lens` : `flat, ${settings.fovDeg}° field of view`}`;
+    const traffic = [settings.cars && 'cars', settings.people && 'people', settings.cars && settings.signals && 'traffic lights'].filter(Boolean).join(', ') || 'off';
+    return [
+        h('div', { class: 'section-head' }, h('h2', {}, 'Settings'), gearButton('Open settings')),
+        keyList([
+            ['FPV camera', `${camera}. Fisheye profiles of real FPV cameras, or a flat view.`],
+            ['Rates', `${settings.rates ? 'your own' : 'the preset\'s'}. Type in your Betaflight rates.`],
+            ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
+            ['Traffic', `${traffic}.`],
+            ['Graphics', `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
+            ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
+        ].map(([k, v]): [string, string] => [k, v[0].toUpperCase() + v.slice(1)]), 'keys plain')
     ];
 }
 
 function controlsSection(): Child[] {
-    const keys = (rows: [string, string][]): HTMLElement =>
-        h('dl', { class: 'keys' }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
+    const keys = keyList;
     const rows: [string, string][] = profile || demo
         ? [['Esc', 'menu'], ['R', 'back to the start point'], ['C', 'FPV / chase camera']]
         : [['Click', 'steer with the mouse'], ['W A S D', 'move'], ['Space or E', 'up'], ['Q', 'down'], ['Shift', 'faster'], ['R', 'back to the quad'], ['Esc', 'menu']];
@@ -384,11 +424,13 @@ function renderMenu(): void {
     clear(menuBody,
         h('div', { class: 'title' },
             h('h1', {}, 'Open World FPV Simulator'),
-            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗')),
+            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗'),
+            gearButton()),
         h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S).'),
         browserNotice(hidOk),
         ...controllerSection(hidOk),
         ...startSection(),
+        ...settingsSection(),
         ...controlsSection(),
         h('p', { class: 'note footer' },
             `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,

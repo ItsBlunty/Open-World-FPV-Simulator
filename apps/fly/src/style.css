@@ -40,6 +40,9 @@ a { color: var(--accent); }
 .title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .title h1 { flex: 1; }
 .title a { font-size: 14px; }
+.title { align-items: center; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; color: var(--muted); }
+.icon-btn:hover:not(:disabled) { color: var(--accent); }
 .callout { border: 1px solid #6b5a22; background: rgba(255, 204, 77, 0.08); border-radius: 6px; padding: 10px 12px; margin: 12px 0 4px; font-size: 14px; line-height: 1.45; }
 .callout strong { color: #ffcc4d; }
 .status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
@@ -82,3 +85,7 @@ table.rates input { width: 76px; }
 #hud .cross { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(255,255,255,0.55); border-radius: 50%; }
 #hud .bottom { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: #ddd; }
 .warn { color: #ffcc4d; }
+.section-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 8px; }
+.section-head h2 { margin: 0; flex: 1; }
+.gear-btn { display: inline-flex; align-items: center; gap: 8px; }
+dl.keys.plain dt { font-family: inherit; }

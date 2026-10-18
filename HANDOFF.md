@@ -679,6 +679,12 @@ set up, "How to connect a radio" steps folded away, the EdgeTX 1000 Hz tip insid
 Settings, Fly / Look around); "Controls" showing only the keys for the current mode (Space / T only when the radio
 has no arm / turtle switch); footer with renderer, licence, credit, repo link. Evidence: typecheck clean, build OK,
 headless screenshots `docs/evidence/2026-10-18-menu/menu-chrome.png` and `menu-firefox.png`.
+**Settings made obvious (owner, 2026-10-18):** "use a basic gear icon, put it in a corner", then "indicate more
+clearly about camera, tilt, etc, that its all in the settings ... a larger explanation like the controls". A gear
+button sits in the menu's top-right corner (next to GitHub), and a "Settings" section (between Start and Controls)
+lists what Settings holds with the current values (camera uptilt + lens or FOV, rates, flight mode, traffic,
+graphics, crashes) and an "Open settings" gear button. The gear is our own 8-tooth SVG path (`main.ts` `GEAR_PATH`),
+no icon set. Screenshot: `docs/evidence/2026-10-18-menu/menu-chrome-settings.png`.
 **Left open:** the connected-radio states (yellow "not set up", green "ready") were not screenshotted; Safari and
 mobile were not tried.
 
