@@ -33,8 +33,11 @@ const presetRates = compileParams(preset).rates;
 const demo = params.has('demo');
 
 function overrides(): ParamOverrides {
-    // crashOn always set: off means every hit is a bounce, no damage, no crash (the owner's default for now)
-    return settings.rates ? { rates: settings.rates, crashOn: settings.damage } : { crashOn: settings.damage };
+    // crashOn always set: off means every hit is a bounce, no damage, no crash (the owner's default for now);
+    // classicPhysics only when chosen, so the default flight's overrides stay as they were
+    const o: ParamOverrides = settings.rates ? { rates: settings.rates, crashOn: settings.damage } : { crashOn: settings.damage };
+    if (settings.classicPhysics) o.classicPhysics = true;
+    return o;
 }
 
 function trafficConfig(): TrafficConfig {
@@ -404,6 +407,7 @@ function settingsSection(): Child[] {
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
             ['Graphics', `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
+            ['Physics', settings.classicPhysics ? 'classic (sim-core 0.5): thrust from motor speed alone.' : 'props feel the airflow: thrust fades as you climb fast and grows flying forward.'],
             ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
         ].map(([k, v]): [string, string] => [k, v[0].toUpperCase() + v.slice(1)]), 'keys plain')
     ];
@@ -511,13 +515,15 @@ function pageFrame(): void {
 }
 
 async function runSelftestPage(): Promise<void> {
-    const [{ SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest }, { buildFirstMap }] = await Promise.all([import('./selftest'), import('@owfpv/maps')]);
+    const [{ CLASSIC_SELFTEST_HASH, SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest }, { buildFirstMap }] = await Promise.all([import('./selftest'), import('@owfpv/maps')]);
     const level = buildFirstMap();
     const r = runSelftest(preset, level);
+    // the same flight with classic physics (sim-core/0.6.0): checks the old model too
+    const classic = runSelftest(preset, level, { classicPhysics: true }).hash;
     const traffic = runTrafficSelftest(level);
-    const flightOk = r.hash === SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
+    const flightOk = r.hash === SELFTEST_HASH && classic === CLASSIC_SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
     const ok = flightOk && trafficOk;
-    const result = { ...r, expected: SELFTEST_HASH, traffic, trafficExpected: TRAFFIC_HASH };
+    const result = { ...r, expected: SELFTEST_HASH, classic, classicExpected: CLASSIC_SELFTEST_HASH, traffic, trafficExpected: TRAFFIC_HASH };
     (globalThis as { __selftest?: unknown }).__selftest = { ...result, ok, flightOk, trafficOk };
     clear(menuBody, h('h1', {}, 'Determinism self-test'),
         h('p', { class: ok ? 'status-ok' : 'status-bad' }, ok

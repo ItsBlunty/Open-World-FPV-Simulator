@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest } from '../src/selftest';
+import { CLASSIC_SELFTEST_HASH, SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest } from '../src/selftest';
 
 const preset = nazgul as unknown as PresetJson;
 
@@ -18,6 +18,13 @@ describe('self-test flight on the first map', () => {
         expect(a.respawns).toBeGreaterThan(0);
         expect(runSelftest(preset, level).hash).toBe(a.hash);
         expect(a.hash).toBe(SELFTEST_HASH);
+    });
+
+    it('with classic physics flies the sim-core/0.5.0 flight bit for bit', () => {
+        const c = runSelftest(preset, buildFirstMap(), { classicPhysics: true });
+        expect(c.hash).toBe(CLASSIC_SELFTEST_HASH);
+        // control: the default (rotor inflow) is another flight
+        expect(c.hash).not.toBe(SELFTEST_HASH);
     });
 
     it('places the traffic the same every run (both models, and after going back in time)', () => {

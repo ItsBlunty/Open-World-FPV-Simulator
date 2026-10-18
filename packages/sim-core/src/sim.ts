@@ -13,8 +13,8 @@
 // craft's height above the scan's ground; without it the airspeed is the velocity (still air).
 
 import { dcos, dsin, datan2, RAD2DEG, DEG2RAD } from './dmath';
-import type { SimParams } from './params';
-import { cellVoc, hoverSolve } from './params';
+import type { RotorInflow, SimParams } from './params';
+import { cellVoc, hoverSolve, INFLOW_DELTA, INFLOW_RATIO_MAX } from './params';
 import { setpointRate, throttleCurve } from './rates';
 import { modeFromChannel } from './contracts';
 import type { LevelParams, RespawnOpts } from './contracts';
@@ -214,6 +214,8 @@ const SMALL_ANGLE_COS = 0.9063077870366499;
  * One 7-inch prop; for the presets' props an estimate. Used for the reaction torque too [estimate].
  */
 const REVERSE_THRUST = 0.59 / 0.81;
+/** bisection halvings of the rotor inflow (inflowThrust): 2^-32 of the bracket, far below what changes the thrust [numerical choice] */
+const INFLOW_STEPS = 32;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
 const CRASH_LIN_DAMP = 0.5; // 1/s horizontal, scraping and bouncing losses [estimate]
 
@@ -665,6 +667,26 @@ export class Sim {
         this.propStrikes(nNear);
         const strike = this.strike;
         const dir = this.motorDir;
+
+        // ---- airspeed ----
+        const vx = s[S.vx], vy = s[S.vy], vz = s[S.vz];
+        // the air moves (wind.ts): every drag term below works on the airspeed, velocity minus wind.
+        // In still air the airspeed is the velocity itself, so the model is the one without wind bit for bit.
+        let airX = vx, airY = vy, airZ = vz;
+        const air = this.air;
+        if (air) {
+            const w = this.windNow;
+            air.at(this.tick, s[S.py] - (this.sceneS * air.groundM + this.sceneTy), w);
+            airX = vx - w[0];
+            airY = vy - w[1];
+            airZ = vz - w[2];
+        }
+        // airspeed in body frame: R^T (v - wind)
+        const bvx = r00 * airX + r10 * airY + r20 * airZ;
+        const bvy = r01 * airX + r11 * airY + r21 * airZ;
+        const bvz = r02 * airX + r12 * airY + r22 * airZ;
+
+        const inflow = p.inflow;
         for (let i = 0; i < 4; i++) {
             const k = S.m0 + i;
             // the motor state is signed: below 0 the motor spins backwards (turtle mode), towards dir x command
@@ -674,14 +696,17 @@ export class Sim {
             const wa = w < 0 ? -w : w;
             // backwards: thrust and reaction torque the other way, at REVERSE_THRUST of the forward value
             const T0 = w < 0 ? -REVERSE_THRUST * tmax * wa * wa : tmax * w * w;
-            const T = T0 * keep * strike[i];
+            const Tc = T0 * keep * strike[i];
+            // rotor inflow (sim-core/0.6.0): a forward-spinning prop's thrust from the air through it; the reaction
+            // torque stays with the thrust the rotor makes at this speed in still air (Tc), as the power does below
+            const T = inflow && w > 0 ? this.inflowThrust(inflow, i, w * p.omegaMaxPerVolt * volt, bvx, bvy, bvz, wx, wy, wz) * keep * strike[i] : Tc;
             th[i] = T;
             tSum += T;
             wSum += wa;
             // r x (0, T, 0) = (-rz T, 0, rx T)
             tauX += -mp[i * 3 + 2] * T;
             tauZ += mp[i * 3] * T;
-            tauY += p.motorYaw[i] * (p.kappa * T + jr * dw);
+            tauY += p.motorYaw[i] * (p.kappa * Tc + jr * dw);
             // the rotors turn as fast in the wash: the power follows the thrust they would make in clean air
             power += p.kappa * (T0 < 0 ? -T0 : T0) * (wa * p.omegaMaxPerVolt * volt);
         }
@@ -704,22 +729,6 @@ export class Sim {
         s[S.volt] = p.cells * cellVoc(soc) - amps * p.rPack;
 
         // ---- forces (world) ----
-        const vx = s[S.vx], vy = s[S.vy], vz = s[S.vz];
-        // the air moves (wind.ts): every drag term below works on the airspeed, velocity minus wind.
-        // In still air the airspeed is the velocity itself, so the model is the one without wind bit for bit.
-        let airX = vx, airY = vy, airZ = vz;
-        const air = this.air;
-        if (air) {
-            const w = this.windNow;
-            air.at(this.tick, s[S.py] - (this.sceneS * air.groundM + this.sceneTy), w);
-            airX = vx - w[0];
-            airY = vy - w[1];
-            airZ = vz - w[2];
-        }
-        // airspeed in body frame: R^T (v - wind)
-        const bvx = r00 * airX + r10 * airY + r20 * airZ;
-        const bvy = r01 * airX + r11 * airY + r21 * airZ;
-        const bvz = r02 * airX + r12 * airY + r22 * airZ;
         const speed = Math.sqrt(airX * airX + airY * airY + airZ * airZ);
         const kd = -0.5 * p.rho * speed;
         // rotor and duct momentum drag (H.2 item 1): the rotors ingest the in-plane airflow and send
@@ -810,6 +819,49 @@ export class Sim {
                 s[S.qw] = q0w; s[S.qx] = q0x; s[S.qy] = q0y; s[S.qz] = q0z;
             }
         }
+    }
+
+    /**
+     * Thrust of forward-spinning prop i at rotor speed omega (rad/s) from the air through it (sim-core/0.6.0,
+     * physics-review G1), N. The air at the hub, body frame: the airspeed (bvx, bvy, bvz) plus the body rotation's
+     * w x r at the motor, so a rolling craft's dropping side meets more air and pushes back (rotor damping). Its part
+     * along the thrust axis is the climb velocity, the rest the in-plane velocity. Normalised by the tip speed
+     * U = omega R: climb ratio lc, advance ratio mu (held within INFLOW_RATIO_MAX). Blade-element thrust (Gill and
+     * D'Andrea 2019 eq. 27 with c_l0 = 0, params.ts RotorInflow):
+     *   C_T = a (1 - d) (theta - lc - li) + a (1 - d) theta mu^2 / (2 d),
+     * and Glauert's momentum theory for the induced inflow li (as in NeuroBEM, Bauersfeld et al. 2021, eq. 5):
+     *   C_T = 4 li sqrt(mu^2 + (lc + li)^2),
+     * solved together by bisection on the normal working state's branch (lc + li >= 0: the air goes down through
+     * the disk), INFLOW_STEPS halvings. T = 1/2 rho A U^2 C_T; at rest it is the preset's static thrust. Checked on
+     * NeuroBEM's 75 min of measured flight (docs/physics-review.md G1). Only + - * / and sqrt.
+     */
+    private inflowThrust(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
+        const mp = this.p.motorPos;
+        const mx = mp[i * 3], mz = mp[i * 3 + 2];
+        // w x (mx, 0, mz) = (wy mz, wz mx - wx mz, -wy mx)
+        const ux = bvx + wy * mz;
+        const uy = bvy + wz * mx - wx * mz;
+        const uz = bvz - wy * mx;
+        const tip = omega * f.radius;
+        let lc = uy / tip;
+        lc = lc < -INFLOW_RATIO_MAX ? -INFLOW_RATIO_MAX : lc > INFLOW_RATIO_MAX ? INFLOW_RATIO_MAX : lc;
+        let mu = Math.sqrt(ux * ux + uz * uz) / tip;
+        if (mu > INFLOW_RATIO_MAX) mu = INFLOW_RATIO_MAX;
+        const ad = f.a * (1 - INFLOW_DELTA);
+        const ct0 = ad * (f.theta - lc) + (ad * f.theta * mu * mu) / (2 * INFLOW_DELTA); // C_T = ct0 - ad li
+        const mu2 = mu * mu;
+        // the branch starts where the total inflow lc + li is 0; past ct0 / ad the blades make no thrust (C_T 0) while
+        // the momentum side is >= 0, so the root lies between (when even the start is past it, between 0 and the start)
+        let lo = lc < 0 ? -lc : 0;
+        let hi = ct0 / ad;
+        if (4 * lo * Math.sqrt(mu2) - (ct0 - ad * lo) > 0) { hi = lo; lo = 0; }
+        for (let n = 0; n < INFLOW_STEPS; n++) {
+            const li = (lo + hi) * 0.5;
+            const s = lc + li;
+            if (4 * li * Math.sqrt(mu2 + s * s) > ct0 - ad * li) hi = li; else lo = li;
+        }
+        const ct = ct0 - ad * ((lo + hi) * 0.5);
+        return 0.5 * this.p.rho * f.area * tip * tip * ct;
     }
 
     /**

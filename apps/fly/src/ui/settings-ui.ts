@@ -127,6 +127,11 @@ export class SettingsUi {
             host.shadowsPending()
                 ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Shadows change when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
                 : null,
+            h('h2', {}, 'Physics'),
+            h('label', { class: 'row' },
+                h('input', { type: 'checkbox', checked: s.classicPhysics, onchange: (e: Event) => { s.classicPhysics = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),
+                h('span', {}, 'Classic physics (the flight model before the airflow update, to compare). Changing it restarts at the spawn point.')),
+            h('p', { class: 'note' }, 'Off: each prop feels the air through it, so thrust fades as you climb fast and grows as you fly forward, as measured on real 5-inch quads.'),
             h('h2', {}, 'Crashes and damage'),
             h('label', { class: 'row' },
                 h('input', { type: 'checkbox', checked: s.damage, onchange: (e: Event) => { s.damage = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),

@@ -1,0 +1,37 @@
+quadratic fit on calm data: k = 1.514e-06 N/(rad/s)^2
+samples used 404037  RMSE quadratic 1.173 N
+  pitch 3.00 in: RMSE 0.921 N
+  pitch 3.25 in: RMSE 0.896 N
+  pitch 3.50 in: RMSE 0.883 N
+  pitch 3.75 in: RMSE 0.878 N
+  pitch 4.00 in: RMSE 0.877 N
+  pitch 4.25 in: RMSE 0.880 N
+  pitch 4.50 in: RMSE 0.884 N
+  pitch 4.75 in: RMSE 0.890 N
+  pitch 5.00 in: RMSE 0.896 N
+  pitch 5.25 in: RMSE 0.903 N
+  pitch 5.50 in: RMSE 0.909 N
+  pitch 5.75 in: RMSE 0.916 N
+  pitch 6.00 in: RMSE 0.922 N
+best pitch 4.0
+
+thrust / quadratic model, binned by climb velocity along the thrust axis (in-plane < 3 m/s):
+ vax m/s   n   measured  model
+  -6..-4    1081  1.000    1.077
+  -4..-2    4458  1.046    1.055
+  -2..-1   14029  1.022    1.028
+  -1..0    90543  1.008    1.004
+   0..1    96793  0.998    0.998
+   1..2    15980  0.979    0.969
+   2..4     5807  0.961    0.942
+   4..6     1631  0.941    0.913
+   6..9      574  0.905    0.885
+
+binned by in-plane speed (|vax| < 1 m/s):
+  0..2  158269  1.000    1.000
+  2..4   46313  1.010    0.999
+  4..6   17763  1.024    1.010
+  6..8   11213  1.051    1.015
+  8..10   8339  1.070    1.019
+ 10..12   3127  1.087    1.023
+ 12..15   1102  1.125    1.027

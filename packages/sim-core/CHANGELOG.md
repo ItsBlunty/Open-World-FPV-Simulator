@@ -2,6 +2,27 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## sim-core/0.6.0: rotor inflow (2026-10-18)
+
+Changes traces of presets that opt in (the Nazgul `nazgulf5v3-6s`, the game's drone: new self-test hash `af127b88…`).
+Every other preset, and the Nazgul with `classicPhysics`, flies bit for bit as in 0.5.0 (the self-test with classic
+physics keeps `cd45c59c…`). `docs/physics-review.md` G1.
+
+- **Rotor inflow** (`Sim.inflowThrust`, `RotorInflow`): each forward-spinning prop's thrust follows the air through
+  it: the airspeed at its hub (with the body rotation's w x r, so a roll is damped a little) split into climb and
+  in-plane parts. Blade-element thrust from Gill and D'Andrea 2019 (Drones 3(4):77, eq. 27, parameters predicted from
+  the static thrust and the prop pitch, their Section 4) with Glauert's momentum theory for the induced inflow,
+  solved by bisection (32 halvings, only + - * / and sqrt). At rest the thrust is exactly the classic model's, so
+  hover throttle and thrust-to-weight are unchanged. Checked against NeuroBEM's 75 min of measured flight of a 772 g
+  5-inch quad (Bauersfeld et al. 2021): thrust error 0.85 N RMS against 1.37 N for thrust from rotor speed alone.
+- Presets opt in with `prop_pitch_in` (with `prop_diameter_mm`) and `cda_vertical_inflow_cm2`, the frame's own drag
+  from above: the classic `cda_vertical_cm2` stood in for the props unloading at speed. The Nazgul: 3.5 in, 150 cm^2.
+- **`ParamOverrides.classicPhysics`**: the 0.5.0 model even for a preset with inflow, to compare (owner's request).
+- The reaction (yaw) torque and the battery power keep following the thrust the rotor makes at its speed in still
+  air. A reversed prop (turtle mode) keeps the classic model.
+- The airspeed is computed before the motors (it was after them); the arithmetic is the same, so traces without
+  inflow do not change.
+
 ## sim-core/0.5.0: moving surfaces (2026-10-17)
 
 Changes traces only in worlds whose surfaces move (new). A still world flies bit for bit as in 0.4.0: every earlier

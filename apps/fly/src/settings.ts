@@ -34,6 +34,11 @@ export interface Settings {
      * bounce and the quad keeps flying); the toggle brings the damage model back.
      */
     damage: boolean;
+    /**
+     * classic physics: sim-core/0.5.0's flight model (thrust from rotor speed alone) instead of the rotor inflow model
+     * of sim-core/0.6.0, to go back and compare (owner, 2026-10-18). Off by default.
+     */
+    classicPhysics: boolean;
     /** solid cars on the city roads (owner, 2026-10-17: a toggle in the graphics and performance settings) */
     cars: boolean;
     /** solid people on the sidewalks */
@@ -57,6 +62,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     spawn: 'park',
     lastDevice: null,
     damage: false,
+    classicPhysics: false,
     cars: true,
     people: true,
     signals: true,
@@ -97,6 +103,7 @@ export function loadSettings(): Settings {
     if (typeof s.spawn === 'string') out.spawn = s.spawn;
     if (typeof s.lastDevice === 'string') out.lastDevice = s.lastDevice;
     if (typeof s.damage === 'boolean') out.damage = s.damage;
+    if (typeof s.classicPhysics === 'boolean') out.classicPhysics = s.classicPhysics;
     if (typeof s.cars === 'boolean') out.cars = s.cars;
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;

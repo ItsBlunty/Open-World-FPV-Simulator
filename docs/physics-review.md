@@ -67,8 +67,39 @@ the quad catches after a dive.
 **Improvement:** a per-rotor inflow model. Each prop sees the air velocity at its own hub (body velocity + rotation x
 arm - wind), split into axial and in-plane parts, and its thrust follows a standard propeller model; the vertical
 drag area goes back to the frame's own. It brings for free rotor damping (the dropping side's prop gets more inflow
-and more thrust, which resists a roll), the front/rear thrust difference in forward flight, and a physical base for
+and more thrust, which resists a roll) and a physical base for
 prop wash (G4). Effort: medium-high. **Chosen by the owner as the first improvement (2026-10-18).**
+
+**Built: sim-core/0.6.0 (2026-10-18).** `Sim.inflowThrust`: blade-element thrust (Gill and D'Andrea 2019, "Computationally
+Efficient Force and Moment Models for Propellers in UAV Forward Flight Applications", Drones 3(4):77, eq. 27, parameters
+from the static thrust and the prop pitch, their Section 4) with Glauert's momentum theory for the induced inflow,
+solved by bisection per prop per tick; the air at each hub includes the body rotation (rotor damping). Nazgul only
+(`prop_pitch_in` 3.5, `cda_vertical_inflow_cm2` 150, owner's choice); Settings > Physics > "Classic physics" flies the
+0.5.0 model bit for bit (the self-test keeps `cd45c59c…` with it).
+
+*Checked on measured flight:* NeuroBEM (Bauersfeld et al., RSS 2021): 75 min of a 772 g 5-inch quad with every motor's
+speed logged (`docs/evidence/2026-10-18-rotor-inflow/`). Measured thrust / (thrust from rotor speed alone), median:
+
+| | climb 2-4 m/s | climb 6-9 m/s | sink 2-4 m/s | forward 6-8 m/s | forward 12-15 m/s | thrust RMSE |
+|---|---|---|---|---|---|---|
+| measured | 0.961 | 0.905 | 1.046 | 1.051 | 1.125 | - |
+| Gill and D'Andrea closed form (eq. 69) | 0.942 | 0.885 | 1.055 | 1.015 | 1.027 | 0.877 N |
+| **built: Glauert momentum theory** | 0.936 | 0.867 | 1.071 | 1.070 | 1.109 | **0.713 N** |
+| thrust from rotor speed alone (classic) | 1 | 1 | 1 | 1 | 1 | 1.173 N |
+
+The closed form misses most of the forward-flight gain, so Glauert's form was built. The best-fitting pitch for
+NeuroBEM's prop is 3.5 in (a plausible 5-inch race prop), so predicting the blade angle from the pitch works.
+
+*The Nazgul now* (`sim-probe-output.txt`; classic in brackets): hover unchanged; full-throttle climb 24.2 m/s after
+0.5 s (27.7), top 37.4 (43.1); punch held 75 deg from vertical tops at 40.4 m/s, 145 km/h (45.6); level top speed
+134 km/h (150); a flat drop with the throttle cut 26.4 m/s after 6 s (16.2); a nose-down dive unchanged (21 m/s).
+
+*Left open:* (1) **flat drops are faster**: the classic 430 cm^2 also braked falls; the props' own braking at idle is
+outside every source (blades stalled; NeuroBEM sinks only to 6 m/s), so it is not modelled (the ratios are held at 0.3,
+the edge of Gill and D'Andrea's wind-tunnel data). For the owner to judge by flying. (2) The rotor speed stays at its
+loaded value: real props unloading at speed spin faster, so the top speed is a little low. (3) Yaw torque and battery
+power still follow the still-air thrust. (4) Sinking at 4-6 m/s the model makes 7-10 % more thrust than measured: the
+vortex-ring loss, which prop wash (wake.ts) adds in the sim.
 
 ### G2. Rotor drag acts at the centre of mass, not at the props (blade flapping)
 **Now:** the in-plane rotor drag (item 6) is a force through the centre of mass, so it never turns the quad.
@@ -79,11 +110,12 @@ they make a pitching and rolling moment in fast flight (to read: Faessler et al.
 ### G3. The preset's main numbers are estimates (TWR, inertia, motor lag, kappa)
 They matter more to feel than any missing effect: acceleration, how fast the quad flips, how crisp the throttle is.
 - TWR 8: bench data gives 9.5 static, less with sag. Plausible.
-- Inertia 1.6e-3 roll/pitch: a rough parts check (motors and props at the arm ends about 0.5e-3, the pack about
-  0.2e-3, frame, stack and air unit about 0.3e-3) gives about 1.0-1.3e-3, so the preset may be 20-50 % high; yaw
-  2.8e-3 looks high by the same check (about 1.5-2e-3). A rough check, not a measurement.
-- Motor tau 17 ms, the same up and down: plausible for a 2207 with active braking; a real spin-up is limited by
-  current and depends on rpm.
+- Inertia 1.6e-3 roll/pitch, 2.8e-3 yaw. The first version of this review guessed from a rough parts check that they
+  may be 20-50 % high; **that was wrong**: NeuroBEM's measured 772 g 5-inch quad (a heavier build on a 6-inch frame with
+  a computer on board) has 2.5e-3 / 2.1e-3 roll/pitch and 4.3e-3 yaw (its dataset readme). The preset is not shown to
+  be high; it may be a little low. Left as it is.
+- Motor tau 17 ms, the same up and down. NeuroBEM identified 33 ms on its 2306 motors from step responses (paper,
+  Section IV-D): a real 5-inch value, about twice the preset's. The owner chose to leave 17 ms (2026-10-18).
 
 **Improvement:** fit them to a real quad's Betaflight blackbox log: a hover gives TWR and sag, throttle steps with
 bidirectional DShot eRPM give tau, flips with motor outputs give inertia. **Waiting for logs (owner, 2026-10-18).**
@@ -115,7 +147,7 @@ level and 15 deg C; motor speed linear in the command (real ESCs are a little no
 
 | Rank | What | Feel impact | Effort | Needs |
 |---|---|---|---|---|
-| 1 | G1: per-rotor inflow thrust (with rotor damping and the front/rear difference); vertical CdA back to the frame's | High | Medium-high | sources read in full |
+| 1 | G1: per-rotor inflow thrust (with rotor damping; every prop sees the same airspeed, so no front/rear difference: that needs the front props' wake on the rear ones, not modelled); vertical CdA back to the frame's | High | Medium-high | **built, sim-core/0.6.0** |
 | 2 | G3: fit the Nazgul preset to blackbox data (TWR, tau, inertia, hover) | High | Low (code) | the owner's logs (later) |
 | 3 | G4: prop wash per rotor on top of G1 | Medium | Low-medium | G1 |
 | 4 | G2: rotor drag at the rotor plane / flapping moment | Low-medium | Low | G1 |

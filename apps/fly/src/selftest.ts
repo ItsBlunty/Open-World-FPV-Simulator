@@ -6,14 +6,19 @@
 
 import { FlightSession } from './session';
 import { Sha256 } from '@owfpv/sim-core';
-import type { PresetJson } from '@owfpv/sim-core';
+import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import type { Level } from '@owfpv/maps';
 import { makeTraffic } from '@owfpv/traffic';
 import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
 /** The hash Node computes (test/selftest.test.ts); the page shows whether its own run matches. */
-export const SELFTEST_HASH = 'cd45c59c63f9faf4f70770311685dd75b34b6dacde7379bf206de6f1c25ea8ef';
+export const SELFTEST_HASH = 'af127b885c55f08344cd1e7c036b7a30691a6bae56754111fa23ee1e48ac6d59';
+/**
+ * The same flight with classic physics (sim-core/0.6.0 classicPhysics): it must keep the hash every earlier
+ * sim-core (0.5.0) gave, which proves the classic model is the old one bit for bit.
+ */
+export const CLASSIC_SELFTEST_HASH = 'cd45c59c63f9faf4f70770311685dd75b34b6dacde7379bf206de6f1c25ea8ef';
 
 /** Sticks at tick t: arm, climb, fly north, dive into the ground, fly on after the respawn. */
 export function selftestSticks(t: number, out: Float32Array): Float32Array {
@@ -45,8 +50,8 @@ export interface SelftestResult {
     end: [number, number, number];
 }
 
-export function runSelftest(preset: PresetJson, level: Level): SelftestResult {
-    const s = new FlightSession({ preset, level, runHash: true });
+export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOverrides = {}): SelftestResult {
+    const s = new FlightSession({ preset, level, runHash: true, overrides });
     const r = s.runner;
     const ch = new Float32Array(8);
     while (r.sim.tick < SELFTEST_TICKS) {

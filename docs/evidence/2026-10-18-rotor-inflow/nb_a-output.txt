@@ -1,0 +1,8 @@
+calm samples 75972
+acc body z in calm: mean 9.81  (9.81 => specific force; 0 => kinematic)
+acc body x,y calm mean 0.01 0.00
+body z up component calm mean 0.996
+motor speed calm mean 1116 rad/s, vbat 157.0 V
+motor speed range p1 882 p99 2275 max 2786
+speed p99 13.8 max 17.7
+body vel z (axial) p1 -6.4 p99 8.3; in-plane p99 13.0

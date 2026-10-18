@@ -76,3 +76,9 @@ so `git diff` against it shows exactly what we changed.
    surfaces for solid traffic. `ContactWorld` gains an optional `at(tick)` (called at the start of every step) and an
    optional `vel` out-array on `contacts()`; the contact solver works on velocity relative to the surface (`CN` 25).
    Still worlds are bit-identical. Test: new `test/moving-surface.test.ts`. `SIM_CORE_VERSION` is `sim-core/0.5.0`.
+11. `src/sim.ts`, `src/params.ts`, `src/index.ts`, `presets/nazgulf5v3-6s.json` (sim-core/0.6.0, changes traces of the
+   Nazgul only): rotor inflow (`Sim.inflowThrust`, `RotorInflow`, `INFLOW_*`, `ParamOverrides.classicPhysics`); the
+   airspeed block moved before the motor loop (same arithmetic). The Nazgul preset gains `prop_pitch_in` and
+   `cda_vertical_inflow_cm2`. Tests: new `test/model-inflow.test.ts`; `model-drones-v08` checks the classic freestyle
+   top speed band and the new one, and its no-prop-wash control drops `prop_pitch_in` too (each test says why).
+   `SIM_CORE_VERSION` is `sim-core/0.6.0`.

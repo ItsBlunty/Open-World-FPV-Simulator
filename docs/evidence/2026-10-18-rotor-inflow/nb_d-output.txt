@@ -1,0 +1,23 @@
+quadratic fit on calm data: k = 1.514e-06 N/(rad/s)^2
+pitch 3.00 RMSE 0.742
+pitch 3.25 RMSE 0.720
+pitch 3.50 RMSE 0.713
+pitch 3.75 RMSE 0.715
+pitch 4.00 RMSE 0.723
+pitch 4.25 RMSE 0.733
+pitch 4.50 RMSE 0.746
+pitch 4.75 RMSE 0.759
+pitch 5.00 RMSE 0.772
+best 3.5 0.713
+ climb  -6..-4  measured 1.000 model 1.096
+ climb  -4..-2  measured 1.046 model 1.071
+ climb  -2..-1  measured 1.022 model 1.034
+ climb   1..2   measured 0.979 model 0.967
+ climb   2..4   measured 0.961 model 0.936
+ climb   4..6   measured 0.941 model 0.900
+ climb   6..9   measured 0.905 model 0.867
+ fwd    2..4  measured 1.010 model 1.013
+ fwd    6..8  measured 1.051 model 1.070
+ fwd   10..12 measured 1.087 model 1.098
+ fwd   12..15 measured 1.125 model 1.109
+all samples incl. fast rotations: RMSE quadratic 1.365, inflow 0.849 N

@@ -91,9 +91,46 @@ export interface SimParams {
     wakeShake: number;
     /** total rotor disk area, m^2 (4 disks of preset prop_diameter_mm); 0 when the preset has no prop wash */
     wakeArea: number;
+    /**
+     * Rotor inflow (sim-core/0.6.0, this project; physics-review G1): each prop's thrust follows the air through it
+     * (Gill and D'Andrea 2019, RotorInflow). null: the classic model, thrust from rotor speed alone (presets without
+     * prop_pitch_in, and ParamOverrides.classicPhysics), bit for bit sim-core/0.5.0.
+     */
+    inflow: RotorInflow | null;
 }
 
+/**
+ * The propeller of the rotor inflow model (Sim.inflowThrust): blade-element thrust from Gill and D'Andrea,
+ * "Computationally Efficient Force and Moment Models for Propellers in UAV Forward Flight Applications", Drones
+ * 3(4):77, 2019 (their eq. 27), with its parameters predicted from the static thrust alone (their Section 4:
+ * symmetric airfoil c_l0 = 0, delta = 0.2, theta_tip = 1.25 P / (2 pi R)). With c_l0 = 0 the lift slope and the
+ * solidity only appear as their product `a`, which the static thrust fixes, so the blade chord is not needed. The
+ * induced inflow is Glauert's momentum theory, which fitted NeuroBEM's measured flights better than Gill and
+ * D'Andrea's closed form (eq. 69) in forward flight (docs/physics-review.md G1).
+ */
+export interface RotorInflow {
+    /** c_l,alpha x solidity, from the static thrust coefficient (Gill and D'Andrea eq. 87) */
+    a: number;
+    /** blade pitch angle at the tip, rad (their eq. 82) */
+    theta: number;
+    /** prop radius, m */
+    radius: number;
+    /** one prop's disk area, m^2 */
+    area: number;
+}
+
+/** Gill and D'Andrea's "not useful" root fraction of the blade, fixed at 0.20 for predicted parameters (their Section 4.1). */
+export const INFLOW_DELTA = 0.2;
+/**
+ * The inflow ratios are held inside the domain the model was checked on in the wind tunnel (Gill and D'Andrea: climb
+ * ratio and advance ratio up to 0.3). Beyond it (a slow prop in a fast airflow: idle props in a dive or a fall) the
+ * blade-element assumptions fail; the thrust stays at its value on the edge [numerical choice, this project].
+ */
+export const INFLOW_RATIO_MAX = 0.3;
+
 export const EARTH_G = 9.81;
+/** Air density, kg/m^3 (ISA sea level, 15 deg C). */
+const RHO = 1.225;
 
 /** Betaflight 4.5.1 self-level defaults (pid.c: angle_limit 60, PID_LEVEL 50/75/75/50, horizon 135 deg, 500 ms, FF smoothing 80 ms). */
 export const LEVEL_DEFAULTS: Readonly<LevelParams> = {
@@ -144,6 +181,11 @@ export interface ParamOverrides {
      * without those fields have no prop wash whatever this says.
      */
     wake?: number;
+    /**
+     * true: the classic flight model of sim-core/0.5.0 even for a preset with rotor inflow (thrust from rotor speed
+     * alone, the preset's cda_vertical_cm2), for comparing the two (owner, 2026-10-18). Absent or false: the preset's.
+     */
+    classicPhysics?: boolean;
 }
 
 function num(p: PresetJson, key: string): number {
@@ -295,7 +337,10 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const thr = p.fields.throttle.value as { mid: number; expo: number };
     const cdaScale = o.cdaScale ?? 1;
     const cdaH = (num(p, 'cda_horizontal_cm2') / 10000) * cdaScale;
-    const cdaV = (num(p, 'cda_vertical_cm2') / 10000) * cdaScale;
+    const inflow = o.classicPhysics === true ? null : inflowOf(p, tmaxMotorNom, omegaMaxPerVolt * vNom);
+    // with rotor inflow the props unload at speed themselves, so the vertical drag area is the frame's own; the
+    // classic model's larger cda_vertical_cm2 stands in for that unloading
+    const cdaV = (num(p, inflow ? 'cda_vertical_inflow_cm2' : 'cda_vertical_cm2') / 10000) * cdaScale;
 
     const ipr = num(p, 'inertia_roll_pitch_kgm2');
     const iy = num(p, 'inertia_yaw_kgm2');
@@ -337,7 +382,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         throttle: o.throttle ? { mid: o.throttle.mid, expo: o.throttle.expo } : { mid: thr.mid, expo: thr.expo },
         gravity,
         gravityMode,
-        rho: 1.225,
+        rho: RHO,
         cameraUptiltDeg: o.uptiltDeg ?? num(p, 'camera_uptilt_deg'),
         cameraFovDeg: o.fovDeg ?? num(p, 'camera_fov_deg'),
         level: {
@@ -358,8 +403,32 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         bodyBottom,
         // validated here (a bad wind throws RangeError: a log carrying one refuses to replay)
         wind: compileWind(o.wind) ? { ...o.wind! } : null,
-        ...wakeOf(p, o.wake ?? 1)
+        ...wakeOf(p, o.wake ?? 1),
+        inflow
     };
+}
+
+/**
+ * The rotor inflow model of a preset that has prop_pitch_in (with prop_diameter_mm and cda_vertical_inflow_cm2), or
+ * null. Gill and D'Andrea's Section 4 parameter prediction: theta_tip from the pitch (their eq. 82), then the
+ * lift-slope x solidity product `a` such that the model's static thrust coefficient is the preset's (their eq. 87):
+ * hover with c_l0 = 0 gives C_T = (1 - delta) a (theta_tip - lambda_i) and momentum theory C_T = 4 lambda_i^2.
+ * So at rest the model makes exactly the preset's thrust, and the hover throttle and thrust-to-weight stay.
+ * tmaxMotor = one motor's full thrust at the nominal pack voltage, N; omegaMax = its rotor speed there, rad/s.
+ */
+function inflowOf(p: PresetJson, tmaxMotor: number, omegaMax: number): RotorInflow | null {
+    if (p.fields.prop_pitch_in === undefined) return null;
+    const radius = num(p, 'prop_diameter_mm') / 2000;
+    const pitch = num(p, 'prop_pitch_in') * 0.0254;
+    num(p, 'cda_vertical_inflow_cm2');
+    const area = Math.PI * radius * radius;
+    const theta = pitch / (2 * Math.PI * radius * (1 - INFLOW_DELTA));
+    const tip = omegaMax * radius;
+    // Gill and D'Andrea's normalisation: C_T = T / (1/2 rho A (Omega R)^2)
+    const ct = tmaxMotor / (0.5 * RHO * area * tip * tip);
+    const lambdaI = Math.sqrt(ct / 4);
+    if (!(theta > lambdaI)) throw new Error(`preset ${p.id}: prop_pitch_in too small for its static thrust (rotor inflow)`);
+    return { a: ct / ((1 - INFLOW_DELTA) * (theta - lambdaI)), theta, radius, area };
 }
 
 /** Throttle-curve output (0..1) that hovers at nominal voltage: u = (1/sqrt(TWR_local) - idle) / (1 - idle). */

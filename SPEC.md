@@ -173,3 +173,7 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-18 | M2: blackbox logs of the owner's quad to fit the preset? | Not now; go without, maybe correct later |
 | 2026-10-18 | M2: write the review into `docs/physics-review.md` and commit? | Yes |
 | 2026-10-18 | M2: first improvement? | The airflow fix (per-rotor inflow thrust, review G1) |
+| 2026-10-18 | Airflow fix: vertical drag area, which drones? | 150 cm^2; Nazgul only |
+| 2026-10-18 | (owner's request) Compare with the old physics | A "Classic physics" toggle that loads sim-core/0.5.0's model |
+| 2026-10-18 | Download NeuroBEM's 627 MB measured-flight data to check the model? | Yes, carefully (token budget) |
+| 2026-10-18 | Use NeuroBEM's measured 33 ms motor lag for the Nazgul? | No, leave 17 ms |

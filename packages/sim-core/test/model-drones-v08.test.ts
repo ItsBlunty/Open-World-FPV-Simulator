@@ -204,11 +204,15 @@ describe('v0.8 presets fly like a race quad, a freestyle quad and a heavy cineli
         expect(climb(p(CINE, { twr: 8 }))).toBeGreaterThan(30);
     });
 
-    it('level top speed: race 160-195 km/h > freestyle 135-165 > cinelifter 90-115', () => {
-        const r = topSpeedKmh(RACE), f = topSpeedKmh(FREE), c = topSpeedKmh(CINE);
+    it('level top speed: race 160-195 km/h > freestyle 135-165 (classic) > cinelifter 90-115', () => {
+        const r = topSpeedKmh(RACE), f = topSpeedKmh(FREE, { classicPhysics: true }), c = topSpeedKmh(CINE);
         expect(r).toBeGreaterThan(160); expect(r).toBeLessThan(195);
         expect(f).toBeGreaterThan(135); expect(f).toBeLessThan(165);
         expect(c).toBeGreaterThan(90); expect(c).toBeLessThan(115);
+        // sim-core/0.6.0: with rotor inflow the freestyle quad's props unload at speed (the rotor speed stays at its
+        // loaded value, so a little lower than the classic model's tuned 150 km/h; physics-review G1)
+        const fi = topSpeedKmh(FREE);
+        expect(fi).toBeGreaterThan(125); expect(fi).toBeLessThan(150);
     });
 
     it('control: the race quad with twice the drag falls below its top-speed band', () => {
@@ -362,8 +366,8 @@ describe('prop wash (wake.ts)', () => {
         expect(() => compileParams({ ...pj, fields })).toThrow(/prop_diameter_mm/);
         expect(() => p(FREE, { wake: -1 })).toThrow(RangeError);
         // control: without the wash fields the diameter is not needed
-        const { wake_loss: _l, wake_shake: _s, prop_diameter_mm: _d, ...plain } = pj.fields;
-        void _l; void _s; void _d;
+        const { wake_loss: _l, wake_shake: _s, prop_diameter_mm: _d, prop_pitch_in: _p, ...plain } = pj.fields;
+        void _l; void _s; void _d; void _p;
         expect(compileParams({ ...pj, fields: plain }).wakeLoss).toBe(0);
     });
 });
