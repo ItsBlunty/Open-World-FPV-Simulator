@@ -10,7 +10,7 @@ import { LevelBuilder, Rng } from './builder';
 import type { Level, Material } from './builder';
 
 export const MAP_ID = 'mixed-1';
-export const MAP_VERSION = 2;
+export const MAP_VERSION = 3;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -316,8 +316,8 @@ const ROAD = 18;
 
 /**
  * Road paint, drawn but not collided with (LevelBuilder.decal): a dashed centre line on every road
- * (3 m dashes, 6 m gaps, 15 cm wide, stopping short of the crossings) and zebra crossings on each
- * side of every junction. Road centres: x = -480 + 80a (a = 0..12) running north-south from the
+ * (3 m dashes, 6 m gaps, 15 cm wide, stopping short of the crossings), zebra crossings on each side
+ * of every junction, and a stop line across each lane coming into a junction from another one. Road centres: x = -480 + 80a (a = 0..12) running north-south from the
  * park edge (z = -70) to the north edge, and z = -90 - 80c (c = 0..5) running east-west.
  */
 function roadMarkings(b: LevelBuilder): void {
@@ -338,6 +338,13 @@ function roadMarkings(b: LevelBuilder): void {
         if (nearAny(x, xs, clear) || nearAny(x + 3, xs, clear)) continue;
         b.decal('marking', x, z - W, x + 3, z + W);
     }
+    // stop lines: 0.4 m wide, 12.5-12.9 m before the junction's centre, across the right half of the road
+    xs.forEach((x, ix) => zs.forEach((z, iz) => {
+        if (ix > 0) b.decal('marking', x - 12.9, z + 0.2, x - 12.5, z + ROAD / 2 - 0.2); // heading east
+        if (ix < xs.length - 1) b.decal('marking', x + 12.5, z - ROAD / 2 + 0.2, x + 12.9, z - 0.2); // heading west
+        if (iz > 0) b.decal('marking', x + 0.2, z + 12.5, x + ROAD / 2 - 0.2, z + 12.9); // heading north (zs runs north)
+        if (iz < zs.length - 1) b.decal('marking', x - ROAD / 2 + 0.2, z - 12.9, x - 0.2, z - 12.5); // heading south
+    }));
     // zebra crossings: 0.5 m stripes, 0.5 m apart, 3 m long, just outside each junction
     const half = ROAD / 2 - 0.5;
     for (const x of xs) for (const z of zs) {
@@ -362,8 +369,10 @@ function city(b: LevelBuilder, r: Rng): void {
             const z0 = z1 - BLOCK;
             const x1 = x0 + BLOCK;
             b.box('sidewalk', x0, 0, z0, x1, 0.15, z1);
-            // street lamps at the block's corners
-            for (const [lx, lz] of [[x0 + 1, z0 + 1], [x1 - 1, z0 + 1], [x0 + 1, z1 - 1], [x1 - 1, z1 - 1]]) {
+            b.blocks.push({ x0, z0, x1, z1, y: 0.15 });
+            // street lamps by the kerb, 4 m along from each corner: the corners are for the signal poles and the
+            // people waiting at the crossings (traffic network.ts)
+            for (const [lx, lz] of [[x0 + 0.4, z0 + 4], [x1 - 0.4, z0 + 4], [x0 + 0.4, z1 - 4], [x1 - 0.4, z1 - 4]]) {
                 b.prism('metal', lx, lz, 0.15, 7, 0.12, 4);
             }
             // taller towards the middle of the city (x = 0, z = -290)

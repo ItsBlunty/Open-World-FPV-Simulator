@@ -1,0 +1,26 @@
+{
+  "name": "@owfpv/traffic",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cars and people that move around the city blocks on loops set by the sim tick, and their collision",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@owfpv/maps": "workspace:*",
+    "@owfpv/sim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@owfpv/world-mesh": "workspace:*",
+    "@types/node": "^22.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.1"
+  }
+}

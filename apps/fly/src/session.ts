@@ -8,10 +8,12 @@ import {
     DEFAULT_RESPAWN_POLICY, RespawnDirector, Runner, SIM_CORE_VERSION, StateHistory,
     compileParams, hoverStickOf, lifeSim, makeLifeHeader
 } from '@owfpv/sim-core';
-import type { ParamOverrides, PresetJson, RespawnPolicy, Sim } from '@owfpv/sim-core';
+import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } from '@owfpv/sim-core';
 import { levelSha256, spawnPose } from '@owfpv/maps';
 import type { Level, SpawnPoint } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
+import { TrafficWorld, makeTraffic, worldSha256 } from '@owfpv/traffic';
+import type { TrafficConfig, TrafficModel } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 
 /**
@@ -41,17 +43,26 @@ export interface SessionOptions {
     policy?: RespawnPolicy;
     /** hash every tick's state (determinism checks) */
     runHash?: boolean;
+    /** solid cars and people, and whether junctions have signals (default none) */
+    traffic?: TrafficConfig;
 }
+
+const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
 
 export class FlightSession {
     readonly level: Level;
+    /** the level's static collision (rays for spawn heights) */
     readonly world: MeshContactWorld;
     readonly preset: PresetJson;
     readonly runner: Runner;
     readonly director: RespawnDirector;
     readonly clock = new SimClock();
-    readonly collisionSha256: string;
+    readonly levelSha256: string;
     private overrides: ParamOverrides;
+    private trafficCfg: TrafficConfig;
+    /** the cars and people of the current life (null: none), and the collision the sim flies in */
+    private trafficNow: TrafficModel | null = null;
+    private contactWorld: ContactWorld;
     private spawnPt: SpawnPoint;
     private pose: [number, number, number, number];
 
@@ -60,9 +71,11 @@ export class FlightSession {
         this.world = o.world ?? new MeshContactWorld(o.level.collision);
         this.preset = o.preset;
         this.overrides = o.overrides ?? {};
-        this.collisionSha256 = levelSha256(o.level);
+        this.levelSha256 = levelSha256(o.level);
         this.spawnPt = o.spawn ?? o.level.spawns[0];
-        const sim = lifeSim(compileParams(this.preset, this.overrides), this.world);
+        this.trafficCfg = { ...(o.traffic ?? NO_TRAFFIC) };
+        this.contactWorld = this.buildWorld();
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.pose = this.poseOf(this.spawnPt, sim);
         this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: false });
         const p = sim.p;
@@ -72,6 +85,26 @@ export class FlightSession {
 
     get sim(): Sim {
         return this.runner.sim;
+    }
+
+    /** What the collision hash in each life header is: the level's, with the traffic folded in. */
+    get collisionSha256(): string {
+        return worldSha256(this.levelSha256, this.trafficCfg);
+    }
+
+    /** The cars and people moving in the current life, null when there are none. */
+    get traffic(): TrafficModel | null {
+        return this.trafficNow;
+    }
+
+    get trafficConfig(): TrafficConfig {
+        return { ...this.trafficCfg };
+    }
+
+    private buildWorld(): ContactWorld {
+        const c = this.trafficCfg;
+        this.trafficNow = makeTraffic(this.level, c);
+        return this.trafficNow ? new TrafficWorld(this.world, this.trafficNow) : this.world;
     }
 
     get spawn(): SpawnPoint {
@@ -134,8 +167,21 @@ export class FlightSession {
     /** New flight-model settings (rates, ...): a new life on a model built from them, in place. */
     setOverrides(o: ParamOverrides): void {
         this.overrides = JSON.parse(JSON.stringify(o)) as ParamOverrides;
-        const sim = lifeSim(compileParams(this.preset, this.overrides), this.world);
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         // the new model starts at the spawn point: settings change in the menu, between flights
+        this.runner.newLife(sim, this.header('settings'));
+    }
+
+    /**
+     * Cars, people or signals on or off: they are solid, so the collision changes, and with it the life
+     * header's collision hash. A new life at the spawn point, as for the flight settings.
+     */
+    setTraffic(c: TrafficConfig): void {
+        const o = this.trafficCfg;
+        if (c.cars === o.cars && c.people === o.people && c.signals === o.signals) return;
+        this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals };
+        this.contactWorld = this.buildWorld();
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.runner.newLife(sim, this.header('settings'));
     }
 }

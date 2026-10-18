@@ -23,7 +23,8 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   stays. Chase-camera collision is on the to-do list (§5).
 - **Level look pass, map v2 (§0d):** unbroken bando columns, windows on city buildings, road paint, sun shadows.
   **Waiting for the owner to look at it and fly it**, and to answer the people-and-cars question (§0d).
-- **Next:** the owner's view of the look pass and the traffic answer; then M2 (physics review).
+- **The owner liked the look pass and asked for solid cars and people, signals and performance settings: IN PROGRESS,
+  see §0e (branch `wip/traffic`, not pushed; one test failing).** Then M2 (physics review).
 - sim-core is now `sim-core/0.4.0`; the self-test hash is `cd45c59c…` (Node and Chrome 155 match, also on map v2; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
@@ -147,6 +148,70 @@ walking and cars driving would add.
   a moderate job to build (lanes and sidewalk paths on the city grid, stopping at junctions, CC0 models). Solid
   (a hit bounces the quad): their positions must come from the sim tick only (replays), and sim-core's contact solver
   must handle a moving surface (it assumes the world is still): a sim-core change with a version bump and a flight test.
+
+## 0e. Solid traffic, signals and settings (owner, 2026-10-17): IN PROGRESS, branch `wip/traffic`
+
+**Owner's asks:** "Lets add the solid versions of cars and people, stylize them so they look fun, and make
+graphics/performance settings in settings menu, to disable these things." Then, mid-build: "Add stoplights and make
+the driving more realistic. Make sure people wait at crossings, add crossing lights, etc. Make these also a toggle in
+performance settings."
+
+**Design (decided, not yet put to the owner; tell them):**
+- Traffic is solid and replay-exact: every mover's place is a function of the sim tick alone. sim-core/0.5.0 adds
+  moving surfaces: `ContactWorld.at?(tick)` (called at the start of every `Sim.step`, also while parked) and an
+  optional `vel` out-array on `contacts()`. The solver works on velocity relative to the surface. A still world
+  is bit-identical (all 384 old tests and hashes passed unchanged after this change).
+- New package `packages/traffic`: `route.ts` (paths: straights and quarter circles, dmath sin/cos), `model.ts`
+  (`TrafficModel` interface, `CAR`/`PERSON` shapes, `TrafficConfig {cars, people, signals}`, `TRAFFIC_VERSION` 2),
+  `loops.ts` (signals off: cars loop each block 3 m off the kerb, people loop the sidewalk at 1.0 m / 1.6 m),
+  `network.ts` (signals on, below), `world.ts` (`TrafficWorld`: mesh + movers + still signal boxes; contacts with
+  surface velocity by finite difference over one tick; sweep by conservative advancement), and `make.ts`
+  (`makeTraffic`, `worldSha256`: the header's collisionSha256 = level hash, or a hash over it + traffic config).
+- `network.ts`: a 20 Hz traffic sim stepped in lockstep with the tick. Places between steps are interpolated, and
+  it restarts from a checkpoint (every 60 s) when time goes back. One lane each way at 4 m right of the centre line,
+  stop line 13 m from the junction centre. Each junction runs a 60 s cycle: N-S green 15 s / yellow 3 / all-red 2,
+  E-W the same, then an all-way pedestrian scramble: walk 6 s, flashing 12 s, all-red 2. The offset per junction is
+  ((ix*13 + iz*29) mod 60) s. Cars go straight (60 %) or turn right; they turn left only where there is no road ahead.
+  Following uses IDM (Treiber 2000), with slowing for turns (sqrt(2.5 m/s^2 x R), R 6 m right / 10 m left) and
+  "don't block the box". People walk hub to hub around blocks, queue at the crossing ends (2 rows, 0.35 m to the
+  right) and cross only on WALK, at at least 1.5 m/s. Signal poles at each approach's near-right corner, with a mast
+  arm and car head over the lane and two walk heads; all solid (`statics`).
+- Map v3 (hash `6ae96052…`, pinned): street lamps moved to 0.4 m from the kerb and 4 m along from each corner,
+  so the corners are free for signal poles and crowds. Stop lines are painted (decals).
+- `apps/fly/src/session.ts`: `traffic?: TrafficConfig` option, `setTraffic()` (a new life), `traffic` getter,
+  `collisionSha256` getter (world hash). `apps/fly/package.json` depends on `@owfpv/traffic`.
+
+**Test status (`packages/traffic/test/traffic.test.ts`):** 12 of 13 pass. Every loop and network path and
+the signal boxes are clear of the map (232k places checked), time travel and determinism hold, the speed bounds hold,
+and the contact, sweep and push-out checks pass. **Failing:** the 10-minute network run. Over 10 min: overlaps 2,
+red runs 11, people crossing near a car 7, mean car speed 2.9 m/s (the test wants > 3). Likely causes, to check:
+- **Red runs:** cars that committed on yellow (`C_GO`) but entered after it turned red. The test counts that as a
+  red run; it should count the decision instead (record the light when GO is set), or forbid slow yellow commits.
+- **Crossers near cars:** those same late cars still in the junction when WALK starts. Fix: longer all-red, or no
+  WALK while any car is on one of that junction's movements; also check the test's 3 m radius.
+- **Overlaps:** find which (initial placement? merging onto a link from two movements in the clearance time?).
+  Debug by logging the pair's elements.
+- **Mean speed:** after the fixes, either tune (fewer cars, shorter cycle) or set the threshold from the
+  measured value and say so.
+
+**Not done yet (next steps, in order):**
+1. Make the 10-minute test pass (above).
+2. sim-core 0.5.0 bookkeeping: bump `SIM_CORE_VERSION`, CHANGELOG entry, UPSTREAM.md line, a sim-core test of
+   a moving surface (a quad on a moving box rides along; a box driving into a quad shoves it), physics-review note.
+3. `apps/fly/test/traffic.test.ts`: in a real session, a car shoves a quad without penetrating (> 1 cm); a quad
+   given the car's speed on its roof rides along on a straight, calm gyro; from rest it is dragged at ~ mu g;
+   determinism (two runs identical). The self-test should add a traffic checksum (places at a few ticks), so the
+   browsers check the traffic too.
+4. Renderer `apps/fly/src/render/traffic.ts`: fun stylised instanced models (candy-coloured rounded toy cars with
+   big wheels, brake lights from `braking(i)`; bean-shaped people with heads, eyes, swinging legs, some party hats),
+   signal poles, arms and heads with lit lamps from `lamp(h, tick)` (walk heads blink on 'flash'). Draw at
+   `session.sim.tick`; rebuild on `setTraffic`.
+5. Settings: a "Graphics and performance" section: shadows (Settings.shadows; switching at runtime crashed three
+   when `castShadow` was toggled, so reload or rebuild materials), resolution scale (pixel ratio), cars, people,
+   "Traffic lights and realistic driving". The last three call `session.setTraffic`. Main.ts passes them in at start.
+6. Typecheck, full tests, browser check (screenshots, `?selftest` MATCH, GPU timing as in §0d), docs (this
+   section, SPEC §7 entries for the owner's asks), commit, then push to main. Ask the owner to fly into cars, ride a
+   roof, and hit a signal arm (handling changes).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

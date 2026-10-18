@@ -63,8 +63,9 @@ export class PlatformContact implements ContactWorld {
         return best > 0 ? best : Number.MIN_VALUE;
     }
 
-    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number {
-        const k = this.inner ? this.inner.contacts(x, y, z, r, out, max) : 0;
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number, vel?: Float64Array): number {
+        // the disc stands still: its contact keeps the zero velocity the sim filled in
+        const k = this.inner ? this.inner.contacts(x, y, z, r, out, max, vel) : 0;
         if (k >= max) return k;
         // one-way, as pushOut: only a sphere whose centre is above the top rests on it
         const dx = x - this.x, dz = z - this.z;

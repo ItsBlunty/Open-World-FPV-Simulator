@@ -160,3 +160,5 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-17 | Keep the automatic rewind of a quad wedged with the throttle up for 3 s? | Keep it: a pilot throttles down unless something is wrong |
 | 2026-10-17 | A chase camera that does not go inside buildings? | Later: on the to-do list |
 | 2026-10-17 | (owner's request) Level look | A general pass; bando columns must run unbroken like a real building's |
+| 2026-10-17 | People and cars: drawn only, or solid? | Solid, stylised to look fun, with settings to turn them off |
+| 2026-10-17 | (owner's request) Traffic | Stoplights, more realistic driving, people waiting at crossings, crossing lights; a toggle in the performance settings |

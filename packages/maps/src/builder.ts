@@ -26,6 +26,16 @@ export interface SpawnPoint {
     above?: number;
 }
 
+/** A city block's sidewalk, kerb to kerb, x0 < x1 and z0 < z1 (m). Traffic drives and walks around these. */
+export interface Block {
+    x0: number;
+    z0: number;
+    x1: number;
+    z1: number;
+    /** top of the sidewalk, m */
+    y: number;
+}
+
 export interface Level {
     id: string;
     version: number;
@@ -38,6 +48,8 @@ export interface Level {
     collision: Float64Array;
     triangleCount: number;
     spawns: SpawnPoint[];
+    /** the city blocks, for traffic routes (not part of the collision, nor of its hash) */
+    blocks: Block[];
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */
@@ -71,6 +83,7 @@ export class LevelBuilder {
     private readonly tris = new Map<Material, number[]>();
     private readonly paint = new Map<Material, number[]>();
     readonly spawns: SpawnPoint[] = [];
+    readonly blocks: Block[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -174,7 +187,7 @@ export class LevelBuilder {
             collision.set(a, o);
             o += a.length;
         }
-        return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice() };
+        return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice() };
     }
 }
 

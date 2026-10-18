@@ -15,6 +15,7 @@
     "@owfpv/input": "workspace:*",
     "@owfpv/maps": "workspace:*",
     "@owfpv/sim-core": "workspace:*",
+    "@owfpv/traffic": "workspace:*",
     "@owfpv/world-mesh": "workspace:*",
     "three": "0.186.1"
   },

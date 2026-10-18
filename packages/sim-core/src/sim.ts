@@ -51,8 +51,18 @@ export interface ContactWorld {
      * (negative when the point is inside a solid whose inside is known). Returns how many. A flat surface counts
      * once, however many triangles or voxels it is made of. The contact solver asks this for every body sphere
      * every tick (sim-core/0.3.0).
+     *
+     * Moving surfaces (sim-core/0.5.0): when `vel` is given, a world whose surfaces move writes each contact's surface
+     * velocity at the contact, m/s world, 3 numbers per contact (the sim zeroes it first, so a still world may ignore
+     * it). A moving surface may also be reported up to its own travel in one tick beyond r: the solver works on the
+     * velocity relative to the surface, so it can stop an approach it sees coming that tick.
      */
-    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number): number;
+    contacts(x: number, y: number, z: number, r: number, out: Float64Array, max: number, vel?: Float64Array): number;
+    /**
+     * A world whose surfaces move (sim-core/0.5.0) places them where they are at this tick. The sim calls it at the
+     * start of every step (parked or not), before any query; the surfaces must be a function of the tick alone (replays).
+     */
+    at?(tick: number): void;
 }
 
 export type SimEvent =
@@ -154,8 +164,11 @@ const SWEEP_SHRINK = 0.0005;
 const MAX_PER_SPHERE = 4;
 /** Gauss-Seidel passes over the tick's contacts; 24 hold a craft on five coplanar spheres still (tests) [numerical choice] */
 const SOLVE_PASSES = 24;
-/** contact record: offset from the centre of mass (3), normal (3), tangents (6), masses n/t1/t2 (3), target, impulses n/t1/t2 (3), vn0, gap, sphere */
-const CN = 22;
+/**
+ * contact record: offset from the centre of mass (3), normal (3), tangents (6), masses n/t1/t2 (3), target, impulses
+ * n/t1/t2 (3), vn0, gap, sphere, surface velocity (3, sim-core/0.5.0)
+ */
+const CN = 25;
 /** pose push-out passes for what penetration is left after the solve */
 const PUSH_PASSES = 3;
 /** approach speeds under this do not bounce (a resting craft's 1 ms of fall is 0.01 m/s) [estimate] */
@@ -247,9 +260,10 @@ export class Sim {
     private nS: number;
     private cout: ContactOut = { sphere: -1, nx: 0, ny: 0, nz: 0 };
     private push = { x: 0, y: 0, z: 0 };
-    /** contact solver scratch: CN slots per contact, one sphere's world.contacts answer, the rotation of the pose */
+    /** contact solver scratch: CN slots per contact, one sphere's world.contacts answer and surface velocities, the rotation of the pose */
     private cn: Float64Array;
     private cq: Float64Array;
+    private cv: Float64Array;
     private rot = new Float64Array(9);
     /** velocity (3) and world angular momentum (3) the solver works on; world inverse inertia (xx, xy, xz, yy, yz, zz) */
     private vl = new Float64Array(6);
@@ -303,6 +317,7 @@ export class Sim {
         this.rs = new Float64Array(this.nS);
         this.cn = new Float64Array(this.nS * MAX_PER_SPHERE * CN);
         this.cq = new Float64Array(MAX_PER_SPHERE * 4);
+        this.cv = new Float64Array(MAX_PER_SPHERE * 3);
         for (let i = 0; i < this.nS; i++) {
             this.rr[i] = p.spheres[i * 4 + 3];
             this.rs[i] = this.rr[i] - SWEEP_SHRINK;
@@ -443,6 +458,8 @@ export class Sim {
     step(): void {
         const s = this.s;
         this.tick++;
+        // moving surfaces go where they are at this tick, for every query of the step, also while parked (sim-core/0.5.0)
+        if (this.world && this.world.at) this.world.at(this.tick);
         this.arming();
         if (s[S.hold] > 0) {
             if (s[S.armed] > 0) s[S.hold] = 0;
@@ -935,12 +952,14 @@ export class Sim {
         const sp = this.p.spheres;
         const c = this.cn;
         const q = this.cq;
+        const v = this.cv;
         const R = this.rot;
         let m = 0;
         for (let i = 0; i < this.nS; i++) {
             const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2], ri = this.rr[i];
             const ox = R[0] * lx + R[1] * ly + R[2] * lz, oy = R[3] * lx + R[4] * ly + R[5] * lz, oz = R[6] * lx + R[7] * ly + R[8] * lz;
-            const k = world.contacts(px + ox, py + oy, pz + oz, ri + SPEC_MARGIN, q, MAX_PER_SPHERE);
+            v.fill(0);
+            const k = world.contacts(px + ox, py + oy, pz + oz, ri + SPEC_MARGIN, q, MAX_PER_SPHERE, v);
             for (let j = 0; j < k; j++) {
                 const nx = q[j * 4], ny = q[j * 4 + 1], nz = q[j * 4 + 2];
                 const o = m * CN;
@@ -949,6 +968,7 @@ export class Sim {
                 c[o + 3] = nx; c[o + 4] = ny; c[o + 5] = nz;
                 c[o + 20] = q[j * 4 + 3] - ri;
                 c[o + 21] = i;
+                c[o + 22] = v[j * 3]; c[o + 23] = v[j * 3 + 1]; c[o + 24] = v[j * 3 + 2];
                 m++;
             }
         }
@@ -980,9 +1000,10 @@ export class Sim {
             c[o + 14] = 1 / (im + this.angEff(ox, oy, oz, c[o + 9], c[o + 10], c[o + 11]));
             c[o + 16] = 0; c[o + 17] = 0; c[o + 18] = 0;
             // the normal velocity the contact may have at the end of the tick: closing exactly its gap (0 when it is
-            // already in: pushClear undoes penetration without adding speed), or the bounce of an impact
+            // already in: pushClear undoes penetration without adding speed), or the bounce of an impact. Velocities
+            // here and below are relative to the surface (sim-core/0.5.0); a still surface's 0 leaves them exact.
             this.pointVel(ox, oy, oz, w);
-            const vn0 = w.x * nx + w.y * ny + w.z * nz;
+            const vn0 = (w.x - c[o + 22]) * nx + (w.y - c[o + 23]) * ny + (w.z - c[o + 24]) * nz;
             const gap = c[o + 20];
             const allowed = gap > 0 ? -gap / DT : 0;
             let target = allowed;
@@ -999,16 +1020,18 @@ export class Sim {
                 const o = (pass & 1 ? m - 1 - jj : jj) * CN;
                 const ox = c[o], oy = c[o + 1], oz = c[o + 2], nx = c[o + 3], ny = c[o + 4], nz = c[o + 5];
                 // normal: the accumulated impulse only pushes
+                const svx = c[o + 22], svy = c[o + 23], svz = c[o + 24];
                 this.pointVel(ox, oy, oz, w);
-                const lamN = Math.max(0, c[o + 16] + (c[o + 15] - (w.x * nx + w.y * ny + w.z * nz)) * c[o + 12]);
+                const lamN = Math.max(0, c[o + 16] + (c[o + 15] - ((w.x - svx) * nx + (w.y - svy) * ny + (w.z - svz) * nz)) * c[o + 12]);
                 const jn = lamN - c[o + 16];
                 c[o + 16] = lamN;
                 if (jn !== 0) this.applyJ(nx * jn, ny * jn, nz * jn, ox, oy, oz);
                 // friction: stop the sliding, the accumulated impulse within MU times the normal one
                 const t1x = c[o + 6], t1y = c[o + 7], t1z = c[o + 8], t2x = c[o + 9], t2y = c[o + 10], t2z = c[o + 11];
                 this.pointVel(ox, oy, oz, w);
-                let l1 = c[o + 17] - (w.x * t1x + w.y * t1y + w.z * t1z) * c[o + 13];
-                let l2 = c[o + 18] - (w.x * t2x + w.y * t2y + w.z * t2z) * c[o + 14];
+                const rx = w.x - svx, ry = w.y - svy, rz = w.z - svz;
+                let l1 = c[o + 17] - (rx * t1x + ry * t1y + rz * t1z) * c[o + 13];
+                let l2 = c[o + 18] - (rx * t2x + ry * t2y + rz * t2z) * c[o + 14];
                 const lim = MU * lamN;
                 const ll = l1 * l1 + l2 * l2;
                 if (ll > lim * lim) {
