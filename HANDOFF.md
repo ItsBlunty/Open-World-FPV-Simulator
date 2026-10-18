@@ -367,8 +367,8 @@ before start never announced; a second pad announced), the new code passes 3 of 
 pass; `pnpm --filter @owfpv/fly typecheck` clean.
 
 **Left open:** not tried on hardware, and Claude has no way to drive Firefox here. If the owner still sees nothing
-after moving a stick, the cause is in Firefox itself (it does not list the Boxer): check a gamepad tester page in
-Firefox, `about:support` (Gamepad section), and that `privacy.resistFingerprinting` is off (it hides gamepads).
+after moving a stick, Firefox itself does not list the Boxer: next step is to see whether a gamepad tester page in
+Firefox shows it (not yet researched why Firefox would miss it).
 Firefox's input rate and stamps for this pad are not measured yet.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
