@@ -7,7 +7,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
-  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched; waiting for the owner's answers.
+  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner); next: saved flights, then trick definitions.
 - **Tests:** `pnpm test`: 51 files, 450 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
@@ -30,7 +30,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 ## Left open (not started)
 
-- Freestyle grading: research written (rules + F3A-style grades, 5-trick prototype); 10 owner questions at its end. [freestyle-grading]
+- Freestyle grading: owner answered all 10 (challenges first, stars per challenge, save flights first). Still to do:
+  trick definitions from public sources and a power-loop consensus (owner asked for both). [freestyle-grading]
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]

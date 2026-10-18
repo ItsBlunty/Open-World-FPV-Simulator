@@ -53,3 +53,13 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | (owner's request) First M3 content | Collectibles like Tony Hawk pickups, FPV themed (golden props), numbered, hidden around the city, a lot of them; a collection screen with the count; add city features to hide some (e.g. a covered bus stop with a semi-opaque panel, seen only from the road side or when looking for it) |
 | 2026-10-18 | Crash rule in challenges? | Nothing costs the pilot in normal flight; no penalties for now |
 | 2026-10-18 | Freestyle grading now? | Research it now (write-up, no code) |
+| 2026-10-18 | Freestyle grading: free flight or challenges first? | Challenges first |
+| 2026-10-18 | Who defines each trick? | Write them up from public sources (Rotor Riot's Tricktionary and the like) |
+| 2026-10-18 | What makes a power loop good? | Research many sources and find a consensus |
+| 2026-10-18 | Tricks after flip, roll, power loop, split-S, dive? | Matty flip, Rubik's cube, yaw spins and orbit |
+| 2026-10-18 | What does the pilot see of a grade? | Verbose for now, to discuss. Owner's idea: a "trick report" from a trick log showing the path flown, a replay from FPV or chase cam to see why, and a ghost of the perfect version (or versions) to guide the pilot |
+| 2026-10-18 | Combos that multiply points? | Later |
+| 2026-10-18 | Gaps: by hand or from geometry? | Marked by hand in the map |
+| 2026-10-18 | Timed rounds or open flight? | Challenges you can retry, each with its best score in a log and maybe an overlay at the challenge spot; a score or star rating; the open-world goal is full stars in every challenge |
+| 2026-10-18 | Port PyFlightCoach's LGPL-3.0 code if useful? | Yes, keeping its notices and naming the source |
+| 2026-10-18 | Save flights (stick logs) in the browser before the grader? | Yes, first |

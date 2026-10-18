@@ -276,6 +276,14 @@ F3N's freestyle, a split into difficulty, precision and variety. Flow or combos 
 10. Should saving flights (input logs) to the browser come before the grader, so that every graded flight can be
     re-scored from the start?
 
+**Owner's answers (2026-10-18, also in `docs/decisions.md`):** 1 challenges first; 2 write the definitions up from
+public sources (Tricktionary and the like); 3 research many sources for a consensus on a good power loop; 4 next tricks:
+Matty flip, Rubik's cube, yaw spins and orbit; 5 verbose for now, to discuss: the owner's idea is a "trick report" from a
+trick log, showing the path flown, a replay from FPV or chase cam, and a ghost of the perfect version(s) as a guide;
+6 combos later; 7 gaps marked by hand; 8 retryable challenges with a best score (or star rating) kept in a log and maybe
+shown at the spot, the open-world goal being full stars everywhere; 9 porting PyFlightCoach code is allowed (keep its
+notices); 10 save flights in the browser first.
+
 ### Sources
 
 - Liftoff, Steam announcements, read via the Steam news API (2026-10-18): Milestone 0.11.0 (2017-10-10), 0.11.1,
