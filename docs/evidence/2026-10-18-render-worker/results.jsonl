@@ -1,0 +1,3 @@
+{"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":115.57035803497087,"done":true,"mainTicksPerS":247.6,"tickGapP50":4,"tickGapP95":5,"clock":"single"}
+{"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":118.73438800999168,"done":true,"mainTicksPerS":1002.4,"tickGapP50":0,"tickGapP95":5,"clock":"stagger"}
+{"offscreen":"function","rafInWorker":"function","gpuInWorker":"object","backend":"WebGL 2","workerFps":118.55670103092783,"done":true,"mainTicksPerS":244.4,"tickGapP50":4,"tickGapP95":5,"clock":"single"}

@@ -402,7 +402,31 @@ the main-thread apply time, up to a frame (~8 ms at 120 fps) late, not the gamep
 **Proposed (asked the owner, not started):** move the renderer and the sim off the main thread (OffscreenCanvas in a
 worker) so the main thread only takes gamepad updates as they arrive (~200-250 Hz, stamps a few ms late, independent
 of the scene). Needs research first: Three.js WebGPU renderer in a worker in Firefox and Chrome.
-**Left open:** the real report rate of the Boxer (Chrome's WebHID HUD Hz shows it). Claude in Chrome cannot drive Firefox: the probe ran in
+The Boxer's real report rate: **500 Hz** (Chrome WebHID HUD, owner). Owner: "Yes, do this and report back with a
+plan"; keep the worker timer until then.
+
+**Render worker plan (researched 2026-10-18, not started; waiting for the owner's go):**
+- Support (MDN browser-compat-data, read 2026-10-18): `requestAnimationFrame` in dedicated workers Chrome 69 /
+  Firefox 99; `transferControlToOffscreen` + OffscreenCanvas Chrome 69 / Firefox 105; WebGPU in workers Chrome 113 /
+  Firefox 141 (Windows only; Firefox macOS Apple silicon 145+, no Linux); WebGL 2 on OffscreenCanvas Chrome 69 /
+  Firefox 105; WebHID in dedicated workers Chrome 131, not Firefox. `localStorage` is not in workers.
+- Three.js r186 source: `Animation` calls `self.requestAnimationFrame`; backends accept an OffscreenCanvas and skip
+  `setAttribute`; `CanvasTarget.setSize(w, h, false)` skips `style`. Our render code uses no DOM (only freecam's
+  pointer lock and key/mouse listeners, which stay on the page).
+- Spike (`docs/evidence/2026-10-18-render-worker/`, headless Firefox 158): Three.js renders from a worker at
+  116-119 fps (WebGL 2: headless has no WebGPU adapter; `navigator.gpu` exists in the worker). With drawing off the
+  page, the 1 ms worker clock reaches the page 248 times/s (Firefox's 4 ms timer floor; was ~140 while the page drew).
+  Four staggered 1 ms intervals give 1002 ticks/s but fire in bunches (median gap 0 ms, p95 5 ms): no gain.
+- Design: the page keeps the DOM (menu, settings + localStorage, Radio setup, HUD) and all input (Gamepad poll,
+  WebHID, keys, mouse, pointer lock) and maps raw frames with the profile as now; it posts each mapped frame with its
+  stamp shifted by `performance.timeOrigin` (page) - `timeOrigin` (worker). The worker owns FlightSession (sim-core,
+  SimClock, traffic), the Three.js scene, views and the frame loop, and posts a small HUD snapshot back each frame.
+  Same engine module runs on the page through the same message interface when a worker canvas is not available
+  (and `?render=main` forces it, for A/B). sim-core is untouched; the determinism self-test must still match.
+- Expected: Firefox gamepad ~200-250 new values/s (cap: Firefox's 4 ms drain; Boxer 500 Hz), stamps a few ms late
+  instead of up to a frame, independent of the scene. Chrome WebHID stays 500 Hz (later option: open HID in the
+  worker, Chrome 131+).
+- Unverified: WebGPU in a worker in a real (windowed) Firefox and Chrome; needs the owner's OK to open windows. Claude in Chrome cannot drive Firefox: the probe ran in
 throwaway Firefox windows, which pop up on the owner's screen (ask first, see memory).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`

@@ -1,0 +1,19 @@
+<!doctype html><meta charset=utf-8><title>spike</title><style>html,body{margin:0;background:#000}canvas{width:800px;height:600px}</style>
+<canvas id=c width=800 height=600></canvas><script type=module>
+const q = new URLSearchParams(location.search);
+const out = { ua: navigator.userAgent, offscreen: typeof OffscreenCanvas, rafInWorker: null };
+const c = document.getElementById('c').transferControlToOffscreen();
+const w = new Worker('./worker.js', { type: 'module' });
+w.postMessage({ canvas: c, webgl: q.has('webgl') }, [c]);
+// main-thread "gamepad clock": staggered worker intervals, how many ticks/s reach the main thread
+const clockSrc = q.get('clock') === 'stagger'
+  ? 'for (let k = 0; k < 4; k++) setTimeout(() => setInterval(() => postMessage(0), 4), k);'
+  : 'setInterval(() => postMessage(0), 1);';
+const ck = new Worker(URL.createObjectURL(new Blob([clockSrc], { type: 'text/javascript' })));
+let ticks = 0, gaps = [], lastT = 0; ck.onmessage = () => { ticks++; const n = performance.now(); if (lastT) gaps.push(n - lastT); lastT = n; };
+w.onmessage = (e) => { Object.assign(out, e.data); if (e.data.done) {
+  out.mainTicksPerS = ticks / 5; gaps.sort((a,b)=>a-b); out.tickGapP50 = gaps[gaps.length>>1]; out.tickGapP95 = gaps[Math.floor(gaps.length*0.95)];
+  out.clock = q.get('clock') || 'single';
+  fetch('/result', { method: 'POST', body: JSON.stringify(out) }); } };
+setTimeout(() => { ticks = 0; gaps = []; lastT = 0; }, 1000);
+</script>
