@@ -5,8 +5,11 @@
 // Node-vs-Chrome check with mesh collision).
 
 import { FlightSession } from './session';
+import { Sha256 } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import type { Level } from '@owfpv/maps';
+import { makeTraffic } from '@owfpv/traffic';
+import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
 /** The hash Node computes (test/selftest.test.ts); the page shows whether its own run matches. */
@@ -59,4 +62,37 @@ export function runSelftest(preset: PresetJson, level: Level): SelftestResult {
     }
     const st = r.sim.s;
     return { hash: r.traceHash(), crashes, contacts, respawns, end: [st[0], st[1], st[2]] };
+}
+
+/** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
+export const TRAFFIC_HASH = '1085c3d98b88c7e57a1ed431f1706e1836a6933b2ba576e71532d8bbb8490ee3';
+
+/**
+ * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops
+ * and for the signalled network (cars, people and lamps), and the network again after going back to 75 s (its
+ * checkpoint restart). The flight above has no traffic; this checks the traffic engines' arithmetic.
+ */
+export function runTrafficSelftest(level: Level): string {
+    const h = new Sha256();
+    const p: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
+    const buf = new Float64Array(5);
+    const bytes = new Uint8Array(buf.buffer);
+    const lamp = new Uint8Array(1);
+    const LAMPS = { red: 0, yellow: 1, green: 2, walk: 3, flash: 4, stop: 5 } as const;
+    for (const signals of [false, true]) {
+        const t = makeTraffic(level, { cars: true, people: true, signals })!;
+        for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), 75007, 75507]) {
+            t.at(tick);
+            for (let i = 0; i < t.movers.length; i++) {
+                t.place(i, tick, p);
+                buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; buf[3] = p.hx; buf[4] = p.hz;
+                h.update(bytes);
+            }
+            for (let k = 0; k < t.signals.length; k++) {
+                lamp[0] = LAMPS[t.lamp(k, tick)];
+                h.update(lamp);
+            }
+        }
+    }
+    return h.digestHex();
 }

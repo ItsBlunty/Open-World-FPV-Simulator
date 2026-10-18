@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { SELFTEST_HASH, runSelftest } from '../src/selftest';
+import { SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest } from '../src/selftest';
 
 const preset = nazgul as unknown as PresetJson;
 
@@ -18,5 +18,11 @@ describe('self-test flight on the first map', () => {
         expect(a.respawns).toBeGreaterThan(0);
         expect(runSelftest(preset, level).hash).toBe(a.hash);
         expect(a.hash).toBe(SELFTEST_HASH);
+    });
+
+    it('places the traffic the same every run (both models, and after going back in time)', () => {
+        const a = runTrafficSelftest(buildFirstMap());
+        expect(runTrafficSelftest(buildFirstMap())).toBe(a);
+        expect(a).toBe(TRAFFIC_HASH);
     });
 });

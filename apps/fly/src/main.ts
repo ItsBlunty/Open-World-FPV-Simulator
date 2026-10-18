@@ -13,7 +13,7 @@ import type { RadioProfile, RawFrame } from '@owfpv/input';
 import { buildFirstMap } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from './session';
-import { SELFTEST_HASH, runSelftest, selftestSticks } from './selftest';
+import { SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest, selftestSticks } from './selftest';
 import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings';
 import { levelGroup, environment } from './render/world';
 import { CraftView } from './render/view';
@@ -288,11 +288,16 @@ function frame(): void {
 renderMenu();
 if (params.has('selftest')) {
     const r = runSelftest(preset, level);
-    const ok = r.hash === SELFTEST_HASH;
-    (globalThis as { __selftest?: unknown }).__selftest = { ...r, expected: SELFTEST_HASH, ok };
+    const traffic = runTrafficSelftest(level);
+    const flightOk = r.hash === SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
+    const ok = flightOk && trafficOk;
+    const result = { ...r, expected: SELFTEST_HASH, traffic, trafficExpected: TRAFFIC_HASH };
+    (globalThis as { __selftest?: unknown }).__selftest = { ...result, ok, flightOk, trafficOk };
     clear(menuBody, h('h1', {}, 'Determinism self-test'),
-        h('p', { class: ok ? 'status-ok' : 'status-bad' }, ok ? 'MATCH: this browser flies bit-identically to Node.' : 'MISMATCH with Node'),
-        h('pre', { class: 'note', id: 'selftest' }, JSON.stringify({ ...r, expected: SELFTEST_HASH }, null, 2)));
+        h('p', { class: ok ? 'status-ok' : 'status-bad' }, ok
+            ? 'MATCH: this browser flies and moves the traffic bit-identically to Node.'
+            : `MISMATCH with Node (flight ${flightOk ? 'matches' : 'differs'}, traffic ${trafficOk ? 'matches' : 'differs'})`),
+        h('pre', { class: 'note', id: 'selftest' }, JSON.stringify(result, null, 2)));
 } else void reconnect();
 if (demo) showMenu(false);
 renderer.setAnimationLoop(frame);
