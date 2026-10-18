@@ -7,7 +7,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
-  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Next in M3: the freestyle grading write-up.
+  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched; waiting for the owner's answers.
 - **Tests:** `pnpm test`: 51 files, 450 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
