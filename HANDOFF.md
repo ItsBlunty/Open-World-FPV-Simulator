@@ -501,7 +501,7 @@ camera along the six cube faces, the chase-view quad shown, then restores the ca
 | Chrome 155 | yes | 4.1-5.3 s | 0, 8.5 ms | 8.5 ms |
 46 test files, 417 tests pass; typecheck clean.
 
-**Left open:** not tried by the owner. Turning traffic on in Settings builds new traffic meshes, which hitch once
+**Left open:** not tried by the owner. Turning traffic on in Settings builds new traffic meshes, which probably hitch once
 the first time they come into view (not warmed). Other spawn points were not measured (they use the same materials).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
