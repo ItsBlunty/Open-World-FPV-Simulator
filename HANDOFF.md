@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), and after left-turn arrows (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -36,6 +36,9 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   kerb); now 2.5 m, and a left turn is one smooth quarter circle. **Waiting for the owner to look at it.**
 - sim-core is now `sim-core/0.5.0` (moving surfaces; still worlds bit-identical); the self-test hash is `cd45c59c…`
   and the traffic hash `80f0c9aa…` (traffic v5: arrows, lanes 2.5 m from the centre line; Node and Chrome 155 match on WebGPU; Firefox not re-checked).
+- **Free-fly "Look around" camera (owner, 2026-10-18, §0f, renderer only):** without a radio, "Look around" now flies
+  the camera with WASD and the mouse. **Waiting for the owner to try the click-to-capture mouse steering** (Claude
+  could only test drag-to-steer; see §0f).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -265,6 +268,31 @@ arrows OK, or add left-turn pockets / green-wave offsets / shorter cycle?
 predates the lane move (heads now sit over the 2.5 m lane); left-turn pockets or green waves
 if the owner wants faster traffic; cars do not react to the quad; the chase camera still has no collision (§5).
 
+## 0f. Free-fly "Look around" camera (owner, 2026-10-18): built, waiting for the owner to try it
+
+The owner: with nothing connected, "Look around" opened the view but the camera could not move. Asked for a free-fly
+camera with WASD and the mouse.
+
+- `apps/fly/src/render/freecam.ts` (new): `FreeCam`, active whenever no radio profile is set up and not `?demo`.
+  Click the canvas to capture the mouse (pointer lock), then the mouse steers; holding a button and dragging also
+  steers (fallback when the browser refuses pointer lock). W/A/S/D move (W flies where you look, pitch included),
+  Space / E up, Q down, Shift 4x. 10 m/s, 40 m/s with Shift, 0.0025 rad per pixel, 60 deg vertical FOV (all
+  constants at the top of the file). R puts the camera back on the quad; C does nothing in this mode. The quad
+  model is shown at the spawn point.
+- `main.ts`: enters the free camera from the current camera pose (no jump), leaves it and restores the FPV / chase
+  camera once a radio profile exists; opening the menu releases the mouse. The menu has a "Look around" key line.
+- `ui/hud.ts`: the no-radio prompt is now passed in (`noRadioHint`): "click to look around, Esc for the menu", and
+  the key list while the mouse is captured.
+- Render-only: it moves the Three.js camera with the frame time and never touches sim state, so determinism is unaffected.
+
+**Evidence (Chrome, dev server):** WASD + Shift then E moved the camera from (0, 0.16, 40) to (0, 6.74, 24.65); a
+drag turned it about 70 deg right and slightly down, horizon level; `?selftest` MATCH (flight and traffic);
+`tsc` for `apps/fly` clean. Screenshot after the drag: `C:\Users\vhdbl\AppData\Local\Temp\claude-chrome-screenshots-GYM1tn\screenshot-1792317412826-17.jpg`.
+
+**Left open:** pointer lock was refused in the automation tab (`WrongDocumentError`, the tab was not the foreground
+window), so click-to-capture steering is untested; ask the owner to try it, and whether the speeds and mouse
+sensitivity feel right. The free camera has no collision (it flies through buildings).
+
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
 - Original repo: https://github.com/AndriiShramko/ShramkoGSFPV (MIT). Owner's fork, same commit, used as the copy
@@ -415,4 +443,6 @@ replace the blockout), a fisheye lens model for the FPV camera, the Boxer's real
 - Building in Claude Code on the owner's computer, testing with a real radio.
 - Workflow from Anthropic's best practices: explore, plan, then implement; give Claude a check it can run;
   `/clear` between unrelated tasks; commit often.
+- **Every finished task ends with a commit and a HANDOFF.md update** (owner, 2026-10-18), so the context can be
+  cleared and the next session picks up from this file alone.
 - Ask the owner rather than assume; record each answer in SPEC.md §7.

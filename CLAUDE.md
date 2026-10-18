@@ -34,3 +34,5 @@ Read both before starting a new milestone.
 - When citing a source, read it completely first. Prefer primary sources (official docs, the code itself).
 - Flight feel can't be tested automatically: when a change affects handling, say so and ask the owner to fly it.
 - Show evidence of checks (test output, screenshots), not just claims that something works.
+- Every finished task ends with a commit and a `HANDOFF.md` update (what was built, evidence, what is left open),
+  so the context can be cleared and the next session starts from HANDOFF.md alone (owner, 2026-10-18).

@@ -19,6 +19,7 @@ import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings
 import { levelGroup, environment } from './render/world';
 import { CraftView } from './render/view';
 import { TrafficView } from './render/traffic';
+import { FreeCam } from './render/freecam';
 import { HidSource } from './devices/hid';
 import { GamepadSource, gamepadKey } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
@@ -79,6 +80,8 @@ view.fovDeg = settings.fovDeg;
 view.resize(innerWidth, innerHeight);
 scene.add(view.craft);
 if (params.get('cam') === 'chase') view.setMode('chase');
+/** "Look around" without a radio: fly the camera with WASD and the mouse */
+const freeCam = new FreeCam(renderer.domElement);
 addEventListener('resize', () => {
     renderer.setSize(innerWidth, innerHeight);
     view.resize(innerWidth, innerHeight);
@@ -185,6 +188,7 @@ function anyOverlay(): boolean {
 
 function showMenu(on: boolean): void {
     menu.classList.toggle('hidden', !on);
+    if (on && freeCam.mouseCaptured) document.exitPointerLock();
     if (on) renderMenu();
 }
 
@@ -254,6 +258,7 @@ function renderMenu(): void {
             h('span', { class: 'spacer' }),
             h('button', { class: 'primary', onclick: () => showMenu(false) }, profile || demo ? 'Fly' : 'Look around')),
         h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm, T turtle mode (only if your radio has no switch for them).'),
+        h('p', { class: 'note' }, 'Look around (no radio): click to steer with the mouse · WASD move · Space / E up, Q down · Shift faster · R back to the quad.'),
         h('p', { class: 'note' }, `Renderer: ${backend}. GPL-3.0-or-later; flight model from ShramkoGSFPV by Andrii Shramko (MIT).`)
     );
 }
@@ -263,7 +268,9 @@ addEventListener('keydown', (e) => {
         if (setup.open || settingsUi.open) return;
         showMenu(menu.classList.contains('hidden'));
     } else if (anyOverlay()) return;
+    else if (e.code === 'KeyR' && freeCam.active) freeCam.enter(view.camera);
     else if (e.code === 'KeyR') session.resetToSpawn();
+    else if (freeCam.active) return;
     else if (e.code === 'KeyC') view.setMode(view.mode === 'fpv' ? 'chase' : 'fpv');
     else if (e.code === 'Space' && profile && !profile.arm) keyArm = !keyArm;
     else if (e.code === 'KeyT' && profile && !profile.turtle) keyTurtle = !keyTurtle;
@@ -292,10 +299,24 @@ function frame(): void {
         session.advance(now);
     }
     view.update(session.sim.s, dt);
+    const lookAround = !profile && !demo;
+    if (lookAround && !freeCam.active) freeCam.enter(view.camera);
+    else if (!lookAround && freeCam.active) {
+        freeCam.exit();
+        view.updateFov();
+        view.update(session.sim.s, dt);
+    }
+    if (freeCam.active) {
+        freeCam.apply(view.camera, dt, paused);
+        view.craft.visible = true;
+    }
     const pend = session.director.pending();
     hud.update(session.sim, {
         respawnIn: pend ? pend.atTick - session.sim.tick : null,
         hasRadio: profile !== null || demo,
+        noRadioHint: freeCam.mouseCaptured
+            ? 'WASD move · Space / E up, Q down · Shift faster'
+            : 'No radio set up — click to look around, Esc for the menu',
         armHint: profile && !profile.arm ? 'DISARMED — throttle down, press Space to arm' : 'DISARMED — throttle down, flip the arm switch',
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
         footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(fps)} fps · ${view.mode.toUpperCase()}`

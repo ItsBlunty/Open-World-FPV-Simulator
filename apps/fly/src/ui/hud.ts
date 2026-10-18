@@ -11,6 +11,8 @@ export interface HudExtra {
     /** ticks until the automatic respawn, or null */
     respawnIn: number | null;
     hasRadio: boolean;
+    /** the prompt without a radio (the free-fly camera's keys) */
+    noRadioHint: string;
     armHint: string;
     /** what to do when the craft is too tilted to arm (Betaflight's small_angle): use turtle mode */
     turtleHint: string;
@@ -52,7 +54,7 @@ export class Hud {
         this.tr.innerHTML = '';
         this.tr.append(h('div', {}, `THR ${String(thr).padStart(3)}%`), h('div', {}, `${spd.toFixed(0).padStart(3)} km/h`));
         let msg = '';
-        if (!x.hasRadio) msg = 'No radio set up — press Esc for the menu';
+        if (!x.hasRadio) msg = x.noRadioHint;
         else if (s[S.crashed] > 0) msg = x.respawnIn !== null ? `CRASHED — respawn in ${(x.respawnIn / 1000).toFixed(1)} s` : 'CRASHED';
         else if (!armed) msg = upY < 0.9063 ? x.turtleHint : x.armHint;
         else if (turtle) msg = 'TURTLE — push a stick to flip over, then turtle switch off';
