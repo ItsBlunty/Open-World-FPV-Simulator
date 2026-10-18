@@ -1,9 +1,130 @@
 # Physics review
 
-The full review is milestone M2 (`SPEC.md` R2). Until then, this file collects findings about the
-flight model's physical accuracy as they come up, so the review starts from them.
+Milestone M2 (`SPEC.md` R2), reviewed 2026-10-18 at sim-core/0.5.0 with the default drone `nazgulf5v3-6s`.
+Part 1 is the review; part 2 keeps the findings recorded earlier (F1-F5), most of them fixed since.
 
-## Findings to review
+Scope: `packages/sim-core/src/sim.ts`, `params.ts`, `wake.ts`, `wind.ts`. Every number below was read from the
+code or measured with a Node probe of the model (fresh pack, still air, no world):
+`docs/evidence/2026-10-18-physics-review/probe.test.ts`, output in `probe-output.txt` next to it.
+Ratings: **A** = the textbook result, **B** = right shape, values estimated, **C** = a stand-in for a different
+effect, **-** = not modelled. Claims marked "(to read)" are textbook knowledge not yet re-read from the primary
+source; each is read in full before anything is built on it (CLAUDE.md).
+
+**Owner's decisions (2026-10-18):** no blackbox logs for now (fitting the preset to real logs, G3, waits until
+logs are available); the first improvement is the airflow fix, G1.
+
+## 1. What the model does, effect by effect
+
+| # | Effect | Equation in the code | Source of values | Rating | Impact on feel |
+|---|---|---|---|---|---|
+| 1 | Rotor thrust | T = Tmax(V) w^2, w = motor speed 0..1, Tmax proportional to V^2 | TWR 8 (estimate from bench tables) | B | High |
+| 2 | Motor response | first-order lag on w, tau 17 ms, the same up and down | estimate from motor constants | B | High |
+| 3 | Yaw torque | kappa T per motor + rotor spin-up reaction J_r dOmega/dt | kappa, J_r estimates | B | Medium |
+| 4 | Battery | Voc(SoC) in straight pieces 4.2/3.7/3.3 V, sag = I R, I from shaft power / eta | R, eta estimates; hover current checked against iFlight's hover time | B | Low-medium |
+| 5 | Body drag | 1/2 rho CdA abs(v) v per body axis, CdA 200 / 430 / 200 cm^2 | estimates; **the vertical 430 is set to cap the top speed** | C (vertical) | High |
+| 6 | Rotor drag (in the rotor plane) | -k (rotor speed) v_inplane (Faessler et al. 2018) | 0.51 1/s from momentum theory x the measured share | A-B | Medium |
+| 7 | Prop wash | thrust x (1 - loss k), random roll/pitch torque, k a bump over v_descent / v_induced | momentum theory's band; loss and shake estimates | B | Medium |
+| 8 | Rigid body | Newton + Euler through the world angular momentum, semi-implicit, 1 ms | textbook | A | - |
+| 9 | Inertia | diagonal 1.6e-3 / 2.8e-3 / 1.6e-3 kg m^2 | estimate, sum of parts | B | High |
+| 10 | Flight controller | Betaflight 4.5.1 rate PID, FF, I-relax, dynamic I, airmode, filters, angle/horizon | re-implemented from Betaflight's formulas; rates checked to 0 error | A-B | High |
+| 11 | Gyro | a perfect sensor, then Betaflight's 250/500 Hz lowpass | - | B | Low |
+| 12 | Contacts | sphere colliders, all contacts solved together, Coulomb friction mu 0.4, restitution 0.1-0.35 | this project; F1-F5 below | B | Medium |
+| 13 | Prop strikes, turtle | no thrust when a surface covers the intake; reverse thrust 0.73 | estimate; one 7" thrust-stand test | B-C | Low |
+| 14 | Wind | mean + seeded gusts + height gradient, acting through the drag | estimate | B | (off in the game) |
+
+Measured from the model (Nazgul, `probe-output.txt`):
+
+| Test | Result |
+|---|---|
+| Hover throttle, full pack | 24.8 % motor output (research notes) |
+| Full-throttle climb from a hover | 39.7 m/s after 1 s, peak 43.1 m/s, then slowly less as the pack sags |
+| Flat fall, throttle down (airmode idle) | terminal 16.2 m/s, reached in about 4 s |
+| Nose-down vertical dive, throttle down | terminal 21.5 m/s |
+| Full throttle held 60 deg from vertical | 44.8 m/s (161 km/h) |
+| Roll step response | t63 15 ms, 670 deg/s (research notes) |
+
+## 2. Findings of the review
+
+### G1. Thrust does not depend on the air coming through the props (the biggest gap)
+**Now:** a prop makes the same thrust whether the quad hovers, climbs at 40 m/s or flies forward at 150 km/h. To
+keep the top speed sane, the preset gives the vertical axis a large drag area (430 cm^2, twice the side area); the
+preset says so itself: "stands in for the props unloading at speed, which the model does not have".
+
+**Real** (to read: momentum and blade-element theory): climbing along the thrust axis, the air arrives faster, the
+blades' angle of attack falls and the thrust drops, to near zero around the prop's pitch speed (a 5.1x3.5 at about
+30 800 loaded rpm: about 46 m/s); moving sideways, a rotor makes more thrust for the same rpm at moderate speed
+(translational lift); at high forward speed the tilted quad pushes into its own airflow and the thrust falls again;
+falling flat with the throttle down, the props windmill and brake.
+
+**In the sim:** one body-drag number cannot do all of these. Drag grows with speed^2, so the model keeps most of its
+push until near the top speed and then meets a wall; a real quad's push fades earlier and more gradually. Punch-outs
+reach 40 m/s in one second. The same 430 cm^2 stops a flat fall at 16 m/s; that may be roughly right by coincidence
+(idle props brake a fall), but the model cannot tell a fall with spinning props from one with stopped props.
+
+**Feel:** high: punch-outs, the throttle that holds altitude in fast forward flight, how a dive carries speed, how
+the quad catches after a dive.
+
+**Improvement:** a per-rotor inflow model. Each prop sees the air velocity at its own hub (body velocity + rotation x
+arm - wind), split into axial and in-plane parts, and its thrust follows a standard propeller model; the vertical
+drag area goes back to the frame's own. It brings for free rotor damping (the dropping side's prop gets more inflow
+and more thrust, which resists a roll), the front/rear thrust difference in forward flight, and a physical base for
+prop wash (G4). Effort: medium-high. **Chosen by the owner as the first improvement (2026-10-18).**
+
+### G2. Rotor drag acts at the centre of mass, not at the props (blade flapping)
+**Now:** the in-plane rotor drag (item 6) is a force through the centre of mass, so it never turns the quad.
+**Real:** it acts at the rotor plane, and blade flapping tilts each rotor's thrust back against the airflow; together
+they make a pitching and rolling moment in fast flight (to read: Faessler et al. 2018, which the preset cites).
+**Feel:** low-medium; the PID cancels most of it, but it costs motor headroom. Effort: low once G1 exists.
+
+### G3. The preset's main numbers are estimates (TWR, inertia, motor lag, kappa)
+They matter more to feel than any missing effect: acceleration, how fast the quad flips, how crisp the throttle is.
+- TWR 8: bench data gives 9.5 static, less with sag. Plausible.
+- Inertia 1.6e-3 roll/pitch: a rough parts check (motors and props at the arm ends about 0.5e-3, the pack about
+  0.2e-3, frame, stack and air unit about 0.3e-3) gives about 1.0-1.3e-3, so the preset may be 20-50 % high; yaw
+  2.8e-3 looks high by the same check (about 1.5-2e-3). A rough check, not a measurement.
+- Motor tau 17 ms, the same up and down: plausible for a 2207 with active braking; a real spin-up is limited by
+  current and depends on rpm.
+
+**Improvement:** fit them to a real quad's Betaflight blackbox log: a hover gives TWR and sag, throttle steps with
+bidirectional DShot eRPM give tau, flips with motor outputs give inertia. **Waiting for logs (owner, 2026-10-18).**
+
+### G4. Prop wash is an empirical bump
+The thrust-loss band follows momentum theory's vortex-ring region, the right idea; its depth (25 %) and shake (30 %)
+are guesses, and the shake is random noise, not tied to which rotor is in the wake. **Feel:** medium (dives, power
+loops). **Improvement:** after G1, the wash per rotor from that rotor's own inflow; depth and shake tuned by flying.
+
+### G5. No ground or ceiling effect
+**Real:** near the ground a rotor makes more thrust for the same power (Cheeseman and Bennett 1955, to read), fading
+within about two diameters (about 25 cm for a 5"); under a ceiling the rotors are pulled towards it (to research).
+**Feel:** low in the open, noticeable in the bando. Effort: low (a distance query per prop; the contact world has it).
+
+### G6. Contacts
+Solved for now (F1-F5 below; the owner: "okay for now"). Still open: restitution and friction are guesses (mu 0.4 on
+every surface); frames are rigid (F3); a real prop strike also kicks the quad and brakes the motor.
+
+### G7. Sensor and controller timing
+The PID loop runs at 1 kHz with a perfect gyro; real flight controllers usually run faster, with a noisy gyro, RPM
+filters and notches (to confirm in Betaflight's docs). The filter delays are modelled, the noise is not; no DShot or
+ESC latency. **Feel:** low.
+
+### G8. Smaller items, all low impact
+Rotor gyroscopic coupling; the LiPo curve (straight pieces, fixed resistance, no heating); air density fixed at sea
+level and 15 deg C; motor speed linear in the command (real ESCs are a little non-linear); motor and ESC heat.
+
+## 3. Improvements ranked by impact and effort
+
+| Rank | What | Feel impact | Effort | Needs |
+|---|---|---|---|---|
+| 1 | G1: per-rotor inflow thrust (with rotor damping and the front/rear difference); vertical CdA back to the frame's | High | Medium-high | sources read in full |
+| 2 | G3: fit the Nazgul preset to blackbox data (TWR, tau, inertia, hover) | High | Low (code) | the owner's logs (later) |
+| 3 | G4: prop wash per rotor on top of G1 | Medium | Low-medium | G1 |
+| 4 | G2: rotor drag at the rotor plane / flapping moment | Low-medium | Low | G1 |
+| 5 | G5: ground and ceiling effect | Low-medium (bando) | Low | - |
+| 6 | G6-G8 | Low | varies | the owner asking |
+
+Every model change bumps `SIM_CORE_VERSION`, changes the trace hashes, needs tests, and needs the owner to fly it.
+
+## Findings recorded before the review (M0-M1)
 
 ### F1. A near-level impact on a flat surface becomes a lopsided one (found 2026-10-17, M0)
 

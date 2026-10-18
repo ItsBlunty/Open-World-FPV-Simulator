@@ -122,7 +122,7 @@ and old flights re-scored.
 - **M1 First flight:** the mixed map (bando, park, city) as blockout geometry, mesh collision (`packages/world-mesh`),
   radio input (EdgeTX over USB first, gamepad as fallback), FPV camera, HUD, quick respawn, the 5" default drone,
   rendered with Three.js. Flyable in a browser.
-- **M2 Physics review:** deliver R2's `docs/physics-review.md`.
+- **M2 Physics review (review done 2026-10-18):** deliver R2's `docs/physics-review.md`; then its first improvement, the airflow fix (G1).
 - **M3 Prototype content:** first challenges placed in the map; settle crash/respawn rules and
   explore freestyle grading options by playtesting.
 - **M4+:** progression, beginner introduction, social features.
@@ -170,3 +170,6 @@ Questions put to the owner and the answers, newest last. The body of this spec r
 | 2026-10-18 | Which profiles to offer? | A short curated list |
 | 2026-10-18 | The FOV slider with a lens? | Hide it |
 | 2026-10-18 | Fisheye method: wide render + warp, vertex bending, or cropped face cameras + remap? | Face cameras (exact); Firefox shelved for now |
+| 2026-10-18 | M2: blackbox logs of the owner's quad to fit the preset? | Not now; go without, maybe correct later |
+| 2026-10-18 | M2: write the review into `docs/physics-review.md` and commit? | Yes |
+| 2026-10-18 | M2: first improvement? | The airflow fix (per-rotor inflow thrust, review G1) |

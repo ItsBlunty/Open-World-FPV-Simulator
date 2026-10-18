@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18), and after the fisheye lens (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18), and after the Firefox gamepad fix (2026-10-18), and after the render worker and the warm-up (2026-10-18), and after measuring Firefox's microstutters and the shadow-square fix (2026-10-18), and after the fisheye lens (2026-10-18), and after the M2 physics review (2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -64,6 +64,11 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
   the rest of things are complete". Checks run in Chrome only until then; §0h-§0l and the tools in §0l stay for later.
 - **Fisheye FPV camera (owner, 2026-10-18, §0m, renderer only):** real lens calibrations from Gyroflow; default Caddx
   Ratel 2. **Waiting for the owner to fly it** (what the pilot sees changes; the physics do not).
+- **Owner's results (2026-10-18):** "fisheyes look good, new map looks good, traffic looks good, free fly works
+  well, physics contacts are okay for now". So §0a, §0e, §0f, §0g and §0m are flown and accepted.
+- **M2 physics review done (2026-10-18, §0o):** `docs/physics-review.md`. No blackbox logs for now (owner). **Next:
+  the airflow fix (review G1, owner's choice): per-rotor thrust that depends on the air through each prop.** Research
+  first; report to the owner before changing sim-core (owner: "report back to me before changes are made").
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 - **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
   work around it with other tools. The owner tests on the **Pages build**, never local tabs: never start dev servers
@@ -687,6 +692,25 @@ graphics, crashes) and an "Open settings" gear button. The gear is our own 8-too
 no icon set. Screenshot: `docs/evidence/2026-10-18-menu/menu-chrome-settings.png`.
 **Left open:** the connected-radio states (yellow "not set up", green "ready") were not screenshotted; Safari and
 mobile were not tried.
+
+## 0o. M2 physics review (owner, 2026-10-18): done; next the airflow fix
+
+**Asked:** "Lets proceed with M2, but report back to me before changes are made." Claude reviewed sim-core/0.5.0
+(`sim.ts`, `params.ts`, `wake.ts`, `wind.ts`, the Nazgul preset) and reported before writing anything. **Owner's
+answers:** no blackbox logs now ("maybe we could attempt to correct later"); commit the review; start with the
+airflow fix.
+
+**Built:** `docs/physics-review.md` part 1: a table of every modelled effect (equation, source, rating, feel), findings
+G1-G8 and a ranked list; F1-F5 kept as part 2. Probe: `docs/evidence/2026-10-18-physics-review/probe.test.ts`
+(run: `pnpm exec vitest run --root docs/evidence/2026-10-18-physics-review`; its output is `probe-output.txt`, re-run
+and identical). No code changed.
+
+**Key findings:** G1, thrust ignores the airflow through the props, and a 430 cm^2 vertical drag area stands in for
+it (punch-out 39.7 m/s after 1 s, flat fall capped at 16.2 m/s); G3, inertia possibly 20-50 % high by a rough
+parts check (estimate, waits for logs); G4 prop wash and G2 rotor-drag moment build on G1; G5 ground/ceiling effect.
+
+**Left open:** G1 next (sources to read in full before building: a propeller model of thrust against inflow); G3
+when logs exist; "(to read)" claims in the review are still unverified against their primary sources.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 
