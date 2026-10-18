@@ -63,3 +63,11 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | Timed rounds or open flight? | Challenges you can retry, each with its best score in a log and maybe an overlay at the challenge spot; a score or star rating; the open-world goal is full stars in every challenge |
 | 2026-10-18 | Port PyFlightCoach's LGPL-3.0 code if useful? | Yes, keeping its notices and naming the source |
 | 2026-10-18 | Save flights (stick logs) in the browser before the grader? | Yes, first |
+| 2026-10-18 | Power loop shape? | Grade steady rotation and tightness everywhere; roundness only in open-air loop challenges |
+| 2026-10-18 | Keeping the object in view counts? | No: grade the path only, so camera uptilt does not change scores |
+| 2026-10-18 | Rubik's cube version? | ProWhooper's exact pattern (half flip, full roll, half flip, same direction); other mixes are separate tricks |
+| 2026-10-18 | Inverted yaw spin? | 360 is the trick; a 180 version as a separate, easier challenge |
+| 2026-10-18 | Orbit? | One full circle, nose within 30° of the object most of the way; tighter centring scores better |
+| 2026-10-18 | Split-S exits? | Heading reversed (180° ± 45°) now; 270° and yaw-entry variants as separate named tricks later |
+| 2026-10-18 | Wind in challenges? | The world's wind |
+| 2026-10-18 | Trick difficulty scale? | Start from ProWhooper's base points (flip 50, power loop 200, Rubik's cube 325, inverted yaw spin 400), tune later |

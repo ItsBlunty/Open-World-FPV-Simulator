@@ -425,6 +425,12 @@ of the trick).
 8. Point values: ProWhooper gives each trick base points (flip 50, power loop 200, Rubik's cube 325, inverted yaw spin
    400, outdoors). Use these as a starting difficulty scale for the stars, or set our own?
 
+**Owner's answers to §9-10 (2026-10-18, also in `docs/decisions.md`):** 1 steady rotation and tightness everywhere,
+roundness only in open-air challenges; 2 keeping the object in view does not count (path only); 3 Rubik's cube is
+ProWhooper's exact pattern; 4 inverted yaw spin 360, plus a separate 180 version; 5 orbit: one circle, nose within 30°,
+tighter centring scores better; 6 split-S 180° ± 45° now, variants later; 7 challenges fly in the world's wind (so wind
+is part of every attempt: a par should allow for it); 8 start from ProWhooper's base points.
+
 ### Sources
 
 - Liftoff, Steam announcements, read via the Steam news API (2026-10-18): Milestone 0.11.0 (2017-10-10), 0.11.1,
