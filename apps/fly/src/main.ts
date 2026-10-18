@@ -13,7 +13,7 @@ import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings';
+import { loadCollection, loadProfile, loadSettings, saveCollection, saveProfile, saveSettings } from './settings';
 import { HidSource } from './devices/hid';
 import { GamepadSource, gamepadKey, padClock } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
@@ -21,10 +21,11 @@ import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
 import { LENSES } from './render/lenses';
 import { SettingsUi } from './ui/settings-ui';
+import { CollectionUi } from './ui/collection-ui';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
-import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port } from './engine/protocol';
+import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo } from './engine/protocol';
 
 const params = new URLSearchParams(location.search);
 const preset = nazgul as unknown as PresetJson;
@@ -80,6 +81,11 @@ let hudSnap: HudSnapshot | null = null;
 const asks = new Map<number, (r: { ok: boolean; value: unknown }) => void>();
 let askId = 0;
 let sentPaused: boolean | null = null;
+/** the golden props: every one on this map (from the engine), and the ones found, by map id (kept in this browser) */
+let props: PropInfo[] = [];
+let mapId = '';
+const collection = loadCollection();
+const found = (): number[] => collection[mapId] ?? [];
 
 function newCanvas(): HTMLCanvasElement {
     const c = document.createElement('canvas');
@@ -91,7 +97,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, settings: engineSettings()
+        search: location.search, shadows: shadowsOn, settings: engineSettings(), collection
     };
 }
 
@@ -141,7 +147,19 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         backend = m.backend;
         spawns = m.spawns;
         spawnId = m.spawn;
+        props = m.props;
+        mapId = m.mapId;
         renderMenu();
+    } else if (m.type === 'collect') {
+        const mine = (collection[mapId] ??= []);
+        for (const n of m.n) {
+            if (mine.includes(n)) continue;
+            mine.push(n);
+            const p = props[n - 1];
+            hud.toast(`GOLDEN PROP #${n}`, `${mine.length} / ${props.length} found${p ? ` · ${p.spot}` : ''}`);
+        }
+        saveCollection(collection);
+        collectionUi.refresh();
     } else if (m.type === 'hud') {
         hudSnap = m.hud;
         drawHud();
@@ -256,13 +274,14 @@ async function reconnect(): Promise<void> {
 const hud = new Hud();
 const setup = new RadioSetup();
 const settingsUi = new SettingsUi();
+const collectionUi = new CollectionUi();
 const menuBody = h('div');
 const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
-document.body.append(hud.el, menu, setup.el, settingsUi.el);
+document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el);
 let menuMsg = '';
 
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -296,6 +315,20 @@ function openSettings(): void {
         shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows'),
         save: () => saveSettings(settings),
         close: () => { settingsUi.hide(); showMenu(true); }
+    });
+}
+
+function openCollection(): void {
+    showMenu(false);
+    collectionUi.show({
+        props,
+        isTaken: (n) => found().includes(n),
+        reset: () => {
+            collection[mapId] = [];
+            saveCollection(collection);
+            send({ type: 'collection', taken: [] });
+        },
+        close: () => { collectionUi.hide(); showMenu(true); }
     });
 }
 
@@ -391,6 +424,18 @@ function startSection(): Child[] {
     ];
 }
 
+/** the golden props found so far, and the way to the collection screen */
+function propsSection(): Child[] {
+    if (!props.length) return [];
+    const n = found().length;
+    return [
+        h('div', { class: 'section-head' }, h('h2', {}, 'Golden props'), h('button', { onclick: openCollection }, 'Collection')),
+        h('p', { class: 'muted' }, n === 0
+            ? `${props.length} golden props are hidden around the map, some of them well. Fly through one to take it.`
+            : `${n} of ${props.length} found.${n === props.length ? ' Every one: well flown.' : ''}`)
+    ];
+}
+
 const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
     h('dl', { class: cls }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
 
@@ -434,6 +479,7 @@ function renderMenu(): void {
         browserNotice(hidOk),
         ...controllerSection(hidOk),
         ...startSection(),
+        ...propsSection(),
         ...settingsSection(),
         ...controlsSection(),
         h('p', { class: 'note footer' },
@@ -465,6 +511,11 @@ addEventListener('blur', () => { held.clear(); camDirty = true; });
 
 addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
+        if (collectionUi.open) {
+            collectionUi.hide();
+            showMenu(true);
+            return;
+        }
         if (setup.open || settingsUi.open) return;
         showMenu(menu.classList.contains('hidden'));
     } else if (anyOverlay()) return;
@@ -499,6 +550,7 @@ function drawHud(): void {
             : 'No radio set up — click to look around, Esc for the menu',
         armHint: profile && !profile.arm ? 'DISARMED — throttle down, press Space to arm' : 'DISARMED — throttle down, flip the arm switch',
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
+        props: props.length ? `${found().length} / ${props.length}` : '',
         footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(x.fps)} fps · ${x.freeCam ? 'LOOK AROUND' : x.mode.toUpperCase()}`
     });
 }

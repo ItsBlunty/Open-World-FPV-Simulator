@@ -8,22 +8,30 @@
 
 import { FACE, LevelBuilder, Rng } from './builder';
 import type { Building, Level, Material } from './builder';
+import { goldenProps, streetFurniture } from './golden-props';
+import type { Rect } from './golden-props';
 
 export const MAP_ID = 'mixed-1';
-export const MAP_VERSION = 5;
+/** 6: bus shelters, rooftop billboards and alley dumpsters, and the golden props (owner, 2026-10-18) */
+export const MAP_VERSION = 6;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
 
 export function buildFirstMap(): Level {
     const b = new LevelBuilder();
+    /** what stands on each city roof (AC units), so the billboards keep clear of it */
+    const roofClutter: Rect[] = [];
     ground(b);
     park(b, new Rng(1));
     bando(b, new Rng(2));
-    city(b, new Rng(3));
+    city(b, new Rng(3), roofClutter);
     industrial(b, new Rng(4));
     southEast(b, new Rng(5));
     border(b, new Rng(6));
+    // after everything else, from their own Rng: the rest of the map is drawn exactly as before they existed
+    const hideouts = streetFurniture(b, new Rng(8), roofClutter);
+    goldenProps(b, hideouts);
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
@@ -391,7 +399,7 @@ interface BlockRef {
     index: number;
 }
 
-function building(b: LevelBuilder, r: Rng, names: Rng, used: Set<string>, blk: BlockRef, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
+function building(b: LevelBuilder, r: Rng, names: Rng, used: Set<string>, clutter: Rect[], blk: BlockRef, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
     const floors = r.int(2, maxFloors);
     const h = floors * STOREY;
     const m = h > 40 && r.chance(1, 2) ? 'facade-glass' : r.pick(MATS_BUILDING);
@@ -423,6 +431,7 @@ function building(b: LevelBuilder, r: Rng, names: Rng, used: Set<string>, blk: B
         const cz = z0 + 3 + r.int(0, Math.max(0, Math.floor(z1 - z0 - 6)));
         if (h > 30) continue; // a set-back tower's roof is smaller; keep it clear
         b.block('metal', cx, cz, 2, 1.5, top, 1.2);
+        clutter.push({ x0: cx - 1, z0: cz - 0.75, x1: cx + 1, z1: cz + 0.75 });
     }
     // the entrance: the middle of its opening on the outer face, and the face's outward normal
     const along = doorStart(wall < 2 ? x0 : z0, len, SHOP, bay) + SHOP.width / 2;
@@ -658,7 +667,7 @@ function roadMarkings(b: LevelBuilder): void {
     }
 }
 
-function city(b: LevelBuilder, r: Rng): void {
+function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
     const BLOCK = PITCH - ROAD;
     const names = new Rng(7);
     const used = new Set<string>();
@@ -704,18 +713,18 @@ function city(b: LevelBuilder, r: Rng): void {
             }
             const set = 2 + r.int(0, 3);
             const split = r.int(0, 2);
-            if (split === 0) building(b, r, names, used, blk, x0 + set, z0 + set, x1 - set, z1 - set, maxFloors);
+            if (split === 0) building(b, r, names, used, clutter, blk, x0 + set, z0 + set, x1 - set, z1 - set, maxFloors);
             else if (split === 1) {
                 const mid = x0 + BLOCK / 2;
-                building(b, r, names, used, blk, x0 + set, z0 + set, mid - 2, z1 - set, maxFloors);
-                building(b, r, names, used, blk, mid + 2, z0 + set, x1 - set, z1 - set, maxFloors);
+                building(b, r, names, used, clutter, blk, x0 + set, z0 + set, mid - 2, z1 - set, maxFloors);
+                building(b, r, names, used, clutter, blk, mid + 2, z0 + set, x1 - set, z1 - set, maxFloors);
             } else {
                 const mx = x0 + BLOCK / 2;
                 const mz = z0 + BLOCK / 2;
-                building(b, r, names, used, blk, x0 + set, z0 + set, mx - 2, mz - 2, maxFloors);
-                building(b, r, names, used, blk, mx + 2, z0 + set, x1 - set, mz - 2, maxFloors);
-                building(b, r, names, used, blk, x0 + set, mz + 2, mx - 2, z1 - set, maxFloors);
-                building(b, r, names, used, blk, mx + 2, mz + 2, x1 - set, z1 - set, maxFloors);
+                building(b, r, names, used, clutter, blk, x0 + set, z0 + set, mx - 2, mz - 2, maxFloors);
+                building(b, r, names, used, clutter, blk, mx + 2, z0 + set, x1 - set, mz - 2, maxFloors);
+                building(b, r, names, used, clutter, blk, x0 + set, mz + 2, mx - 2, z1 - set, maxFloors);
+                building(b, r, names, used, clutter, blk, mx + 2, mz + 2, x1 - set, z1 - set, maxFloors);
             }
         }
     }

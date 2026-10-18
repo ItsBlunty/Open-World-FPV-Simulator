@@ -7,13 +7,13 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
-  sim-core/0.6.0). Next: M3 (challenges in the map) unless the owner picks something else.
-- **Tests:** `pnpm test`: 49 files, 443 tests pass. `pnpm typecheck` clean.
+  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Next in M3: the freestyle grading write-up.
+- **Tests:** `pnpm test`: 51 files, 450 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
-  - map v5 `e9343a1d…` (226 642 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 5, `TRAFFIC_VERSION` 6.
+  - map v6 `27a17110…` (228 994 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in.
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu.
@@ -25,10 +25,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 2. **City pass (map v5):** look at the crane (it's solid lattice, you can fly through it), the building names and
    doors. Questions: should the crane turn? Are the names OK (real-sounding only, or more jokes)? How many walkers
    should go in (25 % of block-side walks now)? [map §0q]
+3. **Golden props (map v6):** hunt some (Esc > Golden props > Collection lists them by number). Is 1 m pickup reach
+   right? Are the frosted shelters too easy or too hard to see through? More props, harder spots? [collectibles §0r]
 
 ## Left open (not started)
 
+- Freestyle grading: owner asked for research now (a write-up, no code). Not started.
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
+- Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
+  collections. [collectibles]
 - Chase camera has no collision and can end up inside buildings (owner: "on the list").
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
@@ -43,7 +48,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   descriptor as a test fixture. [foundation]
 - Shelved with Firefox: render-worker stutter cause, the remaining GC stutter, `?selftest` in Firefox. The measuring
   tools are in `docs/evidence/2026-10-18-firefox-stutter/`. [browsers-input-performance §0l]
-- Left open on purpose until levels have content: freestyle grading, progression, challenge design.
+- Left open on purpose until levels have content: progression, challenge design. Crashes cost nothing (owner).
 
 ## Gotchas worth knowing before you start
 
@@ -68,5 +73,6 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
+| `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 
 Owner decisions: `docs/decisions.md`.

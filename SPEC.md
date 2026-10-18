@@ -52,7 +52,8 @@ practice on top of a sound flight model.
   rewind of a quad wedged with the throttle up for 3 s stays.
 - Damage: shelved. Off by default, every hit a bounce; the "Damage and crashes" toggle brings back sim-core's
   health model. Landing on the underside does no harm unless very fast. **[proposed thresholds]** in sim-core/0.3.0.
-- Crashes **[to prototype]**: quick respawn where you are; in a challenge, at its start.
+- Crashes: quick respawn where you are; nothing costs the pilot in normal flight, no penalties for now (owner).
+- Collectibles: numbered golden props hidden around the map, a collection screen with the count (owner).
 - Solid stylised cars and people, traffic lights and crossings, each with a toggle in the settings.
 - Challenge types, progression and rewards: to design after a playable prototype.
 
@@ -70,7 +71,8 @@ Not at launch. Leaderboards, ghosts and sharing later (R5 keeps them possible).
 - **M0 Foundation:** done 2026-10-17.
 - **M1 First flight:** done (map, mesh collision, radio input, FPV camera, HUD, respawn), flown by the owner.
 - **M2 Physics review:** review done 2026-10-18; first fix (rotor inflow, G1) built, waiting for the owner to fly.
-- **M3 Prototype content:** first challenges in the map; settle crash/respawn rules; explore freestyle grading.
+- **M3 Prototype content:** started 2026-10-18 with golden props to collect; then challenges; research freestyle
+  grading (owner: a write-up now).
 - **M4+:** progression, beginner introduction, social features.
 
 ## 6. Out of scope for now

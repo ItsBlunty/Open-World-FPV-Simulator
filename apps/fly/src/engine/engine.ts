@@ -13,6 +13,7 @@ import { levelGroup, environment } from '../render/world';
 import { CraftView } from '../render/view';
 import { TrafficView } from '../render/traffic';
 import { BuildingsView } from '../render/buildings';
+import { CollectiblesView } from '../render/collectibles';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { lensById } from '../render/lenses';
@@ -62,6 +63,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     scene.add(trafficView.group);
     const buildingsView = new BuildingsView(level);
     scene.add(buildingsView.group);
+    session.collector.setTaken(init.collection[level.id] ?? []);
+    const collectView = new CollectiblesView(level.collectibles);
+    collectView.setTaken((n) => session.collector.isTaken(n));
+    scene.add(collectView.group);
     const view = new CraftView();
     view.uptiltDeg = cfg.uptiltDeg;
     view.fovDeg = cfg.fovDeg;
@@ -84,7 +89,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let paused = true;
     let lookDx = 0, lookDy = 0;
 
-    const fly = { session, view, sun, renderer, scene, S, trafficView, buildingsView, freeCam, radio, fisheye };
+    const fly = { session, view, sun, renderer, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye };
 
     function handle(m: PageMsg): void {
         switch (m.type) {
@@ -126,6 +131,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 renderer.setSize(size.width, size.height, false);
                 view.resize(size.width, size.height);
                 fitFisheye();
+                break;
+            case 'collection':
+                session.collector.setTaken(m.taken);
+                collectView.setTaken((n) => session.collector.isTaken(n));
                 break;
             case 'view':
                 if (!freeCam.active) view.setMode(view.mode === 'fpv' ? 'chase' : 'fpv');
@@ -170,7 +179,13 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             if (demo) session.input(selftestSticks(session.sim.tick, ch), now);
             else radio.checkStale(session, now);
             session.advance(now);
+            const got = session.collector.drain();
+            if (got.length) {
+                collectView.take(got, now / 1000);
+                post({ type: 'collect', n: got });
+            }
         }
+        collectView.update(now / 1000);
         view.update(session.sim.s, dt);
         const lookAround = !radio.hasRadio && !demo;
         if (lookAround && !freeCam.active) freeCam.enter(view.camera);
@@ -214,7 +229,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     // there, the first frames waited (~1 s of stall when the menu was closed right after loading, 2026-10-18)
     const device = (renderer.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } }).device;
     if (device) await device.queue.onSubmittedWorkDone();
-    post({ type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id });
+    post({
+        type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id, mapId: level.id,
+        props: level.collectibles.map((c) => ({ n: c.n, area: c.area, spot: c.spot }))
+    });
 
     /**
      * First-sight stutter (owner, 2026-10-18): Three.js builds an object's pipelines and uploads its buffers the first
@@ -233,6 +251,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         const p = cam.position;
         trafficView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
+        collectView.update(0);
         sun.follow(p);
         for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
             // looking straight up or down, the camera's up must not be along the view

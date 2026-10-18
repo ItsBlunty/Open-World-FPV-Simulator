@@ -42,8 +42,19 @@ const COLOURS: Record<Material, number> = {
     window: 0x26323d,
     'window-ribbon': 0x2a3a48,
     // tower crane steelwork: the yellow most tower cranes are painted
-    crane: 0xf2b705
+    crane: 0xf2b705,
+    // a bus shelter's frosted panels (drawn see-through: FROSTED_OPACITY), a dark green dumpster, billboard faces
+    frosted: 0xdfe7ec,
+    dumpster: 0x2f5a3c,
+    billboard: 0xf1ead8
 };
+
+/**
+ * How much a frosted panel hides what is behind it (0 clear, 1 solid). Real frosted glass scatters light, so a thing
+ * behind shows as a pale blur; drawn without a blur, a panel this opaque leaves a prop behind it just about visible to
+ * someone looking for it (owner, 2026-10-18).
+ */
+const FROSTED_OPACITY = 0.65;
 
 /** A glass tower's mullions: a thin frame every 1.5 m along its ribbon windows. */
 const MULLION = 0x3c4248;
@@ -51,7 +62,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon', 'crane']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {
@@ -86,6 +97,14 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
         mat.roughnessNode = mix(float(0.12), float(0.5), f);
         return mat;
     }
+    if (m === 'frosted') {
+        // both sides, no depth write: the panels behind and beside it still draw through it
+        mat.transparent = true;
+        mat.opacity = FROSTED_OPACITY;
+        mat.depthWrite = false;
+        mat.side = THREE.DoubleSide;
+        mat.roughness = 0.6;
+    }
     if (PLAIN.has(m)) {
         mat.colorNode = base;
         return mat;
@@ -114,7 +133,7 @@ export function levelGroup(level: Level): THREE.Group {
         geo.computeBoundingSphere();
         const mesh = new THREE.Mesh(geo, gridMaterial(m));
         mesh.name = m;
-        mesh.castShadow = m !== 'marking' && m !== 'water';
+        mesh.castShadow = m !== 'marking' && m !== 'water' && m !== 'frosted';
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         g.add(mesh);

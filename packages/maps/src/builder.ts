@@ -15,7 +15,9 @@ export const MATERIALS = [
     // the glass set back in city windows: punched windows and shop fronts, and glass towers' ribbon windows (mullions painted)
     'window', 'window-ribbon',
     // the tower crane's steelwork (painted, as most tower cranes are)
-    'crane'
+    'crane',
+    // street furniture: a bus shelter's frosted panels (drawn see-through, solid as glass), a dumpster, billboard faces
+    'frosted', 'dumpster', 'billboard'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -86,6 +88,24 @@ export interface Building {
     door: number;
 }
 
+/**
+ * A golden prop to collect (owner, 2026-10-18: Tony Hawk style pickups, numbered, hidden around the map). Not solid:
+ * not in the collision, nor in its hash. The game counts one as taken when the quad's centre comes within its
+ * radius (apps/fly collect.ts).
+ */
+export interface Collectible {
+    /** its number, 1 up: what the collection screen shows and pilots call it by */
+    n: number;
+    /** its centre, m */
+    x: number;
+    y: number;
+    z: number;
+    /** the part of the map it is in, shown before it is found */
+    area: string;
+    /** where it is, said the way one pilot tells another; shown once it is found */
+    spot: string;
+}
+
 export interface Level {
     id: string;
     version: number;
@@ -103,6 +123,8 @@ export interface Level {
     /** named city buildings and their entrances (not part of the collision, nor of its hash) */
     buildings: Building[];
     doors: Door[];
+    /** golden props to collect (not part of the collision, nor of its hash) */
+    collectibles: Collectible[];
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */
@@ -142,6 +164,7 @@ export class LevelBuilder {
     readonly blocks: Block[] = [];
     readonly buildings: Building[] = [];
     readonly doors: Door[] = [];
+    readonly collectibles: Collectible[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -304,7 +327,7 @@ export class LevelBuilder {
             o += a.length;
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
-            buildings: this.buildings.slice(), doors: this.doors.slice() };
+            buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice() };
     }
 }
 

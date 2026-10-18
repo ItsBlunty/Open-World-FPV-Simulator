@@ -89,3 +89,18 @@ table.rates input { width: 76px; }
 .section-head h2 { margin: 0; flex: 1; }
 .gear-btn { display: inline-flex; align-items: center; gap: 8px; }
 dl.keys.plain dt { font-family: inherit; }
+/* golden props: the collection screen, the HUD counter and the message when one is taken */
+.panel.wide { width: min(980px, 100%); }
+.prog.gold > div { background: #ffc23d; }
+.props { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.prop { display: flex; gap: 8px; align-items: baseline; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; color: var(--muted); min-width: 0; }
+.prop .num { font-family: ui-monospace, Consolas, monospace; flex: none; }
+.prop .where { overflow-wrap: anywhere; line-height: 1.35; }
+.prop.got { border-color: #8a6a1c; background: rgba(255, 194, 61, 0.1); color: var(--text); }
+.prop.got .num { color: #ffc23d; }
+button.danger { border-color: var(--bad); color: var(--bad); }
+.gold-text { color: #ffc23d; }
+#hud .toast { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity 0.4s; }
+#hud .toast.show { opacity: 1; transition: opacity 0.1s; }
+#hud .toast .big { font-size: 26px; color: #ffc23d; letter-spacing: 0.04em; }
+#hud .toast .small { font-size: 15px; color: #eee; margin-top: 4px; }

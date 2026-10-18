@@ -23,6 +23,8 @@ export interface HudExtra {
     /** what to do when the craft is too tilted to arm (Betaflight's small_angle): use turtle mode */
     turtleHint: string;
     footer: string;
+    /** golden props found, e.g. "12 / 51" (owner, 2026-10-18) */
+    props: string;
 }
 
 export class Hud {
@@ -31,9 +33,19 @@ export class Hud {
     private readonly tr = h('div', { class: 'tr' });
     private readonly mid = h('div', { class: 'mid' });
     private readonly bottom = h('div', { class: 'bottom' });
+    private readonly toastEl = h('div', { class: 'toast' });
+    private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
-        this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, h('div', { class: 'cross' }), this.bottom);
+        this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, this.toastEl, h('div', { class: 'cross' }), this.bottom);
+    }
+
+    /** A golden prop taken: its number and the count big, where it was under them, for a few seconds. */
+    toast(big: string, small: string): void {
+        this.toastEl.replaceChildren(h('div', { class: 'big' }, big), h('div', { class: 'small' }, small));
+        this.toastEl.classList.add('show');
+        if (this.toastTimer) clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => this.toastEl.classList.remove('show'), 3000);
     }
 
     update(sim: HudSim, x: HudExtra): void {
@@ -59,6 +71,7 @@ export class Hud {
         const spd = Math.sqrt(s[S.vx] * s[S.vx] + s[S.vy] * s[S.vy] + s[S.vz] * s[S.vz]) * 3.6;
         this.tr.innerHTML = '';
         this.tr.append(h('div', {}, `THR ${String(thr).padStart(3)}%`), h('div', {}, `${spd.toFixed(0).padStart(3)} km/h`));
+        if (x.props) this.tr.append(h('div', { class: 'gold-text' }, `PROPS ${x.props}`));
         let msg = '';
         if (!x.hasRadio) msg = x.noRadioHint;
         else if (s[S.crashed] > 0) msg = x.respawnIn !== null ? `CRASHED — respawn in ${(x.respawnIn / 1000).toFixed(1)} s` : 'CRASHED';

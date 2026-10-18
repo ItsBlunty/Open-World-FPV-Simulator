@@ -33,6 +33,15 @@ export interface InitMsg {
     search: string;
     shadows: boolean;
     settings: EngineSettings;
+    /** the golden props this pilot has taken already, by map id, by number (the page keeps them) */
+    collection: Record<string, number[]>;
+}
+
+/** A golden prop as the page lists it (maps Collectible, without its position). */
+export interface PropInfo {
+    n: number;
+    area: string;
+    spot: string;
 }
 
 export type PageMsg =
@@ -46,6 +55,8 @@ export type PageMsg =
     | { type: 'settings'; what: 'camera' | 'flight' | 'traffic' | 'graphics' | 'spawn'; settings: EngineSettings }
     | { type: 'resize'; width: number; height: number; dpr: number }
     | { type: 'view'; mode: 'toggle' }
+    /** the golden props taken, by number: the saved collection, or none after a reset */
+    | { type: 'collection'; taken: number[] }
     /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
@@ -63,7 +74,9 @@ export interface HudSnapshot {
 }
 
 export type EngineMsg =
-    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string }
+    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[] }
+    /** golden props just taken, by number */
+    | { type: 'collect'; n: number[] }
     | { type: 'hud'; hud: HudSnapshot }
     | { type: 'error'; message: string }
     | { type: 'answer'; id: number; ok: boolean; value: unknown };

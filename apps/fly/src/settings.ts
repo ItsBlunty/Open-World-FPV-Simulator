@@ -116,6 +116,23 @@ export function saveSettings(s: Settings): void {
     write(KEY, s);
 }
 
+/** The golden props each map's pilot has taken, by map id, by number (owner, 2026-10-18). */
+const COLLECTION = 'owfpv.goldenProps';
+
+export function loadCollection(): Record<string, number[]> {
+    const c = read(COLLECTION);
+    const out: Record<string, number[]> = {};
+    if (!c || typeof c !== 'object') return out;
+    for (const [map, ns] of Object.entries(c as Record<string, unknown>)) {
+        if (Array.isArray(ns)) out[map] = ns.filter((n): n is number => Number.isInteger(n) && n >= 1);
+    }
+    return out;
+}
+
+export function saveCollection(c: Record<string, number[]>): void {
+    write(COLLECTION, c);
+}
+
 function allProfiles(): Record<string, RadioProfile> {
     const p = read(PROFILES);
     return p && typeof p === 'object' ? (p as Record<string, RadioProfile>) : {};

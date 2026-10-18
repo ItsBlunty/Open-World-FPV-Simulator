@@ -5,7 +5,7 @@
 // for respawns; the runner applies both at tick boundaries and logs them. Rendering reads the state.
 
 import {
-    DEFAULT_RESPAWN_POLICY, RespawnDirector, Runner, SIM_CORE_VERSION, StateHistory,
+    DEFAULT_RESPAWN_POLICY, RespawnDirector, Runner, S, SIM_CORE_VERSION, StateHistory,
     compileParams, hoverStickOf, lifeSim, makeLifeHeader
 } from '@owfpv/sim-core';
 import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } from '@owfpv/sim-core';
@@ -15,6 +15,7 @@ import { MeshContactWorld } from '@owfpv/world-mesh';
 import { TrafficWorld, makeTraffic, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig, TrafficModel } from '@owfpv/traffic';
 import { SimClock } from './simclock';
+import { Collector } from './collect';
 
 /**
  * SPEC.md 4.2, to prototype: after a crash, respawn quickly where you were. 1 s after the crash the
@@ -58,6 +59,8 @@ export class FlightSession {
     readonly director: RespawnDirector;
     readonly clock = new SimClock();
     readonly levelSha256: string;
+    /** the golden props: checked after every sim step, so a replay takes them on the same ticks */
+    readonly collector: Collector;
     private overrides: ParamOverrides;
     private trafficCfg: TrafficConfig;
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
@@ -81,6 +84,9 @@ export class FlightSession {
         const p = sim.p;
         this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
         this.runner.director = this.director;
+        this.collector = new Collector(o.level.collectibles);
+        const c = this.collector;
+        this.runner.onStep = (s) => c.check(s.s[S.px], s.s[S.py], s.s[S.pz]);
     }
 
     get sim(): Sim {

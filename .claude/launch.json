@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fly",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@owfpv/fly", "dev", "--port", "5173", "--strictPort"],
+      "port": 5173
+    }
+  ]
+}

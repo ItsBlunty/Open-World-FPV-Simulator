@@ -49,3 +49,7 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | Render worker: engine in a worker or on the page? | On the page by default (the worker stuttered); `?render=worker` opt-in |
 | 2026-10-18 | Firefox support | Shelved until the rest is complete |
 | 2026-10-18 | (owner's request) Fisheye on the free "Look around" camera too? | Yes |
+| 2026-10-18 | Next task? | Start M3 |
+| 2026-10-18 | (owner's request) First M3 content | Collectibles like Tony Hawk pickups, FPV themed (golden props), numbered, hidden around the city, a lot of them; a collection screen with the count; add city features to hide some (e.g. a covered bus stop with a semi-opaque panel, seen only from the road side or when looking for it) |
+| 2026-10-18 | Crash rule in challenges? | Nothing costs the pilot in normal flight; no penalties for now |
+| 2026-10-18 | Freestyle grading now? | Research it now (write-up, no code) |
