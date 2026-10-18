@@ -25,7 +25,11 @@ import { CollectionUi } from './ui/collection-ui';
 import { FlightsUi } from './ui/flights-ui';
 import { deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
 import { flightToJson } from './flights';
-import type { CheckResult } from './flights';
+import type { CheckResult, Flight } from './flights';
+import { ReplayUi } from './ui/replay-ui';
+import { RadioReplayControl } from './replay';
+import type { Track } from './replay';
+import type { CheckReply } from './check-worker';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
@@ -64,7 +68,7 @@ let camDirty = false;
 function attachMouse(c: HTMLCanvasElement): void {
     // dragging with a button held also steers, for when the browser refuses pointer lock
     c.addEventListener('mousedown', () => {
-        if (!lookAround()) return;
+        if (!freeLook()) return;
         dragging = true;
         if (!mouseCaptured()) c.requestPointerLock()?.catch(() => undefined);
     });
@@ -180,6 +184,8 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
     } else if (m.type === 'answer') {
         asks.get(m.id)?.({ ok: m.ok, value: m.value });
         asks.delete(m.id);
+    } else if (m.type === 'replay-at') {
+        if (replayUi.open) replayUi.at(m.tick, m.playing);
     }
 }
 
@@ -210,6 +216,17 @@ function onRaw(f: RawFrame): void {
     }
     if (!profile || demo) return;
     mapFrame(profile, f, ch, { arm: profile.arm ? undefined : keyArm, turtle: profile.turtle ? undefined : keyTurtle, fallbackMode: settings.mode });
+    // watching a replay: the sticks fly nothing; with the option on, deliberate moves steer the replay (replay.ts)
+    if (replayUi.open) {
+        if (!replayUi.radioOn) return;
+        const r = radioReplay.update(ch);
+        if (r.toggle) replayUi.togglePlay();
+        if (r.shuttle !== sentShuttle) {
+            sentShuttle = r.shuttle;
+            send({ type: 'replay-ctl', shuttle: r.shuttle });
+        }
+        return;
+    }
     // the engine stamps it on its own clock (protocol.ts pageToEngineMs) and disarms a radio that went quiet
     send({ type: 'input', ch, t: f.t });
     const r = switchOn(profile.reset, f);
@@ -286,13 +303,17 @@ const setup = new RadioSetup();
 const settingsUi = new SettingsUi();
 const collectionUi = new CollectionUi();
 const flightsUi = new FlightsUi();
+const replayUi = new ReplayUi();
+const radioReplay = new RadioReplayControl();
+let sentShuttle = 0;
 const menuBody = h('div');
 const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
-document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el);
+document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el, replayUi.el);
 let menuMsg = '';
 
+/** a screen is open: the sim pauses (the replay viewer too: it plays a track, the sim stays where it was) */
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open || replayUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -343,27 +364,83 @@ function openCollection(): void {
     });
 }
 
-/** checks run in a worker (check-worker.ts), so a long replay does not freeze the page */
+/** checks and replay tracks are made in a worker (check-worker.ts), so a long replay does not freeze the page */
 let checker: Worker | null = null;
 let checkSeq = 0;
-const checking = new Map<number, (r: CheckResult) => void>();
+const checking = new Map<number, (r: CheckReply) => void>();
+
+function toChecker(want: 'check' | 'track', flight: Flight, onReply: (r: CheckReply) => void): number {
+    if (!checker) {
+        checker = new Worker(new URL('./check-worker.ts', import.meta.url), { type: 'module' });
+        checker.onmessage = (e: MessageEvent<CheckReply>) => checking.get(e.data.id)?.(e.data);
+    }
+    const seq = ++checkSeq;
+    checking.set(seq, onReply);
+    checker.postMessage({ id: seq, want, flight });
+    return seq;
+}
 
 async function checkSaved(id: number): Promise<CheckResult | null> {
     const flight = await getFlight(id);
     if (!flight) return null;
-    if (!checker) {
-        checker = new Worker(new URL('./check-worker.ts', import.meta.url), { type: 'module' });
-        checker.onmessage = (e: MessageEvent<{ id: number; result: CheckResult }>) => {
-            checking.get(e.data.id)?.(e.data.result);
-            checking.delete(e.data.id);
-        };
-    }
-    const seq = ++checkSeq;
     return new Promise((resolve) => {
-        checking.set(seq, resolve);
-        checker!.postMessage({ id: seq, flight });
+        const seq = toChecker('check', flight, (r) => {
+            if (!('result' in r)) return;
+            checking.delete(seq);
+            resolve(r.result);
+        });
     });
 }
+
+/** the replay viewer: the flight is flown again in the worker to make its track, then the engine plays the track */
+let replaySeq = 0;
+let replayStarted = false;
+
+async function watchSaved(id: number): Promise<void> {
+    flightsUi.hide();
+    replayStarted = false;
+    replayUi.begin({
+        ctl: (m) => send({ type: 'replay-ctl', ...m }),
+        exit: closeReplay,
+        hasRadio: profile !== null,
+        stickMode: profile?.stickMode ?? settings.stickMode
+    });
+    const title = flightTitle(id);
+    replayUi.loading(0, title);
+    const flight = await getFlight(id);
+    if (!flight) return replayUi.failed('The flight could not be read from this browser.');
+    replaySeq = toChecker('track', flight, (r) => {
+        if (!replayUi.open) return;
+        if ('progress' in r) return replayUi.loading(r.progress, title);
+        checking.delete(r.id);
+        if ('error' in r) return replayUi.failed(r.error);
+        if ('track' in r) startReplay(r.track, title);
+    });
+}
+
+function startReplay(track: Track, title: string): void {
+    replayStarted = true;
+    sentShuttle = 0;
+    replayUi.cam = 'fpv';
+    replayUi.path = 'whole';
+    send({ type: 'replay', track, cam: replayUi.cam, path: replayUi.path });
+    replayUi.show(track, title);
+}
+
+function closeReplay(): void {
+    // a track still being made is dropped when it arrives
+    checking.delete(replaySeq);
+    if (replayStarted) send({ type: 'replay-exit' });
+    replayStarted = false;
+    if (mouseCaptured()) document.exitPointerLock();
+    held.clear();
+    camDirty = true;
+    replayUi.hide();
+    openFlights();
+}
+
+const flightTitle = (id: number): string =>
+    new Date(id).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 async function downloadSaved(id: number): Promise<void> {
     const flight = await getFlight(id);
@@ -377,7 +454,7 @@ async function downloadSaved(id: number): Promise<void> {
 function openFlights(): void {
     showMenu(false);
     void flightsUi.show({
-        list: listFlights, check: checkSaved, download: downloadSaved, remove: deleteFlight, currentId: flightId,
+        list: listFlights, check: checkSaved, watch: (id) => void watchSaved(id), download: downloadSaved, remove: deleteFlight, currentId: flightId,
         close: () => { flightsUi.hide(); showMenu(true); }
     });
 }
@@ -554,13 +631,18 @@ function lookAround(): boolean {
     return !profile && !demo;
 }
 
+/** the mouse and keys fly a camera: looking around without a radio, or the replay viewer's free camera */
+function freeLook(): boolean {
+    return replayUi.open ? replayUi.cam === 'free' : lookAround();
+}
+
 function mouseCaptured(): boolean {
     return document.pointerLockElement === canvas;
 }
 
 addEventListener('mouseup', () => { dragging = false; });
 addEventListener('mousemove', (e) => {
-    if (!lookAround() || !(mouseCaptured() || dragging)) return;
+    if (!freeLook() || !(mouseCaptured() || dragging)) return;
     lookDx += e.movementX;
     lookDy += e.movementY;
     camDirty = true;
@@ -569,6 +651,17 @@ addEventListener('keyup', (e) => { if (held.delete(e.code)) camDirty = true; });
 addEventListener('blur', () => { held.clear(); camDirty = true; });
 
 addEventListener('keydown', (e) => {
+    if (replayUi.open) {
+        if (e.code === 'Escape') return closeReplay();
+        if (e.repeat && !e.code.startsWith('Arrow')) return;
+        // the free camera's keys first (Space is "up" there), then the viewer's
+        if (replayUi.cam === 'free' && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+            held.add(e.code);
+            camDirty = true;
+            e.preventDefault();
+        } else if (replayUi.key(e.code)) e.preventDefault();
+        return;
+    }
     if (e.code === 'Escape') {
         if (flightsUi.open) {
             flightsUi.hide();
@@ -622,6 +715,8 @@ function drawHud(): void {
 function pageFrame(): void {
     setup.render();
     syncPause();
+    // the replay viewer shows its own numbers
+    hud.el.classList.toggle('hidden', replayUi.open);
     if (camDirty) {
         send({ type: 'freecam', keys: [...held], dx: lookDx, dy: lookDy, enter: false });
         lookDx = lookDy = 0;

@@ -8,6 +8,8 @@ import { h, clear } from './dom';
 export interface FlightsHost {
     list(): Promise<FlightSummary[]>;
     check(id: number): Promise<CheckResult | null>;
+    /** open the replay viewer on it */
+    watch(id: number): void;
     download(id: number): Promise<void>;
     remove(id: number): Promise<void>;
     /** the flight of this visit (still being flown), not deleted from here */
@@ -70,6 +72,7 @@ export class FlightsUi {
                     `${(f.bytes / 1024 / 1024).toFixed(1)} MB · ${f.mapId} v${f.mapVersion}, ${f.simCore}`),
                 this.status(f.id)),
             h('div', { class: 'row' },
+                h('button', { class: 'primary', onclick: () => host.watch(f.id) }, 'Watch'),
                 h('button', {
                     disabled: this.checks.get(f.id) === 'running',
                     onclick: async () => {
@@ -97,8 +100,8 @@ export class FlightsUi {
         clear(this.body,
             h('div', { class: 'title' }, h('h1', {}, 'Saved flights'), h('button', { onclick: () => host.close() }, 'Done')),
             h('p', { class: 'muted' },
-                'Every visit you fly with a radio is saved here as your stick inputs, so it can be replayed exactly: later for ',
-                'trick grades and replays. Saved when you open the menu, and every minute while flying. The newest 30 are kept.'),
+                'Every visit you fly with a radio is saved here as your stick inputs, so it can be replayed exactly: Watch plays ',
+                'it back from any camera (later also for trick grades). Saved when you open the menu, and every minute while flying. The newest 30 are kept.'),
             loading ? h('p', { class: 'muted' }, 'Loading…') : rows.length ? h('div', {}, ...rows) : h('p', { class: 'muted' }, 'No saved flights yet.'),
             h('div', { class: 'row footer' },
                 h('span', { class: 'note' }, 'Kept in this browser only.'), h('span', { class: 'spacer' }),

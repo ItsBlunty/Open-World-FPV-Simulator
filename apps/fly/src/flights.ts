@@ -108,15 +108,33 @@ export function asLife(s: SavedLife): Life {
 const TRAFFIC_CONFIGS: TrafficConfig[] = [];
 for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals });
 
+/** The traffic toggles a life's header was flown with (its collision hash names them). */
+export function trafficConfigFor(h: LifeHeader, levelSha: string): TrafficConfig {
+    const sha = h.collisionSha256;
+    const c = TRAFFIC_CONFIGS.find((x) => worldSha256(levelSha, x) === sha);
+    if (!c) throw new Error(`no collision of this build matches the flight's (${String(sha).slice(0, 12)}…): the map or traffic changed since`);
+    return { ...c };
+}
+
 /** The collision for a life's header: the map's mesh, with its traffic rebuilt from the toggles its hash names. */
 function worldFor(h: LifeHeader, level: Level, levelSha: string, mesh: MeshContactWorld): ContactWorld {
-    const sha = h.collisionSha256;
-    for (const c of TRAFFIC_CONFIGS) {
-        if (worldSha256(levelSha, c) !== sha) continue;
-        const t = makeTraffic(level, c);
-        return t ? new TrafficWorld(mesh, t) : mesh;
-    }
-    throw new Error(`no collision of this build matches the flight's (${String(sha).slice(0, 12)}…): the map or traffic changed since`);
+    const t = makeTraffic(level, trafficConfigFor(h, levelSha));
+    return t ? new TrafficWorld(mesh, t) : mesh;
+}
+
+/** What sim-core needs to replay one saved life on this build's map (throws when the life cannot be replayed here). */
+export function lifeDeps(flight: Flight, s: SavedLife, level: Level, levelSha: string, mesh: MeshContactWorld): ReplayDeps {
+    if (!LOG_FORMATS.includes(s.header.format)) throw new Error(`log format ${s.header.format} is not one this sim-core reads`);
+    const world = worldFor(s.header, level, levelSha, mesh);
+    return {
+        preset: (sha) => flight.presets[sha] ?? null,
+        world: (scene) => {
+            if (!scene || scene.id !== level.id || scene.version !== level.version) {
+                throw new Error(`flown on ${scene ? `${scene.id} v${scene.version}` : 'no map'}; this build has ${level.id} v${level.version}`);
+            }
+            return world;
+        }
+    };
 }
 
 export interface CheckResult {
@@ -137,17 +155,12 @@ export function checkFlight(flight: Flight, level: Level, mesh: MeshContactWorld
     const out: CheckResult = { ok: true, lives: [], problem: null };
     try {
         flight.lives.forEach((s, i) => {
-            if (!LOG_FORMATS.includes(s.header.format)) throw new Error(`life ${i}: log format ${s.header.format} is not one this sim-core reads`);
-            const world = worldFor(s.header, level, levelSha, mesh);
-            const deps: ReplayDeps = {
-                preset: (sha) => flight.presets[sha] ?? null,
-                world: (scene) => {
-                    if (!scene || scene.id !== level.id || scene.version !== level.version) {
-                        throw new Error(`flown on ${scene ? `${scene.id} v${scene.version}` : 'no map'}; this build has ${level.id} v${level.version}`);
-                    }
-                    return world;
-                }
-            };
+            let deps: ReplayDeps;
+            try {
+                deps = lifeDeps(flight, s, level, levelSha, mesh);
+            } catch (e) {
+                throw new Error(`life ${i}: ${e instanceof Error ? e.message : String(e)}`);
+            }
             const { hash } = replayLives([asLife(s)], deps);
             const ok = s.traceHash !== null && hash === s.traceHash;
             out.lives.push({ index: i, ok, ticks: s.endTick - (s.hashFrom ?? s.header.life.startTick) });

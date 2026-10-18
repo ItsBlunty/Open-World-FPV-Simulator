@@ -35,6 +35,5 @@ version is refused with the reason. `pnpm test` 52 files, 454 tests. In the buil
 `?demo`): a 19 s flight of 3 lives saved, "Replay matches" on the screen; its first two lives (one ended by the
 `stuck-wedged` rewind), taken out of IndexedDB, replay in Node to the same hashes: Chrome and Node agree.
 
-**Left open:** no replay viewer yet (the next step toward the owner's trick report: draw a saved flight's path, play it
-from the FPV or chase camera). Flights of an older map or traffic version cannot be checked (keep old builds, or version
+**Left open:** (the replay viewer is built since: `replay-viewer.md` §0u.) Flights of an older map or traffic version cannot be checked (keep old builds, or version
 the maps, if old flights must replay). A flight longer than the runner's 30 lives / 32 MiB keeps only its tail.

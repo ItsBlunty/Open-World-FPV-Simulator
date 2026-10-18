@@ -71,3 +71,7 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | Split-S exits? | Heading reversed (180° ± 45°) now; 270° and yaw-entry variants as separate named tricks later |
 | 2026-10-18 | Wind in challenges? | The world's wind |
 | 2026-10-18 | Trick difficulty scale? | Start from ProWhooper's base points (flip 50, power loop 200, Rubik's cube 325, inverted yaw spin 400), tune later |
+| 2026-10-18 | Replay viewer cameras? | All four: FPV (the pilot's lens), chase, free camera, and a fixed spotter that turns to follow the quad |
+| 2026-10-18 | Replay path line? | Switchable (off / trail / whole flight), whole flight by default |
+| 2026-10-18 | Replay overlay? | Stick overlay; speed, height, throttle; timeline marks for crashes, respawns and golden props |
+| 2026-10-18 | Replay controls? | Play/pause and a scrub bar; speeds 0.1x to 2x. Radio control of the replay as an option that starts off, so stick jitter or a bumped stick never moves the playback unless the pilot means it |

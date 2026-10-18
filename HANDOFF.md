@@ -8,8 +8,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
   sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
-  next: a replay viewer, then the grader once the trick definitions are written.
-- **Tests:** `pnpm test`: 52 files, 454 tests pass. `pnpm typecheck` clean.
+  replay viewer built (Saved flights > Watch); next: the grader once the trick definitions are written.
+- **Tests:** `pnpm test`: 53 files, 463 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
@@ -28,6 +28,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    should go in (25 % of block-side walks now)? [map §0q]
 3. **Golden props (map v6):** hunt some (Esc > Golden props > Collection lists them by number). Is 1 m pickup reach
    right? Are the frosted shelters too easy or too hard to see through? More props, harder spots? [collectibles §0r]
+4. **Replay viewer:** fly a few minutes, then Esc > Flights > Watch. Try the four cameras, the path modes, the speeds,
+   and (tick "Radio controls") roll to wind, pitch to play / pause. Is the spotter's spot useful? [replay-viewer §0u]
 
 ## Left open (not started)
 
@@ -77,6 +79,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
+| `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick rules and grades; prototype plan |
 
 Owner decisions: `docs/decisions.md`.

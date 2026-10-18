@@ -10,6 +10,12 @@
 import type { ParamOverrides } from '@owfpv/sim-core';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
+import type { Track } from '../replay';
+
+/** The replay viewer's cameras (owner, 2026-10-18): the pilot's FPV, chase, a free camera, a spotter standing still. */
+export type ReplayCam = 'fpv' | 'chase' | 'free' | 'spotter';
+/** The flight path: none, the last few seconds, or the whole flight (the default). */
+export type PathMode = 'off' | 'trail' | 'whole';
 
 export interface EngineSettings {
     uptiltDeg: number;
@@ -63,7 +69,15 @@ export type PageMsg =
     /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
-    | { type: 'ask'; id: number; code: string };
+    | { type: 'ask'; id: number; code: string }
+    /** watch a saved flight (replay.ts): the sim stays paused while the track plays */
+    | { type: 'replay'; track: Track; cam: ReplayCam; path: PathMode }
+    /**
+     * the replay's controls; seek: go to a tick; shuttle: wind at this many flight seconds a second while not 0 (the
+     * radio's roll stick), whether playing or not
+     */
+    | { type: 'replay-ctl'; playing?: boolean; speed?: number; seek?: number; cam?: ReplayCam; path?: PathMode; shuttle?: number }
+    | { type: 'replay-exit' };
 
 export interface HudSnapshot {
     /** sim-core's state vector and channels, copied */
@@ -84,7 +98,9 @@ export type EngineMsg =
     | { type: 'flight'; flight: Flight }
     | { type: 'hud'; hud: HudSnapshot }
     | { type: 'error'; message: string }
-    | { type: 'answer'; id: number; ok: boolean; value: unknown };
+    | { type: 'answer'; id: number; ok: boolean; value: unknown }
+    /** where the replay is, every frame it plays (the page draws the sticks and numbers from its own copy of the track) */
+    | { type: 'replay-at'; tick: number; playing: boolean };
 
 /** Something both a worker and a MessagePort are. */
 export interface Port {
