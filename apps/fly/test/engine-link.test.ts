@@ -1,4 +1,4 @@
-// The engine left the page's main thread (owner, 2026-10-18; HANDOFF.md §0h). A worker's performance.now() counts
+// The engine left the page's main thread (owner, 2026-10-18; docs/notes/browsers-input-performance.md §0h). A worker's performance.now() counts
 // from its own timeOrigin, so every stick frame from the page is shifted onto the engine's clock before the sim
 // clock sees it, and a radio that goes quiet while armed is still disarmed after 150 ms of the engine's time.
 

@@ -1,4 +1,4 @@
-// Damage and landing (sim-core/0.3.0, this project; HANDOFF.md 0a items 2 and 3): one health value, 1 at a
+// Damage and landing (sim-core/0.3.0, this project; docs/notes/contacts.md §0a items 2 and 3): one health value, 1 at a
 // spawn, down by each impact from its approach speed; a hit on the frame's underside (a landing) is harmless up
 // to a much higher speed than a hit on the props, arms or top; 0 health is a crash. Nazgul preset (vBounce 1.5,
 // vCrash 5 m/s, so harmless up to 1.5 m/s on the props and 4 m/s on the underside; all of the health at 5 and

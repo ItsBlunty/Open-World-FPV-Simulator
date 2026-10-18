@@ -1,4 +1,4 @@
-// When the sun's shadow square moves (owner, 2026-10-18; HANDOFF.md §0l). Moving it re-writes the shadow data of every
+// When the sun's shadow square moves (owner, 2026-10-18; docs/notes/browsers-input-performance.md §0l). Moving it re-writes the shadow data of every
 // object that receives shadows; in Firefox those GPU writes allocate memory, and moving it every frame (as the camera
 // crosses a 6 cm texel) made ~180 writes a frame instead of ~69, and the frames Firefox's garbage collector landed on
 // stuttered. So the square stays put until the camera is RECENTRE_M from its centre across the sun's view, or

@@ -1,0 +1,51 @@
+# Owner decisions log
+
+Questions put to the owner and the answers, newest last. `SPEC.md` reflects them. Add each new answer here.
+
+| Date | Question | Answer |
+|---|---|---|
+| 2026-10-17 | Project license | GPL-3.0 |
+| 2026-10-17 | License of our changes to `packages/sim-core`: MIT (so they can go upstream) or GPL? | GPL; upstreaming not needed |
+| 2026-10-17 | Split the flight controller from the physics in M0, or later? | Claude's call: done in M0 |
+| 2026-10-17 | GPL-3.0 "only" or "or later"? | GPL-3.0-or-later |
+| 2026-10-17 | Which 3D engine renders the world? (Three.js / PlayCanvas / Babylon.js) | Three.js |
+| 2026-10-17 | How is the first map's art made? (blockout then CC0 / CC0 from the start / blockout only) | Blockout first, then CC0 |
+| 2026-10-17 | What radio, connected how? (EdgeTX USB / wireless dongle / gamepad) | EdgeTX radio over USB |
+| 2026-10-17 | Default drone for the first map? (5" freestyle / 65 mm whoop / 3" cinewhoop) | 5" freestyle |
+| 2026-10-17 | Which EdgeTX radio, set up how? | RadioMaster Boxer. A setup system that saves calibration and settings, supports all 4 stick modes and walks the pilot through moving each stick |
+| 2026-10-17 | Use the owner's own Betaflight rates? | Preset defaults, plus a box for Betaflight and Actual rates where pilots enter their own |
+| 2026-10-17 | FPV camera uptilt and field of view? | 20° default, adjustable; ~120° FOV, adjustable |
+| 2026-10-17 | Map scale and bando size? | One open world, start quite large; bando 5 storeys with broken floors |
+| 2026-10-17 | HUD readouts for M1? | Battery voltage, armed / flight mode, throttle and speed |
+| 2026-10-17 | Where do playtest builds run? | GitHub Pages |
+| 2026-10-17 | Is ~1 km x 1 km the right map size to start? | Yes |
+| 2026-10-17 | (owner's request after flying M1) Sticking and shaking on surfaces | Must not happen at all; fix the physics, respawn workarounds are not acceptable |
+| 2026-10-17 | (owner's request) Damage | Simple health 100 % down by impact speed for now |
+| 2026-10-17 | (owner's request) Landing | Landing on the bottom does no damage unless very fast |
+| 2026-10-17 | (owner, after the damage model was built) Damage too harsh, not realistic: a 5" hits on its belly and slides without damage | Shelve damage: off by default, every hit a bounce, keep flying; a toggle to bring it back later |
+| 2026-10-17 | After a hit leaves the quad on its back: turtle mode, bouncier hits, a prop-strike kick, or nothing? | Turtle mode |
+| 2026-10-17 | Turtle switch turned off while armed: disarm and re-arm (Betaflight 2026.6 default), fly on (auto re-arm), or 4.5 style? | Disarm, re-arm (Betaflight default) |
+| 2026-10-17 | The automatic rewind of a quad lying flipped for 1.5 s (Liftoff's rule)? | Always off |
+| 2026-10-17 | (after flying 0.3.0-0.4.0) Contacts, prop strikes, turtle mode, the camera fix | All good for now |
+| 2026-10-17 | Keep the automatic rewind of a quad wedged with the throttle up for 3 s? | Keep it: a pilot throttles down unless something is wrong |
+| 2026-10-17 | A chase camera that does not go inside buildings? | Later: on the to-do list |
+| 2026-10-17 | (owner's request) Level look | A general pass; bando columns must run unbroken like a real building's |
+| 2026-10-17 | People and cars: drawn only, or solid? | Solid, stylised to look fun, with settings to turn them off |
+| 2026-10-17 | (owner's request) Traffic | Stoplights, more realistic driving, people waiting at crossings, crossing lights; a toggle in the performance settings |
+| 2026-10-18 | (owner's request) Fisheye FPV camera from Gyroflow lens profiles: default lens? | Caddx Ratel 2 (analog) |
+| 2026-10-18 | A camera picture of another shape than the screen? | Fit with black bars |
+| 2026-10-18 | Which profiles to offer? | A short curated list |
+| 2026-10-18 | The FOV slider with a lens? | Hide it |
+| 2026-10-18 | Fisheye method: wide render + warp, vertex bending, or cropped face cameras + remap? | Face cameras (exact); Firefox shelved for now |
+| 2026-10-18 | M2: blackbox logs of the owner's quad to fit the preset? | Not now; go without, maybe correct later |
+| 2026-10-18 | M2: write the review into `docs/physics-review.md` and commit? | Yes |
+| 2026-10-18 | M2: first improvement? | The airflow fix (per-rotor inflow thrust, review G1) |
+| 2026-10-18 | Airflow fix: vertical drag area, which drones? | 150 cm^2; Nazgul only |
+| 2026-10-18 | (owner's request) Compare with the old physics | A "Classic physics" toggle that loads sim-core/0.5.0's model |
+| 2026-10-18 | Download NeuroBEM's 627 MB measured-flight data to check the model? | Yes, carefully (token budget) |
+| 2026-10-18 | Use NeuroBEM's measured 33 ms motor lag for the Nazgul? | No, leave 17 ms |
+| 2026-10-18 | (owner's request) City pass | A realistic tower crane, names on buildings, some walkers going in and out of buildings |
+| 2026-10-18 | (owner, on left turns) Give-way rules for cars? | No: cars only follow traffic lights, with cycles and turn arrows; natural paths, never diagonals |
+| 2026-10-18 | Render worker: engine in a worker or on the page? | On the page by default (the worker stuttered); `?render=worker` opt-in |
+| 2026-10-18 | Firefox support | Shelved until the rest is complete |
+| 2026-10-18 | (owner's request) Fisheye on the free "Look around" camera too? | Yes |

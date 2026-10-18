@@ -1,7 +1,7 @@
 // Determinism check on the real map: a scripted flight (sticks from + - * / of the tick only, no
 // Math functions, so every engine makes the same sticks) through the runner and the respawn
 // director, hashing every tick's state. The Node test pins the hash; the page runs the same flight
-// with ?selftest and shows its hash, so Node and each browser can be compared (HANDOFF.md: the
+// with ?selftest and shows its hash, so Node and each browser can be compared (docs/notes/foundation.md: the
 // Node-vs-Chrome check with mesh collision).
 
 import { FlightSession } from './session';

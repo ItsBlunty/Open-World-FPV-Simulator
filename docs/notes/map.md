@@ -1,0 +1,124 @@
+# First map: look passes, world pass, crane, names, doors
+
+Archived work notes, moved verbatim from HANDOFF.md on 2026-10-18. Read only when working in this area;
+`HANDOFF.md` has the current state. Section numbers (§0a ...) are the ones code comments cite.
+
+## 0d. Level look pass (owner, 2026-10-17): map v2
+
+The owner asked for "a general pass" on how the level looks, with two points: the bando's pillars "seem like they are
+segments only one story tall, so they have gaps in between them unlike a real building", and how much load people
+walking and cars driving would add.
+- **Bando columns** (`first-map.ts bando`): one box from the ground slab to the roof (or to the 4th floor's top
+  for the few broken interior ones) instead of one per storey stopping under each slab. The old gap showed at every
+  missing panel and along the outside, where the columns stand 25 cm proud of the slab edges. Test: "runs the bando
+  columns unbroken" (fails on map v1). The RNG draws are unchanged, so the rest of the bando is the same.
+- **City facades:** buildings use new `facade-*` materials; the shader (`render/world.ts windows()`) paints a window
+  every 3 m per 3.5 m storey, shop windows on the ground floor, ribbon windows with mullions on glass towers, and
+  fades to the average where the pattern gets finer than the screen can draw. Paint only: collision unchanged.
+- **Road paint:** `LevelBuilder.decal()` draws a rectangle 2 cm up and leaves it out of the collision (stripe edges
+  would be steps the contact solver catches on; 2 cm is under half a 45 mm collision sphere). Dashed centre lines
+  and zebra crossings on every city junction.
+- **Sun shadows** (`render/world.ts Sun`): 4096² map over 240 m around the camera, snapped to whole texels so it does
+  not crawl (since §0l it re-centres only every 16 m). Measured GPU time at 2560x1319 (WebGPU, owner's machine): street 2.3 ms with / 1.5 ms without, city
+  overview 0.6 / 0.7, bando 0.55 / 0.6. `?noshadows` turns them off. Works on the WebGL 2 fallback too.
+- Map v2: 41 462 triangles (v1: 44 006), hash `57c76dcc…`. The self-test hash did not change (its flight is in the park).
+- **People and cars (asked, not built):** answered the owner with this estimate. Drawn only (they cannot be hit):
+  cheap to run (instanced low-poly models, a few hundred of each, well under a millisecond of CPU and GPU per frame),
+  a moderate job to build (lanes and sidewalk paths on the city grid, stopping at junctions, CC0 models). Solid
+  (a hit bounces the quad): their positions must come from the sim tick only (replays), and sim-core's contact solver
+  must handle a moving surface (it assumes the world is still): a sim-core change with a version bump and a flight test.
+
+
+## 0g. World pass (owner, 2026-10-18): map v4, built, waiting for the owner to look and fly
+
+The owner asked for another pass over the whole world. Their points: the bando walls float like the columns used to
+(missing bottom or top pieces); the water tower on the bando has part of its base touching nothing; office windows
+should be set back, not flat; cars should have see-through windows with people in them.
+
+- **Bando walls (`first-map.ts bando`, `BEAM`):** the walls ran from the floor panel to the panel above, so a missing
+  panel left a 30 cm gap under or over them. Now, like a real cast frame, there are beams on every column line at
+  every floor (0.45 m deep, 0.3 m wide; estimates, about span / 13), and the walls fill from the floor up to the
+  beam above. Inside the collapse the beams fell with the panels; the perimeter ones all stand. The parapet sits on
+  the edge beams. RNG draws unchanged, so the same panels and walls are missing as before.
+- **Bando roof tank:** two of its legs stood over a missing roof panel (checked on map v3: nothing under them down to
+  floor 3). Now the legs stand on two steel beams (dunnage) laid across the roof beams of column lines 7 and 8, as
+  rooftop tanks are set.
+- **City windows (`windowedBlock`):** real geometry, not paint. Each building is a glass core set 15 cm in from its
+  footprint (`REVEAL`, estimate) wrapped in solid bands between window rows and piers between windows. Office windows
+  1.4 m every 3 m (sill 0.9, head 2.6), shop fronts on the street floor (2.5 m, 0.3-3.0), glass towers get ribbon
+  windows (0.8-3.2) with painted mullions (`window-ribbon` material). Windows are laid out per wall, whole bays,
+  centred (the old shader's world-aligned windows could be cut by a corner). Hidden faces are left out
+  (`LevelBuilder.box` `skip` mask, `FACE`). Cost: **222 630 triangles (map v3: 41 462)**; the map test (build twice,
+  BVH, hash) still runs in about 0.4 s. The reveals are solid: a quad sliding along a wall can catch on a sill.
+- **Cars (render only, `render/traffic.ts`):** the cab is now light-tinted transparent glass (both sides, no depth
+  write) with body-colour pillars, a dark interior (floor, dashboard, steering wheel on the left, seat backs) and
+  1-3 bean riders with eyes (driver on the left: traffic drives on the right). Collision unchanged (the cab box is
+  solid, as glass is). 134 cars, 274 riders in the default traffic.
+- **Also fixed or added:** the south-east water tower's brace floated between its legs (now two rings of girders
+  joining the legs); the car park had no way up (now switchback ramps in two lanes, 16 % grade, each through an
+  opening in the slab above, `LevelBuilder.rampZ`) and parapets on two sides only (now all four); street lamps were
+  bare poles (now an arm and a lamp over the road); silos got roofs.
+- `apps/fly/test/stuck.test.ts`: the owner's old under-the-slab spot is 7 cm from a new beam, so the spot moved 0.78 m
+  into the same bay (under the flat slab, as the test means).
+- Map v4 hash `e6d95de1…`. The self-test and traffic hashes are unchanged (the flight is in the park).
+
+**Evidence:** `pnpm test` 44 files, 410 tests pass (4 new map tests: every perimeter bay has its beam at every floor;
+the tank's legs stand on steel over the roof beams; windows 15 cm back on every south-row building face; the car-park
+ramp's height and the opening over it). Each of the four fails on map v3. Screenshots in Chrome (WebGPU) of the
+bando, its roof tank, a brick street, a glass tower corner and cars with riders (taken 2026-10-18, not saved to disk).
+
+**Left open:** the owner to look and fly (do the window sills and beams feel right to fly along?); no frame-time
+measurement after the 5x triangle count (the GPU cost was 0.5-2.3 ms before; worth a check on the owner's machine);
+the underside of slabs renders very dark (the hemisphere light's ground colour), unchanged by this pass.
+
+
+## 0q. Crane, building names, people going into buildings (owner, 2026-10-18): built, waiting for the owner
+
+**Asked:** "Make the crane more realistic, etc. Put names on buildings, have some of the walking NPCs enter/leave buildings."
+
+**Crane (`first-map.ts towerCrane`, map v5).** Modelled on a Liebherr 172 EC-B 8 Litronic flat-top, from Liebherr's FEM
+technical data sheet (copy at ueg.qa, read 2026-10-18): 16 EC tower of 1.6 x 1.6 m sections 3.9 m long (12 sections,
+slewing unit at 47.45 m), a 50 m jib (a listed length), 13.4 m counter-jib, 7 ballast blocks of 3150 x 1180 x 280 mm
+(2.5 t each; 1.04 m^3 x 2.4 t/m^3 checks out) for that jib. Estimates: member sizes (chords 14 cm, bracing 7 cm),
+the jib's section (1.6 m wide, 1.8 m deep triangle, 2.5 m Warren panels), the cab, the 4.5 m foundation block's
+height. The trolley sits 20 m out with the hook block on two rope falls down to 30 m (above the 24 m steel frame); the
+rope is 5 cm thick (real ~16 mm, estimate) so it shows and is solid. New `LevelBuilder.bar` (a square bar between any
+two points) and a `crane` material (yellow). It is still: no slewing (a moving crane needs it in the traffic-style
+moving-surface world; not built).
+
+**Names and doors (`first-map.ts building`, `builder.ts` `Building`, `Door`).** Each of the 112 city buildings gets a
+made-up name (shops on low ones, offices / flats / hotels mid-height, towers in the centre, a few FPV jokes: "Prop
+Wash Laundry", "Turtle Mode Tacos"...) and one street entrance: the middle shop-front bay on a street-facing face, its
+sill left out so the glass runs to the sidewalk. Names and doors come from their own `Rng(7)`, so the rest of the city
+is drawn exactly as before. `Level.buildings` / `Level.doors` are metadata (not in the collision hash).
+
+**Rendering (`render/buildings.ts`, render only).** One texture with every name; a sign over the shop fronts on each
+street face (over the door on its face), and towers of 12+ storeys carry their name across the top storey. Signs sit
+3 cm off the wall. Each entrance has a dark frame, fixed side glass and two automatic sliding leaves inside the 15 cm
+reveal, which slide open (0.6 s) when a walker going through is within 2.2 m. People inside are not drawn
+(`render/traffic.ts`).
+
+**Walkers (`network.ts`, TRAFFIC_VERSION 6).** A walker starting along a block side with a door goes in one time in
+four: along the sidewalk to the door (phase 5), in through it to 1.5 m past the glass (6), stays 20-120 s out of
+sight (7, `hidden()`; still solid there, unreachable behind the glass), comes out (8) and walks on either way. All
+from the tick alone, as before. The signals-off loop model has no doors.
+
+**Evidence:** `pnpm test` 49 files, 443 tests (new: crane lattice and doors in `first-map.test.ts`: a 0.25 m sphere
+fits through every tower section's face, rays pass down through the jib, the hook block under the trolley; every
+building named uniquely with its door on a street face and no sill; `traffic.test.ts` doors: the way out of every door
+is clear for a person, and over 5 min 68 people went in and 49 came out, at most 22 of 270 inside, nobody in a doorway
+off its middle line). Typecheck and production build clean. Seen in the built-in browser (dev server, WebGPU):
+the crane from the street and up close (cab, truss jib), "Ashford Court" sign and doors, a walker going into
+"Lindqvist's Deli" with the doors opening and closing behind (screenshots in the session's tool-results, not saved).
+Re-pinned: map `e9343a1d…` (226 642 triangles), traffic self-test `59f44e0a…`. Flight self-test hashes unchanged
+(the flight is in the park).
+
+**For the owner:** look at the crane and fly through its tower and jib (thin bars are solid: tight gaps), read some
+signs, watch a door. Ask: crane slewing wanted? Names OK (want real-sounding only, or more jokes)? How many people
+should go in (25 % of block-side walks now)?
+
+**Left open:** `?selftest` not run in Chrome on the Pages build yet (Node hashes re-pinned); the crane does not move;
+no interiors (people vanish 1.5 m behind the door); signs are not lit at night (no night); the car park, plaza and
+surface-parking blocks have no names or doors.
+
+

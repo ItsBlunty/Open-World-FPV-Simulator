@@ -1,6 +1,6 @@
 // The page: the menus, the HUD and every input (radio, keyboard, mouse). The engine (flight session, Three.js
 // scene, frame loop: engine/engine.ts) runs on this page by default. ?render=worker runs it in a worker drawing to
-// this page's canvas instead (HANDOFF.md §0i): input arrives sooner there, but the owner felt stutters every 5-10 s
+// this page's canvas instead (docs/notes/browsers-input-performance.md §0i): input arrives sooner there, but the owner felt stutters every 5-10 s
 // in Firefox and chose the page (2026-10-18). URL options: ?selftest runs the determinism check, ?demo flies the
 // self-test's scripted sticks in real time (no radio needed), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
 // point, ?cam=chase starts in the chase view, ?noshadows turns the sun's shadows off (for slow GPUs, and to measure
@@ -326,7 +326,7 @@ const isFirefox = /firefox\//i.test(navigator.userAgent);
 /** the "How to connect a radio" box stays open across menu redraws */
 let helpOpen = false;
 
-/** Firefox is shelved (HANDOFF.md, owner 2026-10-18); other browsers without WebHID only lose the direct USB path */
+/** Firefox is shelved (docs/decisions.md, owner 2026-10-18); other browsers without WebHID only lose the direct USB path */
 function browserNotice(hidOk: boolean): HTMLElement | null {
     if (isFirefox) {
         return h('div', { class: 'callout' },

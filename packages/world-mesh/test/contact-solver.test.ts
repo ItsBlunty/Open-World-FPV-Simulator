@@ -1,4 +1,4 @@
-// sim-core/0.3.0's contact solver on mesh geometry (sim.ts contactsAt; HANDOFF.md 0a item 1): a craft
+// sim-core/0.3.0's contact solver on mesh geometry (sim.ts contactsAt; docs/notes/contacts.md §0a item 1): a craft
 // resting on a floor, against a wall or pressed under a ceiling stays still, and its gyro reads ~0
 // (sim-core/0.2.0 rocked it from sphere to sphere at several rad/s: docs/physics-review.md F1, F2);
 // sliding along a wall does not stick. Also MeshContactWorld.contacts, the query the solver uses.

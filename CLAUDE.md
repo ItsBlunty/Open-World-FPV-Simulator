@@ -1,10 +1,12 @@
 # FPV Practice Sim
 
 Open-source browser FPV simulator: realistic flight physics plus game design that rewards practice.
-Goals, requirements and milestones: `SPEC.md`. Research history and why each decision was made: `HANDOFF.md`.
-Read both before starting a new milestone.
+- Start every task from `HANDOFF.md` (current state, open items, pinned hashes). It is short on purpose.
+- `SPEC.md`: goals, requirements, milestones. Read it before starting a new milestone.
+- `docs/notes/*.md`: archived detail by area (map, traffic, contacts, physics, ...). Read only the note for the area
+  you work in. `docs/decisions.md`: every owner answer. `docs/physics-review.md`: physics findings.
 
-<!-- Build, test and lint commands go here once M0 creates them. Keep this file under 200 lines. -->
+Commands (Node 22.12+, pnpm 10): `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm dev`.
 
 ## Architecture rules
 - `packages/sim-core` is a separate component. It must never import from the game, renderer, UI or browser APIs.
@@ -34,5 +36,8 @@ Read both before starting a new milestone.
 - When citing a source, read it completely first. Prefer primary sources (official docs, the code itself).
 - Flight feel can't be tested automatically: when a change affects handling, say so and ask the owner to fly it.
 - Show evidence of checks (test output, screenshots), not just claims that something works.
-- Every finished task ends with a commit and a `HANDOFF.md` update (what was built, evidence, what is left open),
-  so the context can be cleared and the next session starts from HANDOFF.md alone (owner, 2026-10-18).
+- Record each owner answer in `docs/decisions.md`.
+- Every finished task ends with a commit and a `HANDOFF.md` update, so the context can be cleared and the next
+  session starts from HANDOFF.md alone (owner, 2026-10-18). Keep HANDOFF.md short: rewrite its state, waiting and
+  open lists in place, one line per item. Put the detail (what was built, evidence, measurements) in the matching
+  `docs/notes/` file, or in a new one for a new area.

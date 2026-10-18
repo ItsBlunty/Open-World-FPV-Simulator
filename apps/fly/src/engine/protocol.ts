@@ -1,7 +1,7 @@
 // What the page and the engine say to each other (owner, 2026-10-18: so the renderer and the sim can run off the page's
 // main thread). The page keeps the DOM and every input; the engine owns the flight session, the Three.js scene and
 // the frame loop. It runs on the page through these messages (the default), or with ?render=worker in a worker drawing
-// to an OffscreenCanvas (HANDOFF.md §0i; the owner felt stutters there). §0h has why: Firefox applies gamepad updates on the
+// to an OffscreenCanvas (docs/notes/browsers-input-performance.md §0i; the owner felt stutters there). §0h has why: Firefox applies gamepad updates on the
 // page's main thread, so a page busy drawing sees them late and merged.
 //
 // Clocks: a worker's performance.now() counts from its own timeOrigin, not the page's. Input stamps are page time;
@@ -85,7 +85,7 @@ export const HUD_HZ = 30;
 /**
  * Two ports on one thread that hand each message straight to the other side's handler: no copy. A MessageChannel
  * copies every message (structured clone) and the copies fill memory that Firefox frees with a major GC about every
- * 30 s, which stuttered (owner, 2026-10-18; HANDOFF.md §0k). Delivery is synchronous, so a sender may reuse what it
+ * 30 s, which stuttered (owner, 2026-10-18; docs/notes/browsers-input-performance.md §0k). Delivery is synchronous, so a sender may reuse what it
  * sent as soon as postMessage returns. Messages to a side with no handler yet wait until one is set.
  */
 export function localPorts(): [Port, Port] {

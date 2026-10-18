@@ -1,5 +1,5 @@
 // The sun's shadow square moves only when the camera has gone far enough from its centre (owner, 2026-10-18: moving it
-// every frame made Firefox stutter; HANDOFF.md §0l).
+// every frame made Firefox stutter; docs/notes/browsers-input-performance.md §0l).
 
 import { describe, expect, it } from 'vitest';
 import { RECENTRE_DEPTH_M, RECENTRE_M, shadowNeedsRecentre } from '../src/render/shadow-follow';

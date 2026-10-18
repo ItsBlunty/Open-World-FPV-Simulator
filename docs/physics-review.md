@@ -206,7 +206,7 @@ v_y = +0.2-0.3 m/s reported each contact. Reproduction and negative control:
 strike, and with real gyro readings airmode would not see phantom rates. Indoor mesh levels (the bando)
 make gentle ceiling touches common.
 
-**Mitigation now (not a physics fix; the owner rejected this kind of fix, see HANDOFF.md §0a).** The respawn director got a "stuck, pinned" rule (armed, still,
+**Mitigation now (not a physics fix; the owner rejected this kind of fix, see docs/notes/contacts.md §0a).** The respawn director got a "stuck, pinned" rule (armed, still,
 touching from above, stick below hover, 1.5 s: rewind), and the game asks rewind spots for 0.5 m of
 room beyond the bounding radius instead of 0.05 m (`REWIND_MARGIN_M`, `apps/fly/src/session.ts`), so a
 rewind no longer puts the quad 25 cm under a slab.
