@@ -29,9 +29,13 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Left-turn arrows (owner, 2026-10-18, §0e "Left turns"):** the owner asked to fix the empty edge lane so cars drive
   around naturally, and corrected Claude's first attempt (give-way rules for left turns): **"the only rule needs to
   be follow the traffic lights"**, with cycles and turning arrows like a real city. Built that way: cars turn left
-  everywhere on protected arrows and only ever follow their own light. **Waiting for the owner to look at it.**
+  everywhere on protected arrows and only ever follow their own light. The owner: "It looks good to me for now",
+  but opposing left turners seemed to drive through each other (they were 0.51 m apart). Claude then tried a
+  diagonal path across the junction; the owner rejected it: **"STOP MAKING THINGS UNREALISTIC. REAL CARS CAN TURN
+  NORMALLY ... NOBODY DRIVES DIAGONAL IN REAL LIFE"**. Real fix: lanes were 4 m from the centre line (near the
+  kerb); now 2.5 m, and a left turn is one smooth quarter circle. **Waiting for the owner to look at it.**
 - sim-core is now `sim-core/0.5.0` (moving surfaces; still worlds bit-identical); the self-test hash is `cd45c59c…`
-  and the traffic hash `4479b371…` (traffic v4, arrows; Node and Chrome 155 match on WebGPU; Firefox not re-checked).
+  and the traffic hash `80f0c9aa…` (traffic v5: arrows, lanes 2.5 m from the centre line; Node and Chrome 155 match on WebGPU; Firefox not re-checked).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
@@ -230,9 +234,13 @@ performance settings."
   3 E-W straight and right 15 / 3 / 2; then the scramble: walk 6, flashing 12, all-red 2. Each movement has a
   `group`; a car reads the light of the movement it takes; `boxClear` waits for other groups' cars to leave the box.
   A left turn with nothing oncoming (a T's stem, a grid corner) goes on the straight light and has no arrow head.
-- Geometry: the left-turn arc starts 0.1 m past the stop line (`R_LEFT = STOP + LANE - 0.1` = 16.9 m), so the two
-  opposing left turns on one arrow stay on their own side of the junction centre (paths 1.3 m either side, car
-  corners 0.5 m apart): no movement crosses another in the same phase.
+- Geometry: lane centre `LANE` = 2.5 m right of the road's centre line (was 4 m, which put opposing left turners
+  0.51 m apart). The left turn is one smooth quarter circle from just past the stop line into the far lane
+  (`R_LEFT = STOP + LANE - 0.1` = 15.4 m), so the two opposing left turns on one arrow stay on their own side of the
+  junction centre (paths 0.414 STOP - LANE = 2.9 m either side of it): no movement crosses another in the same
+  phase. Measured over 10 min (sampled every 10 ms with interpolation): any two cars in one junction from different
+  approaches never closer than 2.82 m (279 pairs; the closest are opposing straight cars), any two cars 1.95 m.
+  Do not use diagonal or other unnatural paths (owner).
 - Signals: an arrow head (`SignalHead.kind 'arrow'`, a solid box too) on the mast arm 0.9 m left of the main head;
   the renderer draws its three lamps as arrows pointing to the driver's left (`arrowLamp` instanced mesh).
 - Tried and measured, not kept: split phasing (each approach its own green, no arrows): 1.62 m/s; arrows 5 s with
@@ -240,7 +248,8 @@ performance settings."
 - **Cost to tell the owner:** mean car speed fell from 3.08 to 1.89 m/s. Straight-on now has 15 s green in 84 (was 15
   in 60), and with one lane a straight car behind a car waiting for its arrow waits too. Real cities fix that with
   left-turn pockets (a short extra lane) or coordinated "green wave" offsets; neither is built. Ask the owner.
-- Evidence: all 44 files / 406 tests pass. 10-minute test: overlaps 0, red runs 0, crossers near cars 0, arrow turns
+- Evidence (numbers below measured with LANE 4; with LANE 2.5 all 406 tests pass again with the same bounds and
+  `?selftest` MATCHes in Chrome, numbers not re-logged): 10-minute test: overlaps 0, red runs 0, crossers near cars 0, arrow turns
   > 150 (about 313), longest stand-still under one cycle (73 s < 84), mean 1.89 m/s (bound now > 1.6). Over 30 min:
   1.92, 1.86, 1.84, 1.83, 1.86, 1.88 m/s per 5 min (no jam growing), 984 arrow turns, 25 cars on the 34
   anticlockwise edge links at the end. `?selftest` MATCH in Chrome (flight `cd45c59c…`, traffic `4479b371…`).
@@ -252,7 +261,8 @@ turn each setting off and on, watch a junction through a whole cycle. Ask: do hi
 as on concrete, cars never slow)? Is the traffic density, speed and light timing fun? Is the slower traffic with
 arrows OK, or add left-turn pockets / green-wave offsets / shorter cycle?
 
-**Left open:** Firefox `?selftest`; WebGL 2 `?selftest` not re-run after the arrows; left-turn pockets or green waves
+**Left open:** Firefox `?selftest`; WebGL 2 `?selftest` not re-run after the arrows; the arrow-head screenshot above
+predates the lane move (heads now sit over the 2.5 m lane); left-turn pockets or green waves
 if the owner wants faster traffic; cars do not react to the quad; the chase camera still has no collision (§5).
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`

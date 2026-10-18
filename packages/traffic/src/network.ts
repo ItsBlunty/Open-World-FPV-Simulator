@@ -31,13 +31,17 @@ const STEP = STEP_TICKS * DT;
 /** a checkpoint of the whole state every this many steps (60 s), for going back in time */
 const CHECKPOINT_STEPS = 1200;
 
-/** Lane centre right of the road's centre line, m; stop line (a stopped car's front) from the junction centre, m */
-const LANE = 4;
+/**
+ * Lane centre right of the road's centre line, m (a 5 m wide lane's middle; a car 1.9 m wide), and the stop line (a
+ * stopped car's front) from the junction centre, m
+ */
+const LANE = 2.5;
 const STOP = 13;
 /**
  * Turn radii through a junction, m, and the sideways acceleration that sets the speed in them, m/s^2 [estimates].
- * A left turn's arc starts 0.1 m past the stop line, so the two opposing left turns on one arrow keep to their own
- * side of the junction's centre and pass each other: their paths 1.3 m either side of it, the cars' corners 0.5 m apart.
+ * A left turn is one smooth quarter circle from just past the stop line into the far lane, so the two opposing left
+ * turns on one arrow keep to their own side of the junction's centre and pass each other: their paths 2.9 m either
+ * side of it (0.414 STOP - LANE).
  */
 const R_RIGHT = 6;
 const R_LEFT = STOP + LANE - 0.1;

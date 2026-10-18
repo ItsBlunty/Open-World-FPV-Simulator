@@ -11,7 +11,7 @@ import type { Place } from './route';
 export const DT = 0.001;
 
 /** Bumped with any change that moves a mover or changes a shape: part of the world hash (replays). */
-export const TRAFFIC_VERSION = 4;
+export const TRAFFIC_VERSION = 5;
 
 export interface TrafficConfig {
     cars: boolean;
