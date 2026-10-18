@@ -22,6 +22,10 @@ import { RadioSetup } from './ui/radio-setup';
 import { LENSES } from './render/lenses';
 import { SettingsUi } from './ui/settings-ui';
 import { CollectionUi } from './ui/collection-ui';
+import { FlightsUi } from './ui/flights-ui';
+import { deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
+import { flightToJson } from './flights';
+import type { CheckResult } from './flights';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
@@ -86,6 +90,8 @@ let props: PropInfo[] = [];
 let mapId = '';
 const collection = loadCollection();
 const found = (): number[] => collection[mapId] ?? [];
+/** this visit's saved flight (flights.ts): named by when the page started; nothing in the sim reads it */
+const flightId = Date.now();
 
 function newCanvas(): HTMLCanvasElement {
     const c = document.createElement('canvas');
@@ -97,7 +103,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, settings: engineSettings(), collection
+        search: location.search, shadows: shadowsOn, settings: engineSettings(), collection, flightId
     };
 }
 
@@ -150,6 +156,10 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         props = m.props;
         mapId = m.mapId;
         renderMenu();
+    } else if (m.type === 'flight') {
+        void putFlight(m.flight).then((ok) => {
+            if (!ok) console.warn('This browser did not keep the flight (storage blocked or full).');
+        });
     } else if (m.type === 'collect') {
         const mine = (collection[mapId] ??= []);
         for (const n of m.n) {
@@ -275,13 +285,14 @@ const hud = new Hud();
 const setup = new RadioSetup();
 const settingsUi = new SettingsUi();
 const collectionUi = new CollectionUi();
+const flightsUi = new FlightsUi();
 const menuBody = h('div');
 const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
-document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el);
+document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el);
 let menuMsg = '';
 
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -329,6 +340,45 @@ function openCollection(): void {
             send({ type: 'collection', taken: [] });
         },
         close: () => { collectionUi.hide(); showMenu(true); }
+    });
+}
+
+/** checks run in a worker (check-worker.ts), so a long replay does not freeze the page */
+let checker: Worker | null = null;
+let checkSeq = 0;
+const checking = new Map<number, (r: CheckResult) => void>();
+
+async function checkSaved(id: number): Promise<CheckResult | null> {
+    const flight = await getFlight(id);
+    if (!flight) return null;
+    if (!checker) {
+        checker = new Worker(new URL('./check-worker.ts', import.meta.url), { type: 'module' });
+        checker.onmessage = (e: MessageEvent<{ id: number; result: CheckResult }>) => {
+            checking.get(e.data.id)?.(e.data.result);
+            checking.delete(e.data.id);
+        };
+    }
+    const seq = ++checkSeq;
+    return new Promise((resolve) => {
+        checking.set(seq, resolve);
+        checker!.postMessage({ id: seq, flight });
+    });
+}
+
+async function downloadSaved(id: number): Promise<void> {
+    const flight = await getFlight(id);
+    if (!flight) return;
+    const url = URL.createObjectURL(new Blob([flightToJson(flight)], { type: 'application/json' }));
+    const a = h('a', { href: url, download: `flight-${new Date(id).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.owfpv.json` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function openFlights(): void {
+    showMenu(false);
+    void flightsUi.show({
+        list: listFlights, check: checkSaved, download: downloadSaved, remove: deleteFlight, currentId: flightId,
+        close: () => { flightsUi.hide(); showMenu(true); }
     });
 }
 
@@ -436,6 +486,14 @@ function propsSection(): Child[] {
     ];
 }
 
+/** saved flights: every visit flown with a radio, as stick inputs that replay exactly */
+function flightsSection(): Child[] {
+    return [
+        h('div', { class: 'section-head' }, h('h2', {}, 'Saved flights'), h('button', { onclick: openFlights }, 'Flights')),
+        h('p', { class: 'muted' }, 'Every visit you fly is kept as your stick inputs, so it can be replayed exactly.')
+    ];
+}
+
 const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
     h('dl', { class: cls }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
 
@@ -480,6 +538,7 @@ function renderMenu(): void {
         ...controllerSection(hidOk),
         ...startSection(),
         ...propsSection(),
+        ...flightsSection(),
         ...settingsSection(),
         ...controlsSection(),
         h('p', { class: 'note footer' },
@@ -511,6 +570,11 @@ addEventListener('blur', () => { held.clear(); camDirty = true; });
 
 addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
+        if (flightsUi.open) {
+            flightsUi.hide();
+            showMenu(true);
+            return;
+        }
         if (collectionUi.open) {
             collectionUi.hide();
             showMenu(true);

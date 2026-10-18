@@ -9,6 +9,7 @@
 
 import type { ParamOverrides } from '@owfpv/sim-core';
 import type { TrafficConfig } from '@owfpv/traffic';
+import type { Flight } from '../flights';
 
 export interface EngineSettings {
     uptiltDeg: number;
@@ -35,6 +36,8 @@ export interface InitMsg {
     settings: EngineSettings;
     /** the golden props this pilot has taken already, by map id, by number (the page keeps them) */
     collection: Record<string, number[]>;
+    /** this visit's saved flight: its id (the page's start time, ms) */
+    flightId: number;
 }
 
 /** A golden prop as the page lists it (maps Collectible, without its position). */
@@ -77,6 +80,8 @@ export type EngineMsg =
     | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[] }
     /** golden props just taken, by number */
     | { type: 'collect'; n: number[] }
+    /** the run so far, to save (sent when the sim pauses, and every minute of flying) */
+    | { type: 'flight'; flight: Flight }
     | { type: 'hud'; hud: HudSnapshot }
     | { type: 'error'; message: string }
     | { type: 'answer'; id: number; ok: boolean; value: unknown };

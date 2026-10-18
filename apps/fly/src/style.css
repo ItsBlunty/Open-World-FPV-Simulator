@@ -104,3 +104,6 @@ button.danger { border-color: var(--bad); color: var(--bad); }
 #hud .toast.show { opacity: 1; transition: opacity 0.1s; }
 #hud .toast .big { font-size: 26px; color: #ffc23d; letter-spacing: 0.04em; }
 #hud .toast .small { font-size: 15px; color: #eee; margin-top: 4px; }
+/* saved flights */
+.flight { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--line); padding: 10px 0; }
+.flight-main { flex: 1; min-width: 240px; font-size: 14px; line-height: 1.5; }

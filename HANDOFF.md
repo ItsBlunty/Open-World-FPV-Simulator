@@ -7,8 +7,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
-  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner); next: saved flights, then trick definitions.
-- **Tests:** `pnpm test`: 51 files, 450 tests pass. `pnpm typecheck` clean.
+  sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
+  next: a replay viewer, then the grader once the trick definitions are written.
+- **Tests:** `pnpm test`: 52 files, 454 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
@@ -75,6 +76,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
+| `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick rules and grades; prototype plan |
 
 Owner decisions: `docs/decisions.md`.

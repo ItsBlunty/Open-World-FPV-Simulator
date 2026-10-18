@@ -20,6 +20,8 @@ export class Collector {
     private left: number;
     /** props taken since the last `drain`, by number, in the order taken */
     private fresh: number[] = [];
+    /** every prop taken in this run, with the sim tick it was taken on: [number, tick] (a saved flight keeps it) */
+    readonly history: [number, number][] = [];
 
     constructor(items: readonly Collectible[]) {
         this.items = items;
@@ -45,8 +47,8 @@ export class Collector {
         return this.items.length - this.left;
     }
 
-    /** The quad's centre is at x, y, z: take any prop it reaches. */
-    check(x: number, y: number, z: number): void {
+    /** The quad's centre is at x, y, z on sim tick `tick`: take any prop it reaches. */
+    check(x: number, y: number, z: number, tick = 0): void {
         if (this.left === 0) return;
         const r2 = COLLECT_RADIUS * COLLECT_RADIUS;
         const p = this.xyz;
@@ -57,6 +59,7 @@ export class Collector {
             this.taken[i] = 1;
             this.left--;
             this.fresh.push(i + 1);
+            this.history.push([i + 1, tick]);
         }
     }
 

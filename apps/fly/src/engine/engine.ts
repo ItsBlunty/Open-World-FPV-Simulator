@@ -18,6 +18,7 @@ import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { lensById } from '../render/lenses';
 import { HUD_HZ } from './protocol';
+import { captureFlight } from '../flights';
 import type { EngineMsg, EngineSettings, InitMsg, PageMsg, Port } from './protocol';
 import { RadioLink } from './radio-link';
 
@@ -37,6 +38,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         overrides: cfg.overrides,
         level,
         traffic: cfg.traffic,
+        // per-life state hashes, so a saved flight can be checked by replaying it (flights.ts)
+        traceHash: true,
         spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? cfg.spawn)) ?? level.spawns[0]
     });
 
@@ -100,6 +103,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 radio.hasRadio = m.on;
                 break;
             case 'pause':
+                if (m.on && !paused) saveFlight();
                 paused = m.on;
                 break;
             case 'reset':
@@ -162,6 +166,20 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     for (const m of early) handle(m);
     port.onmessage = (e: MessageEvent<PageMsg>) => handle(e.data);
 
+    /** a radio flew in this visit (a look around with the free camera alone is not saved), and when it was last saved */
+    let flew = false;
+    let savedAtTick = 0;
+    /** sends the run so far to the page to keep (flights.ts) */
+    function saveFlight(): void {
+        if (!flew || session.sim.tick === savedAtTick) return;
+        savedAtTick = session.sim.tick;
+        try {
+            post({ type: 'flight', flight: captureFlight(session, init.flightId, session.collector.history) });
+        } catch (err) {
+            console.warn('Could not save the flight:', err);
+        }
+    }
+
     let prevT = performance.now();
     let fps = 0;
     let lastHud = -Infinity;
@@ -179,6 +197,9 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             if (demo) session.input(selftestSticks(session.sim.tick, ch), now);
             else radio.checkStale(session, now);
             session.advance(now);
+            if (radio.hasRadio || demo) flew = true;
+            // every minute of flying, so a closed tab or a crash of the page loses at most a minute
+            if (session.sim.tick - savedAtTick >= 60000) saveFlight();
             const got = session.collector.drain();
             if (got.length) {
                 collectView.take(got, now / 1000);

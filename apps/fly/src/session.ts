@@ -44,6 +44,8 @@ export interface SessionOptions {
     policy?: RespawnPolicy;
     /** hash every tick's state (determinism checks) */
     runHash?: boolean;
+    /** hash every tick's state per life, so a saved flight can be checked by replaying it (flights.ts) */
+    traceHash?: boolean;
     /** solid cars and people, and whether junctions have signals (default none) */
     traffic?: TrafficConfig;
 }
@@ -80,13 +82,13 @@ export class FlightSession {
         this.contactWorld = this.buildWorld();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.pose = this.poseOf(this.spawnPt, sim);
-        this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: false });
+        this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: o.traceHash === true });
         const p = sim.p;
         this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
         this.runner.director = this.director;
         this.collector = new Collector(o.level.collectibles);
         const c = this.collector;
-        this.runner.onStep = (s) => c.check(s.s[S.px], s.s[S.py], s.s[S.pz]);
+        this.runner.onStep = (s) => c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
     }
 
     get sim(): Sim {
