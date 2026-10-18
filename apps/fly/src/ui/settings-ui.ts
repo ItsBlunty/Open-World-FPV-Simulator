@@ -1,4 +1,4 @@
-// Settings screen: FPV camera, flight mode without a mode switch, and the pilot's rates. The rates box
+// Settings screen: FPV camera, flight mode without a mode switch, traffic and graphics, and the pilot's rates. The rates box
 // offers Betaflight's two common rate types; field names, scales and limits are sim-core's
 // rates-edit.ts (read from Betaflight Configurator 10.10.0 by sim-core's author), so values typed
 // here mean what they mean in Configurator.
@@ -22,6 +22,12 @@ export interface SettingsHost {
     onCamera(): void;
     /** rates or mode changed: the flight model needs a new life */
     onFlight(): void;
+    /** cars, people or signals changed: they are solid, so a new life with the new traffic */
+    onTraffic(): void;
+    /** resolution scale changed: apply at once */
+    onGraphics(): void;
+    /** the shadow setting differs from what this page started with (it applies on reload) */
+    shadowsPending(): boolean;
     save(): void;
     close(): void;
 }
@@ -62,6 +68,12 @@ export class SettingsUi {
             out);
     }
 
+    private check(label: string, value: boolean, set: (v: boolean) => void): HTMLElement {
+        return h('label', { class: 'row' },
+            h('input', { type: 'checkbox', checked: value, onchange: (e: Event) => set((e.target as HTMLInputElement).checked) }),
+            h('span', {}, label));
+    }
+
     private build(): void {
         const host = this.host!;
         const s = host.settings;
@@ -93,6 +105,16 @@ export class SettingsUi {
             h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
             h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
                 ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
+            h('h2', {}, 'Graphics and performance'),
+            this.check('Cars (solid: you can hit them and land on them)', s.cars, (v) => { s.cars = v; host.save(); host.onTraffic(); }),
+            this.check('People (solid too)', s.people, (v) => { s.people = v; host.save(); host.onTraffic(); }),
+            this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); }),
+            h('p', { class: 'note' }, 'Changing the traffic restarts at the spawn point (what you can hit changes).'),
+            this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }),
+            this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
+            host.shadowsPending()
+                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Shadows change when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
+                : null,
             h('h2', {}, 'Crashes and damage'),
             h('label', { class: 'row' },
                 h('input', { type: 'checkbox', checked: s.damage, onchange: (e: Event) => { s.damage = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),

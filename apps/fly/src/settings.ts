@@ -28,6 +28,16 @@ export interface Settings {
      * bounce and the quad keeps flying); the toggle brings the damage model back.
      */
     damage: boolean;
+    /** solid cars on the city roads (owner, 2026-10-17: a toggle in the graphics and performance settings) */
+    cars: boolean;
+    /** solid people on the sidewalks */
+    people: boolean;
+    /** traffic lights, cars that queue and turn, people who wait at the crossings; off: simple loops round each block */
+    signals: boolean;
+    /** the sun's shadows (switching them takes a reload: toggling them live crashed Three.js) */
+    shadows: boolean;
+    /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel) */
+    renderScale: number;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -39,7 +49,12 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     stickMode: 2,
     spawn: 'park',
     lastDevice: null,
-    damage: false
+    damage: false,
+    cars: true,
+    people: true,
+    signals: true,
+    shadows: true,
+    renderScale: 1
 };
 
 const KEY = 'owfpv.settings';
@@ -74,6 +89,11 @@ export function loadSettings(): Settings {
     if (typeof s.spawn === 'string') out.spawn = s.spawn;
     if (typeof s.lastDevice === 'string') out.lastDevice = s.lastDevice;
     if (typeof s.damage === 'boolean') out.damage = s.damage;
+    if (typeof s.cars === 'boolean') out.cars = s.cars;
+    if (typeof s.people === 'boolean') out.people = s.people;
+    if (typeof s.signals === 'boolean') out.signals = s.signals;
+    if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
+    if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     return out;
 }
 

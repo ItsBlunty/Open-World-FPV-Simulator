@@ -93,6 +93,10 @@ export class LoopTraffic implements TrafficModel {
         return placeAt(this.routes[m.route], m.s0 + m.v * (tick * DT), out);
     }
 
+    allStatics(): readonly StaticBox[] {
+        return NO_STATICS;
+    }
+
     staticsNear(): readonly StaticBox[] {
         return NO_STATICS;
     }

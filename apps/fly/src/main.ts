@@ -11,12 +11,14 @@ import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import { buildFirstMap } from '@owfpv/maps';
+import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from './session';
 import { SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest, selftestSticks } from './selftest';
 import { loadProfile, loadSettings, saveProfile, saveSettings } from './settings';
 import { levelGroup, environment } from './render/world';
 import { CraftView } from './render/view';
+import { TrafficView } from './render/traffic';
 import { HidSource } from './devices/hid';
 import { GamepadSource, gamepadKey } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
@@ -36,10 +38,15 @@ function overrides(): ParamOverrides {
     return settings.rates ? { rates: settings.rates, crashOn: settings.damage } : { crashOn: settings.damage };
 }
 
+function trafficConfig(): TrafficConfig {
+    return { cars: settings.cars, people: settings.people, signals: settings.signals };
+}
+
 const session = new FlightSession({
     preset,
     overrides: overrides(),
     level,
+    traffic: trafficConfig(),
     spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? settings.spawn)) ?? level.spawns[0]
 });
 
@@ -48,18 +55,24 @@ const session = new FlightSession({
 // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
 // and Three.js falls back to normal depth without it
 const renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const pixelRatio = (): number => Math.min(devicePixelRatio, 2) * settings.renderScale;
+renderer.setPixelRatio(pixelRatio());
 renderer.setSize(innerWidth, innerHeight);
 document.body.append(renderer.domElement);
 await renderer.init();
 const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
 
-renderer.shadowMap.enabled = !params.has('noshadows');
+// read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
+const shadowsOn = settings.shadows && !params.has('noshadows');
+renderer.shadowMap.enabled = shadowsOn;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
 const sun = environment(scene);
 scene.add(levelGroup(level));
+const trafficView = new TrafficView();
+trafficView.rebuild(session.traffic);
+scene.add(trafficView.group);
 const view = new CraftView();
 view.uptiltDeg = settings.uptiltDeg;
 view.fovDeg = settings.fovDeg;
@@ -199,6 +212,12 @@ function openSettings(): void {
             view.updateFov();
         },
         onFlight: () => session.setOverrides(overrides()),
+        onTraffic: () => {
+            session.setTraffic(trafficConfig());
+            trafficView.rebuild(session.traffic);
+        },
+        onGraphics: () => renderer.setPixelRatio(pixelRatio()),
+        shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows'),
         save: () => saveSettings(settings),
         close: () => { settingsUi.hide(); showMenu(true); }
     });
@@ -231,7 +250,7 @@ function renderMenu(): void {
             session.setSpawn(s);
         } }, ...level.spawns.map((s) => h('option', { value: s.id, selected: s.id === session.spawn.id }, s.name)))),
         h('div', { class: 'row' },
-            h('button', { onclick: openSettings }, 'Settings (camera, rates)'),
+            h('button', { onclick: openSettings }, 'Settings (camera, traffic, graphics, rates)'),
             h('span', { class: 'spacer' }),
             h('button', { class: 'primary', onclick: () => showMenu(false) }, profile || demo ? 'Fly' : 'Look around')),
         h('p', { class: 'note' }, 'Keys: Esc menu · R back to the spawn point · C chase / FPV camera · Space arm, T turtle mode (only if your radio has no switch for them).'),
@@ -281,6 +300,7 @@ function frame(): void {
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
         footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(fps)} fps · ${view.mode.toUpperCase()}`
     });
+    trafficView.update(session.sim.tick);
     sun.follow(view.camera.position);
     renderer.render(scene, view.camera);
 }
@@ -303,7 +323,7 @@ if (demo) showMenu(false);
 renderer.setAnimationLoop(frame);
 // for checks from the browser console and automated tests
 (globalThis as { __fly?: unknown }).__fly = {
-    session, view, sun, renderer, scene, S,
+    session, view, sun, renderer, scene, S, trafficView,
     /** a simulated radio for UI checks: frames go through the same path as a real one's reports */
     fakeRadio(): (f: RawFrame) => void {
         useDevice({ kind: 'hid', key: 'test:simulated', name: 'Simulated radio' }, loadProfile('test:simulated'));

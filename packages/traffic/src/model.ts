@@ -72,6 +72,8 @@ export interface TrafficModel {
     at(tick: number): void;
     /** Where mover i is at `tick` (this tick or the next, after at(); the renderer may pass fractions between). */
     place(i: number, tick: number, out: Place): Place;
+    /** Every fixed box (signal poles, arms, heads), for the renderer. */
+    allStatics(): readonly StaticBox[];
     /** The fixed boxes that may be within `reach` of (x, z). */
     staticsNear(x: number, z: number, reach: number): readonly StaticBox[];
     /** What signal head h shows at `tick`. */
