@@ -11,7 +11,9 @@ export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
     'metal', 'rust', 'wood', 'trunk', 'foliage', 'rubble', 'water', 'marking', 'container-a', 'container-b', 'container-c',
     // city building fronts: the renderer paints storeys of windows on their walls
-    'facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark'
+    'facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark',
+    // the glass set back in city windows: punched windows and shop fronts, and glass towers' ribbon windows (mullions painted)
+    'window', 'window-ribbon'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -79,6 +81,9 @@ export class Rng {
     }
 }
 
+/** A box's faces, for LevelBuilder.box's `skip` mask: bottom, top, and the faces looking along -z, +z, -x, +x. */
+export const FACE = { bottom: 1, top: 2, nz: 4, pz: 8, nx: 16, px: 32 } as const;
+
 export class LevelBuilder {
     private readonly tris = new Map<Material, number[]>();
     private readonly paint = new Map<Material, number[]>();
@@ -111,19 +116,48 @@ export class LevelBuilder {
         return this;
     }
 
-    /** Axis-aligned box from (x0, y0, z0) to (x1, y1, z1); faces wound outwards. */
-    box(m: Material, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): this {
+    /**
+     * Axis-aligned box from (x0, y0, z0) to (x1, y1, z1); faces wound outwards. `skip` leaves out faces that
+     * lie against other solid geometry (nobody can see or reach them): a mask of the FACE bits.
+     */
+    box(m: Material, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, skip = 0): this {
         if (x1 < x0) [x0, x1] = [x1, x0];
         if (y1 < y0) [y0, y1] = [y1, y0];
         if (z1 < z0) [z0, z1] = [z1, z0];
         if (x1 - x0 <= 0 || y1 - y0 <= 0 || z1 - z0 <= 0) return this;
-        this.quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]); // bottom
-        this.quad(m, [x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]); // top
-        this.quad(m, [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]); // -z
-        this.quad(m, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]); // +z
-        this.quad(m, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]); // -x
-        this.quad(m, [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]); // +x
+        if (!(skip & FACE.bottom)) this.quad(m, [x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]);
+        if (!(skip & FACE.top)) this.quad(m, [x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]);
+        if (!(skip & FACE.nz)) this.quad(m, [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0]);
+        if (!(skip & FACE.pz)) this.quad(m, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]);
+        if (!(skip & FACE.nx)) this.quad(m, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]);
+        if (!(skip & FACE.px)) this.quad(m, [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]);
         return this;
+    }
+
+    /**
+     * A sloped slab (a ramp) between x0 and x1: its top rises in a straight line from height ya at z = za to
+     * yb at z = zb, and it is t thick (measured straight down). Its two ends are left open: they sit in the
+     * floor it starts from and against the edge of the floor it climbs to.
+     */
+    rampZ(m: Material, x0: number, x1: number, za: number, zb: number, ya: number, yb: number, t: number): this {
+        const a = [x0, ya, za], b = [x1, ya, za], c = [x1, yb, zb], d = [x0, yb, zb];
+        const a2 = [x0, ya - t, za], b2 = [x1, ya - t, za], c2 = [x1, yb - t, zb], d2 = [x0, yb - t, zb];
+        const centre = [(x0 + x1) / 2, (ya + yb - t) / 2, (za + zb) / 2];
+        this.quadOut(m, centre, a, b, c, d); // top
+        this.quadOut(m, centre, a2, d2, c2, b2); // underside
+        this.quadOut(m, centre, a, d, d2, a2); // x0 side
+        this.quadOut(m, centre, b, b2, c2, c); // x1 side
+        return this;
+    }
+
+    /** Quad a-b-c-d (a planar convex one, its corners in order around it), wound to face away from `centre`. */
+    private quadOut(m: Material, centre: number[], a: number[], b: number[], c: number[], d: number[]): void {
+        const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+        const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+        const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const out = nx * (a[0] - centre[0]) + ny * (a[1] - centre[1]) + nz * (a[2] - centre[2]);
+        if (out >= 0) this.quad(m, a, b, c, d);
+        else this.quad(m, a, d, c, b);
     }
 
     /** Box given by its footprint centre and size, from y0 up h. */

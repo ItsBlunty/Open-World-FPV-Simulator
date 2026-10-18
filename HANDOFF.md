@@ -1,7 +1,7 @@
 # Handoff: research, decisions and state of the work
 
 Read with `SPEC.md`: this file explains *why* and records where the work stands; SPEC.md says *what*.
-Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18).
+Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 at the end of M0, after building M1, after sim-core/0.3.0 (contacts), after sim-core/0.3.1 (prop strikes), after sim-core/0.4.0 (turtle mode), after the FPV camera near-plane fix, after the level look pass (map v2), after solid traffic (sim-core/0.5.0, map v3), after left-turn arrows (2026-10-18), and after the free-fly "Look around" camera (2026-10-18), and after the world pass (map v4, 2026-10-18).
 
 ## 0. Where things stand (start here)
 
@@ -39,7 +39,12 @@ Started 2026-10-17 at the end of the planning conversation; updated 2026-10-17 a
 - **Free-fly "Look around" camera (owner, 2026-10-18, §0f, renderer only):** without a radio, "Look around" now flies
   the camera with WASD and the mouse. **Waiting for the owner to try the click-to-capture mouse steering** (Claude
   could only test drag-to-steer; see §0f).
+- **World pass, map v4 (owner, 2026-10-18, §0g):** bando beams so walls never float, the roof tank on steel beams,
+  real recessed city windows, see-through car windows with riders, car-park ramps, street-lamp heads, the south-east
+  water tower's braces. **Waiting for the owner to look at it and fly it** (handling: window reveals and beams are solid).
 - The owner asked to push to `main` after each fix so they can test the Pages build (2026-10-17).
+- **Browser checks (owner, 2026-10-18):** if Claude in Chrome is not connected, ask the owner to open Chrome; do not
+  work around it with other tools.
 
 ## 0a. Contacts, damage, landing (owner, 2026-10-17, after flying M1): done, damage shelved
 
@@ -292,6 +297,48 @@ drag turned it about 70 deg right and slightly down, horizon level; `?selftest` 
 **Left open:** pointer lock was refused in the automation tab (`WrongDocumentError`, the tab was not the foreground
 window), so click-to-capture steering is untested; ask the owner to try it, and whether the speeds and mouse
 sensitivity feel right. The free camera has no collision (it flies through buildings).
+
+## 0g. World pass (owner, 2026-10-18): map v4, built, waiting for the owner to look and fly
+
+The owner asked for another pass over the whole world. Their points: the bando walls float like the columns used to
+(missing bottom or top pieces); the water tower on the bando has part of its base touching nothing; office windows
+should be set back, not flat; cars should have see-through windows with people in them.
+
+- **Bando walls (`first-map.ts bando`, `BEAM`):** the walls ran from the floor panel to the panel above, so a missing
+  panel left a 30 cm gap under or over them. Now, like a real cast frame, there are beams on every column line at
+  every floor (0.45 m deep, 0.3 m wide; estimates, about span / 13), and the walls fill from the floor up to the
+  beam above. Inside the collapse the beams fell with the panels; the perimeter ones all stand. The parapet sits on
+  the edge beams. RNG draws unchanged, so the same panels and walls are missing as before.
+- **Bando roof tank:** two of its legs stood over a missing roof panel (checked on map v3: nothing under them down to
+  floor 3). Now the legs stand on two steel beams (dunnage) laid across the roof beams of column lines 7 and 8, as
+  rooftop tanks are set.
+- **City windows (`windowedBlock`):** real geometry, not paint. Each building is a glass core set 15 cm in from its
+  footprint (`REVEAL`, estimate) wrapped in solid bands between window rows and piers between windows. Office windows
+  1.4 m every 3 m (sill 0.9, head 2.6), shop fronts on the street floor (2.5 m, 0.3-3.0), glass towers get ribbon
+  windows (0.8-3.2) with painted mullions (`window-ribbon` material). Windows are laid out per wall, whole bays,
+  centred (the old shader's world-aligned windows could be cut by a corner). Hidden faces are left out
+  (`LevelBuilder.box` `skip` mask, `FACE`). Cost: **222 630 triangles (map v3: 41 462)**; the map test (build twice,
+  BVH, hash) still runs in about 0.4 s. The reveals are solid: a quad sliding along a wall can catch on a sill.
+- **Cars (render only, `render/traffic.ts`):** the cab is now light-tinted transparent glass (both sides, no depth
+  write) with body-colour pillars, a dark interior (floor, dashboard, steering wheel on the left, seat backs) and
+  1-3 bean riders with eyes (driver on the left: traffic drives on the right). Collision unchanged (the cab box is
+  solid, as glass is). 134 cars, 274 riders in the default traffic.
+- **Also fixed or added:** the south-east water tower's brace floated between its legs (now two rings of girders
+  joining the legs); the car park had no way up (now switchback ramps in two lanes, 16 % grade, each through an
+  opening in the slab above, `LevelBuilder.rampZ`) and parapets on two sides only (now all four); street lamps were
+  bare poles (now an arm and a lamp over the road); silos got roofs.
+- `apps/fly/test/stuck.test.ts`: the owner's old under-the-slab spot is 7 cm from a new beam, so the spot moved 0.78 m
+  into the same bay (under the flat slab, as the test means).
+- Map v4 hash `e6d95de1…`. The self-test and traffic hashes are unchanged (the flight is in the park).
+
+**Evidence:** `pnpm test` 44 files, 410 tests pass (4 new map tests: every perimeter bay has its beam at every floor;
+the tank's legs stand on steel over the roof beams; windows 15 cm back on every south-row building face; the car-park
+ramp's height and the opening over it). Each of the four fails on map v3. Screenshots in Chrome (WebGPU) of the
+bando, its roof tank, a brick street, a glass tower corner and cars with riders (taken 2026-10-18, not saved to disk).
+
+**Left open:** the owner to look and fly (do the window sills and beams feel right to fly along?); no frame-time
+measurement after the 5x triangle count (the GPU cost was 0.5-2.3 ms before; worth a check on the owner's machine);
+the underside of slabs renders very dark (the hemisphere light's ground colour), unchanged by this pass.
 
 ## 1. Physics core: ShramkoGSFPV `sim-core`
 

@@ -1,16 +1,20 @@
-// The traffic in Three.js: toy cars (candy colours, big wheels that turn, brake lights), bean people (eyes,
-// swinging legs, some in party hats), and the signal poles with their lamps (left-turn heads with arrows). Instanced: one draw per part
+// The traffic in Three.js: toy cars (candy colours, see-through windows with bean people riding inside, big
+// wheels that turn, brake lights), bean people (eyes, swinging legs, some in party hats), and the signal poles with their lamps (left-turn heads with arrows). Instanced: one draw per part
 // for every car or person. Each frame draws the traffic model at the sim's tick, so what is drawn is where
 // the collision is (the shapes match packages/traffic CAR and PERSON). Drawing never feeds back into the sim.
 
 import * as THREE from 'three/webgpu';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CAR, PERSON } from '@owfpv/traffic';
 import type { Lamp, Place, TrafficModel } from '@owfpv/traffic';
 
 /** Candy colours for car bodies, shirts and hats. */
 const CANDY = [0xff6fa8, 0x5ce0b8, 0x5ab4ff, 0xffd84d, 0xff9a3c, 0xb38cff, 0xff5a5a, 0x2ec4c4, 0x9be15d, 0xf7f7f2];
-const GLASS = 0x2b4a5c;
+const GLASS = 0x9fc4d8;
+/** How much the car glass hides: a light tint, so the riders show through. */
+const GLASS_OPACITY = 0.28;
+const INTERIOR = 0x34373c;
 const TYRE = 0x26272b;
 const HUB = 0xe9e9e4;
 const POLE = 0x3a4046;
@@ -29,6 +33,19 @@ const WHEEL_S = 0.8;
 /** A person's stride: one full swing of the legs per this many metres walked. */
 const STRIDE = 1.2;
 const HIP = 0.42;
+/**
+ * The riders: seated beans, the driver on the left (traffic drives on the right), a front passenger in
+ * some cars and a back-seat one in some of those. Seats (along, across) in the car's frame, m: the front
+ * ones behind the dashboard, the back one on the bench.
+ */
+const RIDER_R = 0.2;
+const RIDER_LEN = 0.32;
+const RIDER_TOP = CAR.cabY1 - 0.12;
+const SEATS = [[0.05, -0.38], [0.05, 0.38], [-0.85, 0.3]];
+/** Riders in a car, from its looks: 1, 2 or 3. */
+function riders(look: number): number {
+    return 1 + ((look >>> 12) % 3);
+}
 
 function material(o: { rough?: number; basic?: boolean } = {}): THREE.Material {
     return o.basic ? new THREE.MeshBasicNodeMaterial() : new THREE.MeshStandardNodeMaterial({ roughness: o.rough ?? 0.6 });
@@ -111,14 +128,52 @@ export class TrafficView {
         const cabH = CAR.cabY1 - CAR.cabY0;
         const cab = part(new RoundedBoxGeometry(2 * CAR.cabHalfL, cabH, 2 * CAR.cabHalfW, 3, 0.16), -CAR.cabBack, CAR.cabY0 + cabH / 2, 0);
         const roof = part(new RoundedBoxGeometry(2 * CAR.cabHalfL - 0.12, 0.1, 2 * CAR.cabHalfW - 0.1, 2, 0.04), -CAR.cabBack, CAR.cabY1 - 0.03, 0);
+        // the window frame in the body colour: a pillar at each corner and one each side between the doors
+        const front = -CAR.cabBack + CAR.cabHalfL, back = -CAR.cabBack - CAR.cabHalfL;
+        const pillar = (x: number, z: number): THREE.BufferGeometry => part(new THREE.BoxGeometry(0.12, cabH, 0.1), x, CAR.cabY0 + cabH / 2, z);
+        const pillars = mergeGeometries([
+            pillar(front - 0.12, CAR.cabHalfW - 0.06), pillar(front - 0.12, -CAR.cabHalfW + 0.06),
+            pillar(-CAR.cabBack - 0.25, CAR.cabHalfW - 0.04), pillar(-CAR.cabBack - 0.25, -CAR.cabHalfW + 0.04),
+            pillar(back + 0.12, CAR.cabHalfW - 0.06), pillar(back + 0.12, -CAR.cabHalfW + 0.06)
+        ]);
+        // inside: the floor, a dashboard with the steering wheel on the driver's side, seat backs
+        const inside = mergeGeometries([
+            part(new THREE.BoxGeometry(2 * CAR.cabHalfL - 0.1, 0.02, 2 * CAR.cabHalfW - 0.1), -CAR.cabBack, CAR.cabY0 + 0.01, 0),
+            part(new THREE.BoxGeometry(0.28, 0.16, 2 * CAR.cabHalfW - 0.12), front - 0.16, CAR.cabY0 + 0.08, 0),
+            part(new THREE.TorusGeometry(0.13, 0.022, 6, 16).rotateY(Math.PI / 2).rotateZ(0.5), front - 0.36, CAR.cabY0 + 0.26, SEATS[0][1]),
+            part(new THREE.BoxGeometry(0.1, 0.42, 0.5), SEATS[0][0] - 0.28, CAR.cabY0 + 0.21, SEATS[0][1]),
+            part(new THREE.BoxGeometry(0.1, 0.42, 0.5), SEATS[1][0] - 0.28, CAR.cabY0 + 0.21, SEATS[1][1]),
+            part(new THREE.BoxGeometry(0.1, 0.36, 2 * CAR.cabHalfW - 0.14), back + 0.12, CAR.cabY0 + 0.18, 0)
+        ]);
+        const rider = part(new THREE.CapsuleGeometry(RIDER_R, RIDER_LEN, 6, 14), 0, RIDER_TOP - RIDER_R - RIDER_LEN / 2, 0);
+        const eye = new THREE.SphereGeometry(0.055, 10, 6);
+        const pupil = new THREE.SphereGeometry(0.028, 8, 6);
         const wheel = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_W, 20).rotateX(Math.PI / 2);
         const hub = new THREE.CylinderGeometry(WHEEL_R * 0.45, WHEEL_R * 0.45, WHEEL_W + 0.02, 12).rotateX(Math.PI / 2);
         // a spoke-like bar across the hub so turning shows
         const spoke = new THREE.BoxGeometry(WHEEL_R * 1.1, 0.06, WHEEL_W + 0.03);
         const head = new THREE.BoxGeometry(0.06, 0.14, 0.34);
         const bodyMesh = this.add('body', instanced(body, material({ rough: 0.35 }), n, true));
-        const roofMesh = this.add('roof', instanced(roof, material({ rough: 0.35 }), n, false));
-        this.add('cab', instanced(cab, new THREE.MeshStandardNodeMaterial({ color: GLASS, roughness: 0.15, metalness: 0.2 }), n, true));
+        const roofMesh = this.add('roof', instanced(roof, material({ rough: 0.35 }), n, true));
+        const pillarMesh = this.add('pillar', instanced(pillars, material({ rough: 0.35 }), n, true));
+        this.add('inside', instanced(inside, new THREE.MeshStandardNodeMaterial({ color: INTERIOR, roughness: 0.8 }), n, false));
+        // glass on both sides (the far window tints what is behind the car too), drawn after everything solid, writing no depth
+        const glass = new THREE.MeshStandardNodeMaterial({
+            color: GLASS, roughness: 0.05, metalness: 0.1, transparent: true, opacity: GLASS_OPACITY, side: THREE.DoubleSide, depthWrite: false
+        });
+        this.add('cab', instanced(cab, glass, n, false));
+        this.seats = [];
+        this.cars.forEach((i, k) => {
+            for (let s = 0; s < riders(model.movers[i].look); s++) this.seats.push(k);
+        });
+        const nr = this.seats.length;
+        const riderMesh = this.add('rider', instanced(rider, material({ rough: 0.55 }), nr, true));
+        this.add('riderEye', instanced(eye, new THREE.MeshStandardNodeMaterial({ color: 0xffffff, roughness: 0.3 }), 2 * nr, false));
+        this.add('riderPupil', instanced(pupil, new THREE.MeshBasicNodeMaterial({ color: 0x111111 }), 2 * nr, false));
+        this.seats.forEach((k, r) => {
+            this.c.setHex(CANDY[((model.movers[this.cars[k]].look >>> 16) + 3 * r) % CANDY.length]);
+            riderMesh.setColorAt(r, this.c);
+        });
         this.add('wheel', instanced(wheel, new THREE.MeshStandardNodeMaterial({ color: TYRE, roughness: 0.9 }), 4 * n, true));
         this.add('hub', instanced(hub, new THREE.MeshStandardNodeMaterial({ color: HUB, roughness: 0.4 }), 4 * n, false));
         this.add('spoke', instanced(spoke, new THREE.MeshStandardNodeMaterial({ color: HUB, roughness: 0.4 }), 4 * n, false));
@@ -128,6 +183,7 @@ export class TrafficView {
             this.c.setHex(CANDY[model.movers[i].look % CANDY.length]);
             bodyMesh.setColorAt(k, this.c);
             roofMesh.setColorAt(k, this.c);
+            pillarMesh.setColorAt(k, this.c);
             this.c.setHex(BRAKE_OFF);
             brake.setColorAt(2 * k, this.c);
             brake.setColorAt(2 * k + 1, this.c);
@@ -167,6 +223,8 @@ export class TrafficView {
     }
 
     private eyeY = 0;
+    /** per rider, the car (index into cars) it sits in; a car's riders follow each other, front seats first */
+    private seats: number[] = [];
 
     private buildSignals(model: TrafficModel): void {
         const boxes = model.allStatics();
@@ -242,6 +300,8 @@ export class TrafficView {
             M.body.setMatrixAt(k, f);
             M.roof.setMatrixAt(k, f);
             M.cab.setMatrixAt(k, f);
+            M.pillar.setMatrixAt(k, f);
+            M.inside.setMatrixAt(k, f);
             const turn = -this.dist[i] / WHEEL_R;
             let w = 0;
             for (const wf of [WHEEL_F, -WHEEL_F]) for (const ws of [WHEEL_S, -WHEEL_S]) {
@@ -263,7 +323,25 @@ export class TrafficView {
                 M.brake.setColorAt(2 * k + s, this.c);
             }
         });
-        for (const name of ['body', 'roof', 'cab', 'wheel', 'hub', 'spoke', 'headlight', 'brake']) M[name].instanceMatrix.needsUpdate = true;
+        let seat = 0;
+        this.seats.forEach((k, r) => {
+            const f = this.frame(this.cars[k]);
+            seat = r > 0 && this.seats[r - 1] === k ? seat + 1 : 0;
+            const [sx, sz] = SEATS[seat];
+            this.m.makeTranslation(sx, 0, sz).premultiply(f);
+            M.rider.setMatrixAt(r, this.m);
+            const ey = RIDER_TOP - RIDER_R - 0.02;
+            for (let s = 0; s < 2; s++) {
+                const ez = sz + (s ? 0.075 : -0.075);
+                this.m.makeTranslation(sx + RIDER_R - 0.045, ey, ez).premultiply(f);
+                M.riderEye.setMatrixAt(2 * r + s, this.m);
+                this.m.makeTranslation(sx + RIDER_R + 0.003, ey, ez).premultiply(f);
+                M.riderPupil.setMatrixAt(2 * r + s, this.m);
+            }
+        });
+        for (const name of ['body', 'roof', 'cab', 'pillar', 'inside', 'rider', 'riderEye', 'riderPupil', 'wheel', 'hub', 'spoke', 'headlight', 'brake']) {
+            M[name].instanceMatrix.needsUpdate = true;
+        }
         if (M.brake.instanceColor) M.brake.instanceColor.needsUpdate = true;
     }
 

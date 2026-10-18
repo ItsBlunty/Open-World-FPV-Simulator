@@ -1,8 +1,8 @@
 // The level in Three.js: one mesh per material, built from the same triangles the collision uses.
 // Blockout surfaces get a world-aligned grid in the shader (1 m and 5 m lines): on flat colours an
-// FPV pilot cannot read speed or height, on a grid they can. City buildings ('facade-*') get storeys
-// of windows painted on their walls instead, so a tower reads as a building and its size as real.
-// TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera.
+// FPV pilot cannot read speed or height, on a grid they can. City windows are geometry (the glass set
+// back in the walls, maps first-map.ts windowedBlock); the glass towers' ribbon glass gets its mullions
+// painted. TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera.
 
 import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
@@ -36,17 +36,19 @@ const COLOURS: Record<Material, number> = {
     'facade-brick': 0x9b5a43,
     'facade-plaster': 0xd8cfbf,
     'facade-glass': 0x6f8ea3,
-    'facade-dark': 0x6f6b66
+    'facade-dark': 0x6f6b66,
+    // window glass: dark, with a little blue from the sky
+    window: 0x26323d,
+    'window-ribbon': 0x2a3a48
 };
 
-/** Window glass on the facades: dark, with a little blue from the sky. */
-const WINDOW = 0x26323d;
-/** City storey height and the top of the sidewalk the buildings stand on (maps first-map.ts building()). */
-const STOREY = 3.5;
-const PLINTH = 0.15;
+/** A glass tower's mullions: a thin frame every 1.5 m along its ribbon windows. */
+const MULLION = 0x3c4248;
+const MULLION_BAY = 1.5;
+const MULLION_W = 0.08;
 
-/** No grid on these: it would read as tiles on a tree or on water. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water']);
+/** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {
@@ -62,38 +64,25 @@ function band(a: FloatNode, lo: number, hi: number, w: FloatNode): FloatNode {
     return smoothstep(w.negate().add(lo), w.add(lo), a).mul(float(1).sub(smoothstep(w.negate().add(hi), w.add(hi), a)));
 }
 
-/**
- * How much of a wall point is window, 0-1. Along the wall (x or z, whichever the wall runs along) a
- * window every `bay` m; up the wall one row per storey, the ground floor with tall shop windows. Glass
- * towers get ribbon windows with thin mullions. Where the pattern gets too fine to draw it fades to
- * its average, so distant towers do not shimmer.
- */
-function windows(glass: boolean): FloatNode {
-    const p = positionWorld;
+/** How much of a ribbon window's glass is mullion, 0-1: a line every MULLION_BAY m along the wall, fading to its average far off. */
+function mullions(): FloatNode {
     const n = abs(normalWorld);
-    const u = mix(p.x, p.z, step(0.5, n.x));
-    const y = p.y.sub(PLINTH);
-    const bay = glass ? 1.5 : 3;
-    const across = fract(u.div(bay)).mul(bay);
-    const up = fract(y.div(STOREY)).mul(STOREY);
-    const ground = float(1).sub(step(STOREY, y));
-    const wa = fwidth(u).max(1e-4);
-    const wu = fwidth(y).max(1e-4);
-    const upper = glass
-        ? band(up, 0.8, 3.2, wu).mul(float(1).sub(band(across, 0, 0.08, wa)))
-        : band(up, 0.9, 2.6, wu).mul(band(across, 0.8, 2.2, wa));
-    const shop = band(up, 0.3, 3.0, wu).mul(band(across, 0.25, bay - 0.25, wa));
-    const pattern = mix(upper, shop, ground);
-    const mean = glass ? 0.6 : 0.23;
-    const fine = smoothstep(0.15, 0.5, max(wa.div(bay), wu.div(STOREY)));
-    // walls only: not on roofs, and nothing below the plinth
-    const wall = float(1).sub(step(0.5, n.y)).mul(step(0, y));
-    return mix(pattern, float(mean), fine).mul(wall);
+    const u = mix(positionWorld.x, positionWorld.z, step(0.5, n.x));
+    const w = fwidth(u).max(1e-4);
+    const line = band(fract(u.div(MULLION_BAY)).mul(MULLION_BAY), 0, MULLION_W, w);
+    return mix(line, float(MULLION_W / MULLION_BAY), smoothstep(0.15, 0.5, w.div(MULLION_BAY)));
 }
 
 function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
-    const mat = new THREE.MeshStandardNodeMaterial({ roughness: m === 'glass' || m === 'water' ? 0.25 : 0.9, metalness: m === 'metal' ? 0.3 : 0 });
+    const glassy = m === 'glass' || m === 'water' || m === 'window' || m === 'window-ribbon';
+    const mat = new THREE.MeshStandardNodeMaterial({ roughness: glassy ? (m.startsWith('window') ? 0.12 : 0.25) : 0.9, metalness: m === 'metal' ? 0.3 : 0 });
     const base = color(COLOURS[m]);
+    if (m === 'window-ribbon') {
+        const f = mullions();
+        mat.colorNode = mix(base, color(MULLION), f);
+        mat.roughnessNode = mix(float(0.12), float(0.5), f);
+        return mat;
+    }
     if (PLAIN.has(m)) {
         mat.colorNode = base;
         return mat;
@@ -107,14 +96,7 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
     const minor = max(max(lines(p.x, 1).mul(wx), lines(p.y, 1).mul(wy)), lines(p.z, 1).mul(wz));
     const major = max(max(lines(p.x, 5).mul(wx), lines(p.y, 5).mul(wy)), lines(p.z, 5).mul(wz));
     const shade = minor.mul(0.1).max(major.mul(0.28));
-    const gridded = mix(base, vec3(0.08, 0.08, 0.08), shade);
-    if (!m.startsWith('facade-')) {
-        mat.colorNode = gridded;
-        return mat;
-    }
-    const win = windows(m === 'facade-glass');
-    mat.colorNode = mix(gridded, color(WINDOW), win);
-    mat.roughnessNode = mix(float(0.9), float(0.2), win);
+    mat.colorNode = mix(base, vec3(0.08, 0.08, 0.08), shade);
     return mat;
 }
 

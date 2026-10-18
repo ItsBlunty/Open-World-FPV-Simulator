@@ -6,11 +6,11 @@
 // choices (missing floor panels, building heights) the same on every machine. Changing anything
 // here changes the collision hash, so bump MAP_VERSION with it.
 
-import { LevelBuilder, Rng } from './builder';
+import { FACE, LevelBuilder, Rng } from './builder';
 import type { Level, Material } from './builder';
 
 export const MAP_ID = 'mixed-1';
-export const MAP_VERSION = 3;
+export const MAP_VERSION = 4;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -77,7 +77,7 @@ function park(b: LevelBuilder, r: Rng): void {
     b.prism('concrete', 0, 80, 0.6, 3.5, 0.8, 8);
     // pond
     b.box('water', 50, 0, 100, 95, 0.05, 140);
-    // gazebo: 8 posts and a roof
+    // gazebo: 4 posts and a roof
     for (let i = 0; i < 4; i++) {
         const x = -70 + (i % 2) * 8;
         const z = 110 + Math.floor(i / 2) * 8;
@@ -124,6 +124,14 @@ function park(b: LevelBuilder, r: Rng): void {
 const H = 3.6;
 const SLAB = 0.3;
 const BAY = 6;
+/**
+ * The bando's beams: on every column line at every floor, 0.45 m deep and 0.3 m wide [estimates, typical
+ * of a 6 m cast-in-place frame: depth about span / 13]. The floor panels span between them, and the
+ * exterior walls are infill from the floor up to the beam above, so a wall never ends in the air where
+ * a panel is missing (owner, 2026-10-18: walls "floating like the pillars were").
+ */
+const BEAM = 0.45;
+const BEAM_W = 0.3;
 
 function wallX(b: LevelBuilder, m: Material, x0: number, x1: number, z: number, y0: number, y1: number, kind: 'solid' | 'window' | 'door'): void {
     const t = 0.25;
@@ -156,9 +164,10 @@ function wallZ(b: LevelBuilder, m: Material, z0: number, z1: number, x: number, 
 }
 
 /**
- * A 60 x 24 m concrete frame of 5 storeys (3.6 m each, roof at 18 m): columns on a 6 m grid, floor
- * panels per bay with some missing and a collapse through floors 3 and 4, an open shaft through
- * every floor, exterior walls that are solid, windowed or gone, and rubble under the collapse.
+ * A 60 x 24 m concrete frame of 5 storeys (3.6 m each, roof at 18 m): columns on a 6 m grid, beams
+ * between them at every floor, floor panels per bay with some missing and a collapse through floors 3
+ * and 4 (its beams gone too), an open shaft through every floor, exterior walls that are solid,
+ * windowed or gone, and rubble under the collapse.
  */
 function bando(b: LevelBuilder, r: Rng): void {
     const x0 = -280;
@@ -178,6 +187,24 @@ function bando(b: LevelBuilder, r: Rng): void {
         const broken = i > 0 && i < NX && j > 0 && j < NZ && r.chance(1, 4);
         b.block('concrete', x0 + i * BAY, z0 + j * BAY, 0.5, 0.5, 0.1, (broken ? (storeys - 1) * H : storeys * H) - 0.1);
     }
+    // beams on every column line at every floor, column face to column face; inside the collapse they fell
+    // with the panels (a beam goes when every panel beside it has gone). The perimeter ones all stand.
+    const inside = (i: number, j: number): boolean => i >= 0 && i < NX && j >= 0 && j < NZ;
+    const fell = (k: number, sides: number[][]): boolean => sides.every(([i, j]) => inside(i, j) && collapse(k, i, j));
+    const hb = BEAM_W / 2;
+    for (let k = 1; k <= storeys; k++) {
+        const y = k * H;
+        for (let j = 0; j <= NZ; j++) for (let i = 0; i < NX; i++) {
+            if (fell(k, [[i, j - 1], [i, j]])) continue;
+            const z = z0 + j * BAY;
+            b.box('concrete', x0 + i * BAY + 0.25, y - BEAM, z - hb, x0 + (i + 1) * BAY - 0.25, y, z + hb);
+        }
+        for (let i = 0; i <= NX; i++) for (let j = 0; j < NZ; j++) {
+            if (fell(k, [[i - 1, j], [i, j]])) continue;
+            const x = x0 + i * BAY;
+            b.box('concrete', x - hb, y - BEAM, z0 + j * BAY + 0.25, x + hb, y, z0 + (j + 1) * BAY - 0.25);
+        }
+    }
     // floor panels, slab k's top at k * H
     for (let k = 1; k <= storeys; k++) {
         for (let i = 0; i < NX; i++) for (let j = 0; j < NZ; j++) {
@@ -193,8 +220,9 @@ function bando(b: LevelBuilder, r: Rng): void {
         return u < 45 ? 'window' : u < 70 ? null : 'solid';
     };
     for (let k = 0; k < storeys; k++) {
+        // from the floor (or the ground slab) up to the underside of the beam above
         const y0 = k === 0 ? 0.1 : k * H;
-        const y1 = (k + 1) * H - SLAB;
+        const y1 = (k + 1) * H - BEAM;
         const m: Material = k < 2 ? 'brick' : 'concrete';
         for (let i = 0; i < NX; i++) {
             const xa = x0 + i * BAY + 0.25;
@@ -224,13 +252,17 @@ function bando(b: LevelBuilder, r: Rng): void {
             }
         }
     }
-    // roof parapet with gaps, a water tank on legs
+    // roof parapet with gaps (standing on the edge beams), a water tank on legs
     const top = storeys * H;
     for (let i = 0; i < NX; i++) {
         if (!r.chance(1, 4)) b.box('concrete', x0 + i * BAY, top, z0 - 0.15, x0 + (i + 1) * BAY, top + 1, z0 + 0.15);
         if (!r.chance(1, 4)) b.box('concrete', x0 + i * BAY, top, z0 + NZ * BAY - 0.15, x0 + (i + 1) * BAY, top + 1, z0 + NZ * BAY + 0.15);
     }
-    for (const [dx, dz] of [[0, 0], [3, 0], [0, 3], [3, 3]]) b.block('rust', x0 + 43.5 + dx, z0 + 16.5 + dz, 0.3, 0.3, top, 4);
+    // the tank's legs stand on two steel beams (dunnage) laid across the roof beams of column lines 7 and 8,
+    // as rooftop tanks are set: it does not lean on the roof panels, which may be missing
+    const DUN = 0.4;
+    for (const dz of [16.5, 19.5]) b.box('rust', x0 + 7 * BAY - hb, top, z0 + dz - 0.15, x0 + 8 * BAY + hb, top + DUN, z0 + dz + 0.15);
+    for (const [dx, dz] of [[0, 0], [3, 0], [0, 3], [3, 3]]) b.block('rust', x0 + 43.5 + dx, z0 + 16.5 + dz, 0.3, 0.3, top + DUN, 4 - DUN);
     b.block('rust', x0 + 45, z0 + 18, 4.5, 4.5, top + 4, 3);
     // rubble under the collapse and scattered on the ground floor
     for (let n = 0; n < 40; n++) {
@@ -252,17 +284,98 @@ function bando(b: LevelBuilder, r: Rng): void {
 
 const MATS_BUILDING: Material[] = ['facade-concrete', 'facade-brick', 'facade-plaster', 'facade-glass', 'facade-dark'];
 
+/** City storey height, m. */
+const STOREY = 3.5;
+/**
+ * How far the glass sits back from a building's face, m: the window reveal. 15 cm is a common depth for
+ * windows in a masonry or precast wall [estimate]; it is real geometry, so the quad feels it too.
+ */
+const REVEAL = 0.15;
+
+/** A row of windows up a storey: sill and head above the storey's floor, m, and the bay along the wall. */
+interface WindowRow {
+    sill: number;
+    head: number;
+    /** windows every `bay` m along the wall, each `width` wide; 0: one ribbon along the whole wall */
+    bay: number;
+    width: number;
+    glass: Material;
+}
+/** Office windows: 1.4 m wide every 3 m, 0.9 m sill, 2.6 m head. */
+const PUNCHED: WindowRow = { sill: 0.9, head: 2.6, bay: 3, width: 1.4, glass: 'window' };
+/** Shop fronts on the ground floor: 2.5 m of glass every 3 m, from 0.3 to 3 m. */
+const SHOP: WindowRow = { sill: 0.3, head: 3.0, bay: 3, width: 2.5, glass: 'window' };
+/** A glass tower's ribbon windows: glass all along each storey from 0.8 to 3.2 m (mullions painted on). */
+const RIBBON: WindowRow = { sill: 0.8, head: 3.2, bay: 0, width: 0, glass: 'window-ribbon' };
+
+/**
+ * A building block with its windows set back REVEAL into the walls: a glass core REVEAL in from the
+ * footprint, wrapped in the wall's outer skin of solid bands between the window rows and piers between
+ * the windows. `storeys` rows from y0 up, each STOREY tall; `ground` is the street floor's row (shop
+ * fronts), `upper` the rest. Faces against other solid geometry are left out (LevelBuilder.box skip).
+ */
+function windowedBlock(b: LevelBuilder, m: Material, x0: number, z0: number, x1: number, z1: number, y0: number, storeys: number,
+    ground: WindowRow, upper: WindowRow): void {
+    const R = REVEAL;
+    const y1 = y0 + storeys * STOREY;
+    const rows: WindowRow[] = [];
+    for (let s = 0; s < storeys; s++) rows.push(s === 0 ? ground : upper);
+    // the roof, over the whole footprint
+    b.floor(m, x0, z0, x1, z1, y1);
+    // the glass core's walls, a quad per storey row (its glass may differ from row to row)
+    const cx0 = x0 + R, cz0 = z0 + R, cx1 = x1 - R, cz1 = z1 - R;
+    rows.forEach((row, s) => {
+        const ya = y0 + s * STOREY, yb = ya + STOREY;
+        b.quad(row.glass, [cx0, ya, cz0], [cx0, yb, cz0], [cx1, yb, cz0], [cx1, ya, cz0]); // -z
+        b.quad(row.glass, [cx0, ya, cz1], [cx1, ya, cz1], [cx1, yb, cz1], [cx0, yb, cz1]); // +z
+        b.quad(row.glass, [cx0, ya, cz0], [cx0, ya, cz1], [cx0, yb, cz1], [cx0, yb, cz0]); // -x
+        b.quad(row.glass, [cx1, ya, cz0], [cx1, yb, cz0], [cx1, yb, cz1], [cx1, ya, cz1]); // +x
+    });
+    // the skin, one wall at a time. A wall along x covers the corners; a wall along z runs between them.
+    // span(a, c, ya, yb, skip): the skin box from a to c along the wall, ya to yb up.
+    const walls: { len0: number; len1: number; span: (a: number, c: number, ya: number, yb: number, skip: number) => void }[] = [
+        { len0: x0, len1: x1, span: (a, c, ya, yb, k) => b.box(m, a, ya, z0, c, yb, cz0, k | FACE.pz) },
+        { len0: x0, len1: x1, span: (a, c, ya, yb, k) => b.box(m, a, ya, cz1, c, yb, z1, k | FACE.nz) },
+        { len0: z0, len1: z1, span: (a, c, ya, yb, k) => b.box(m, x0, ya, Math.max(a, cz0), cx0, yb, Math.min(c, cz1), k | FACE.px | (a <= cz0 ? FACE.nz : 0) | (c >= cz1 ? FACE.pz : 0)) },
+        { len0: z0, len1: z1, span: (a, c, ya, yb, k) => b.box(m, cx1, ya, Math.max(a, cz0), x1, yb, Math.min(c, cz1), k | FACE.nx | (a <= cz0 ? FACE.nz : 0) | (c >= cz1 ? FACE.pz : 0)) }
+    ];
+    for (const w of walls) {
+        const len = w.len1 - w.len0;
+        // solid bands: under the first sill, between each head and the next sill, over the last head
+        let y = y0;
+        rows.forEach((row, s) => {
+            const sill = y0 + s * STOREY + row.sill;
+            w.span(w.len0, w.len1, y, sill, y === y0 ? FACE.bottom : 0);
+            y = y0 + s * STOREY + row.head;
+            if (!row.bay) return; // a ribbon: glass the whole way along
+            // piers between the windows: whole bays, centred on the wall, the spare length in the end piers
+            const n = Math.floor(len / row.bay);
+            const margin = (len - n * row.bay) / 2;
+            const gap = (row.bay - row.width) / 2;
+            let a = w.len0;
+            for (let k = 0; k < n; k++) {
+                const wa = w.len0 + margin + k * row.bay + gap;
+                w.span(a, wa, sill, y, FACE.bottom | FACE.top);
+                a = wa + row.width;
+            }
+            w.span(a, w.len1, sill, y, FACE.bottom | FACE.top);
+        });
+        w.span(w.len0, w.len1, y, y1, FACE.top);
+    }
+}
+
 function building(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number, maxFloors: number): void {
     const floors = r.int(2, maxFloors);
-    const h = floors * 3.5;
+    const h = floors * STOREY;
     const m = h > 40 && r.chance(1, 2) ? 'facade-glass' : r.pick(MATS_BUILDING);
+    const upper = m === 'facade-glass' ? RIBBON : PUNCHED;
     if (h > 30 && r.chance(1, 2)) {
         // podium and a set-back tower
-        b.box(m === 'facade-glass' ? 'facade-concrete' : m, x0, 0.15, z0, x1, 0.15 + 3 * 3.5, z1);
+        windowedBlock(b, m === 'facade-glass' ? 'facade-concrete' : m, x0, z0, x1, z1, 0.15, 3, SHOP, PUNCHED);
         const ix = Math.min(6, (x1 - x0) / 4);
         const iz = Math.min(6, (z1 - z0) / 4);
-        b.box(m, x0 + ix, 0.15 + 3 * 3.5, z0 + iz, x1 - ix, 0.15 + h, z1 - iz);
-    } else b.box(m, x0, 0.15, z0, x1, 0.15 + h, z1);
+        windowedBlock(b, m, x0 + ix, z0 + iz, x1 - ix, z1 - iz, 0.15 + 3 * STOREY, floors - 3, upper, upper);
+    } else windowedBlock(b, m, x0, z0, x1, z1, 0.15, floors, SHOP, upper);
     // rooftop clutter: AC units, a stair head
     const top = 0.15 + h;
     const n = r.int(0, 3);
@@ -296,13 +409,30 @@ function construction(b: LevelBuilder, x0: number, z0: number): void {
     b.box('concrete', cx - 12, 43, cz - 1.5, cx - 6, 45, cz + 1.5);
 }
 
-/** An open multi-storey car park: slabs on columns, low parapets. */
+/**
+ * An open multi-storey car park: slabs on columns, parapets all round, and a ramp up from each level to
+ * the next. The ramps switch back: up northwards to level 1 in lane A, southwards to level 2 in lane B
+ * beside it, and so on, each through an opening in the slab above it. 3.2 m up over 20 m is a 16 %
+ * grade, near the 1:6 most design guides give as the steepest for a car-park ramp [estimate].
+ */
 function carPark(b: LevelBuilder, x0: number, z0: number): void {
+    const lanes = [[49.5, 53], [53.5, 57]]; // between the column lines at 48.8 and 57.7
+    const rz0 = 20, rz1 = 40;
     for (let k = 1; k <= 4; k++) {
         const y = 0.15 + k * 3.2;
-        b.box('concrete', x0 + 4, y - 0.3, z0 + 4, x0 + 58, y, z0 + 58);
+        // the slab, open over the lane the ramp from the level below comes up
+        const [la, lb] = lanes[(k - 1) % 2];
+        b.box('concrete', x0 + 4, y - 0.3, z0 + 4, x0 + la, y, z0 + 58);
+        b.box('concrete', x0 + lb, y - 0.3, z0 + 4, x0 + 58, y, z0 + 58);
+        b.box('concrete', x0 + la, y - 0.3, z0 + 4, x0 + lb, y, z0 + rz0);
+        b.box('concrete', x0 + la, y - 0.3, z0 + rz1, x0 + lb, y, z0 + 58);
         b.box('concrete', x0 + 4, y, z0 + 4, x0 + 58, y + 1, z0 + 4.3);
         b.box('concrete', x0 + 4, y, z0 + 57.7, x0 + 58, y + 1, z0 + 58);
+        b.box('concrete', x0 + 4, y, z0 + 4.3, x0 + 4.3, y + 1, z0 + 57.7);
+        b.box('concrete', x0 + 57.7, y, z0 + 4.3, x0 + 58, y + 1, z0 + 57.7);
+        // the ramp up to this level from the one below: lane A rises southwards (+z), lane B northwards
+        const up = (k - 1) % 2 === 0;
+        b.rampZ('concrete', x0 + la, x0 + lb, z0 + (up ? rz0 : rz1), z0 + (up ? rz1 : rz0), y - 3.2, y, 0.3);
     }
     for (let k = 0; k < 4; k++) {
         const y0 = 0.15 + k * 3.2;
@@ -370,10 +500,12 @@ function city(b: LevelBuilder, r: Rng): void {
             const x1 = x0 + BLOCK;
             b.box('sidewalk', x0, 0, z0, x1, 0.15, z1);
             b.blocks.push({ x0, z0, x1, z1, y: 0.15 });
-            // street lamps by the kerb, 4 m along from each corner: the corners are for the signal poles and the
-            // people waiting at the crossings (traffic network.ts)
-            for (const [lx, lz] of [[x0 + 0.4, z0 + 4], [x1 - 0.4, z0 + 4], [x0 + 0.4, z1 - 4], [x1 - 0.4, z1 - 4]]) {
+            // (not on the corners: they are for the signal poles and the people waiting at the crossings, traffic network.ts)
+            // street lamps by the kerb, 4 m along from each corner: an arm out over the road and the lamp under it
+            for (const [lx, lz, out] of [[x0 + 0.4, z0 + 4, -1], [x1 - 0.4, z0 + 4, 1], [x0 + 0.4, z1 - 4, -1], [x1 - 0.4, z1 - 4, 1]]) {
                 b.prism('metal', lx, lz, 0.15, 7, 0.12, 4);
+                b.box('metal', lx, 6.8, lz - 0.05, lx + out * 1.8, 6.92, lz + 0.05);
+                b.box('metal', lx + out * 1.15, 6.62, lz - 0.16, lx + out * 1.85, 6.8, lz + 0.16);
             }
             // taller towards the middle of the city (x = 0, z = -290)
             const cx = (x0 + x1) / 2;
@@ -455,7 +587,10 @@ function industrial(b: LevelBuilder, r: Rng): void {
         }
     }
     // silos and a gantry to fly through
-    for (let i = 0; i < 3; i++) b.prism('metal', -260, 250 + i * 12, 0, 22, 4.5, 8);
+    for (let i = 0; i < 3; i++) {
+        b.prism('metal', -260, 250 + i * 12, 0, 22, 4.5, 8);
+        b.cone('metal', -260, 250 + i * 12, 22, 24, 4.6, 8);
+    }
     b.box('rust', -310, 0, 330, -309, 14, 331);
     b.box('rust', -280, 0, 330, -279, 14, 331);
     b.box('rust', -310, 13, 329, -279, 15, 332);
@@ -467,9 +602,12 @@ function industrial(b: LevelBuilder, r: Rng): void {
 // ---------------------------------------------------------------- south-east fields
 
 function southEast(b: LevelBuilder, r: Rng): void {
-    // water tower: four legs, a tank
+    // water tower: four legs braced by two rings of girders between them, a tank
     for (const [dx, dz] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) b.prism('metal', 250 + dx, 260 + dz, 0, 24, 0.4, 6);
-    b.box('metal', 245.5, 12, 259.8, 254.5, 12.4, 260.2);
+    for (const y of [8, 16]) {
+        for (const z of [256, 264]) b.box('metal', 246, y, z - 0.15, 254, y + 0.4, z + 0.15);
+        for (const x of [246, 254]) b.box('metal', x - 0.15, y, 256, x + 0.15, y + 0.4, 264);
+    }
     b.prism('metal', 250, 260, 24, 32, 7, 8);
     b.cone('metal', 250, 260, 32, 35, 7.2, 8);
     // hay bales and a tree line

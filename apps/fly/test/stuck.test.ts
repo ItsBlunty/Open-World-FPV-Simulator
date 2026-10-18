@@ -13,8 +13,12 @@ import { FlightSession, QUICK_RESPAWN, REWIND_MARGIN_M } from '../src/session';
 
 const preset = nazgul as unknown as PresetJson;
 const level = buildFirstMap();
-/** where the owner's last rewind put the quad: bando storey 2, ceiling (slab underside) at 10.5 m */
-const UNDER_SLAB: [number, number, number, number] = [-243.784, 10.245, -9.746, -89.53];
+/**
+ * where the owner's last rewind put the quad: bando storey 2, ceiling (slab underside) at 10.5 m. Map v4
+ * added floor beams on the column lines; the owner's spot (x = -243.784) is 7 cm from the one on line 6
+ * (x = -244, underside 10.35 m), so the spot is moved 0.78 m east into the same bay, under the flat slab.
+ */
+const UNDER_SLAB: [number, number, number, number] = [-243.0, 10.245, -9.746, -89.53];
 const SLAB = 10.5;
 
 interface Track {
