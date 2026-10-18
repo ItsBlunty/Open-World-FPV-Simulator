@@ -125,6 +125,17 @@ button.danger { border-color: var(--bad); color: var(--bad); }
 .replay-mark.crash { background: var(--bad); }
 .replay-mark.respawn { background: var(--muted); }
 .replay-mark.prop { background: #ffc23d; }
+.replay-mark.trick { background: var(--good); height: 8px; top: 4px; }
+.replay-tricks { pointer-events: auto; position: absolute; right: 18px; top: 112px; width: min(340px, calc(100% - 36px)); max-height: calc(100% - 300px); overflow-y: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: grid; gap: 6px; font-size: 13px; }
+.replay-tricks .trick { display: block; width: 100%; text-align: left; padding: 6px 8px; background: #1d222b; }
+.replay-tricks .trick.now { border-color: var(--good); }
+.replay-tricks .trick.nearly { opacity: 0.75; }
+.replay-tricks .when { font-family: ui-monospace, Consolas, monospace; color: var(--muted); }
+.replay-tricks .mark { font-weight: 700; font-size: 15px; color: var(--good); }
+.replay-tricks .nearly .mark { color: var(--muted); }
+.replay-tricks .ded { color: #ffb38a; }
+.replay-tricks .miss { color: var(--bad); }
+.replay-tricks .fact { color: var(--muted); }
 .seg { display: inline-flex; }
 .seg button { border-radius: 0; padding: 5px 10px; margin-left: -1px; }
 .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }

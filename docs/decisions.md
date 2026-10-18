@@ -75,3 +75,5 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | Replay path line? | Switchable (off / trail / whole flight), whole flight by default |
 | 2026-10-18 | Replay overlay? | Stick overlay; speed, height, throttle; timeline marks for crashes, respawns and golden props |
 | 2026-10-18 | Replay controls? | Play/pause and a scrub bar; speeds 0.1x to 2x. Radio control of the replay as an option that starts off, so stick jitter or a bumped stick never moves the playback unless the pilot means it |
+| 2026-10-18 | Replay viewer OK? | Looks good for now; the radio controls get tried later |
+| 2026-10-18 | Next task? | Continue: the grader (first prototype, shown in the replay viewer) |

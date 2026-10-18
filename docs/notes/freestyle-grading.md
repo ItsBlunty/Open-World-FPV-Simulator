@@ -431,6 +431,64 @@ ProWhooper's exact pattern; 4 inverted yaw spin 360, plus a separate 180 version
 tighter centring scores better; 6 split-S 180° ± 45° now, variants later; 7 challenges fly in the world's wind (so wind
 is part of every attempt: a par should allow for it); 8 start from ProWhooper's base points.
 
+### 11. Grader prototype v1 (2026-10-18): built
+
+**Asked:** "Let's continue" after the replay viewer (owner): the next step in HANDOFF was the grader. It is §7 steps
+1-4 for the first five tricks (flip, roll, power loop, split-S, dive). Challenges are not built: they need spots in the
+map and answers from the owner first. Until then the grader runs on a saved flight while the replay viewer prepares it
+(the owner's "trick report" idea), so every mark comes from the stick log and can be re-made when the method changes.
+
+**How it works** (`apps/fly/src/grade.ts`, `GRADE_VERSION` 1; every threshold is an [estimate] in one table at the top).
+- `Grader.step(tick, s, ch)` after every 1 ms step keeps a 12 s history: position, velocity, body up and back, the
+  pilot-axis rates, the rotation summed from them, the throttle stick, and touches. It only reads; `touch(hit)` takes
+  sim contact events (a bounce is a hit), `crash()` and a jump in ticks (a new life) reset it.
+- **Episodes:** turning faster than 200°/s starts one; it ends after 300 ms under 45°/s (a power loop floats slowly
+  over the top; §9's 90°/s split loops in two). Longer than 8 s is ordinary flying and is dropped.
+- **Which trick:** the axis with the most summed rotation. Pitch: under 240° nothing; 240-330° "Nearly a ...";
+  roll or yaw swinging over 60° "Mixed rotation". Then the **path turn in the pitch plane** (velocity turn about the
+  entry's body right axis, signed, through the exit: a loop's path keeps turning in the catch). Same way as the pitch
+  and 270° or more: a loop (backwards = power loop). Under 90°: a flip. A back flip whose path climbed to 60°+ having
+  gained 30°+ in it: "Nearly a power loop", and "teardrop" when it never moved backwards over the top. Where the path
+  reverses through a stop (straight up then down) the turn takes the pitch's direction, so a teardrop reaches the power
+  loop's checks and is turned down there with the reason. Roll: axial or barrel (path more than 1 m off the straight
+  line). Split-S: roll 180 ± 40 done (135°) before 60° of pitch, pitch back 180 ± 60, heading reversed 180 ± 45, lower.
+  Dive: held state (nose and path within 30° of straight down, 5 m/s or more, 1 s or more), then level within 2.5 s.
+- **Power loop musts** (§10): backwards at 1 m/s or more while inverted (else teardrop), and back within 2.5 m of the
+  entry point (§5's "a few metres"; tighter once loops go through marked gaps). Something solid within 0.7 x the
+  loop's mean radius of its centre (one `contacts` query) makes it "Power loop", else "Power loop (open air)".
+- **Marks:** 10 minus deductions, each shown with its reason. Flip / roll: off-axis wobble and stop error 1 per 15°,
+  rate spread over 15 % 1 per 10 % (at most 3), path sideways (flip) or off its line (axial roll) 1 per 0.5 m. Power
+  loop: a pause in the rotation -2 (ProWhooper), rate spread, plane lean and roll / yaw 1 per 15°, exit height 0.5 per
+  m, exit heading 1 per 15°, throttle jumping more than 50 % in 100 ms in the catch -1, roundness 1 per 10 % of radius
+  spread in open-air loops only (owner). Split-S: heading error, half roll error, yaw, exit off level, 1 per 15° each.
+  Dive: nose wander 1 per 5° rms, throttle above 25 % for over a fifth of it -1, path off a line 1 per 0.5 m. A brush
+  -2; a hit voids the trick ("hit something during it"). Tightness to the object is shown as a fact (loop height), not
+  graded: it needs a par per challenge (§10). No points or stars yet: they belong to challenges.
+- **Where it shows:** `buildTrack` (replay.ts) grades while it flies the flight again, so `Track.tricks` exists for
+  every saved flight; the replay viewer lists them (time, name, mark, each deduction, the facts; the one at the
+  playhead is outlined; a click jumps to it; Hide folds the list) and puts a green mark on the timeline per trick.
+  `?demo=tricks` flies a back flip and a roll every 6 s (open-loop sticks; on the map it can hit things).
+
+**Evidence.** `apps/fly/test/grade.test.ts` (10 tests): a scripted pilot flies the real sim (Nazgul 6S, acro, open
+air). Marks it gave (v1): back flip 9.0, the same with roll and yaw stick mixed in 8.0 ("roll wobble 9°, yaw wobble
+7°"); front flip 8.8 (released at 330°: "under-rotated"); roll right 6.8, barrel roll right 6.6; power loop in the open
+air 6.0 ("not round, radius varied 25 %"), the same flight with a ball at the loop's centre "Power loop" 8.5;
+climbing back flip with the throttle cut at 90° "Nearly a power loop: teardrop"; split-S 9.4 (wide pull) and 8.8
+(tight pull, heading 167°); dive 9.4, with the sticks wobbling 9.1; a 0.8 s dive and 12 s of forward flight with yaw
+turns give nothing; a brush costs exactly 2, a hit voids. `apps/fly/test/replay.test.ts`: an 8 s flight on the real
+map graded live and graded again in `buildTrack` gives identical tricks (a back flip and a roll), each on the timeline.
+`pnpm test` 54 files, 475 tests. Built-in browser (dev server, `?demo=tricks`): the viewer listed "Between a flip and a
+loop (path turned 163°)" and "Roll right: hit something" for a demo flight that clipped a building, "replay matches
+the flight", no console errors.
+
+**Left open.**
+- Calibration (§7 step 5): the owner flies each trick, good and bad, and says which were better; thresholds move until
+  the marks agree. None of the numbers above has met a real pilot yet.
+- Carving flight that keeps turning faster than 45°/s for over 8 s hides any trick inside it (the episode is dropped).
+- Matty flip, Rubik's cube, yaw spins, inverted yaw spin, orbit, Immelmann (owner's next list): not yet.
+- Challenges: spots, pars, a best score and stars per challenge, the "trick report" ghost: not yet; questions for the
+  owner first.
+
 ### Sources
 
 - Liftoff, Steam announcements, read via the Steam news API (2026-10-18): Milestone 0.11.0 (2017-10-10), 0.11.1,

@@ -1,12 +1,14 @@
 // The replay viewer's screen (owner, 2026-10-18): play / pause, a scrub bar with marks for crashes, respawns and
 // golden props, speeds 0.1x to 2x, the four cameras, the path line, and the sticks, speed, height and throttle at the
 // playhead. Steering it with the radio is an option that starts off. The engine plays the track; this screen draws
-// what it reads from its own copy of the track at the tick the engine says.
+// what it reads from its own copy of the track at the tick the engine says. The tricks the grader found (grade.ts)
+// are listed with their marks and every deduction (owner, 2026-10-18: "verbose for now").
 
 import { STICK_MODES } from '@owfpv/input';
 import type { StickMode } from '@owfpv/input';
 import { T, poseAt } from '../replay';
 import type { Mark, Track } from '../replay';
+import type { GradedTrick } from '../grade';
 import type { PathMode, ReplayCam } from '../engine/protocol';
 import { h, clear } from './dom';
 
@@ -65,6 +67,10 @@ export class ReplayUi {
     private readonly scrub = h('input', { type: 'range', class: 'replay-scrub', 'aria-label': 'Position in the flight' });
     private readonly playBtn = h('button', { class: 'primary replay-play' });
     private readonly status = h('div', { class: 'replay-status' });
+    private readonly trickList = h('div', { class: 'replay-tricks' });
+    private trickEls: HTMLElement[] = [];
+    /** the trick list is shown (it can be folded away) */
+    tricksOpen = true;
 
     constructor() {
         this.el = h('div', { class: 'replay hidden' });
@@ -119,6 +125,7 @@ export class ReplayUi {
             h('strong', {}, title), ' · ',
             track.ok ? h('span', { class: 'status-ok' }, 'replay matches the flight') : h('span', { class: 'status-bad' }, 'replay differs from the flight in some lives'));
         clear(this.bar, ...track.marks.map((m) => this.markEl(m, track)), this.scrub);
+        this.buildTricks(track);
         this.buildControls();
         this.at(track.startTick, true);
     }
@@ -130,6 +137,37 @@ export class ReplayUi {
             title: `${clock(m.tick - track.startTick)} ${m.label}`, 'aria-label': m.label,
             onclick: () => this.host?.ctl({ seek: Math.max(track.startTick, m.tick - LEAD_MS) })
         });
+    }
+
+    /** The list of tricks: name, mark, then each deduction and fact. A click jumps to just before it. */
+    private buildTricks(track: Track): void {
+        const ts = track.tricks;
+        const graded = ts.filter((t) => t.mark !== null).length;
+        this.trickEls = ts.map((t) => this.trickEl(t, track));
+        const head = h('div', { class: 'row tight' },
+            h('strong', {}, `Tricks: ${graded}`), h('span', { class: 'muted' }, ts.length > graded ? ` + ${ts.length - graded} nearly` : ''),
+            h('span', { class: 'spacer' }),
+            h('button', { title: 'Grader prototype: marks out of 10, F3A-style deductions (docs/notes/freestyle-grading.md)', onclick: () => { this.tricksOpen = !this.tricksOpen; this.buildTricks(track); } }, this.tricksOpen ? 'Hide' : 'Show'));
+        const body = this.tricksOpen
+            ? ts.length === 0
+                ? [h('div', { class: 'muted' }, 'No flips, rolls, power loops, split-S or dives found.')]
+                : this.trickEls
+            : [];
+        clear(this.trickList, head, ...body, this.tricksOpen ? h('div', { class: 'note' }, `Grader v${track.gradeVersion}, a first prototype: the thresholds are guesses to tune.`) : null);
+    }
+
+    private trickEl(t: GradedTrick, track: Track): HTMLElement {
+        const lines: (HTMLElement | null)[] = [
+            ...t.deductions.map((d) => h('div', { class: 'ded' }, `−${d.minus.toFixed(1)} ${d.why}`)),
+            t.miss ? h('div', { class: 'miss' }, t.miss) : null,
+            ...t.facts.map((f) => h('div', { class: 'fact' }, f))
+        ];
+        return h('button', { class: `trick ${t.mark === null ? 'nearly' : ''}`, onclick: () => this.host?.ctl({ seek: Math.max(track.startTick, t.startTick - LEAD_MS) }) },
+            h('div', { class: 'row tight' },
+                h('span', { class: 'when' }, clock(t.startTick - track.startTick)),
+                h('strong', {}, t.name), h('span', { class: 'spacer' }),
+                h('span', { class: 'mark' }, t.mark === null ? '–' : t.mark.toFixed(1))),
+            ...lines);
     }
 
     private buildControls(): void {
@@ -144,6 +182,7 @@ export class ReplayUi {
         clear(this.el,
             this.info,
             h('div', { class: 'replay-sticks' }, this.left, this.right),
+            this.trickList,
             h('div', { class: 'replay-panel' },
                 this.status,
                 h('div', { class: 'row tight' }, this.playBtn, this.time, this.bar),
@@ -193,6 +232,8 @@ export class ReplayUi {
             this.playBtn.textContent = playing ? 'Pause' : 'Play';
         }
         if (!this.dragging) this.scrub.value = String(Math.round(tick));
+        // the trick being flown at the playhead stands out in the list
+        t.tricks.forEach((k, i) => this.trickEls[i]?.classList.toggle('now', tick >= k.startTick && tick <= k.endTick));
         this.time.textContent = `${clock(tick - t.startTick)} / ${clock(t.endTick - t.startTick)}`;
         const p = poseAt(t, tick, this.pose);
         const v = Math.sqrt(p[T.vx] * p[T.vx] + p[T.vy] * p[T.vy] + p[T.vz] * p[T.vz]);

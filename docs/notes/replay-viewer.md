@@ -44,3 +44,6 @@ pause, arrow-key seek and C cycle checked; Esc back left the sim at its tick (16
 **Left open:** the trail does not fade; the path is a 1 px line (WebGPU lines have no width). The free camera's speed
 follows the frame time (it is clamped at 0.1 s a frame, so a slow frame rate moves it slower). Radio control not yet
 tried with a real radio. No crash marks seen in the browser (damage is off by default, so the sim reports no crashes).
+
+**Later (2026-10-18):** the owner looked at it: "looks good for now", radio controls to be tried later. The viewer now
+also lists the grader's tricks (`freestyle-grading.md` §11).

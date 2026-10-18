@@ -2,7 +2,7 @@
 // scene, frame loop: engine/engine.ts) runs on this page by default. ?render=worker runs it in a worker drawing to
 // this page's canvas instead (docs/notes/browsers-input-performance.md §0i): input arrives sooner there, but the owner felt stutters every 5-10 s
 // in Firefox and chose the page (2026-10-18). URL options: ?selftest runs the determinism check, ?demo flies the
-// self-test's scripted sticks in real time (no radio needed), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
+// self-test's scripted sticks in real time (no radio needed; ?demo=tricks flies flips and rolls for the grader), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
 // point, ?cam=chase starts in the chase view, ?noshadows turns the sun's shadows off (for slow GPUs, and to measure
 // what they cost), ?render=worker runs the engine in a worker.
 

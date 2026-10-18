@@ -14,6 +14,8 @@ import type { Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import type { TrafficConfig } from '@owfpv/traffic';
 import { FLIGHT_FORMAT, asLife, lifeDeps, trafficConfigFor } from './flights';
+import { GRADE_VERSION, Grader } from './grade';
+import type { GradedTrick } from './grade';
 import type { Flight } from './flights';
 
 /** Ticks between kept poses: 2 ms (500 a second), smooth at any frame rate once interpolated, about 1.3 MB a minute. */
@@ -33,9 +35,9 @@ export const T = {
 /** A teleport between two poses (a respawn): further apart than this, m, is never one flight path. */
 const JUMP_M = 5;
 
-export type MarkKind = 'crash' | 'respawn' | 'prop';
+export type MarkKind = 'crash' | 'respawn' | 'prop' | 'trick';
 
-/** Something on the timeline: a crash, a respawn (and why), a golden prop taken. */
+/** Something on the timeline: a crash, a respawn (and why), a golden prop taken, a trick (graded.ts). */
 export interface Mark {
     tick: number;
     kind: MarkKind;
@@ -54,6 +56,10 @@ export interface Track {
     marks: Mark[];
     /** golden props taken in the flight: [number, tick], by tick */
     props: [number, number][];
+    /** the tricks the grader found while the flight was flown again (grade.ts), in the order they ended */
+    tricks: GradedTrick[];
+    /** the grader's version that marked them */
+    gradeVersion: number;
     /** every life's replay gave its saved hash */
     ok: boolean;
 }
@@ -90,6 +96,8 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
     };
     const lives: Track['lives'] = [];
     const marks: Mark[] = [];
+    // the grader watches the replay as it would a live flight; each life starts it afresh
+    const grader = new Grader(mesh);
     let done = 0;
     flight.lives.forEach((saved, i) => {
         const life = asLife(saved);
@@ -98,11 +106,16 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
         const first = sim.tick;
         if (i > 0) marks.push({ tick: first, kind: 'respawn', label: REASONS[saved.header.life.reason as RespawnReason] ?? 'respawn' });
         keep(first, sim.s, sim.ch);
+        grader.reset();
         player.onStep = (x) => {
             if (x.tick % TRACK_STEP === 0 || x.tick === player.endTick) keep(x.tick, x.s, x.ch);
+            grader.step(x.tick, x.s, x.ch);
         };
         player.onEvent = (e) => {
-            if (e.type === 'crash') marks.push({ tick: e.tick, kind: 'crash', label: `crash at ${(e.speed * 3.6).toFixed(0)} km/h` });
+            if (e.type === 'crash') {
+                marks.push({ tick: e.tick, kind: 'crash', label: `crash at ${(e.speed * 3.6).toFixed(0)} km/h` });
+                grader.crash(e.tick);
+            } else if (e.type === 'contact') grader.touch(e.regime === 'bounce');
         };
         // in pieces, so a long flight can say how far it is
         while (!player.done) {
@@ -114,12 +127,14 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
         const hash = player.digest();
         lives.push({ startTick: first, endTick: player.endTick, traffic: trafficConfigFor(saved.header, levelSha), ok: saved.traceHash !== null && hash === saved.traceHash });
     });
+    const tricks = grader.tricks;
+    for (const t of tricks) marks.push({ tick: t.startTick, kind: 'trick', label: t.mark === null ? t.name : `${t.name} ${t.mark.toFixed(1)}` });
     const props = flight.props.slice().sort((a, b) => a[1] - b[1]);
     for (const [num, tick] of props) marks.push({ tick, kind: 'prop', label: `golden prop #${num}` });
     marks.sort((a, b) => a.tick - b.tick);
     return {
         startTick: ticks[0], endTick: ticks[n - 1], ticks: ticks.slice(0, n), data: data.slice(0, n * T.size),
-        lives, marks, props, ok: lives.every((l) => l.ok)
+        lives, marks, props, tricks, gradeVersion: GRADE_VERSION, ok: lives.every((l) => l.ok)
     };
 }
 

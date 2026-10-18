@@ -101,7 +101,7 @@ export class FlightsUi {
             h('div', { class: 'title' }, h('h1', {}, 'Saved flights'), h('button', { onclick: () => host.close() }, 'Done')),
             h('p', { class: 'muted' },
                 'Every visit you fly with a radio is saved here as your stick inputs, so it can be replayed exactly: Watch plays ',
-                'it back from any camera (later also for trick grades). Saved when you open the menu, and every minute while flying. The newest 30 are kept.'),
+                'it back from any camera and lists the tricks flown, with their marks. Saved when you open the menu, and every minute while flying. The newest 30 are kept.'),
             loading ? h('p', { class: 'muted' }, 'Loading…') : rows.length ? h('div', {}, ...rows) : h('p', { class: 'muted' }, 'No saved flights yet.'),
             h('div', { class: 'row footer' },
                 h('span', { class: 'note' }, 'Kept in this browser only.'), h('span', { class: 'spacer' }),

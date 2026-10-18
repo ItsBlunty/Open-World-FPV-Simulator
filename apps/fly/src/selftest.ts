@@ -42,6 +42,22 @@ export function selftestSticks(t: number, out: Float32Array): Float32Array {
     return out;
 }
 
+/**
+ * ?demo=tricks (and the grader's replay test): arm, then every 6 s climb for 1 s, a back flip and a roll right at
+ * low throttle (sticks from + - * / of the tick only), so a demo flight has tricks for the grader to find.
+ */
+export function demoTrickSticks(t: number, out: Float32Array): Float32Array {
+    out.fill(0);
+    out[4] = t >= 200 ? 1 : -1;
+    out[5] = -1; // acro
+    if (t < 400) { out[2] = -1; return out; }
+    const p = (t - 400) % 6000;
+    out[2] = p < 1000 ? 0 : -0.5;
+    if (p >= 2600 && p < 3130) { out[1] = -1; out[2] = -0.9; }
+    if (p >= 4600 && p < 5130) { out[0] = 1; out[2] = -0.6; }
+    return out;
+}
+
 export interface SelftestResult {
     hash: string;
     crashes: number;

@@ -9,9 +9,10 @@ import type { PresetJson } from '@owfpv/sim-core';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import { FlightSession } from '../src/session';
-import { selftestSticks } from '../src/selftest';
+import { demoTrickSticks, selftestSticks } from '../src/selftest';
 import { captureFlight, flightFromJson, flightToJson } from '../src/flights';
 import { RadioReplayControl, T, TRACK_STEP, buildTrack, lifeAt, pathSegments, poseAt, poseIndex } from '../src/replay';
+import { Grader } from '../src/grade';
 
 const preset = nazgul as unknown as PresetJson;
 const level = buildFirstMap();
@@ -119,6 +120,38 @@ describe('replay track', () => {
         const t = buildTrack(bad, level, mesh);
         expect(t.ok).toBe(false);
         expect(t.lives[0].ok).toBe(false);
+    });
+});
+
+describe('tricks in the replay', () => {
+    // the live flight, graded as it flies
+    const s = new FlightSession({ preset, level, world: mesh, traceHash: true });
+    const r = s.runner;
+    const live = new Grader(mesh);
+    const ch = new Float32Array(8);
+    let seen = 0;
+    while (r.sim.tick < 8000) {
+        const t = r.sim.tick;
+        if (t % 4 === 0) r.enqueue({ tUs: (t + 1) * 1000, ch: demoTrickSticks(t, ch) });
+        r.stepOnce();
+        for (; seen < r.events.length; seen++) {
+            const e = r.events[seen];
+            if (e.type === 'contact') live.touch(e.regime === 'bounce');
+        }
+        live.step(r.sim.tick, r.sim.s, r.sim.ch);
+    }
+    const track = buildTrack(captureFlight(s, 1, []), level, mesh);
+
+    it('grades the replay exactly as the live flight was graded', () => {
+        expect(track.ok).toBe(true);
+        expect(live.tricks.map((k) => k.name)).toEqual(['Back flip', 'Roll right']);
+        expect(track.tricks).toEqual(live.tricks);
+    });
+
+    it('puts each trick on the timeline with its mark', () => {
+        const marks = track.marks.filter((m) => m.kind === 'trick');
+        expect(marks.map((m) => m.tick)).toEqual(track.tricks.map((k) => k.startTick));
+        expect(marks[0].label).toMatch(/^Back flip \d+\.\d$/);
     });
 });
 

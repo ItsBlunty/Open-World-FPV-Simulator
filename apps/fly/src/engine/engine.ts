@@ -8,7 +8,7 @@ import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from '../session';
-import { selftestSticks } from '../selftest';
+import { demoTrickSticks, selftestSticks } from '../selftest';
 import { levelGroup, environment } from '../render/world';
 import { CraftView } from '../render/view';
 import { TrafficView } from '../render/traffic';
@@ -37,6 +37,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const level = buildFirstMap();
     let cfg: EngineSettings = init.settings;
     const demo = params.has('demo');
+    const demoSticks = params.get('demo') === 'tricks' ? demoTrickSticks : selftestSticks;
 
     const session = new FlightSession({
         preset,
@@ -381,7 +382,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         }
         session.pause(paused, now);
         if (!paused) {
-            if (demo) session.input(selftestSticks(session.sim.tick, ch), now);
+            if (demo) session.input(demoSticks(session.sim.tick, ch), now);
             else radio.checkStale(session, now);
             session.advance(now);
             if (radio.hasRadio || demo) flew = true;

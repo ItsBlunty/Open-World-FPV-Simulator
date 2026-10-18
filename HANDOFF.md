@@ -8,16 +8,18 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
   sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
-  replay viewer built (Saved flights > Watch); next: the grader once the trick definitions are written.
-- **Tests:** `pnpm test`: 53 files, 463 tests pass. `pnpm typecheck` clean.
+  replay viewer built (Saved flights > Watch). Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
+  of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
+- **Tests:** `pnpm test`: 54 files, 475 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
   - map v6 `27a17110…` (228 994 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in.
-- **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu.
+- **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
+  the replay viewer (radio controls not tried yet).
 
 ## Waiting for the owner
 
@@ -28,13 +30,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    should go in (25 % of block-side walks now)? [map §0q]
 3. **Golden props (map v6):** hunt some (Esc > Golden props > Collection lists them by number). Is 1 m pickup reach
    right? Are the frosted shelters too easy or too hard to see through? More props, harder spots? [collectibles §0r]
-4. **Replay viewer:** fly a few minutes, then Esc > Flights > Watch. Try the four cameras, the path modes, the speeds,
-   and (tick "Radio controls") roll to wind, pitch to play / pause. Is the spotter's spot useful? [replay-viewer §0u]
+4. **Replay radio controls** (owner: later): tick "Radio controls" in the viewer, roll to wind, pitch to play / pause.
+5. **Grader v1 calibration:** fly flips, rolls, power loops (around something and in the open), split-S and dives, some
+   clean, some sloppy, then Esc > Flights > Watch and read the trick list. Do the marks rank them as you would? Which
+   reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
 
 ## Left open (not started)
 
-- Freestyle grading: owner answered all 10 (challenges first, stars per challenge, save flights first). Trick
-  definitions (§9) and a power-loop consensus (§10) written; 8 owner questions at the end of §10. [freestyle-grading]
+- Freestyle grading: Matty flip, Rubik's cube, yaw spins, orbit not built; challenges (spots, pars, stars, ghost)
+  not built and need owner questions first; long carving (> 8 s turning) hides tricks inside it. [freestyle-grading §11]
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]
@@ -80,6 +84,6 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
-| `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick rules and grades; prototype plan |
+| `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 
 Owner decisions: `docs/decisions.md`.
