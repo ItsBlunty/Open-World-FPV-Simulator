@@ -1,0 +1,1 @@
+let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const j=JSON.parse(d.split("\n")[0]);console.log(j.throttle+"x", j.settings&&j.settings.cars===false?"traffic off":"traffic on ", j.backend, "fps",j.fps,"p50",j.p50,"p95",j.p95,"load",j.loadS, j.extra??"")})

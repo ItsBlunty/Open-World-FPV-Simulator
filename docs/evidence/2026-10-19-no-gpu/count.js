@@ -1,0 +1,3 @@
+const m = {}; let tot = 0;
+fly.scene.traverseVisible((o) => { if (o.isMesh || o.isLine || o.isPoints) { const g = o.geometry; const n = Math.round((g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1)); const k = (o.parent && o.parent.name || '?') + '/' + (o.name || o.type) + (o.material && o.material.transparent ? ' (transp)' : ''); m[k] = (m[k] || 0) + n; tot += n; } });
+return JSON.stringify({ calls: fly.renderer.info.render.calls, drawnTris: fly.renderer.info.render.triangles, sceneTris: tot, top: Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 14) });

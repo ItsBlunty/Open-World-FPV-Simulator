@@ -70,3 +70,35 @@ run it: Three.js r163+ needs WebGL 2.
 Windows' own software D3D11), not SwiftShader, so Chrome's removal of the SwiftShader fallback doesn't block it. Headless
 probe on this machine, park spawn, menu open: low spec 60 fps (vsync cap), full graphics 8 fps. A slow laptop CPU will
 draw slower than this one. Not checked: Edge, Windows without WARP, real old hardware.
+
+## Super low spec: no GPU and an old CPU (owner question, 2026-10-19): measured, not built
+
+**Asked:** "Is there any way we could get an old laptop to run this, like maybe SUPER low spec mode? Still with the
+same physics? We should probably auto disable all the cars and people, and driving mechanics on super low spec mode.
+Targeted at NO GPU and old CPU."
+
+**Stand-in:** headless Chrome 155, GPU off (WARP draws every pixel on the CPU), Chrome pinned to 2 cores (or 1), the
+page's CPU throttled 4x, city street spawn, menu open, 1350x673. Pinning cores slows WARP's drawing; the 4x throttle
+slows our JavaScript only. A real old dual-core is slower per core than this machine, so expect lower numbers there.
+Probes: `docs/evidence/2026-10-19-no-gpu/`.
+
+| Low spec, GPU off, 4x CPU | fps |
+|---|---|
+| 2 cores, traffic on / off | 17 / 24 |
+| 1 core, traffic on / off | 13 / 17 |
+| 1 core, traffic off, half resolution | 29 |
+
+Levers, one at a time (2 cores, traffic off, base 21 fps, 158 k triangles, 71 draws):
+| Lever | fps |
+|---|---|
+| half resolution | 35 |
+| 0.35 resolution | 40 |
+| view distance 300 m (fog 120-290 m) | 25 |
+| hide buildings' doors, frames, signs, golden props, frosted panels | 25 |
+| unlit materials instead of Lambert | 24 |
+| half resolution + 300 m + hidden details + unlit | 45 |
+
+**Findings:** with no GPU, pixels cost most; triangles are the next floor (at 0.35 resolution it stops scaling).
+Main-thread JavaScript is about 5 % of a frame (profile: 4.1 s of 4.3 s outside JS, waiting on drawing). Physics stays
+small (20 µs per 1 ms step with traffic, about 6 µs without, on this machine), so the same physics fits an old CPU.
+Traffic costs about a quarter of the frame rate here, so super low spec turns cars, people and signals off.
