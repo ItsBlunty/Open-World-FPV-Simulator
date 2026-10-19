@@ -5,7 +5,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 ## State (2026-10-19)
 
-- **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
+- **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
   sim-core/0.6.0). M3 started (owner): 56 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
   replay viewer built (Saved flights > Watch). Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
