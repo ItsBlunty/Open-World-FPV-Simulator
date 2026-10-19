@@ -4,7 +4,7 @@
 // in Firefox and chose the page (2026-10-18). URL options: ?selftest runs the determinism check, ?demo flies the
 // self-test's scripted sticks in real time (no radio needed; ?demo=tricks flies flips and rolls for the grader), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
 // point, ?cam=chase starts in the chase view, ?noshadows turns the sun's shadows off (for slow GPUs, and to measure
-// what they cost), ?render=worker runs the engine in a worker.
+// what they cost), ?lowspec turns low spec mode on for this visit (?lowspec=0 off), ?render=worker runs the engine in a worker.
 
 import './style.css';
 import { compileParams } from '@owfpv/sim-core';
@@ -77,7 +77,9 @@ function attachMouse(c: HTMLCanvasElement): void {
 // ---------------------------------------------------------------- engine
 
 // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
-const shadowsOn = settings.shadows && !params.has('noshadows');
+// low spec mode too (it picks the renderer); ?lowspec turns it on for this visit, ?lowspec=0 off
+const lowSpecOn = params.has('lowspec') ? params.get('lowspec') !== '0' : settings.lowSpec;
+const shadowsOn = settings.shadows && !params.has('noshadows') && !lowSpecOn;
 let canvas = newCanvas();
 let engine: Port;
 let worker: Worker | null = null;
@@ -107,7 +109,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, settings: engineSettings(), collection, flightId
+        search: location.search, shadows: shadowsOn, lowSpec: lowSpecOn, settings: engineSettings(), collection, flightId
     };
 }
 
@@ -344,7 +346,9 @@ function openSettings(): void {
         onFlight: () => send({ type: 'settings', what: 'flight', settings: engineSettings() }),
         onTraffic: () => send({ type: 'settings', what: 'traffic', settings: engineSettings() }),
         onGraphics: () => send({ type: 'settings', what: 'graphics', settings: engineSettings() }),
-        shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows'),
+        shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows') && !lowSpecOn,
+        lowSpecNow: lowSpecOn,
+        lowSpecPending: () => settings.lowSpec !== lowSpecOn && !params.has('lowspec'),
         save: () => saveSettings(settings),
         close: () => { settingsUi.hide(); showMenu(true); }
     });
@@ -576,7 +580,8 @@ const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
 
 /** what Settings holds, with the current values, so nobody has to guess that the camera and rates live there */
 function settingsSection(): Child[] {
-    const lens = LENSES.find((l) => l.id === settings.lens);
+    // low spec mode draws no lens: the flat camera's field of view applies
+    const lens = lowSpecOn ? undefined : LENSES.find((l) => l.id === settings.lens);
     const camera = `uptilt ${settings.uptiltDeg}°, ${lens ? `${lens.label} lens` : `flat, ${settings.fovDeg}° field of view`}`;
     const traffic = [settings.cars && 'cars', settings.people && 'people', settings.cars && settings.signals && 'traffic lights'].filter(Boolean).join(', ') || 'off';
     return [
@@ -586,7 +591,9 @@ function settingsSection(): Child[] {
             ['Rates', `${settings.rates ? 'your own' : 'the preset\'s'}. Type in your Betaflight rates.`],
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
-            ['Graphics', `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
+            ['Graphics', lowSpecOn
+                ? `low spec mode (simple lighting, no shadows, flat camera), resolution ${Math.round(settings.renderScale * 100)}%.`
+                : `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
             ['Physics', settings.classicPhysics ? 'classic (sim-core 0.5): thrust from motor speed alone.' : 'props feel the airflow: thrust fades as you climb fast and grows flying forward.'],
             ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
         ].map(([k, v]): [string, string] => [k, v[0].toUpperCase() + v.slice(1)]), 'keys plain')
@@ -696,9 +703,30 @@ function syncPause(): void {
 }
 document.addEventListener('visibilitychange', syncPause);
 
+/** when the frame rate first fell under SLOW_FPS while flying this visit (ms), and whether the low spec hint was shown */
+let slowSince: number | null = null;
+let slowHinted = false;
+const SLOW_FPS = 30;
+
+/** Running slowly in full graphics for 5 s of flying: point at low spec mode, once a visit. */
+function hintLowSpec(fps: number): void {
+    if (slowHinted || lowSpecOn || sentPaused !== false || replayUi.open) {
+        slowSince = null;
+        return;
+    }
+    const now = performance.now();
+    if (fps >= SLOW_FPS) slowSince = null;
+    else if (slowSince === null) slowSince = now;
+    else if (now - slowSince > 5000) {
+        slowHinted = true;
+        hud.toast('RUNNING SLOWLY', 'Try Low spec mode: Esc > Settings > Graphics');
+    }
+}
+
 function drawHud(): void {
     const x = hudSnap;
     if (!x) return;
+    hintLowSpec(x.fps);
     hud.update(x, {
         respawnIn: x.respawnIn,
         hasRadio: profile !== null || demo,

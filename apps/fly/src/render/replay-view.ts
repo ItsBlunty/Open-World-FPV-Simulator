@@ -6,6 +6,8 @@ import * as THREE from 'three/webgpu';
 import { pathSegments } from '../replay';
 import type { Track } from '../replay';
 import type { PathMode } from '../engine/protocol';
+import { FULL_KIT } from './kit';
+import type { Kit } from './kit';
 
 /** the trail: this many seconds behind the quad */
 export const TRAIL_S = 3;
@@ -20,7 +22,7 @@ export class PathLine {
     private readonly ticks: Int32Array;
     private mode: PathMode = 'whole';
 
-    constructor(track: Track) {
+    constructor(track: Track, kit: Kit = FULL_KIT) {
         const seg = pathSegments(track);
         this.ticks = seg.ticks;
         const colors = new Float32Array(seg.speed.length * 3);
@@ -34,7 +36,7 @@ export class PathLine {
         g.setAttribute('position', new THREE.BufferAttribute(seg.positions, 3));
         g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
         g.computeBoundingSphere();
-        this.line = new THREE.LineSegments(g, new THREE.LineBasicNodeMaterial({ vertexColors: true }));
+        this.line = new THREE.LineSegments(g, kit.lines());
         this.line.name = 'replay-path';
         this.line.frustumCulled = false;
     }

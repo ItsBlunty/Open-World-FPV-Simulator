@@ -10,6 +10,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   sim-core/0.6.0). M3 started (owner): 51 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
   replay viewer built (Saved flights > Watch). Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
   of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
+  Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
 - **Tests:** `pnpm test`: 54 files, 475 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
@@ -17,7 +18,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   - map v6 `27a17110…` (228 994 triangles, `packages/maps/test/first-map.test.ts`)
 - **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
-  The engine runs on the page; `?render=worker` is opt-in.
+  The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only.
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
   the replay viewer (radio controls not tried yet).
 
@@ -34,6 +35,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 5. **Grader v1 calibration:** fly flips, rolls, power loops (around something and in the open), split-S and dives, some
    clean, some sloppy, then Esc > Flights > Watch and read the trick list. Do the marks rank them as you would? Which
    reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
+6. **Low spec mode:** open the Pages build with `?lowspec` (or tick it in Settings > Graphics and reload), fly it,
+   ideally on an old laptop. Is 650 m view distance OK? Is the flat camera (no fisheye) OK there? [low-spec §0v]
 
 ## Left open (not started)
 
@@ -42,6 +45,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]
+- Low spec: not tried on a real old laptop; no view-distance slider; no cheap lens; signal poles and lamps still
+  drawn city-wide. [low-spec]
 - Chase camera has no collision and can end up inside buildings (owner: "on the list").
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
@@ -84,6 +89,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
+| `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 
 Owner decisions: `docs/decisions.md`.

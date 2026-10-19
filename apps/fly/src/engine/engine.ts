@@ -3,6 +3,7 @@
 // (worker.ts, ?render=worker) or on the page (main.ts, the default).
 
 import * as THREE from 'three/webgpu';
+import { WebGLRenderer } from 'three';
 import { S } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
@@ -17,6 +18,7 @@ import { CollectiblesView } from '../render/collectibles';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { lensById } from '../render/lenses';
+import { FULL_KIT, LOW_SPEC_KIT } from '../render/kit';
 import { HUD_HZ } from './protocol';
 import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
@@ -49,46 +51,54 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? cfg.spawn)) ?? level.spawns[0]
     });
 
+    // Low spec mode (docs/notes/low-spec.md): Three.js's classic WebGL 2 renderer, matte materials, no multisampling, no
+    // shadows, no fisheye lens, at most one device pixel per CSS pixel. Read once: it applies on reload.
+    const lowSpec = init.lowSpec;
+    const kit = lowSpec ? LOW_SPEC_KIT : FULL_KIT;
     // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
     // and Three.js falls back to normal depth without it
-    const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
+    const gpuRenderer = lowSpec ? null : new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
+    const renderer = gpuRenderer ?? new WebGLRenderer({ canvas, antialias: false, reversedDepthBuffer: true });
     let size = { width: init.width, height: init.height, dpr: init.dpr };
-    const pixelRatio = (): number => Math.min(size.dpr, 2) * cfg.renderScale;
+    const pixelRatio = (): number => Math.min(size.dpr, lowSpec ? 1 : 2) * cfg.renderScale;
     renderer.setPixelRatio(pixelRatio());
     // false: an OffscreenCanvas has no style; the page's CSS sizes the canvas element
     renderer.setSize(size.width, size.height, false);
-    await renderer.init();
-    const backend = (renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
+    await gpuRenderer?.init();
+    const backend = !gpuRenderer ? 'WebGL 2, low spec' : (gpuRenderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
 
     // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
-    renderer.shadowMap.enabled = init.shadows;
+    renderer.shadowMap.enabled = init.shadows && !lowSpec;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const scene = new THREE.Scene();
-    const sun = environment(scene);
-    scene.add(levelGroup(level));
-    const trafficView = new TrafficView();
+    const sun = environment(scene, kit);
+    scene.add(levelGroup(level, kit));
+    const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);
-    const buildingsView = new BuildingsView(level);
+    const buildingsView = new BuildingsView(level, kit);
     scene.add(buildingsView.group);
     session.collector.setTaken(init.collection[level.id] ?? []);
-    const collectView = new CollectiblesView(level.collectibles);
+    const collectView = new CollectiblesView(level.collectibles, kit);
     collectView.setTaken((n) => session.collector.isTaken(n));
     scene.add(collectView.group);
-    const view = new CraftView();
+    const view = new CraftView(kit);
     view.uptiltDeg = cfg.uptiltDeg;
     view.fovDeg = cfg.fovDeg;
     view.resize(size.width, size.height);
     scene.add(view.craft);
-    /** the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat */
-    const fisheye = new FisheyeView();
+    /**
+     * the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat.
+     * None in low spec: the lens draws the scene up to five times a frame. The flat camera's field of view applies then.
+     */
+    const fisheye = gpuRenderer ? new FisheyeView() : null;
     const bufferSize = new THREE.Vector2();
     const fitFisheye = (): void => {
         renderer.getDrawingBufferSize(bufferSize);
-        fisheye.setSize(bufferSize.x, bufferSize.y);
+        fisheye?.setSize(bufferSize.x, bufferSize.y);
     };
-    fisheye.setLens(lensById(cfg.lens));
+    fisheye?.setLens(lensById(cfg.lens));
     fitFisheye();
     if (params.get('cam') === 'chase') view.setMode('chase');
     /** "Look around" without a radio: fly the camera with WASD and the mouse */
@@ -126,11 +136,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const replayTraffic = new Map<string, TrafficModel | null>();
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye, get replay() { return replay; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye, get replay() { return replay; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
-        const line = new PathLine(track);
+        const line = new PathLine(track, kit);
         line.setMode(path);
         scene.add(line.line);
         replay = {
@@ -238,11 +248,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         lookDx = lookDy = 0;
         r.path.update(r.tick);
         collectView.update(now / 1000);
-        trafficView.update(tick);
+        trafficView.update(tick, view.camera.position);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
-        if (fisheye.active && (r.cam === 'fpv' || r.cam === 'free')) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
-        else renderer.render(scene, view.camera);
+        draw(r.cam === 'fpv' || r.cam === 'free');
         replayAt.tick = r.tick;
         replayAt.playing = r.playing;
         post(replayAt);
@@ -269,7 +278,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     view.uptiltDeg = cfg.uptiltDeg;
                     view.fovDeg = cfg.fovDeg;
                     view.updateFov();
-                    fisheye.setLens(lensById(cfg.lens));
+                    fisheye?.setLens(lensById(cfg.lens));
                 } else if (m.what === 'flight') session.setOverrides(cfg.overrides);
                 else if (m.what === 'traffic') {
                     session.setTraffic(cfg.traffic);
@@ -426,17 +435,22 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             h.freeCam = freeCam.active;
             post(hudMsg);
         }
-        trafficView.update(session.sim.tick);
+        trafficView.update(session.sim.tick, view.camera.position);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
-        if (fisheye.active && (freeCam.active || view.mode === 'fpv')) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
+        draw(freeCam.active || view.mode === 'fpv');
+    }
+
+    /** The frame from view.camera: through the lens when there is one and `lens` says this camera has it. */
+    function draw(lens: boolean): void {
+        if (lens && fisheye?.active && gpuRenderer) fisheye.render(gpuRenderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
         else renderer.render(scene, view.camera);
     }
 
     warmUp();
     // Firefox compiles WebGPU pipelines in its GPU process after they are asked for: until the warm-up's work has run
     // there, the first frames waited (~1 s of stall when the menu was closed right after loading, 2026-10-18)
-    const device = (renderer.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } }).device;
+    const device = (gpuRenderer?.backend as { device?: { queue: { onSubmittedWorkDone(): Promise<void> } } } | undefined)?.device;
     if (device) await device.queue.onSubmittedWorkDone();
     post({
         type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id, mapId: level.id,
@@ -468,7 +482,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             cam.lookAt(p.x + x, p.y + y, p.z + z);
             renderer.render(scene, cam);
             // the lens faces draw into half-float multisampled targets: other pipelines than the canvas's
-            fisheye.warmUp(renderer, scene, cam);
+            if (gpuRenderer) fisheye?.warmUp(gpuRenderer, scene, cam);
         }
         cam.up.set(0, 1, 0);
         cam.position.copy(pos);

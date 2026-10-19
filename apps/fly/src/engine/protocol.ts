@@ -36,9 +36,11 @@ export interface InitMsg {
     width: number;
     height: number;
     dpr: number;
-    /** location.search: ?webgl, ?spawn, ?cam, ?noshadows, ?demo */
+    /** location.search: ?webgl, ?spawn, ?cam, ?noshadows, ?lowspec, ?demo */
     search: string;
     shadows: boolean;
+    /** low spec mode (render/kit.ts): the classic WebGL renderer with matte materials, for weak GPUs */
+    lowSpec: boolean;
     settings: EngineSettings;
     /** the golden props this pilot has taken already, by map id, by number (the page keeps them) */
     collection: Record<string, number[]>;

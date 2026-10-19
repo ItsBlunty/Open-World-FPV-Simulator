@@ -47,8 +47,13 @@ export interface Settings {
     signals: boolean;
     /** the sun's shadows (switching them takes a reload: toggling them live crashed Three.js) */
     shadows: boolean;
-    /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel) */
+    /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
     renderScale: number;
+    /**
+     * low spec mode, for old laptops with barely a GPU: Three.js's classic WebGL renderer, matte materials, no shadows, no
+     * fisheye lens, simpler cars and people. The physics is the same. Applies on reload (docs/notes/low-spec.md).
+     */
+    lowSpec: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -67,7 +72,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     people: true,
     signals: true,
     shadows: true,
-    renderScale: 1
+    renderScale: 1,
+    lowSpec: false
 };
 
 const KEY = 'owfpv.settings';
@@ -109,6 +115,7 @@ export function loadSettings(): Settings {
     if (typeof s.signals === 'boolean') out.signals = s.signals;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
+    if (typeof s.lowSpec === 'boolean') out.lowSpec = s.lowSpec;
     return out;
 }
 

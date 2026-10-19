@@ -3,11 +3,14 @@
 // FPV pilot cannot read speed or height, on a grid they can. City windows are geometry (the glass set
 // back in the walls, maps first-map.ts windowedBlock); the glass towers' ribbon glass gets its mullions
 // painted. TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera.
+// Low spec mode (kit.ts) draws the same grid in a few lines of GLSL added to a matte material, no mullions, in tiles.
 
 import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
 import { shadowNeedsRecentre } from './shadow-follow';
+import { FULL_KIT, LOW_SPEC_FOG } from './kit';
+import type { Kit } from './kit';
 
 type FloatNode = THREE.Node<'float'>;
 
@@ -122,10 +125,124 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
     return mat;
 }
 
-/** The level's meshes, one per material, in a group. */
-export function levelGroup(level: Level): THREE.Group {
+/**
+ * Low spec mode's level: the same grid as gridMaterial's nodes, as GLSL in Three.js's classic Lambert shader (its
+ * `color_fragment` chunk sets the surface colour; the grid darkens it there, before the lighting). Every opaque
+ * material shares one mesh per LOW_SPEC_TILE square, coloured per vertex with a 0/1 `grid` attribute (PLAIN surfaces
+ * get none), so a tile is one draw and the tiles out of view or past the fog (LOW_SPEC_FOG) are not drawn at all.
+ */
+const LOW_SPEC_TILE = 80;
+const LOW_SPEC_GRID_VERT = /* glsl */ `
+attribute float grid;
+varying vec3 vGridPos;
+varying vec3 vGridN;
+varying float vGrid;`;
+const LOW_SPEC_GRID_FRAG = /* glsl */ `
+varying vec3 vGridPos;
+varying vec3 vGridN;
+varying float vGrid;
+float gridLines(float c, float spacing) {
+    float u = c / spacing;
+    float w = fwidth(u);
+    float d = abs(fract(u - 0.5) - 0.5) / max(w, 1e-6);
+    return (1.0 - min(d, 1.0)) * (1.0 - smoothstep(0.2, 0.6, w));
+}`;
+const LOW_SPEC_GRID_SHADE = /* glsl */ `
+if (vGrid > 0.5) {
+    vec3 n = abs(normalize(vGridN));
+    vec3 across = 1.0 - smoothstep(0.6, 0.9, n);
+    float minor = max(max(gridLines(vGridPos.x, 1.0) * across.x, gridLines(vGridPos.y, 1.0) * across.y), gridLines(vGridPos.z, 1.0) * across.z);
+    float major = max(max(gridLines(vGridPos.x, 5.0) * across.x, gridLines(vGridPos.y, 5.0) * across.y), gridLines(vGridPos.z, 5.0) * across.z);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.08), max(minor * 0.1, major * 0.28));
+}`;
+
+function lowSpecGridMaterial(kit: Kit): THREE.Material {
+    const mat = kit.lit();
+    mat.vertexColors = true;
+    mat.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', `#include <common>${LOW_SPEC_GRID_VERT}`)
+            // the world position and normal, as gridMaterial's positionWorld and normalWorld
+            .replace('#include <project_vertex>', `#include <project_vertex>
+    vGridPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+    vGridN = mat3(modelMatrix) * objectNormal;
+    vGrid = grid;`);
+        shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', `#include <common>${LOW_SPEC_GRID_FRAG}`)
+            .replace('#include <color_fragment>', `#include <color_fragment>${LOW_SPEC_GRID_SHADE}`);
+    };
+    return mat;
+}
+
+function lowSpecLevel(level: Level, kit: Kit, g: THREE.Group): void {
+    const tileOf = (t: Float32Array, i: number): string => {
+        const x = (t[i] + t[i + 3] + t[i + 6]) / 3, z = (t[i + 2] + t[i + 5] + t[i + 8]) / 3;
+        return `${Math.floor(x / LOW_SPEC_TILE)},${Math.floor(z / LOW_SPEC_TILE)}`;
+    };
+    // count each tile's triangles, then fill its arrays
+    const count = new Map<string, number>();
+    for (const [m, t] of level.parts) {
+        if (m === 'frosted') continue;
+        for (let i = 0; i < t.length; i += 9) {
+            const k = tileOf(t, i);
+            count.set(k, (count.get(k) ?? 0) + 1);
+        }
+    }
+    const tiles = new Map<string, { pos: Float32Array; col: Float32Array; grid: Float32Array; n: number }>();
+    for (const [k, n] of count) tiles.set(k, { pos: new Float32Array(n * 9), col: new Float32Array(n * 9), grid: new Float32Array(n * 3), n: 0 });
+    const c = new THREE.Color();
+    for (const [m, t] of level.parts) {
+        if (m === 'frosted') continue;
+        // the glass towers' ribbon glass a little lighter: no mullions break it up
+        c.setHex(m === 'window-ribbon' ? 0x34434f : COLOURS[m]);
+        const grid = PLAIN.has(m) ? 0 : 1;
+        for (let i = 0; i < t.length; i += 9) {
+            const tile = tiles.get(tileOf(t, i))!;
+            const o = tile.n * 9;
+            tile.pos.set(t.subarray(i, i + 9), o);
+            for (let v = 0; v < 3; v++) {
+                tile.col[o + 3 * v] = c.r;
+                tile.col[o + 3 * v + 1] = c.g;
+                tile.col[o + 3 * v + 2] = c.b;
+                tile.grid[tile.n * 3 + v] = grid;
+            }
+            tile.n++;
+        }
+    }
+    const mat = lowSpecGridMaterial(kit);
+    for (const [k, tile] of tiles) {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(tile.pos, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(tile.col, 3));
+        geo.setAttribute('grid', new THREE.BufferAttribute(tile.grid, 1));
+        geo.computeVertexNormals(); // non-indexed: flat normals per face
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.name = `tile:${k}`;
+        mesh.matrixAutoUpdate = false;
+        g.add(mesh);
+    }
+    const frosted = level.parts.get('frosted');
+    if (frosted) {
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(frosted, 3));
+        geo.computeVertexNormals();
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, kit.lit({ color: COLOURS.frosted, transparent: true, opacity: FROSTED_OPACITY, depthWrite: false, side: THREE.DoubleSide }));
+        mesh.name = 'frosted';
+        mesh.matrixAutoUpdate = false;
+        g.add(mesh);
+    }
+}
+
+/** The level's meshes, one per material (low spec: one per tile), in a group. */
+export function levelGroup(level: Level, kit: Kit = FULL_KIT): THREE.Group {
     const g = new THREE.Group();
     g.name = `level:${level.id}`;
+    if (kit.lowSpec) {
+        lowSpecLevel(level, kit, g);
+        return g;
+    }
     for (const [m, tris] of level.parts) {
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(tris, 3));
@@ -195,10 +312,10 @@ export class Sun {
 }
 
 /** Sky, sun, fill light and distance fog. */
-export function environment(scene: THREE.Scene): Sun {
+export function environment(scene: THREE.Scene, kit: Kit = FULL_KIT): Sun {
     const sky = new THREE.Color(0x9cc4e4);
     scene.background = sky;
-    scene.fog = new THREE.Fog(sky, 250, 1600);
+    scene.fog = kit.lowSpec ? new THREE.Fog(sky, LOW_SPEC_FOG.near, LOW_SPEC_FOG.far) : new THREE.Fog(sky, 250, 1600);
     scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.4));
     return new Sun(scene);
 }

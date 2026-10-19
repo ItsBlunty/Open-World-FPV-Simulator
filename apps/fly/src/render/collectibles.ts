@@ -6,6 +6,8 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Collectible } from '@owfpv/maps';
+import { FULL_KIT } from './kit';
+import type { Kit } from './kit';
 
 /** the prop's radius, m (maps test golden-props: kept 5 cm clear of everything) */
 const RADIUS = 0.4;
@@ -75,13 +77,13 @@ export class CollectiblesView {
     private readonly p = new THREE.Vector3();
     private readonly sc = new THREE.Vector3();
 
-    constructor(items: readonly Collectible[]) {
+    constructor(items: readonly Collectible[], kit: Kit = FULL_KIT) {
         this.items = items;
         this.shown = new Uint8Array(items.length).fill(1);
         this.popAt = new Float64Array(items.length).fill(NaN);
         // not fully metallic: with no environment to reflect, a metal draws dark brown, not gold; the glow keeps it
         // gold in the shade too
-        const mat = new THREE.MeshStandardNodeMaterial({ color: 0xffcc33, metalness: 0.35, roughness: 0.3, emissive: 0xb07800 });
+        const mat = kit.lit({ color: 0xffcc33, metalness: 0.35, roughness: 0.3, emissive: 0xb07800 });
         this.mesh = new THREE.InstancedMesh(propGeometry(), mat, Math.max(items.length, 1));
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;

@@ -9,6 +9,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACE } from '@owfpv/maps';
 import type { Building, Level } from '@owfpv/maps';
 import type { Place, TrafficModel } from '@owfpv/traffic';
+import { FULL_KIT } from './kit';
+import type { Kit } from './kit';
 
 /** Sign panels: background and lettering, picked by a building's look. */
 const SIGN_COLOURS: [string, string][] = [
@@ -111,7 +113,7 @@ export class BuildingsView {
     private readonly p: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
     private readonly m = new THREE.Matrix4();
 
-    constructor(level: Level) {
+    constructor(level: Level, private readonly kit: Kit = FULL_KIT) {
         this.level = level;
         this.group.name = 'buildings';
         this.open = new Float64Array(level.doors.length);
@@ -167,11 +169,8 @@ export class BuildingsView {
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
         geo.computeBoundingSphere();
-        const mat = new THREE.MeshStandardNodeMaterial({ map: tex, roughness: 0.55 });
         // a little light of their own, as lit signs have, so they read in the shade
-        mat.emissiveMap = tex;
-        mat.emissive = new THREE.Color(0xffffff);
-        mat.emissiveIntensity = 0.25;
+        const mat = Object.assign(this.kit.lit({ map: tex, roughness: 0.55, emissive: 0xffffff }), { emissiveMap: tex, emissiveIntensity: 0.25 });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.name = 'buildings:signs';
         mesh.receiveShadow = true;
@@ -200,10 +199,10 @@ export class BuildingsView {
             new THREE.BoxGeometry(DOOR_LEAF_W, 0.06, 0.04).translate(-DOOR_LEAF_W / 2, DOOR_H - 0.03, 0)
         ]);
         const leafGlass = new THREE.PlaneGeometry(DOOR_LEAF_W - 0.1, DOOR_H - 0.14).translate(-DOOR_LEAF_W / 2, DOOR_H / 2 + 0.02, 0);
-        const frameMat = new THREE.MeshStandardNodeMaterial({ color: FRAME, roughness: 0.5, metalness: 0.4 });
+        const frameMat = this.kit.lit({ color: FRAME, roughness: 0.5, metalness: 0.4 });
         const frames = new THREE.InstancedMesh(frame, frameMat, n);
         const lf = new THREE.InstancedMesh(leafFrame, frameMat, 2 * n);
-        const lg = new THREE.InstancedMesh(leafGlass, new THREE.MeshStandardNodeMaterial({ color: LEAF_GLASS, roughness: 0.1, metalness: 0.2, side: THREE.DoubleSide }), 2 * n);
+        const lg = new THREE.InstancedMesh(leafGlass, this.kit.lit({ color: LEAF_GLASS, roughness: 0.1, metalness: 0.2, side: THREE.DoubleSide }), 2 * n);
         for (const [mesh, name] of [[frames, 'doorFrame'], [lf, 'leafFrame'], [lg, 'leafGlass']] as const) {
             mesh.name = `buildings:${name}`;
             mesh.frustumCulled = false;

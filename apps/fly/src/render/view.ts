@@ -6,6 +6,8 @@
 
 import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
+import { FULL_KIT, LOW_SPEC_FOG } from './kit';
+import type { Kit } from './kit';
 
 const X = new THREE.Vector3(1, 0, 0);
 /**
@@ -33,9 +35,9 @@ export class CraftView {
     private readonly chasePos = new THREE.Vector3();
     private chaseInit = false;
 
-    constructor() {
-        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, 5000);
-        this.craft = craftModel();
+    constructor(kit: Kit = FULL_KIT) {
+        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, kit.lowSpec ? LOW_SPEC_FOG.far + 10 : 5000);
+        this.craft = craftModel(kit);
     }
 
     resize(w: number, h: number): void {
@@ -84,11 +86,11 @@ export class CraftView {
 }
 
 /** A blockout 5-inch quad: a body, four arms and prop discs (for the chase view). */
-function craftModel(): THREE.Group {
+function craftModel(kit: Kit): THREE.Group {
     const g = new THREE.Group();
-    const dark = new THREE.MeshStandardNodeMaterial({ color: 0x222428, roughness: 0.6 });
-    const accent = new THREE.MeshStandardNodeMaterial({ color: 0xe0582a, roughness: 0.5 });
-    const prop = new THREE.MeshStandardNodeMaterial({ color: 0x9ab, transparent: true, opacity: 0.35 });
+    const dark = kit.lit({ color: 0x222428, roughness: 0.6 });
+    const accent = kit.lit({ color: 0xe0582a, roughness: 0.5 });
+    const prop = kit.lit({ color: 0x9ab, transparent: true, opacity: 0.35 });
     g.add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.035, 0.14), accent));
     for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
         const arm = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.008, 0.12), dark);

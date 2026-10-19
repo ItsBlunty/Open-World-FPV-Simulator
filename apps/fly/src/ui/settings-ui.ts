@@ -30,6 +30,10 @@ export interface SettingsHost {
     onGraphics(): void;
     /** the shadow setting differs from what this page started with (it applies on reload) */
     shadowsPending(): boolean;
+    /** this page runs in low spec mode (render/kit.ts) */
+    lowSpecNow: boolean;
+    /** the low spec setting differs from what this page started with (it applies on reload) */
+    lowSpecPending(): boolean;
     save(): void;
     close(): void;
 }
@@ -103,7 +107,9 @@ export class SettingsUi {
             h('h1', {}, 'Settings'),
             h('h2', {}, 'FPV camera'),
             this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
-            h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
+            host.lowSpecNow
+                ? h('p', { class: 'note' }, 'Low spec mode draws a flat camera (a fisheye lens draws the city up to five times a frame).')
+                : h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
                 h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
                     h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
                     ...LENSES.map((l) => {
@@ -111,7 +117,7 @@ export class SettingsUi {
                         return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
                     }))),
             // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
-            s.lens === NO_LENS
+            s.lens === NO_LENS || host.lowSpecNow
                 ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })
                 : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.`),
             h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
@@ -123,7 +129,15 @@ export class SettingsUi {
             this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); }),
             h('p', { class: 'note' }, 'Changing the traffic restarts at the spawn point (what you can hit changes).'),
             this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }),
-            this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
+            this.check('Low spec mode, for old laptops with a weak GPU: simple lighting, no shadows, no fisheye lens, simpler cars and people. The physics is the same.', s.lowSpec, (v) => { s.lowSpec = v; host.save(); this.build(); }),
+            host.lowSpecPending()
+                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Low spec mode changes when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
+                : host.lowSpecNow !== s.lowSpec
+                    ? h('p', { class: 'note' }, `Low spec mode is ${host.lowSpecNow ? 'on' : 'off'} for this visit: the page address says so (?lowspec).`)
+                    : null,
+            host.lowSpecNow
+                ? null
+                : this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
             host.shadowsPending()
                 ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Shadows change when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
                 : null,
