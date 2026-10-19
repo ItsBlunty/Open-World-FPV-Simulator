@@ -82,3 +82,4 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-19 | Super low spec for no GPU and an old CPU? | Yes, same physics; auto-disable cars, people and traffic lights in it |
 | 2026-10-19 | Is 45 fps enough? | No: "We need to hit 60 fps not 45" |
 | 2026-10-19 | How many low spec modes? | Three: low spec as it is; extra low spec at half resolution and a 300 m view; super low spec at a quarter resolution and a nearer view (200 m) |
+| 2026-10-19 | Chase camera blocked by a wall? | A circle covering about half the screen, feathered edges, that sees through walls to the quad |

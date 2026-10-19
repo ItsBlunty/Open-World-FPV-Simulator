@@ -3,7 +3,7 @@
 // (worker.ts, ?render=worker) or on the page (main.ts, the default).
 
 import * as THREE from 'three/webgpu';
-import { WebGLRenderer } from 'three';
+import { SRGBColorSpace, WebGLRenderTarget, WebGLRenderer } from 'three';
 import { S, SIM_CORE_VERSION } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
@@ -17,6 +17,7 @@ import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
+import { SeeThrough, blocked } from '../render/see-through';
 import { lensById } from '../render/lenses';
 import { kitFor } from '../render/kit';
 import { graphicsName } from '../graphics';
@@ -103,6 +104,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     fisheye?.setLens(lensById(cfg.lens));
     fitFisheye();
     if (params.get('cam') === 'chase') view.setMode('chase');
+    /** the chase camera's see-through circle when a wall hides the quad (render/see-through.ts); same target kind as the lens faces */
+    const seeThrough = new SeeThrough(kit, () => gpuRenderer
+        ? new THREE.RenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, depthBuffer: true })
+        : new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace, depthBuffer: true }));
+    const rayT = session.world.rayT.bind(session.world);
     /** "Look around" without a radio: fly the camera with WASD and the mouse */
     const freeCam = new FreeCam();
     const radio = new RadioLink(init.timeOrigin, performance.timeOrigin);
@@ -138,7 +144,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const replayTraffic = new Map<string, TrafficModel | null>();
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye, get replay() { return replay; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -253,6 +259,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         trafficView.update(tick, view.camera.position);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
+        chaseCircle(r.cam === 'chase', dt);
         draw(r.cam === 'fpv' || r.cam === 'free');
         replayAt.tick = r.tick;
         replayAt.playing = r.playing;
@@ -462,13 +469,22 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         trafficView.update(session.sim.tick, view.camera.position);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
+        chaseCircle(!freeCam.active && view.mode === 'chase', dt);
         draw(freeCam.active || view.mode === 'fpv');
+    }
+
+    /** The see-through circle fades in while the chase camera's view of the quad is blocked. */
+    function chaseCircle(chase: boolean, dt: number): void {
+        seeThrough.update(chase && blocked(view.camera.position, view.craft.position, rayT), dt, !chase);
     }
 
     /** The frame from view.camera: through the lens when there is one and `lens` says this camera has it. */
     function draw(lens: boolean): void {
         if (lens && fisheye?.active && gpuRenderer) fisheye.render(gpuRenderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
-        else renderer.render(scene, view.camera);
+        else {
+            renderer.render(scene, view.camera);
+            seeThrough.render(renderer, scene, view.camera, view.craft.position, renderer.shadowMap.enabled && gpuRenderer ? sun.light.shadow : null);
+        }
     }
 
     warmUp();
@@ -508,6 +524,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             // the lens faces draw into half-float multisampled targets: other pipelines than the canvas's
             if (gpuRenderer) fisheye?.warmUp(gpuRenderer, scene, cam);
         }
+        seeThrough.warmUp(renderer, scene, cam);
         cam.up.set(0, 1, 0);
         cam.position.copy(pos);
         cam.quaternion.copy(quat);

@@ -127,3 +127,30 @@ no icon set. Screenshot: `docs/evidence/2026-10-18-menu/menu-chrome-settings.png
 mobile were not tried.
 
 
+
+## 0x. Chase camera see-through circle (owner, 2026-10-19): built, waiting for the owner to fly it
+
+The owner: when a wall blocks the chase camera, show "a circle that covers like 50% of the screen with feathered
+edges" so the quad shows through. (Taken as a circle half the screen high; easy to change.)
+
+- `apps/fly/src/render/see-through.ts` (new): each chase frame, one ray along the collision mesh (`MeshContactWorld.rayT`,
+  read only) from the camera to the quad. A hit closer than 0.3 m to the quad does not count (`CLEAR_M`: a wall the
+  quad rests against). While blocked, the circle fades in over 0.15 s (`FADE_S`), and out again the same way.
+- How it draws: after the normal frame, the scene is drawn again for the circle's square only (`setViewOffset`) with
+  the near plane moved to 0.25 m in front of the quad (`CUT_M`, past the prop tips), so everything between the camera
+  and the quad is cut away. That square is laid over the frame through a mask texture: fully see-through out to 55 %
+  of the radius (`INNER`), a smooth fade to nothing at the edge. Radius 25 % of the screen height (`RADIUS`).
+- Both renderers: WebGPU (target as the lens faces: half float, 4x MSAA) and the classic low spec one (8-bit sRGB
+  target). The sun's shadow map is not redrawn for the second pass. Pipelines are built in the engine's warm-up.
+- Chase camera only, live and in the replay viewer; not the spotter or free camera. Cars and people are not in the
+  collision mesh, so they do not trigger it. Rendering only: determinism is unaffected (no hash changes).
+- Cost: one extra scene draw of about a quarter of the screen while the circle shows; none otherwise.
+
+**Evidence:** `apps/fly/test/see-through.test.ts` (3 tests: wall between, wall behind / beside / touching, mask
+shape). Chrome (built-in browser pane, dev server, `?demo&cam=chase`, quad parked with `__fly.ask`):
+`docs/evidence/2026-10-19-see-through/` tree-webgpu.jpg (through a pine), wall-webgpu.jpg and wall-lowspec.jpg (quad
+1 m inside Harbour Medical Centre, camera outside: the floor and quad show through the wall, image upright, colours
+match the frame). Moved into the open, the circle's fade went from 1 to 0. `pnpm test` 57 files, 489 tests.
+
+**Left open:** the owner's verdict on size, softness and fade; a single ray to the quad's centre, so a thin pole can
+flick the circle on briefly and a wall hiding only part of the quad does not; the spotter camera could use it too.

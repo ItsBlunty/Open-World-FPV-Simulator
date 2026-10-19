@@ -14,7 +14,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
   300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]
-- **Tests:** `pnpm test`: 56 files, 486 tests pass. `pnpm typecheck` clean.
+  Chase camera see-through circle built: a wall between the camera and the quad shows it through a soft circle. [camera §0x]
+- **Tests:** `pnpm test`: 57 files, 489 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
@@ -43,6 +44,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    the game switch to super by itself when the browser has no GPU, or just show a tip? [low-spec]
 7. **Report screen:** Esc > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
    (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
+8. **Chase see-through circle:** fly the chase camera (C) behind buildings and trees. Size (half the screen high), edge
+   softness and fade OK? Should the spotter camera get it too? [camera §0x]
 
 ## Left open (not started)
 
@@ -53,7 +56,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   collections. [collectibles]
 - Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
   cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
-- Chase camera has no collision and can end up inside buildings (owner: "on the list").
+- Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
+  trigger it. [camera §0x]
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
@@ -89,7 +93,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
-| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings |
+| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
