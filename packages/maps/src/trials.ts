@@ -49,8 +49,11 @@ export interface TimeTrial {
     gates: Gate[];
 }
 
-/** The pad: 2.4 m square, 0.2 m high [estimate: room for a 5-inch quad landing a little off]. */
-const PAD_HALF = 1.2;
+/**
+ * The pad: 4.6 m square, 0.2 m high, filling the arch between its posts (owner, 2026-10-19: "make the pad much
+ * larger"; it was 2.4 m).
+ */
+const PAD_HALF = 2.3;
 const PAD_H = 0.2;
 /**
  * The start arch: two posts 5.2 m apart, a checkered banner across their tops from 3.5 to 4.2 m [estimates, about the
@@ -60,6 +63,9 @@ const ARCH_HALF = 2.6;
 const POST = 0.25;
 const ARCH_OPEN = 3.5;
 const ARCH_TOP = 4.2;
+/** The arch's opening and banner top, m over the ground it stands on (the render hangs the pad's markers by them). */
+export const ARCH = { open: ARCH_OPEN, top: ARCH_TOP, padHeight: PAD_H } as const;
+
 const BANNER_T = 0.12;
 const FLAG_OFF = 4;
 const POLE_H = 6.5;

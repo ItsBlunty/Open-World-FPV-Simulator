@@ -109,7 +109,7 @@ describe('time trials', () => {
             // from under the arch's banner down to the pad's top, from beside the pad down to the ground
             expect(world.queryRay(p.x, p.y + 3, p.z, 0, -1, 0, 5)?.y, c.id).toBeCloseTo(p.y, 6);
             for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-                const g = world.queryRay(p.x + dx * (p.half + 0.3), p.y + 1, p.z + dz * (p.half + 0.3), 0, -1, 0, 5);
+                const g = world.queryRay(p.x + dx * (p.half + 0.1), p.y + 1, p.z + dz * (p.half + 0.1), 0, -1, 0, 5);
                 expect(g?.y, `${c.id}: ground beside the pad`).toBeCloseTo(p.y - 0.2, 6);
             }
             for (let y = p.y + 0.6; y < p.y + 2.7; y += 0.3) expect(world.querySphere(p.x, y, p.z, 0.5, out), `${c.id} at ${y}`).toBe(false);

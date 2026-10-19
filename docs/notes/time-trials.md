@@ -106,3 +106,25 @@ bars (only T, I, M, E, R, A, L), so there is no font file to license.
 **Evidence:** `pnpm test` 60 files, 533 tests; typecheck and build clean. Seen in the built-in browser (WebGPU): the
 bando's first window gate from 40 m and 8 m (frame, pane, arrow, HUD distance), the bando and park pad markers. Not
 measured: frame time (a handful of draws).
+
+## 1j. Bigger pads, the arrow under the arch, LAND HERE TO START (owner, 2026-10-19): map v13, built
+
+**Asked:** "Make the pad much larger. The big arrow should be under the checkerboard gate hovering right over the pad
+and put LAND HERE TO START if the user has never run that Time Trial before. Both the arrow and the LAND HERE TO START
+should disappear if the person has a recorded time for that Time Trial. The Time Trial words should still be there no
+matter if they have flown it or not."
+
+**Pads (map v13).** 4.6 m square (was 2.4 m), filling the arch between its posts (17.5 cm from each post). The
+on-the-pad test (`trials.ts onPad`) uses the pad's size, so the whole pad counts. Gates and course versions unchanged
+(times flown before still compare).
+
+**Markers (`render/trials.ts`).** Over each arch: TIME TRIAL in yellow, always; under it LAND HERE / TO START in the
+arrow's orange (0.65 m letters) until the course has a time, the lowest line about 0.8 m over the banner as it bobs.
+With a time, only TIME TRIAL is left, lowered to about where LAND HERE was. Under the arch: the orange arrow (2.2 m),
+its tip 0.6 m over the pad, bobbing clear of the pad and the banner, until the course has a time; also hidden while
+the quad rests on the pad or races from it. The page tells the engine which courses have a time (`trial-flown`) on
+load, after each finish and after Reset times. New block letters: N, D, H, O, S.
+
+**Evidence:** `pnpm test` 60 files, 533 tests (the course tests pass with the bigger pads); typecheck and build clean.
+Seen in the built-in browser with a time saved for the bando only: the park pad with the arrow and LAND HERE TO START,
+the bando pad with TIME TRIAL alone. Re-pinned: map v13 `a47b6abe…` (433 278 triangles).

@@ -27,9 +27,10 @@ export const MAP_ID = 'mixed-1';
  * 11: the map joined up: the city's edge a kerb and sidewalk with no road stubs, a road out to the bando and the yard over
  * a level crossing, the fields station's forecourt and lane, the park's paths carried on, the power line's wires strung
  * on crossarms square to the line, from a substation to a riser pole (owner, 2026-10-19);
- * 12: time trials: a start arch, landing pad and checkered flag for each of three courses (owner, 2026-10-19)
+ * 12: time trials: a start arch, landing pad and checkered flag for each of three courses (owner, 2026-10-19);
+ * 13: the time trial pads 4.6 m square, filling their arches (owner, 2026-10-19)
  */
-export const MAP_VERSION = 12;
+export const MAP_VERSION = 13;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;

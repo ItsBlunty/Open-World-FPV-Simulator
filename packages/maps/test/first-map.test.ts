@@ -341,4 +341,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'e99e66dcc5d683a66ea26c143b82fd094e75ab4c8f60241af932f3dc2c27205b';
+const PINNED = 'a47b6abe356a1c3c0a2eb5dab5471b73af7be10b8580667ef67f2ea03ed20172';

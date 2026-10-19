@@ -311,7 +311,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 session.trials.quit();
                 session.resetToSpawn();
                 break;
+            case 'trial-flown':
+                trialsView.setFlown(m.flown);
+                break;
             case 'trial':
+
                 if (m.act === 'quit') session.trials.quit();
                 else session.trials.answer(m.act === 'race');
                 break;

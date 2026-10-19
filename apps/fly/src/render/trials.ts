@@ -1,5 +1,6 @@
 // The time trials drawn (owner, 2026-10-19): checks on each start arch's banner and flag, a glow on each landing pad
-// that grows brighter over the 3 s the quad rests there, and over each pad a floating 3D arrow saying TIME TRIAL. While
+// that grows brighter over the 3 s the quad rests there, TIME TRIAL in 3D over each arch, and until the pilot has a time
+// on the course, LAND HERE TO START under it and a floating arrow under the arch pointing at the pad. While
 // a race runs, the gates: the next one in a thick pulsing frame with a tinted pane and a floating arrow over it (the
 // arrow and a faint frame seen through walls, so it can be found from anywhere), the one after it in a thin dim frame
 // (owner, 2026-10-19: the gates must be much more obvious). Drawn only: none of it is solid (the arch, pad and flag are
@@ -7,7 +8,7 @@
 
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { CHECKER_SLAB, checkerFaces, gateAxes } from '@owfpv/maps';
+import { ARCH, CHECKER_SLAB, checkerFaces, gateAxes } from '@owfpv/maps';
 import type { Gate, TimeTrial } from '@owfpv/maps';
 import type { TrialStatus } from '../trials';
 import { FULL_KIT } from './kit';
@@ -27,6 +28,8 @@ const AFTER = 0x9a7a4a;
 const ARROW = 0xff8a00;
 const BOB_M = 0.3;
 const BOB_S = 1.4;
+/** the pad's arrow, as a share of the gate arrow's size: 2.2 m, so it bobs between the pad and the banner */
+const ARROW_PAD_SCALE = 1.2;
 /** the gate's arrow keeps its size out to this far, m, then grows with the distance */
 const BEACON_NEAR = 15;
 /** the pad's glow: dim when idle, bright at the end of the hold, as colours */
@@ -147,7 +150,12 @@ const STROKES: Record<string, number[][]> = {
     E: [[0, 0, 0, 6], [0, 6, 4, 6], [0, 3, 3, 3], [0, 0, 4, 0]],
     R: [[0, 0, 0, 6], [0, 6, 3, 6], [3, 6, 4, 5], [4, 5, 4, 4], [4, 4, 3, 3], [3, 3, 0, 3], [2, 3, 4, 0]],
     A: [[0, 0, 2, 6], [2, 6, 4, 0], [0.85, 2.5, 3.15, 2.5]],
-    L: [[0, 0, 0, 6], [0, 0, 4, 0]]
+    L: [[0, 0, 0, 6], [0, 0, 4, 0]],
+    N: [[0, 0, 0, 6], [0, 6, 4, 0], [4, 0, 4, 6]],
+    D: [[0, 0, 0, 6], [0, 6, 3, 6], [3, 6, 4, 5], [4, 5, 4, 1], [4, 1, 3, 0], [3, 0, 0, 0]],
+    H: [[0, 0, 0, 6], [4, 0, 4, 6], [0, 3, 4, 3]],
+    O: [[0, 0, 0, 6], [0, 6, 4, 6], [4, 6, 4, 0], [4, 0, 0, 0]],
+    S: [[4, 6, 0, 6], [0, 6, 0, 3], [0, 3, 4, 3], [4, 3, 4, 0], [4, 0, 0, 0]]
 };
 
 /** `text` in 3D block letters `h` m tall, centred on the origin in the x-y plane, facing +z. */
@@ -179,7 +187,13 @@ type Coloured = THREE.Material & { color: THREE.Color };
 export class TrialsView {
     readonly group = new THREE.Group();
     private readonly trials: readonly TimeTrial[];
-    private readonly pads: { mat: Coloured; marker: THREE.Group }[] = [];
+    /**
+     * per pad: its glow; the sign over its arch (TIME TRIAL, and LAND HERE TO START until the course has a time); the
+     * arrow hanging under the arch over the pad (until the course has a time)
+     */
+    private readonly pads: { mat: Coloured; sign: THREE.Group; land: THREE.Mesh[]; arrow: THREE.Mesh }[] = [];
+    /** per course: the pilot has a time on it (the page's saved times) */
+    private flown: boolean[] = [];
     /** per course, per gate: the next gate's thick frame, its pane, and the thin frame the one after it gets */
     private readonly frames: THREE.BufferGeometry[][];
     private readonly panes: THREE.BufferGeometry[][];
@@ -202,8 +216,11 @@ export class TrialsView {
         this.group.add(checks);
         const arrow = arrowGeometry();
         const word = textGeometry('TIME TRIAL', 0.9);
+        const landWords = [textGeometry('LAND HERE', 0.65), textGeometry('TO START', 0.65)];
         const arrowMat = kit.lit({ color: ARROW, emissive: 0xc05000, roughness: 0.5 });
         const wordMat = kit.lit({ color: 0xffd84a, emissive: 0x8a6200, roughness: 0.6 });
+        // the arrow's orange: it goes with the arrow under it
+        const landMat = kit.lit({ color: 0xff9a2e, emissive: 0xb04a00, roughness: 0.6 });
         for (const t of trials) {
             const p = t.pad;
             const mat = kit.flat({ color: PAD_IDLE.getHex() }) as Coloured;
@@ -213,19 +230,29 @@ export class TrialsView {
             mesh.position.set(p.x, p.y + 0.005, p.z);
             mesh.name = `trial-pad:${t.id}`;
             this.group.add(mesh);
-            // the marker, 1.5 times the gate arrow's size: its tip about 1 m over the arch's banner, the words over the arrow; it turns to face the camera
-            const marker = new THREE.Group();
-            marker.name = `trial-marker:${t.id}`;
-            const a = new THREE.Mesh(arrow, arrowMat);
-            a.scale.setScalar(1.5);
-            a.castShadow = true;
+            // the sign over the arch (owner, 2026-10-19): TIME TRIAL always, LAND HERE / TO START under it until flown;
+            // it turns to face the camera
+            const sign = new THREE.Group();
+            sign.name = `trial-sign:${t.id}`;
             const w = new THREE.Mesh(word, wordMat);
-            w.position.y = 3.4;
-            w.castShadow = true;
-            marker.add(a, w);
-            marker.position.set(p.x, p.y + 5, p.z);
-            this.group.add(marker);
-            this.pads.push({ mat, marker });
+            w.position.y = 2.45;
+            const land = landWords.map((g, k) => {
+                const m = new THREE.Mesh(g, landMat);
+                m.position.y = 1.25 - k * 0.9;
+                return m;
+            });
+            for (const m of [w, ...land]) m.castShadow = true;
+            sign.add(w, ...land);
+            sign.position.set(p.x, this.signY(t, false), p.z);
+            this.group.add(sign);
+            // the arrow under the arch, pointing down at the pad, 1.2 times the gate arrow (2.2 m: it bobs clear of both)
+            const a = new THREE.Mesh(arrow, arrowMat);
+            a.name = `trial-arrow:${t.id}`;
+            a.scale.setScalar(ARROW_PAD_SCALE);
+            a.castShadow = true;
+            a.position.set(p.x, this.arrowY(t), p.z);
+            this.group.add(a);
+            this.pads.push({ mat, sign, land, arrow: a });
         }
         this.frames = trials.map((t) => t.gates.map((g) => frameGeometry(g, BAR_NEXT)));
         this.panes = trials.map((t) => t.gates.map(paneGeometry));
@@ -259,6 +286,24 @@ export class TrialsView {
         this.beacon.geometry = arrow;
     }
 
+    /** The courses the pilot has a time on (by index): their pads lose the arrow and LAND HERE TO START. */
+    setFlown(flown: readonly boolean[]): void {
+        this.flown = [...flown];
+    }
+
+    /**
+     * The sign's origin over the arch, m: TO START, its lowest line, clears the banner by about 0.8 m as it bobs; with
+     * a time on the course only TIME TRIAL is left, and it comes down to about where LAND HERE was.
+     */
+    private signY(t: TimeTrial, flown: boolean): number {
+        return t.pad.y - ARCH.padHeight + ARCH.top + 1.0 - (flown ? 1.6 : 0);
+    }
+
+    /** The arrow's tip: 0.6 m over the pad, so its top bobs under the banner, m. */
+    private arrowY(t: TimeTrial): number {
+        return t.pad.y + 0.6;
+    }
+
     /**
      * Show the time trials as they stand (null: none, as in the replay viewer). `t` is the page's clock, s; `eye` the
      * camera's position (the arrows and words turn to face it).
@@ -278,10 +323,18 @@ export class TrialsView {
                 else k = 0.5;
             }
             p.mat.color.copy(PAD_IDLE).lerp(PAD_FULL, k * k);
-            // the marker is for finding the pad: gone while its course is offered or raced, and in the replay viewer
-            p.marker.visible = st !== null && !(mine && st.phase !== 'free');
-            p.marker.position.y = this.trials[c].pad.y + 5 + bob;
-            face(p.marker);
+            const tr = this.trials[c], flown = this.flown[c] === true;
+            // the sign shows where the course starts and ends: gone only while the race is offered or counted down on
+            // the pad (the pilot is there), and in the replay viewer
+            p.sign.visible = st !== null && !(mine && (st.phase === 'asking' || st.phase === 'countdown'));
+            for (const m of p.land) m.visible = !flown;
+            p.sign.position.y = this.signY(tr, flown) + bob;
+            face(p.sign);
+            // the arrow says where to land: gone once the course has a time, and while the quad sits on the pad
+            p.arrow.visible = st !== null && !flown && !(mine && (st.phase !== 'free' || st.hold > 0));
+            p.arrow.position.y = this.arrowY(tr) + bob * 0.8;
+            face(p.arrow);
+
         });
         // the next gate's frame pulses twice a second
         (this.next.material as Coloured).color.copy(NEXT_A).lerp(NEXT_B, 0.5 + 0.5 * Math.sin(t * 4 * Math.PI));

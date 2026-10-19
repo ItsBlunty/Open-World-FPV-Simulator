@@ -88,6 +88,9 @@ export type PageMsg =
     | { type: 'collection'; taken: number[] }
     /** the time trial offer answered (race or decline), or the race left (quit: the pause menu) */
     | { type: 'trial'; act: 'race' | 'decline' | 'quit' }
+    /** which courses (by index) the pilot has a time on: their pads lose the arrow and LAND HERE TO START */
+    | { type: 'trial-flown'; flown: boolean[] }
+
     /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */

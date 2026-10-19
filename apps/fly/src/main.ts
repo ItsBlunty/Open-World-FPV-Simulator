@@ -196,6 +196,7 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         props = m.props;
         trials = m.trials;
         mapId = m.mapId;
+        sendFlown();
         renderMenu();
     } else if (m.type === 'trial') {
         onTrial(m.e);
@@ -426,12 +427,19 @@ function openTrials(): void {
         reset: () => {
             trialTimes[mapId] = {};
             saveTrialTimesRaw(trialTimes);
+            sendFlown();
         },
         close: () => { trialsUi.hide(); showMenu(true); }
     });
 }
 
+/** Which courses the pilot has a time on, to the engine: their pads keep only the TIME TRIAL sign. */
+function sendFlown(): void {
+    send({ type: 'trial-flown', flown: trials.map((t) => timesOf(t) !== null) });
+}
+
 /** What the engine says happened in a time trial (trials.ts): the offer, false starts, GO, the finish. */
+
 function onTrial(e: TrialEvent): void {
     const t = trials[e.course];
     if (!t) return;
@@ -450,6 +458,7 @@ function onTrial(e: TrialEvent): void {
         const vs = r.previous === null ? 'First time on this course'
             : r.best ? `New best, ${formatDelta(r.ms - r.previous)} (was ${formatTime(r.previous)})` : `${formatDelta(r.ms - r.previous)} on your best ${formatTime(r.previous)}`;
         hud.result(t.name, formatTime(e.ms), vs, r.previous === null ? '' : r.best ? 'best' : 'slower');
+        sendFlown();
         trialsUi.refresh();
     } else if (e.type === 'quit') {
         hud.toast('TIME TRIAL LEFT', t.name);
