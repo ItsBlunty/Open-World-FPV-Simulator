@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, buildFirstMap, levelSha256, loopPieces, spawnPose } from '../src/index';
+import { LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, bedAt, buildFirstMap, levelSha256, loopPieces, spawnPose } from '../src/index';
 
 /** For a closed shape around `c`, every triangle's normal must point away from c. */
 function outward(tris: Float32Array, c: number[]): number {
@@ -186,35 +186,53 @@ describe('first map', () => {
         }
     });
 
-    it('leaves the train room all round the railway loop, through the tunnel and past the platform', () => {
+    it('leaves the train room all round the railway loop: on the ground, up the climbs, over the city, through the tunnel', () => {
         const rw = level.railway!;
         expect(rw.corners).toEqual(RAIL_CORNERS);
         const { pieces, length } = loopPieces(rw.corners, rw.radius);
-        expect(length).toBeCloseTo(2 * 270 + 2 * 10 + 2 * Math.PI * RAIL_RADIUS, 6);
+        expect(rw.length).toBe(length);
+        expect(length).toBeCloseTo(175 + 430 + 150 + 1020 + 525 + 390 + 6 * (Math.PI / 2) * RAIL_RADIUS, 6);
         const out = { x: 0, y: 0, z: 0 };
-        // the train's outline (packages/traffic train.ts): 2.82 m wide, 0.55 to 3.95 m up. Spheres of 0.15 m on that
-        // outline every metre round the loop touch nothing still (on the curves the coaches' ends swing out a little more)
-        let n = 0;
+        // the train's outline (packages/traffic train.ts): 2.82 m wide, 0.55 to 4.0 m over the ground under the ballast
+        // (0.3 m under the bed). Spheres of 0.15 m on that outline every metre round the loop touch nothing still (on
+        // the curves the coaches' ends swing out a little more)
+        let n = 0, highest = 0;
         for (const g of pieces) for (let u = 0; u < g.len; u += 1) {
             let x: number, z: number, hx: number, hz: number;
             if (!g.arc) { x = g.ax + g.dx * u; z = g.az + g.dz * u; hx = g.dx; hz = g.dz; } else {
                 const th = g.a0 + g.sweep * (u / g.len), sg = g.sweep > 0 ? 1 : -1;
                 x = g.cx + rw.radius * Math.cos(th); z = g.cz + rw.radius * Math.sin(th); hx = -Math.sin(th) * sg; hz = Math.cos(th) * sg;
             }
-            for (const o of [-1.3, 0, 1.3]) for (const y of [0.7, 2, 3.2, 3.8]) {
+            const base = bedAt(rw, g.s0 + u) - 0.3;
+            highest = Math.max(highest, base);
+            for (const o of [-1.3, 0, 1.3]) for (const y of [0.7, 2, 3.2, 3.9]) {
                 n++;
-                expect(world.querySphere(x - hz * o, y, z + hx * o, 0.15, out), `at ${x.toFixed(1)}, ${z.toFixed(1)}, ${o} m across, ${y} m up`).toBe(false);
+                expect(world.querySphere(x - hz * o, base + y, z + hx * o, 0.15, out), `at ${x.toFixed(1)}, ${z.toFixed(1)}, ${o} m across, ${y} m up`).toBe(false);
             }
         }
-        expect(n).toBeGreaterThan(12 * 1200);
-        // the tunnel: open along the bore at head height, the arch's crown 6.5 m up, the hill's grass over it
+        expect(n).toBeGreaterThan(12 * 3600);
+        expect(highest).toBeCloseTo(8, 6);
+        // the city viaduct: its deck's top 8.3 m up over the street's centre, its underside 7.1 m; under it only the piers,
+        // mid-block, so the street is open at every junction
+        for (let x = -495; x <= 495; x += 1) {
+            expect(world.queryRay(x, 20, -250, 0, -1, 0, 20)!.y, `deck at ${x}`).toBeCloseTo(8.3, 6);
+            // only the piers, and only mid-block (18-62 m past a junction)
+            const k = (((x + 480) % 80) + 80) % 80;
+            if (k < 17 || k > 63) expect(world.queryRay(x, 0.2, -248, 0, 1, 0, 6.8), `under the deck at ${x}`).toBeNull();
+        }
+        for (let a = 0; a <= 12; a++) expect(world.queryRay(-480 + 80 * a, 0.2, -250, 0, 1, 0, 6.8), `junction ${a}`).toBeNull();
+        // the tunnel along z at x 20: open along the bore at head height, the arch's crown 6.5 m up, the hill over it
         const t = rw.tunnel;
-        expect(world.queryRay(t.x0 - 30, 3, t.z, 1, 0, 0, t.x1 - t.x0 + 60)).toBeNull();
-        expect(world.queryRay(-10, 1, t.z, 0, 1, 0, 50)!.y).toBeCloseTo(t.crown, 6);
-        expect(world.queryRay(-10, 100, t.z, 0, -1, 0, 100)!.y).toBeGreaterThan(20);
-        // the platform's top 0.9 m up, its edge 1.5 m from the track; the station spawn stands on it
-        expect(world.queryRay(32, 10, 480, 0, -1, 0, 20)!.y).toBeCloseTo(0.9, 6);
-        expect(world.queryRay(32, 0.6, rw.stopZ, 0, 0, 1, 5)!.z).toBeCloseTo(rw.stopZ + 1.5, 6);
+        expect(t.axis).toBe('z');
+        expect(world.queryRay(t.c, 3, t.a0 - 30, 0, 0, 1, t.a1 - t.a0 + 60)).toBeNull();
+        expect(world.queryRay(t.c, 1, (t.a0 + t.a1) / 2, 0, 1, 0, 50)!.y).toBeCloseTo(t.crown, 6);
+        expect(world.queryRay(t.c, 100, (t.a0 + t.a1) / 2, 0, -1, 0, 100)!.y).toBeGreaterThan(20);
+        // the fields platform's top 0.9 m up, its edge 1.5 m from the track; the city platforms 0.45 m over the rails
+        expect(world.queryRay(292, 10, 480, 0, -1, 0, 20)!.y).toBeCloseTo(0.9, 6);
+        expect(world.queryRay(292, 0.6, 475, 0, 0, 1, 5)!.z).toBeCloseTo(476.5, 6);
+        expect(world.queryRay(10, 20, -253.3, 0, -1, 0, 20)!.y).toBeCloseTo(8.9, 6);
+        expect(world.queryRay(10, 20, -246.7, 0, -1, 0, 20)!.y).toBeCloseTo(8.9, 6);
+        expect(rw.stops.map((s) => s.name)).toEqual(['Fields station', 'City station']);
     });
 
     it('puts every spawn point on a surface with room for the quad', () => {
@@ -234,4 +252,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'a4e18ec2a1267b0c2fbea3505c202972d8f2356df576466bf9caa6d97a4b1c48';
+const PINNED = 'bc8162fa0b3b0f8a81cd5a5372f2eab185826c2159882509318a8af510276ee8';

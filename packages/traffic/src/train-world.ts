@@ -7,17 +7,16 @@
 
 import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
 import { DT } from './model';
-import { TRAIN_VMAX } from './train';
-import type { Train } from './train';
-import type { Place } from './route';
+import { TRAIN_VMAX, newTrainPlace } from './train';
+import type { Train, TrainPlace } from './train';
 import { boxNear } from './world';
 import type { Near } from './world';
 
 /** Conservative-advancement steps per sphere and box in sweep(); a hit is closer than SWEEP_EPS, m (as world.ts) */
 const SWEEP_STEPS = 32;
 const SWEEP_EPS = 1e-4;
-/** Highest point of any vehicle, m */
-const TOP = 4;
+/** Highest point of any vehicle over its base, m (with room for its tilt on a grade) */
+const TOP = 4.5;
 
 export class TrainWorld implements ContactWorld {
     readonly inner: ContactWorld;
@@ -25,24 +24,33 @@ export class TrainWorld implements ContactWorld {
     private tick = 0;
     private placed = -1;
     private placed1 = -1;
-    private readonly p0: Place[];
-    private readonly p1: Place[];
+    private readonly p0: TrainPlace[];
+    private readonly p1: TrainPlace[];
     /** per vehicle: how far its boxes reach from its middle, m */
     private readonly reach: number[];
     private readonly near: Near = { d: 0, nx: 0, ny: 0, nz: 0 };
     private readonly hits: number[] = [];
+    /** nearest()'s last point and vehicle, and the point in that vehicle's frame */
+    private ci = -1;
+    private cx = 0;
+    private cy = 0;
+    private cz = 0;
+    private ct = -1;
+    private clf = 0;
+    private clu = 0;
+    private cls = 0;
 
     constructor(inner: ContactWorld, train: Train) {
         this.inner = inner;
         this.train = train;
         const n = train.vehicles.length;
-        this.p0 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
-        this.p1 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
+        this.p0 = Array.from({ length: n }, newTrainPlace);
+        this.p1 = Array.from({ length: n }, newTrainPlace);
         this.reach = train.vehicles.map((v) => {
             let r = 0;
             for (const b of v.boxes) {
-                const f = Math.max(-b.f0, b.f1);
-                r = Math.max(r, Math.sqrt(f * f + b.hw * b.hw));
+                const f = Math.max(-b.f0, b.f1), w = Math.max(-b.s0, b.s1);
+                r = Math.max(r, Math.sqrt(f * f + w * w));
             }
             return r;
         });
@@ -54,7 +62,7 @@ export class TrainWorld implements ContactWorld {
     }
 
     /** Vehicle i's place at the current tick. */
-    placeOf(i: number): Place {
+    placeOf(i: number): TrainPlace {
         this.placeAll();
         return this.p0[i];
     }
@@ -70,44 +78,59 @@ export class TrainWorld implements ContactWorld {
         this.placeAll();
         const h = this.hits;
         h.length = 0;
-        if (y0 > TOP + pad || y1 < -pad) return h;
         for (let i = 0; i < this.p0.length; i++) {
             const q = this.p0[i];
             const p = this.reach[i] + pad;
             if (x1 < q.x - p || x0 > q.x + p || z1 < q.z - p || z0 > q.z + p) continue;
+            if (y0 > q.y + TOP + pad || y1 < q.y - 0.5 - pad) continue;
             h.push(i);
         }
         return h;
     }
 
     /** Box k of vehicle i nearest the point, into this.near; false: no such box. */
-    private nearest(i: number, k: number, x: number, y: number, z: number): boolean {
+    private nearest(i: number, k: number, x: number, y: number, z: number, reach = Infinity): boolean {
         const boxes = this.train.vehicles[i].boxes;
         if (k >= boxes.length) return false;
         const b = boxes[k];
         const pl = this.p0[i];
         const out = this.near;
-        const dx = x - pl.x, dz = z - pl.z;
-        boxNear(dx * pl.hx + dz * pl.hz - (b.f0 + b.f1) / 2, y - (b.y0 + b.y1) / 2, -dx * pl.hz + dz * pl.hx, (b.f1 - b.f0) / 2, (b.y1 - b.y0) / 2, b.hw, out);
-        const nf = out.nx, ns = out.nz;
-        out.nx = nf * pl.hx - ns * pl.hz;
-        out.nz = nf * pl.hz + ns * pl.hx;
+        // the point in the vehicle's frame: along (f), up (u), across ((-hz, 0, hx)); worked out once per point and vehicle
+        if (this.ci !== i || this.cx !== x || this.cy !== y || this.cz !== z || this.ct !== this.placed) {
+            const dx = x - pl.x, dy = y - pl.y, dz = z - pl.z;
+            this.clf = dx * pl.fx + dy * pl.fy + dz * pl.fz;
+            this.clu = dx * pl.ux + dy * pl.uy + dz * pl.uz;
+            this.cls = -dx * pl.hz + dz * pl.hx;
+            this.ci = i; this.cx = x; this.cy = y; this.cz = z; this.ct = this.placed;
+        }
+        const lf = this.clf, lu = this.clu, ls = this.cls;
+        // a box further than `reach` along any of its axes cannot count: skip the distance
+        if (lf < b.f0 - reach || lf > b.f1 + reach || lu < b.y0 - reach || lu > b.y1 + reach || ls < b.s0 - reach || ls > b.s1 + reach) {
+            out.d = Infinity;
+            return true;
+        }
+        boxNear(lf - (b.f0 + b.f1) / 2, lu - (b.y0 + b.y1) / 2, ls - (b.s0 + b.s1) / 2, (b.f1 - b.f0) / 2, (b.y1 - b.y0) / 2, (b.s1 - b.s0) / 2, out);
+        const nf = out.nx, nu = out.ny, ns = out.nz;
+        out.nx = nf * pl.fx + nu * pl.ux - ns * pl.hz;
+        out.ny = nf * pl.fy + nu * pl.uy;
+        out.nz = nf * pl.fz + nu * pl.uz + ns * pl.hx;
         return true;
     }
 
-    /** Velocity of vehicle i's point (x, z) (taken as fixed to it), m/s: where that point is one tick later. */
-    private pointVelocity(i: number, x: number, z: number, out: Float64Array, o: number): void {
+    /** Velocity of vehicle i's point (x, y, z) (taken as fixed to it), m/s: where that point is one tick later. */
+    private pointVelocity(i: number, x: number, y: number, z: number, out: Float64Array, o: number): void {
         if (this.placed1 !== this.tick) {
             for (let j = 0; j < this.p1.length; j++) this.train.place(j, this.tick + 1, this.p1[j]);
             this.placed1 = this.tick;
         }
         const a = this.p0[i], b = this.p1[i];
-        const dx = x - a.x, dz = z - a.z;
-        const lf = dx * a.hx + dz * a.hz;
+        const dx = x - a.x, dy = y - a.y, dz = z - a.z;
+        const lf = dx * a.fx + dy * a.fy + dz * a.fz;
+        const lu = dx * a.ux + dy * a.uy + dz * a.uz;
         const ls = -dx * a.hz + dz * a.hx;
-        out[o] = (b.x + lf * b.hx - ls * b.hz - x) / DT;
-        out[o + 1] = 0;
-        out[o + 2] = (b.z + lf * b.hz + ls * b.hx - z) / DT;
+        out[o] = (b.x + lf * b.fx + lu * b.ux - ls * b.hz - x) / DT;
+        out[o + 1] = (b.y + lf * b.fy + lu * b.uy - y) / DT;
+        out[o + 2] = (b.z + lf * b.fz + lu * b.uz + ls * b.hx - z) / DT;
     }
 
     /** Put contact this.near into out (slot k if free, else over the farthest if closer); the slot used, or -1. */
@@ -128,14 +151,14 @@ export class TrainWorld implements ContactWorld {
         // a moving surface counts up to its own travel this tick beyond r (sim.ts ContactWorld.contacts)
         const reach = r + TRAIN_VMAX * DT + 1e-3;
         for (const i of this.near3(x, y, z, x, y, z, reach)) {
-            for (let b = 0; this.nearest(i, b, x, y, z); b++) {
+            for (let b = 0; this.nearest(i, b, x, y, z, reach); b++) {
                 const n = this.near;
                 if (!(n.d < reach)) continue;
-                const d = n.d, nx = n.nx, nz = n.nz;
+                const d = n.d, nx = n.nx, ny = n.ny, nz = n.nz;
                 const slot = this.put(out, k, max);
                 if (slot < 0) continue;
                 if (slot === k) k++;
-                if (vel) this.pointVelocity(i, x - nx * d, z - nz * d, vel, slot * 3);
+                if (vel) this.pointVelocity(i, x - nx * d, y - ny * d, z - nz * d, vel, slot * 3);
             }
         }
         return k;
@@ -145,7 +168,7 @@ export class TrainWorld implements ContactWorld {
         if (this.inner.pushOut(x, y, z, r, out)) return true;
         let best = 0;
         for (const i of this.near3(x, y, z, x, y, z, r)) {
-            for (let b = 0; this.nearest(i, b, x, y, z); b++) {
+            for (let b = 0; this.nearest(i, b, x, y, z, r); b++) {
                 const n = this.near;
                 const pen = r - n.d;
                 if (!(pen > best)) continue;

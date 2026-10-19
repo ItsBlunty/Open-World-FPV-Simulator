@@ -132,19 +132,24 @@ export interface Level {
 }
 
 /**
- * A railway loop for the train (packages/traffic train.ts): a rectangle's corners in the order the train runs them, each
- * corner rounded to `radius` (the same path as traffic route.ts pathThrough, closed). Metres, x and z.
+ * A railway loop for the train (packages/traffic train.ts): a polygon's corners in the order the train runs them, every
+ * turn a right angle rounded to `radius` (the same path as traffic route.ts pathThrough builds, closed). Metres, x and z.
  */
 export interface Railway {
     corners: [number, number][];
     radius: number;
-    /** the rails' top, m: what the wheels run on */
-    railTop: number;
-    /** where the front of the train stops at the station: a point on the track */
-    stopX: number;
-    stopZ: number;
-    /** the tunnel: the straight piece of track inside it, from (x0, z) to (x1, z), and its inside height at the crown, m */
-    tunnel: { x0: number; x1: number; z: number; halfWidth: number; crown: number };
+    /** the loop's length, m */
+    length: number;
+    /**
+     * the track bed's height along the loop (ballast top, or the viaduct deck's top), as breakpoints [s, y] from s = 0 to
+     * `length`, straight between them and eased over `curve` m round each (railway.ts bedAt); the rails' top is 0.15 m up
+     */
+    profile: [number, number][];
+    curve: number;
+    /** where the front of the train stops at each station, a point on a straight, in the order the train reaches them */
+    stops: { name: string; x: number; z: number }[];
+    /** the tunnel: its straight bore from a0 to a1 along its axis, at `c` across it; its inside half width and crown height, m */
+    tunnel: { axis: 'x' | 'z'; a0: number; a1: number; c: number; halfWidth: number; crown: number };
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */

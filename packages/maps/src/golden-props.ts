@@ -323,10 +323,11 @@ const FIELDS: [number, number, number, string][] = [
 ];
 /** the railway (map v7, railway.ts): numbered after every other area's, so the props before them keep their numbers */
 const RAILWAY: [number, number, number, string][] = [
-    [-20, 5.6, 245, 'Deep in the railway tunnel, up under the arch'], // the bore x -56 to 36, its crown at 6.5 m; trains reach 4 m
-    [-41, 2.4, 480.4, "Under the station's platform canopy"], // platform top 0.9 m, the canopy at 3.6; columns at x -44 and -37.5
-    [-101, 3, 461.5, 'Inside the engine shed'], // the shed x -116 to -86 over the third siding (z 461.5), its roof at 6.5 m
-    [-80, 8.3, 481, "On the station's water tower"] // the tank's top at 7.5 m
+    [20, 5.6, 262, 'Deep in the railway tunnel, up under the arch'], // the bore z 226 to 298 at x 20, its crown at 6.5 m; trains reach 4 m
+    [219, 2.4, 480.4, "Under the fields station's platform canopy"], // platform top 0.9 m, the canopy at 4.3; columns at x 216 and 222.5
+    [159, 3, 461.5, 'Inside the engine shed'], // the shed x 144 to 174 over the third siding (z 461.5), its roof at 6.5 m
+    [180, 8.3, 481, "On the fields station's water tower"], // the tank's top at 7.5 m
+    [30, 10.5, -253.6, "Under the city station's canopy, up on the viaduct"] // platform top 8.9 m, the canopy at 12; columns at 4.7 m out
 ];
 
 /** Number every prop, area by area: the park (by the first spawn) first. */

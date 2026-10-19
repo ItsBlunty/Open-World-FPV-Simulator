@@ -10,11 +10,14 @@ import { FACE, LevelBuilder, Rng } from './builder';
 import type { Building, Level, Material } from './builder';
 import { goldenProps, streetFurniture } from './golden-props';
 import type { Rect } from './golden-props';
-import { nearTrack, railway } from './railway';
+import { nearTrack, railway, underHill } from './railway';
 
 export const MAP_ID = 'mixed-1';
-/** 7: the railway loop, its hill and tunnel, the station and goods yard, and four golden props there (owner, 2026-10-19) */
-export const MAP_VERSION = 7;
+/**
+ * 7: the railway loop, its hill and tunnel, the station and goods yard, and four golden props there (owner, 2026-10-19);
+ * 8: the railway round the whole map, over the city on a viaduct with a station there, the hill moved (owner, 2026-10-19)
+ */
+export const MAP_VERSION = 8;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -40,8 +43,9 @@ export function buildFirstMap(): Level {
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
     b.spawn({ id: 'city', name: 'City street', x: 0, z: -130, yawDeg: 0 });
     b.spawn({ id: 'yard', name: 'Industrial yard', x: -330, z: 200, yawDeg: 180 });
-    b.spawn({ id: 'station', name: 'Railway station', x: 32, z: 480, yawDeg: 270 });
-    b.spawn({ id: 'tunnel', name: 'Railway tunnel', x: -100, z: 252, yawDeg: 90 });
+    b.spawn({ id: 'station', name: 'Fields station', x: 292, z: 480, yawDeg: 270 });
+    b.spawn({ id: 'city-station', name: 'City station (on the viaduct)', x: 10, z: -253.3, yawDeg: 90 });
+    b.spawn({ id: 'tunnel', name: 'Railway tunnel', x: 30, z: 335, yawDeg: 0 });
     return b.build(MAP_ID, MAP_VERSION, 'Park, bando and city', HALF);
 }
 
@@ -67,8 +71,11 @@ function tree(b: LevelBuilder, r: Rng, x: number, z: number, scale = 1): void {
     const trunkH = (2.5 + r.int(0, 10) / 10) * scale;
     const top = trunkH + (5 + r.int(0, 40) / 10) * scale;
     const rad = (2 + r.int(0, 15) / 10) * scale;
+    const round = r.chance(1, 3);
+    // (map v8) a tree the railway runs through, or under its hill, is left out after its draws: the rest stays as it was
+    if (nearTrack(x, z, rad * 1.1 + 3) || underHill(x, z, rad)) return;
     b.prism('trunk', x, z, 0, trunkH + 0.5, 0.25 * scale, 6);
-    if (r.chance(1, 3)) {
+    if (round) {
         // a round-ish tree: two stacked canopies
         b.cone('foliage', x, z, trunkH, top - 1, rad * 1.1, 8);
         b.cone('foliage', x, z, trunkH + 1.5, top + 1, rad * 0.8, 8);

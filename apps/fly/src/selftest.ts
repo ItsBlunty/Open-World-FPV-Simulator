@@ -8,7 +8,7 @@ import { FlightSession } from './session';
 import { Sha256 } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import type { Level } from '@owfpv/maps';
-import { Train, makeTraffic } from '@owfpv/traffic';
+import { Train, makeTraffic, newTrainPlace } from '@owfpv/traffic';
 import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
@@ -86,12 +86,12 @@ export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOv
 }
 
 /** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
-export const TRAFFIC_HASH = 'd8e138b34708077a9b7ab7eea1c537f2394dc820a231144f1c1e1449d2b8a56a';
+export const TRAFFIC_HASH = '226587dba05f677c85a6fc2f8fdff902a45b48a56bafb7896b2221cdb32d60b4';
 
 /**
  * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops
  * and for the signalled network (cars, people and lamps), and the network again after going back to 75 s (its
- * checkpoint restart), then the train's five vehicles at the same ticks and through its first stop (from 150 s). The
+ * checkpoint restart), then the train's five vehicles (place and frame) at the same ticks, up its climb, and into the city station (from 200 s). The
  * flight above has no traffic; this checks the traffic engines' arithmetic.
  */
 export function runTrafficSelftest(level: Level): string {
@@ -117,11 +117,16 @@ export function runTrafficSelftest(level: Level): string {
         }
     }
     const train = new Train(level);
-    for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), ...Array.from({ length: 100 }, (_, k) => 150000 + k * 97)]) {
+    const tp = newTrainPlace();
+    const tb = new Float64Array(4);
+    const tbytes = new Uint8Array(tb.buffer);
+    for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), ...Array.from({ length: 100 }, (_, k) => 200000 + k * 97)]) {
         for (let i = 0; i < train.vehicles.length; i++) {
-            train.place(i, tick, p);
-            buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; buf[3] = p.hx; buf[4] = p.hz;
+            train.place(i, tick, tp);
+            buf[0] = tp.x; buf[1] = tp.y; buf[2] = tp.z; buf[3] = tp.hx; buf[4] = tp.hz;
             h.update(bytes);
+            tb[0] = tp.fx; tb[1] = tp.fy; tb[2] = tp.fz; tb[3] = tp.uy;
+            h.update(tbytes);
         }
     }
     return h.digestHex();

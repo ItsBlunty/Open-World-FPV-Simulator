@@ -1,8 +1,8 @@
 # The railway: track, tunnel, station and the steam train
 
-Section §0y. Read only when working on the railway or the train; `HANDOFF.md` has the current state.
+Sections §0y, §0z. Read only when working on the railway or the train; `HANDOFF.md` has the current state.
 
-## 0y. Railway, tunnel and steam train (owner, 2026-10-19): built, waiting for the owner to fly it
+## 0y. Railway, tunnel and steam train (owner, 2026-10-19): built, then reworked in §0z (route, coaches, smoke)
 
 **Asked:** "Add a tunnel and a train that travels through a railyard, stops, then continues. Train should slowly accel
 and deccel like a real train, should be steam engine and put out simple clouds as smoke. Try to make it not take too
@@ -85,3 +85,75 @@ Faster, longer, or a goods train sometimes?
 **Left open:** the hill reads flat from straight above (one grass colour); look-around mode does not run the sim, so
 the train stands still there (as the traffic does); no sound (no audio yet); the yard's wagons never move; a puff
 that leaves just before a portal can pass through the hill; the train does not react to the quad.
+
+## 0z. The railway round the whole map, a city station, open coaches, billowing smoke (owner, 2026-10-19): map v8, train v2
+
+**Asked:** "Make the train travel around the entire map, and make it slightly less close to the ground so you could
+fly a quad under it. It should pass through all the areas and even through the city, with another station inside the
+city. Also make open windows and add people inside, so the player can try to fly into or through the train while its
+moving. The smoke is a little rough, it should expand more into bigger clouds instead of a stream of one size."
+
+Most of §0y still holds (track, tunnel shape, the engine, the physics constants); this section is what changed.
+
+**Route (map v8, `railway.ts`; decided by Claude, not yet put to the owner):** six right-angle corners, all 100 m
+curves, 3632 m round, clockwise: north from the south-east fields through the tunnel (now under a hill south of the
+park, the bore along z at x 20, z 226-298); a curve west across the park's south end (crossing its two paths); west at
+ground level along z 100 between the bando (78 m north) and the industrial yard (40 m south); round the map's west
+edge (x -610, outside the border trees); east across the whole city along the z = -250 street; south outside the east
+edge (x 610); and west along z 475 through the fields station and goods yard (moved 260 m east, same layout).
+- The city: a viaduct deck 5.2 m wide, top 8.3 m, underside 7.1 m over the street's centre line, so it clears the
+  traffic lights' poles and mast arms (6.0 m, traffic network.ts) and the street lamps (7 m). Piers (1.6 x 1.0 m with a
+  cap under the deck) every 20 m; in the city only 18-62 m past a junction, so the junctions under it are open, and
+  cars run 1.55 m or more from the centre line, clear of the piers. Traffic is unchanged: no level crossings anywhere.
+- The climb to it and down from it: 574 m each way at 1 in 72 (8 m), round the west and east edges, eased over 80 m at
+  each end (`bedAt`, a railway vertical curve). The deck is level from 40 m before the city edge.
+- City station: on the viaduct, x 2-102, a platform each side (edges 1.5 m from the track, tops 0.45 m over the rails,
+  as at the fields station), canopies 3.1 m over them from x 20 to 85, a waiting shelter each side. The train stops
+  with its front at x 97. New spawn "City station (on the viaduct)"; moved: "Fields station" (x 292, z 480), "Railway
+  tunnel" (x 30, z 335, facing the south portal). Golden props 52-55 moved with their places; 56 is new (under the
+  city canopy).
+- Trees the line or the hill would stand in are left out after their random draws (`tree()`), so the rest are as
+  before. 243 542 triangles, hash `bc8162fa…`. `Level.railway` now carries the height profile, both stops, and a
+  tunnel on either axis.
+
+**Train (TRAIN_VERSION 2):**
+- The runs between the stations, each worked out once in 1 ms steps: 220 s to the city, 176 s back, 35 s [estimate] at
+  each: 7.8 min a lap. Top 72 km/h (20 m/s [estimate]) on the straights, though the engine's power holds it to about
+  16 m/s; 45 km/h round every curve (it aims 0.4 m/s under and slows at 0.22 m/s^2 in time). The grade pulls on the
+  train: it holds 12.5 m/s up the climb at full power and brakes to hold its speed coming down. The regulator opens
+  and closes at no more than 0.3 m/s^3 [estimate].
+- Each vehicle tilts with the grade: its frame runs from its back pivot to its front one (`TrainPlace`, along and up),
+  in the collision and the drawing alike.
+- Coaches are hollow: floor 1.35-1.5 m over the base (0.9 m between the rails' top and the floor, so a quad flies under
+  a coach between its bogies), seven open windows a side (1.6 x 1.2 m, sill 2.25, head 3.45), a doorway at each end
+  (0.9 x 2.0 m), bays of facing seats either side of a 0.6 m aisle, and people sitting in about 4 seats in 10 (a hash
+  of coach and seat, the same every run). About 110 solid boxes a coach; bodies 4.0 m high.
+- Collision cost inside a coach: 2.15 us per sphere query against 0.97 us for the map alone (a cheap per-box reject
+  and a cached frame transform halved it from 4.5 us). Away from the train it costs nothing.
+
+**Drawing:** each coach is drawn from its own collision boxes (maroon walls, wooden floor, blue seats, people as
+candy-coloured beans with eyes facing along the coach), so what you see is what you hit. Smoke: each puff is now a
+cluster of three blobs that spread apart as it grows, from a chimney's width to several metres over 10 s, each puff a
+little different in size, lighter as it thins. Train and smoke: 9 draws, about 60 000 triangles (most of it the
+people), `TrainView.update` 0.042 ms a frame.
+
+**Evidence:** `pnpm test` 58 files, 497 tests pass; `pnpm typecheck` clean. `train.test.ts`: runs 220 + 176 s, top
+15.84 m/s, curves at most 12.55 m/s, pull at most 0.298 m/s^2, brake 0.366, jerk 0.550 m/s^3, up to 8.30 m, both
+stops 0.000 mm off the mark; couplings 0.43-0.52 m round the loop; with the train standing, a 0.25 m sphere fits under
+all 3 coaches (0.9 m up, right across), through all 21 windows (across the coach between the facing seats, 3.0 m up)
+and down the aisles through the end doors from one coach to the next, while the wall beside a window is solid; a
+hovering quad shoved to 14.42 m/s by the train at 13.73 m/s, -0.00 mm least clearance; a quad on a coach roof carried
+through the tunnel at 12.47 m/s, 0.296 mm drift. `first-map.test.ts`: the train's outline clear every metre round the
+loop at the profile's height; the deck at 8.3 m over the whole city with only mid-block piers under it and every
+junction open to 7 m; the tunnel; both platforms. `?selftest` MATCH in the built-in browser, traffic and train
+`226587db…`. Seen there: the viaduct over the street with cars under it, the train at the city station, its open
+windows with people in the seats, the gap under a coach, the billowing smoke leaving the fields station, the climb
+round the west edge.
+
+**For the owner:** fly under a coach, in one window and out the other, down the aisle through the end doors, and under
+the viaduct between the piers. Ask: is the train too rare now (a given spot every 7.8 min)? A second train, shorter
+stops, faster running? Is 1 in 72 and the viaduct's height right? The smoke's size and colour?
+
+**Left open:** the hill reads flat from above; no stairs up to the city platforms; the yard's wagons never move; a
+puff leaving just before a portal can pass through the hill; the train does not react to the quad; look-around does
+not run the sim, so the train stands still there.
