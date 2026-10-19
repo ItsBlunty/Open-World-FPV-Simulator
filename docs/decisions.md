@@ -83,3 +83,4 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-19 | Is 45 fps enough? | No: "We need to hit 60 fps not 45" |
 | 2026-10-19 | How many low spec modes? | Three: low spec as it is; extra low spec at half resolution and a 300 m view; super low spec at a quarter resolution and a nearer view (200 m) |
 | 2026-10-19 | Chase camera blocked by a wall? | A circle covering about half the screen, feathered edges, that sees through walls to the quad |
+| 2026-10-19 | A railway? (owner's ask) | A tunnel and a steam train through a railyard that stops and goes on, speeding up and slowing down slowly like a real train, with simple cloud smoke; cheap to run but cool; its own toggle in settings, and the graphics settings grouped properly |

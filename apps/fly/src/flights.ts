@@ -11,9 +11,10 @@ import type { ContactWorld, Life, LifeHeader, LifeSnapshot, PresetJson, ReplayDe
 import { levelSha256 } from '@owfpv/maps';
 import type { Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { TrafficWorld, makeTraffic, worldSha256 } from '@owfpv/traffic';
+import { makeTraffic, makeTrain, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { FlightSession } from './session';
+import { worldWith } from './session';
 
 /** The format of a saved flight; bump it when a field changes meaning. */
 export const FLIGHT_FORMAT = 'owfpv-flight/1';
@@ -106,7 +107,7 @@ export function asLife(s: SavedLife): Life {
 
 /** Every combination of the traffic toggles, to find the one a header's collision hash was made with. */
 const TRAFFIC_CONFIGS: TrafficConfig[] = [];
-for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals });
+for (const train of [false, true]) for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals, train });
 
 /** The traffic toggles a life's header was flown with (its collision hash names them). */
 export function trafficConfigFor(h: LifeHeader, levelSha: string): TrafficConfig {
@@ -118,8 +119,8 @@ export function trafficConfigFor(h: LifeHeader, levelSha: string): TrafficConfig
 
 /** The collision for a life's header: the map's mesh, with its traffic rebuilt from the toggles its hash names. */
 function worldFor(h: LifeHeader, level: Level, levelSha: string, mesh: MeshContactWorld): ContactWorld {
-    const t = makeTraffic(level, trafficConfigFor(h, levelSha));
-    return t ? new TrafficWorld(mesh, t) : mesh;
+    const c = trafficConfigFor(h, levelSha);
+    return worldWith(mesh, makeTraffic(level, c), makeTrain(level, c.train));
 }
 
 /** What sim-core needs to replay one saved life on this build's map (throws when the life cannot be replayed here). */

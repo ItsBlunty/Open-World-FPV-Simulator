@@ -4,3 +4,5 @@ export * from './loops';
 export * from './network';
 export * from './make';
 export * from './world';
+export * from './train';
+export * from './train-world';

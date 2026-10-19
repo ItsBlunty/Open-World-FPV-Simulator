@@ -27,7 +27,7 @@ describe('self-test flight on the first map', () => {
         expect(c.hash).not.toBe(SELFTEST_HASH);
     });
 
-    it('places the traffic the same every run (both models, and after going back in time)', () => {
+    it('places the traffic and the train the same every run (both models, and after going back in time)', () => {
         const a = runTrafficSelftest(buildFirstMap());
         expect(runTrafficSelftest(buildFirstMap())).toBe(a);
         expect(a).toBe(TRAFFIC_HASH);

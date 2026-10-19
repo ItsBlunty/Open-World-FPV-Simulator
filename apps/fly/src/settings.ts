@@ -47,6 +47,8 @@ export interface Settings {
     people: boolean;
     /** traffic lights, cars that queue and turn, people who wait at the crossings; off: simple loops round each block */
     signals: boolean;
+    /** the steam train on the railway (owner, 2026-10-19: its own toggle); solid, like the cars */
+    train: boolean;
     /** the sun's shadows (switching them takes a reload: toggling them live crashed Three.js) */
     shadows: boolean;
     /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     cars: true,
     people: true,
     signals: true,
+    train: true,
     shadows: true,
     renderScale: 1,
     graphics: 'full'
@@ -115,6 +118,7 @@ export function loadSettings(): Settings {
     if (typeof s.cars === 'boolean') out.cars = s.cars;
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;
+    if (typeof s.train === 'boolean') out.train = s.train;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     if (isGraphicsLevel(s.graphics)) out.graphics = s.graphics;

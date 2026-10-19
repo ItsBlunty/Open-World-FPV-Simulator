@@ -3,7 +3,7 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## State (2026-10-18)
+## State (2026-10-19)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
@@ -15,12 +15,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
   300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]
   Chase camera see-through circle built: a wall between the camera and the quad shows it through a soft circle. [camera §0x]
-- **Tests:** `pnpm test`: 57 files, 489 tests pass. `pnpm typecheck` clean.
+  Railway built (map v7): a loop with a tunnel, station and goods yard; a solid steam train that pulls away, stops at
+  the station 40 s and goes on, with puffed smoke; its own Settings switch; graphics settings grouped. [railway §0y]
+- **Tests:** `pnpm test`: 58 files, 496 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
-  - traffic self-test `59f44e0a…` (traffic v6)
-  - map v6 `27a17110…` (228 994 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6, `GRADE_VERSION` 1.
+  - traffic self-test `d8e138b3…` (traffic v6 and the train v1)
+  - map v7 `a4e18ec2…` (235 694 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 7, `TRAFFIC_VERSION` 6, `TRAIN_VERSION` 1, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -46,6 +48,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
 8. **Chase see-through circle:** fly the chase camera (C) behind buildings and trees. Size (half the screen high), edge
    softness and fade OK? Should the spotter camera get it too? [camera §0x]
+9. **Railway and train:** spawn at "Railway station" or "Railway tunnel", chase the train, ride a coach roof through the
+   tunnel, fly the engine shed's vent. Do the pull-away (60 s to 45 km/h) and stop feel real? Smoke OK? 40 s stop? [railway §0y]
 
 ## Left open (not started)
 
@@ -56,6 +60,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   collections. [collectibles]
 - Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
   cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
+- Railway: the hill reads flat from above; the yard's wagons never move; a puff can pass through the hill at a portal;
+  the train ignores the quad; look-around doesn't run the sim, so the train (like the traffic) stands still there. [railway]
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
   trigger it. [camera §0x]
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
@@ -101,6 +107,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
 | `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
+| `railway.md` | §0y: the railway loop, tunnel, station and yard (map v7), the steam train's run, collision, drawing, smoke |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 
 Owner decisions: `docs/decisions.md`.

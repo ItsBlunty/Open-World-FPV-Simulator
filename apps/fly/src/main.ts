@@ -67,8 +67,9 @@ function overrides(): ParamOverrides {
 
 function trafficConfig(): TrafficConfig {
     // extra and super low spec: no traffic, whatever the switches say (they keep the pilot's choice for the other levels)
-    if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false };
-    return { cars: settings.cars, people: settings.people, signals: settings.signals };
+    // the train is cheap to draw (eight draws), so it runs at every graphics level unless its own switch is off
+    if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false, train: settings.train };
+    return { cars: settings.cars, people: settings.people, signals: settings.signals, train: settings.train };
 }
 
 function engineSettings(): EngineSettings {
@@ -667,6 +668,7 @@ function settingsSection(): Child[] {
             ['Rates', `${settings.rates ? 'your own' : 'the preset\'s'}. Type in your Betaflight rates.`],
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
+            ['Train', settings.train ? 'on: a steam train round the railway, through the tunnel and the station.' : 'off.'],
             ['Graphics', lowSpecOn
                 ? `${graphicsName(graphicsNow)} mode (simple lighting, no shadows, flat camera), resolution ${graphicsNow === 'extra' ? 50 : graphicsNow === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
                 : `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],

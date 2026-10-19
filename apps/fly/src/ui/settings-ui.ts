@@ -1,4 +1,4 @@
-// Settings screen: FPV camera, flight mode without a mode switch, traffic and graphics, and the pilot's rates. The rates box
+// Settings screen: FPV camera, flight mode without a mode switch, graphics, traffic and the train, and the pilot's rates. The rates box
 // offers Betaflight's two common rate types; field names, scales and limits are sim-core's
 // rates-edit.ts (read from Betaflight Configurator 10.10.0 by sim-core's author), so values typed
 // here mean what they mean in Configurator.
@@ -26,7 +26,7 @@ export interface SettingsHost {
     onCamera(): void;
     /** rates or mode changed: the flight model needs a new life */
     onFlight(): void;
-    /** cars, people or signals changed: they are solid, so a new life with the new traffic */
+    /** cars, people, signals or the train changed: they are solid, so a new life with the new traffic */
     onTraffic(): void;
     /** resolution scale changed: apply at once */
     onGraphics(): void;
@@ -133,33 +133,35 @@ export class SettingsUi {
             h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
             h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
                 ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
-            h('h2', {}, 'Graphics and performance'),
+            // what is drawn and how: every choice here is the renderer's, the physics is the same at every level
+            h('h2', {}, 'Graphics'),
+            h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Graphics level'),
+                h('select', { onchange: (e: Event) => { s.graphics = (e.target as HTMLSelectElement).value as GraphicsLevel; host.save(); this.build(); } },
+                    ...GRAPHICS_LEVELS.map((g) => h('option', { value: g, selected: s.graphics === g }, GRAPHICS_LABELS[g])))),
+            host.graphicsNow !== s.graphics && !host.graphicsPending()
+                ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)
+                : null,
+            host.graphicsNow === 'extra' || host.graphicsNow === 'super'
+                ? h('p', { class: 'note' }, `Resolution: ${host.graphicsNow === 'extra' ? 'half' : 'a quarter'}, set by ${graphicsName(host.graphicsNow)} mode.`)
+                : this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }),
+            isLowSpec(host.graphicsNow)
+                ? h('p', { class: 'note' }, `No sun shadows in ${graphicsName(host.graphicsNow)} mode.`)
+                : this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
+            host.graphicsPending() || host.shadowsPending()
+                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'This change applies when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
+                : null,
+            h('p', { class: 'note' }, 'The physics is the same at every level.'),
+            // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight
+            h('h2', {}, 'Traffic and train'),
             ...(trafficAllowed(host.graphicsNow)
                 ? [
                     this.check('Cars (solid: you can hit them and land on them)', s.cars, (v) => { s.cars = v; host.save(); host.onTraffic(); }),
                     this.check('People (solid too)', s.people, (v) => { s.people = v; host.save(); host.onTraffic(); }),
-                    this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); }),
-                    h('p', { class: 'note' }, 'Changing the traffic restarts at the spawn point (what you can hit changes).')
+                    this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); })
                 ]
                 : [h('p', { class: 'note' }, `No cars, people or traffic lights in ${graphicsName(host.graphicsNow)} mode.`)]),
-            host.graphicsNow === 'extra' || host.graphicsNow === 'super'
-                ? h('p', { class: 'note' }, `Resolution: ${host.graphicsNow === 'extra' ? 'half' : 'a quarter'}, set by ${graphicsName(host.graphicsNow)} mode.`)
-                : this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }),
-            h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Graphics'),
-                h('select', { onchange: (e: Event) => { s.graphics = (e.target as HTMLSelectElement).value as GraphicsLevel; host.save(); this.build(); } },
-                    ...GRAPHICS_LEVELS.map((g) => h('option', { value: g, selected: s.graphics === g }, GRAPHICS_LABELS[g])))),
-            h('p', { class: 'note' }, 'The physics is the same at every level.'),
-            host.graphicsPending()
-                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Graphics change when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
-                : host.graphicsNow !== s.graphics
-                    ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)
-                    : null,
-            isLowSpec(host.graphicsNow)
-                ? null
-                : this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
-            host.shadowsPending()
-                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'Shadows change when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
-                : null,
+            this.check('Steam train (solid: round the railway, through the tunnel, stopping at the station)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
+            h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
             h('h2', {}, 'Physics'),
             h('label', { class: 'row' },
                 h('input', { type: 'checkbox', checked: s.classicPhysics, onchange: (e: Event) => { s.classicPhysics = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),

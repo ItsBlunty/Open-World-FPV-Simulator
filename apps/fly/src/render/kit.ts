@@ -32,6 +32,8 @@ export interface MatOptions {
     opacity?: number;
     side?: THREE.Side;
     depthWrite?: boolean;
+    /** colour per vertex (the train's merged parts) */
+    vertexColors?: boolean;
 }
 
 export interface Kit {

@@ -49,7 +49,13 @@ const COLOURS: Record<Material, number> = {
     // a bus shelter's frosted panels (drawn see-through: FROSTED_OPACITY), a dark green dumpster, billboard faces
     frosted: 0xdfe7ec,
     dumpster: 0x2f5a3c,
-    billboard: 0xf1ead8
+    billboard: 0xf1ead8,
+    // the railway: grey ballast, dark steel rails, creosoted sleepers, the tunnel's stonework, brown goods wagons
+    ballast: 0x80796f,
+    rail: 0x4a4542,
+    sleeper: 0x4a3a2d,
+    stone: 0x8e8577,
+    wagon: 0x74472f
 };
 
 /**
@@ -65,7 +71,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {

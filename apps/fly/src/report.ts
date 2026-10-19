@@ -5,6 +5,7 @@
 // Flights > Download) replays it exactly. No DOM here, so the tests build reports in Node.
 
 import type { EngineReport } from './engine/protocol';
+import { TRAIN_VERSION } from '@owfpv/traffic';
 
 export type ReportKind = 'bug' | 'suggestion';
 
@@ -73,10 +74,10 @@ export function detailsBlock(page: PageReport | null, engine: EngineReport | nul
     }
     if (engine) {
         const speed = Math.hypot(...engine.vel) * 3.6;
-        const traffic = [engine.traffic.cars && 'cars', engine.traffic.people && 'people', engine.traffic.signals && 'signals'].filter(Boolean).join(', ') || 'off';
+        const traffic = [engine.traffic.cars && 'cars', engine.traffic.people && 'people', engine.traffic.signals && 'signals', engine.traffic.train && 'train'].filter(Boolean).join(', ') || 'off';
         rows.push(
             ['Renderer', `${engine.renderer}${page ? `, ${page.engineWhere}` : ''}${page?.fps != null ? `, ${Math.round(page.fps)} fps` : ''}, ${engine.drawCalls} draws, ${engine.triangles} triangles`],
-            ['Map', `${engine.mapId} v${engine.mapVersion}, spawn ${engine.spawn}, traffic ${traffic} (traffic v${engine.trafficVersion})`],
+            ['Map', `${engine.mapId} v${engine.mapVersion}, spawn ${engine.spawn}, traffic ${traffic} (traffic v${engine.trafficVersion}${engine.traffic.train ? `, train v${TRAIN_VERSION}` : ''})`],
             ['Flight', `${engine.simCore}, tick ${engine.tick} (${(engine.tick / 1000).toFixed(1)} s), life ${engine.lives}, hitches ${engine.hitches}${engine.paused ? ', paused' : ''}`],
             ['Quad', `${engine.armed ? 'armed' : 'disarmed'}${engine.crashed ? ', crashed' : ''}; at ${fixed(engine.pos)} m; ${speed.toFixed(0)} km/h (${fixed(engine.vel)} m/s); roll ${engine.roll}°, pitch ${engine.pitch}°, yaw ${engine.yaw}°`],
             ['Camera', `${engine.freeCam ? 'free camera' : engine.view.toUpperCase()}${engine.replayTick !== null ? `, replay viewer at tick ${engine.replayTick}` : ''}`]

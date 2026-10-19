@@ -13,6 +13,7 @@ import { demoTrickSticks, selftestSticks } from '../selftest';
 import { levelGroup, environment } from '../render/world';
 import { CraftView } from '../render/view';
 import { TrafficView } from '../render/traffic';
+import { TrainView } from '../render/train';
 import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { FreeCam } from '../render/freecam';
@@ -26,8 +27,8 @@ import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
 import type { Track } from '../replay';
 import { PathLine, Spotter } from '../render/replay-view';
-import { TRAFFIC_VERSION, makeTraffic } from '@owfpv/traffic';
-import type { TrafficConfig, TrafficModel } from '@owfpv/traffic';
+import { TRAFFIC_VERSION, makeTraffic, makeTrain } from '@owfpv/traffic';
+import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import type { EngineMsg, EngineReport, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam } from './protocol';
 import { RadioLink } from './radio-link';
 
@@ -80,6 +81,9 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);
+    const trainView = new TrainView(kit);
+    trainView.rebuild(session.train);
+    scene.add(trainView.group);
     const buildingsView = new BuildingsView(level, kit);
     scene.add(buildingsView.group);
     session.collector.setTaken(init.collection[level.id] ?? []);
@@ -131,6 +135,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         s: Float64Array;
         life: number;
         traffic: TrafficModel | null;
+        train: Train | null;
         /** golden props of the flight the playhead has passed, and whether the playhead jumped since the last frame */
         propsDone: number;
         jumped: boolean;
@@ -142,9 +147,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const spotter = new Spotter();
     /** each life's cars and people, by its traffic toggles (built once a viewing) */
     const replayTraffic = new Map<string, TrafficModel | null>();
+    /** the train, for lives flown with it (one train runs the same in every life) */
+    let replayTrain: Train | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, buildingsView, collectView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainView, buildingsView, collectView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -153,7 +160,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         scene.add(line.line);
         replay = {
             track, tick: track.startTick, playing: true, speed: 1, shuttle: 0, cam: 'fpv', path: line,
-            pose: new Float32Array(T.size), s: new Float64Array(S.size), life: -1, traffic: null,
+            pose: new Float32Array(T.size), s: new Float64Array(S.size), life: -1, traffic: null, train: null,
             propsDone: -1, jumped: true, took: new Set(track.props.map(([n]) => n)), flyMode: view.mode
         };
         replayTraffic.clear();
@@ -168,6 +175,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         replay = null;
         replayTraffic.clear();
         trafficView.rebuild(session.traffic);
+        trainView.rebuild(session.train);
         collectView.setTaken((n) => session.collector.isTaken(n));
         if (freeCam.active) freeCam.exit();
         view.setMode(r.flyMode);
@@ -230,6 +238,9 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             const t = trafficFor(tr.lives[li].traffic);
             if (t !== r.traffic || r.traffic === null) trafficView.rebuild(t);
             r.traffic = t;
+            const tn = tr.lives[li].traffic.train ? (replayTrain ??= makeTrain(level, true)) : null;
+            if (tn !== r.train || r.train === null) trainView.rebuild(tn);
+            r.train = tn;
         }
         // the golden props as they were at the playhead: one this flight took pops as the replay plays through it
         let done = 0;
@@ -257,6 +268,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         r.path.update(r.tick);
         collectView.update(now / 1000);
         trafficView.update(tick, view.camera.position);
+        trainView.update(r.tick);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
         chaseCircle(r.cam === 'chase', dt);
@@ -292,6 +304,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 else if (m.what === 'traffic') {
                     session.setTraffic(cfg.traffic);
                     trafficView.rebuild(session.traffic);
+                    trainView.rebuild(session.train);
                 } else if (m.what === 'graphics') {
                     renderer.setPixelRatio(pixelRatio());
                     fitFisheye();
@@ -467,6 +480,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             post(hudMsg);
         }
         trafficView.update(session.sim.tick, view.camera.position);
+        trainView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
         chaseCircle(!freeCam.active && view.mode === 'chase', dt);
@@ -513,6 +527,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         cam.updateProjectionMatrix();
         const p = cam.position;
         trafficView.update(session.sim.tick);
+        trainView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);
         sun.follow(p);

@@ -17,7 +17,9 @@ export const MATERIALS = [
     // the tower crane's steelwork (painted, as most tower cranes are)
     'crane',
     // street furniture: a bus shelter's frosted panels (drawn see-through, solid as glass), a dumpster, billboard faces
-    'frosted', 'dumpster', 'billboard'
+    'frosted', 'dumpster', 'billboard',
+    // the railway (map v7): track ballast, steel rails, wooden sleepers (paint), the tunnel's stonework, goods wagons
+    'ballast', 'rail', 'sleeper', 'stone', 'wagon'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -125,6 +127,24 @@ export interface Level {
     doors: Door[];
     /** golden props to collect (not part of the collision, nor of its hash) */
     collectibles: Collectible[];
+    /** the railway the train runs on (map v7; not part of the collision, nor of its hash: the track itself is), or null */
+    railway: Railway | null;
+}
+
+/**
+ * A railway loop for the train (packages/traffic train.ts): a rectangle's corners in the order the train runs them, each
+ * corner rounded to `radius` (the same path as traffic route.ts pathThrough, closed). Metres, x and z.
+ */
+export interface Railway {
+    corners: [number, number][];
+    radius: number;
+    /** the rails' top, m: what the wheels run on */
+    railTop: number;
+    /** where the front of the train stops at the station: a point on the track */
+    stopX: number;
+    stopZ: number;
+    /** the tunnel: the straight piece of track inside it, from (x0, z) to (x1, z), and its inside height at the crown, m */
+    tunnel: { x0: number; x1: number; z: number; halfWidth: number; crown: number };
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */
@@ -165,6 +185,7 @@ export class LevelBuilder {
     readonly buildings: Building[] = [];
     readonly doors: Door[] = [];
     readonly collectibles: Collectible[] = [];
+    railway: Railway | null = null;
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -183,6 +204,20 @@ export class LevelBuilder {
         let a = this.paint.get(m);
         if (!a) this.paint.set(m, (a = []));
         a.push(x0, v, z0, x0, v, z1, x1, v, z1, x0, v, z0, x1, v, z1, x1, v, z0);
+        return this;
+    }
+
+    /** Paint quad a-b-c-d (counter-clockwise seen from the side it faces): drawn, left out of the collision, as decal(). */
+    paintQuad(m: Material, a: number[], b: number[], c: number[], d: number[]): this {
+        let p = this.paint.get(m);
+        if (!p) this.paint.set(m, (p = []));
+        for (const v of [a, b, c, a, c, d]) p.push(v[0], v[1], v[2]);
+        return this;
+    }
+
+    /** Triangle a-b-c, counter-clockwise seen from the side it faces. */
+    tri(m: Material, a: number[], b: number[], c: number[]): this {
+        this.push(m, a, b, c);
         return this;
     }
 
@@ -227,7 +262,7 @@ export class LevelBuilder {
     }
 
     /** Quad a-b-c-d (a planar convex one, its corners in order around it), wound to face away from `centre`. */
-    private quadOut(m: Material, centre: number[], a: number[], b: number[], c: number[], d: number[]): void {
+    quadOut(m: Material, centre: number[], a: number[], b: number[], c: number[], d: number[]): void {
         const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
         const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
         const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
@@ -327,7 +362,7 @@ export class LevelBuilder {
             o += a.length;
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
-            buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice() };
+            buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway };
     }
 }
 

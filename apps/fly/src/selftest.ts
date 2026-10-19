@@ -8,7 +8,7 @@ import { FlightSession } from './session';
 import { Sha256 } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import type { Level } from '@owfpv/maps';
-import { makeTraffic } from '@owfpv/traffic';
+import { Train, makeTraffic } from '@owfpv/traffic';
 import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
@@ -86,12 +86,13 @@ export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOv
 }
 
 /** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
-export const TRAFFIC_HASH = '59f44e0a5769fcda52164d46b3519f7596344cab51417156da0eb77ea1e59151';
+export const TRAFFIC_HASH = 'd8e138b34708077a9b7ab7eea1c537f2394dc820a231144f1c1e1449d2b8a56a';
 
 /**
  * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops
  * and for the signalled network (cars, people and lamps), and the network again after going back to 75 s (its
- * checkpoint restart). The flight above has no traffic; this checks the traffic engines' arithmetic.
+ * checkpoint restart), then the train's five vehicles at the same ticks and through its first stop (from 150 s). The
+ * flight above has no traffic; this checks the traffic engines' arithmetic.
  */
 export function runTrafficSelftest(level: Level): string {
     const h = new Sha256();
@@ -113,6 +114,14 @@ export function runTrafficSelftest(level: Level): string {
                 lamp[0] = LAMPS[t.lamp(k, tick)];
                 h.update(lamp);
             }
+        }
+    }
+    const train = new Train(level);
+    for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), ...Array.from({ length: 100 }, (_, k) => 150000 + k * 97)]) {
+        for (let i = 0; i < train.vehicles.length; i++) {
+            train.place(i, tick, p);
+            buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; buf[3] = p.hx; buf[4] = p.hz;
+            h.update(bytes);
         }
     }
     return h.digestHex();

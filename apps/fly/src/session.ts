@@ -12,8 +12,8 @@ import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } fro
 import { levelSha256, spawnPose } from '@owfpv/maps';
 import type { Level, SpawnPoint } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { TrafficWorld, makeTraffic, worldSha256 } from '@owfpv/traffic';
-import type { TrafficConfig, TrafficModel } from '@owfpv/traffic';
+import { TrafficWorld, TrainWorld, makeTraffic, makeTrain, worldSha256 } from '@owfpv/traffic';
+import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 import { Collector } from './collect';
 
@@ -46,11 +46,17 @@ export interface SessionOptions {
     runHash?: boolean;
     /** hash every tick's state per life, so a saved flight can be checked by replaying it (flights.ts) */
     traceHash?: boolean;
-    /** solid cars and people, and whether junctions have signals (default none) */
+    /** solid cars and people, whether junctions have signals, and the train (default none) */
     traffic?: TrafficConfig;
 }
 
 const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
+
+/** The collision the sim flies in: the level's mesh, with the cars and people and the train moving in it (either may be null). */
+export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, train: Train | null): ContactWorld {
+    const w = traffic ? new TrafficWorld(mesh, traffic) : mesh;
+    return train ? new TrainWorld(w, train) : w;
+}
 
 export class FlightSession {
     readonly level: Level;
@@ -67,6 +73,7 @@ export class FlightSession {
     private trafficCfg: TrafficConfig;
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
     private trafficNow: TrafficModel | null = null;
+    private trainNow: Train | null = null;
     private contactWorld: ContactWorld;
     private spawnPt: SpawnPoint;
     private pose: [number, number, number, number];
@@ -105,6 +112,11 @@ export class FlightSession {
         return this.trafficNow;
     }
 
+    /** The train running in the current life, null when it is off. */
+    get train(): Train | null {
+        return this.trainNow;
+    }
+
     get trafficConfig(): TrafficConfig {
         return { ...this.trafficCfg };
     }
@@ -112,7 +124,8 @@ export class FlightSession {
     private buildWorld(): ContactWorld {
         const c = this.trafficCfg;
         this.trafficNow = makeTraffic(this.level, c);
-        return this.trafficNow ? new TrafficWorld(this.world, this.trafficNow) : this.world;
+        this.trainNow = makeTrain(this.level, c.train);
+        return worldWith(this.world, this.trafficNow, this.trainNow);
     }
 
     get spawn(): SpawnPoint {
@@ -181,13 +194,13 @@ export class FlightSession {
     }
 
     /**
-     * Cars, people or signals on or off: they are solid, so the collision changes, and with it the life
+     * Cars, people, signals or the train on or off: they are solid, so the collision changes, and with it the life
      * header's collision hash. A new life at the spawn point, as for the flight settings.
      */
     setTraffic(c: TrafficConfig): void {
         const o = this.trafficCfg;
-        if (c.cars === o.cars && c.people === o.people && c.signals === o.signals) return;
-        this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals };
+        if (c.cars === o.cars && c.people === o.people && c.signals === o.signals && !c.train === !o.train) return;
+        this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals, train: c.train === true };
         this.contactWorld = this.buildWorld();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.runner.newLife(sim, this.header('settings'));

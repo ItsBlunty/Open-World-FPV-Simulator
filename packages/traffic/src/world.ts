@@ -21,7 +21,7 @@ const MOVER_REACH = 2.5;
 const TOP = CAR.cabY1;
 
 /** A closest-surface answer: signed distance from the point (negative inside) and the outward unit normal. */
-interface Near {
+export interface Near {
     d: number;
     nx: number;
     ny: number;
@@ -29,7 +29,7 @@ interface Near {
 }
 
 /** Signed distance from (lf, ly, ls), a point in a box's frame, to the box of half sizes (ef, ey, es) at the origin. */
-function boxNear(lf: number, ly: number, ls: number, ef: number, ey: number, es: number, out: Near): void {
+export function boxNear(lf: number, ly: number, ls: number, ef: number, ey: number, es: number, out: Near): void {
     const qf = (lf < 0 ? -lf : lf) - ef, qs = (ls < 0 ? -ls : ls) - es, qy = (ly < 0 ? -ly : ly) - ey;
     if (qf > 0 || qs > 0 || qy > 0) {
         // outside: from the closest point of the box

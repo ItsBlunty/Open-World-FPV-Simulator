@@ -1,0 +1,87 @@
+# The railway: track, tunnel, station and the steam train
+
+Section §0y. Read only when working on the railway or the train; `HANDOFF.md` has the current state.
+
+## 0y. Railway, tunnel and steam train (owner, 2026-10-19): built, waiting for the owner to fly it
+
+**Asked:** "Add a tunnel and a train that travels through a railyard, stops, then continues. Train should slowly accel
+and deccel like a real train, should be steam engine and put out simple clouds as smoke. Try to make it not take too
+many resources, but I do want it to be cool. Make this a different toggle to remove the train in the settings, and
+groups all graphics settings in the settings page properly."
+
+**Layout (map v7, `packages/maps/src/railway.ts`; decided by Claude, not yet put to the owner):** one loop of
+standard-gauge track in the empty land south of the park, a rectangle x -255..235, z 245..475 with 110 m curves
+(1251 m round). Clockwise from above: north up the west side (through the industrial yard, whose fence has gaps
+there), east along the north straight through the tunnel, south, then west along the south straight through the
+station.
+- Track: ballast (3 m top, 4.8 m base, 0.3 m high), two 7 cm rails at standard gauge (top 0.45 m), British standard
+  sleepers (8 ft 6 in x 10 in, 2.59 x 0.254 m) every 0.7 m. Sleepers are paint (`LevelBuilder.paintQuad`, not
+  solid); rails and ballast are solid. New materials: ballast, rail, sleeper, stone, wagon.
+- Tunnel: a 92 m straight bore (x -56..36, z 245) under a new 22 m hill (a cosine dome over a 160 x 80 m ellipse, a
+  5 m grass height field). 5 m wide, walls to 4 m, a round arch to 6.5 m (12 segments), stone lined; a 1 m stone
+  headwall with a parapet at each portal; a 7 m cutting between stone retaining walls beyond each portal.
+- Station: a 0.9 m platform (x -62..42), its edge 1.5 m from the track; a canopy at 3.6 m on columns; a brick
+  building; a water tower for the engines; semaphore signals at x 70 and -100, on the driver's left.
+- Goods yard (north of the station): a ladder of points at 1 in 8 from x 118, three sidings 4.5 m apart with buffer
+  stops at x -118, ten still wagons (vans, open wagons with coal, tank wagons), and an engine shed over the third
+  siding (brick, windows, open at both ends, a roof vent you can fly through).
+- Moved for it: hay bales and yard fence posts within 4 m of the line are left out (their RNG draws unchanged, so the
+  rest of the map is as before). New spawns: "Railway station" (on the platform), "Railway tunnel" (before the west
+  portal). Golden props 52-55 (area "Railway"): in the tunnel under the arch, under the canopy, in the engine shed,
+  on the station's water tower; numbered after all the others, so saved collections keep their numbers.
+- 235 694 triangles (map v6: 228 994), hash `a4e18ec2…`.
+
+**The train (`packages/traffic/src/train.ts`, TRAIN_VERSION 1):** modelled on the LMS Ivatt Class 2 2-6-0 (Wikipedia,
+"LMS Ivatt Class 2 2-6-0", read 2026-10-19): tractive effort 77.44 kN, engine 47.9 t, tender 37.7 t, 16.20 m over
+engine and tender, coupled wheels 1.524 m. Three coaches like BR Mark 1s (19.66 m, 2.82 m wide, 3.86 m high, 33 t:
+estimates). 75.2 m and 184.6 t in all.
+- The run is worked out once when the train is built, in 1 ms steps: the driver opens the regulator over 6 s to 60 %
+  of the tractive effort [estimate]; then the pull is limited by 450 kW at the rail [estimate]; resistance
+  4000 + 100 v + 12 v^2 N [estimate]; top speed 12.5 m/s (45 km/h, about the most a 110 m curve takes [estimate]).
+  The brake is 0.35 m/s^2 [estimate: about half the 0.5-0.8 m/s^2 of the full vacuum-brake stops from 45 mph in the
+  1876 trials, Wikipedia "Railway brake", the Abbots Ripton table], put on and off at 0.25 m/s^3, timed so the front
+  stops on the mark (x -57). It stands 40 s [estimate] and goes again: one lap is 155 s running plus 40 s standing.
+- Kept every 10 ms and interpolated (cubic Hermite from distance and speed). A place is a function of the tick alone
+  (replays). Each vehicle sits on two pivots on the track (bogie centres), so it swings out on the curves as real
+  coaches do.
+- Solid (`train-world.ts`, `TrainWorld`, a ContactWorld wrapper like TrafficWorld): the engine is four boxes (frames,
+  boiler, cab, chimney), the tender and each coach one, from 0.55 m up to 3.2-3.95 m. Moving surfaces as for cars.
+- Collision hash: `worldSha256` adds `|train/1` only when the train runs, so every older hash is unchanged.
+  `TrafficConfig.train` is optional (absent: no train); a saved flight's config is found among 16 combinations.
+
+**Drawing (`apps/fly/src/render/train.ts`):** each vehicle one merged mesh coloured per vertex (a black engine with a
+red buffer beam and a brass chimney rim, maroon coaches, grey roofs), instanced wheels (the coupled ones with red
+spokes and counterweights) and coupling rods that turn with the distance run, the two sides a quarter turn apart.
+Smoke: one instanced icosahedron per puff. A puff may leave the chimney every 0.1 s, if the engine exhausted since the
+slot before (four beats per turn of the coupled wheels, as on a two-cylinder engine), or every 0.5 s as a wisp while
+it stands. It rises with the blast and slows, keeps the train's speed for under a second, drifts on a made-up breeze,
+swells to about four times its size and shrinks away over 7 s (4 s in super low spec). In the tunnel it stays under
+the arch. All from the tick, so a replay's smoke is the same smoke. First try was too big and dark (one grey wall);
+the puffs are now smaller and lighter.
+
+**Cost (Chromium, WebGPU, this machine):** 9 draws and about 10 000 triangles for the whole train and its smoke;
+`TrainView.update` 0.013 ms of CPU a frame (the cars and people: 0.47 ms). So the train runs at every graphics level,
+super low spec included, unless its own switch is off.
+
+**Settings:** the graphics settings are one group now (level, resolution, sun shadows, one reload notice), and a
+second group "Traffic and train" holds cars, people, traffic lights and the new "Steam train" switch (on by default;
+a change restarts at the spawn point, as the traffic does). The menu's settings summary has a Train line.
+
+**Evidence:** `pnpm test` 58 files, 496 tests pass; `pnpm typecheck` clean. New tests in `apps/fly/test/train.test.ts`:
+the run (pull at most 0.230 m/s^2, top 12.50 m/s after 61.5 s, brake at most 0.361 m/s^2, jerk at most 0.367 m/s^3,
+stops 0.000 mm from the mark, stands 40 s); vehicle ends 0.43-0.51 m apart all round the loop; the hash rule; a
+hovering quad shoved to 13.17 m/s with -0.00 mm least clearance; a quad on a coach roof carried through the tunnel at
+12.50 m/s, 0.125 mm drift in 1.5 s; the same run hash twice. In `first-map.test.ts`: spheres on the train's outline
+every metre round the loop touch nothing; the bore is open with its crown at 6.5 m; the platform's height and edge.
+The traffic self-test hashes the train too: `?selftest` MATCH in the built-in browser (Chromium, WebGPU), traffic
+`d8e138b3…`. Seen there (screenshots in the session, not saved): the station and yard, the engine shed, the train
+pulling out with smoke, the tunnel portal and the train inside it, an aerial of the loop, super low spec.
+
+**For the owner:** fly the railway: chase the train, ride a coach roof through the tunnel, fly the tunnel when the
+train comes (2 m over its chimney), fly through the engine shed's vent. Ask: do the pull-away (60 s to 45 km/h) and
+the stop (about 36 s) feel like a real train? The smoke's size, colour and how long it lasts? 40 s at the station?
+Faster, longer, or a goods train sometimes?
+
+**Left open:** the hill reads flat from straight above (one grass colour); look-around mode does not run the sim, so
+the train stands still there (as the traffic does); no sound (no audio yet); the yard's wagons never move; a puff
+that leaves just before a portal can pass through the hill; the train does not react to the quad.

@@ -18,6 +18,8 @@ export interface TrafficConfig {
     people: boolean;
     /** signalled junctions and the network model (cars queue, people cross at the lights); off: simple loops */
     signals: boolean;
+    /** the steam train on the railway loop (train.ts; owner, 2026-10-19: its own toggle). Absent: no train */
+    train?: boolean;
 }
 
 /** Toy car body and cabin, m: half length (along travel), half width, bottom and top, and the cabin's offset back [estimates]. */

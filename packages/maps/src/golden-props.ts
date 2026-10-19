@@ -321,6 +321,13 @@ const FIELDS: [number, number, number, string][] = [
     [250, 12, 260, "Inside the water tower's legs"], // legs 8 m apart, girder rings at 8 and 16 m
     [250, 36, 260, 'On top of the water tower'] // its roof's tip at 35 m
 ];
+/** the railway (map v7, railway.ts): numbered after every other area's, so the props before them keep their numbers */
+const RAILWAY: [number, number, number, string][] = [
+    [-20, 5.6, 245, 'Deep in the railway tunnel, up under the arch'], // the bore x -56 to 36, its crown at 6.5 m; trains reach 4 m
+    [-41, 2.4, 480.4, "Under the station's platform canopy"], // platform top 0.9 m, the canopy at 3.6; columns at x -44 and -37.5
+    [-101, 3, 461.5, 'Inside the engine shed'], // the shed x -116 to -86 over the third siding (z 461.5), its roof at 6.5 m
+    [-80, 8.3, 481, "On the station's water tower"] // the tank's top at 7.5 m
+];
 
 /** Number every prop, area by area: the park (by the first spawn) first. */
 export function goldenProps(b: LevelBuilder, h: Hideouts): void {
@@ -333,5 +340,6 @@ export function goldenProps(b: LevelBuilder, h: Hideouts): void {
     add('City', [...fixed(CITY), h.tallest, ...h.shelters, ...h.billboards, ...h.alleys]);
     add('Industrial yard', fixed(YARD));
     add('Fields', fixed(FIELDS));
+    add('Railway', fixed(RAILWAY));
 }
 
