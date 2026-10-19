@@ -99,4 +99,22 @@ while armed disarms; arm again) and no automatic rewind of a flipped quad (SPEC.
   buffer (`main.ts`); checked in Chrome on WebGPU and WebGL 2 against a tree trunk. The chase camera still has no
   collision of its own and can end up inside a building.
 
+## 1b. Wall hits bounce, props stall (owner, 2026-10-19): sim-core/0.7.0
 
+The owner's words: "when we impact a wall or surface with throttle, we get essentially pushed into the wall flat and
+then end up sliding/stuck on the wall. This sorta makes sense, but in real life we would likely hit and the momentum
+would bounce us back off the wall, often stalling the motor out." Asked: research it, then build it without changing
+the physics in the air.
+- **Cause** (reproduced in Node): upstream's restitution kept 7 % of a 15 m/s hit, so the hit only turned the quad
+  flat against the wall; a prop edge-on to the wall kept its thrust. Details and sources: `docs/physics-review.md` F6.
+- **Built:** hits on the props, arms, sides and top bounce as a rigid quad measured on a wall (0.53 at 1.85 m/s,
+  falling with speed: 0.34 at 10, 0.31 at 15); landings on the underside are as before. A prop whose blades meet a
+  surface edge-on stalls (5 ms brake, estimate) and spins back up once clear. Code: `sim.ts` `E_WALL`, `BRAKE_*`.
+- **Measured:** level 10 m/s hit: back at 3.4 m/s (was 1.0); 30 deg nose down at 15 m/s, motors off: off the wall at
+  2.5 m/s and tumbling (was 0.35 m/s, stuck at 0.2 m); leaning on a wall, the front motors stall to 0.09 and the quad
+  slides down. Tests: `packages/world-mesh/test/contact-solver.test.ts`.
+- **Side effects:** a quad blipping into a ceiling bounces off it instead of resting on it; in turtle mode on its edge
+  at a wall, roll flips it too (the prop in the floor stalls, so the free one tips it); the old B12 bot reference
+  bounces off and crashes on its second hit. With the throttle held after a hit, acro holds the attitude the hit left
+  and can fly the quad back into the wall, as a real one would.
+- **Not built:** the sideways kick of a striking prop; props that break; an ESC restart delay (no data found).

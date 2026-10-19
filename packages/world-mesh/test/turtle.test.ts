@@ -53,24 +53,19 @@ describe('turtle mode in a room (Nazgul)', () => {
         }
     });
 
-    it('after a forward hit on a wall it stands on its edge, top to the wall: pitch flips it, roll does not; then it flies again', () => {
+    it('standing on its edge at the foot of a wall, top to the wall: pitch or roll flips it; then it flies again', () => {
         let flown = 0;
         for (const [roll, pitch] of [[1, 0], [0, 1], [0, -1], [0, 0.6], [0, -0.6]]) {
             const sim = new Sim(compileParams(PRESET, { crashOn: false }), ROOM);
             sim.setChannels(ch(false, false));
-            sim.reset(0, 2.5, -2, 0);
-            sim.step();
-            sim.setChannels(ch(true, false));
-            sim.step();
-            // 30 deg nose down at 15 m/s into the wall at z = -5, hover throttle, as in contact-solver.test.ts
-            const h = (-30 * Math.PI) / 360;
+            // standing on its edge at the foot of the wall at z = -5, nose down, top to the wall. Until 0.7.0 a 15 m/s
+            // nose-down hit left it there; since then such a hit bounces it off the wall (E_WALL), so the pose is set
+            sim.reset(0, 0.15, -5 + 0.046, 0);
+            const h = (-90 * Math.PI) / 360;
             sim.s[S.qw] = Math.cos(h);
             sim.s[S.qx] = Math.sin(h);
-            sim.s[S.vz] = -15;
-            for (let t = 0; t < 2500; t++) {
-                sim.setChannels([0, 0, 0, 0, 1, -1, 0, 0]);
-                sim.step();
-            }
+            sim.s[S.hold] = 0;
+            for (let t = 0; t < 1000; t++) sim.step(); // settles on its edge
             expect(sim.s[S.py]).toBeLessThan(0.3);
             expect(Math.abs(upY(sim))).toBeLessThan(0.1);
             sim.setChannels(ch(false, false));
@@ -94,8 +89,9 @@ describe('turtle mode in a room (Nazgul)', () => {
                 sim.step();
             }
             console.log(`at the wall, stick ${roll}, ${pitch}: upright after ${t} ms, re-armed ${rearmed}, height 1 s later ${sim.s[S.py].toFixed(2)} m`);
-            if (roll !== 0) expect(t).toBe(-1);
-            else expect(t).toBeGreaterThan(0);
+            // until 0.7.0 roll did not flip it: both props of a side spun, the one on the floor too. Now that one's blades
+            // are in the floor (blade strike, BRAKE_TAU) and stall, so the free prop of the side alone tips it over
+            expect(t).toBeGreaterThan(0);
             // a flip that ends tilted past 25 deg does not arm (Betaflight's small_angle), as on a real quad
             if (rearmed) {
                 expect(sim.s[S.py]).toBeGreaterThan(1);

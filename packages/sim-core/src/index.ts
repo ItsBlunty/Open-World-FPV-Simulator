@@ -16,4 +16,4 @@ export * from './wake';
 export * from './crashflip';
 
 /** Bumped whenever the model changes in a way that alters traces. Part of the log header. */
-export const SIM_CORE_VERSION = 'sim-core/0.6.0';
+export const SIM_CORE_VERSION = 'sim-core/0.7.0';

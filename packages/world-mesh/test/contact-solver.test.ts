@@ -92,15 +92,28 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
         }
     });
 
-    it('leaning into a wall, armed in angle mode at hover throttle: still against it (sim-core/0.2.0 rocked here)', () => {
+    // sim-core/0.7.0 (blade strikes): a prop leaning edge-on into a wall has its blades in it. They stall, so the quad
+    // can no longer lean on the wall with a prop: it slides down the wall to the floor, without rocking against it.
+    it('leaning into a wall, armed in angle mode at hover throttle: the front props strike it, stall, and it slides down', () => {
         const sim = craft([0, 1.5, -4.75], true);
         const hover = hoverSolve(sim.p, 1).stick * 2 - 1;
         // nose to -z, pitch forward: it drifts into the wall at z = -5 and leans on it
-        const r = run(sim, 6000, 3000, () => [0, 0.4, hover + 0.02, 0, 1, 1, 0, 0]);
-        expect(sim.s[S.pz]).toBeLessThan(-4.8); // at the wall
-        expect(r.maxW).toBeLessThan(1e-3);
-        expect(r.maxMove).toBeLessThan(1e-4);
-        expect(r.late).toEqual([]);
+        let minFront = 1;
+        let touched = -1;
+        let floor = -1;
+        for (let t = 0; t < 3000 && floor < 0; t++) {
+            sim.setChannels([0, 0.4, hover + 0.02, 0, 1, 1, 0, 0]);
+            sim.step();
+            if (touched < 0 && sim.s[S.pz] < -5 + 0.16) touched = t;
+            if (touched >= 0) minFront = Math.min(minFront, sim.s[S.m0 + 1], sim.s[S.m0 + 3]);
+            if (sim.s[S.py] < 0.1) floor = t;
+            expect(Math.hypot(sim.s[S.wx], sim.s[S.wy], sim.s[S.wz])).toBeLessThan(10);
+        }
+        console.log(`leaning into a wall: touched at ${touched} ms, front motors down to ${minFront.toFixed(3)}, on the floor at ${floor} ms`);
+        expect(touched).toBeGreaterThan(0);
+        // hover is about 0.3: the stalled front props turn at a third of it or less
+        expect(minFront).toBeLessThan(0.12);
+        expect(floor).toBeGreaterThan(touched);
         expect(sim.crashed).toBe(false);
     });
 
@@ -144,9 +157,12 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
         sim.s[S.vz] = -5; sim.s[S.vx] = 0.5;
         const z0 = sim.s[S.pz];
         run(sim, 300, 1);
-        // Coulomb: the tangential loss is at most MU (0.4) x the normal change (0.5 m/s + its bounce), plus air drag
-        expect(-sim.s[S.vz]).toBeGreaterThan(4.5);
-        expect(z0 - sim.s[S.pz]).toBeGreaterThan(1.35);
+        // Coulomb: the tangential loss is at most MU (0.4) x the normal change (0.5 m/s + its bounce), plus air drag.
+        // Since sim-core/0.7.0 the side hit bounces (E_WALL 0.53) and the friction at the front prop yaws the quad, so
+        // its rear prop meets the wall too: two normal changes, about 0.6 m/s of the 5 lost
+        console.log(`sliding along a wall: ${(-sim.s[S.vz]).toFixed(2)} m/s left, ${(z0 - sim.s[S.pz]).toFixed(2)} m on`);
+        expect(-sim.s[S.vz]).toBeGreaterThan(4.3);
+        expect(z0 - sim.s[S.pz]).toBeGreaterThan(1.3);
         expect(sim.s[S.px]).toBeLessThanOrEqual(5 - R + 1e-9);
         expect(sim.s[S.health]).toBe(1);
     });
@@ -194,6 +210,46 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
             console.log(`${name}: up.z ${upAtHit.toFixed(2)} after the hit, at 2.5 s y ${sim.s[S.py].toFixed(2)} z ${sim.s[S.pz].toFixed(2)}`);
             // 0.3.0: still on the wall at 2.5 m (all but the first); now on the floor
             expect(sim.s[S.py], name).toBeLessThan(0.3);
+        }
+    });
+
+    // The owner's report after flying 0.6.0 (2026-10-19): "when we impact a wall or surface with throttle, we get
+    // essentially pushed into the wall flat and then end up sliding/stuck on the wall ... in real life we would likely
+    // hit and the momentum would bounce us back off the wall, often stalling the motor out". Up to 0.6.0 a side hit kept
+    // 7 % of a 15 m/s approach (upstream's restitution); since 0.7.0 it keeps what a rigid quad measured on a wall
+    // (E_WALL, falling off with speed), and a prop whose blades meet the wall stalls (blade strike).
+    it('a level hit on a wall bounces back with about the measured restitution (0.53 at 1.85 m/s, 0.34 at 10)', () => {
+        for (const [v, eMin, eMax] of [[1.85, 0.45, 0.56], [10, 0.28, 0.36]]) {
+            const sim = craft([0, 1.5, -4.5], false, false);
+            sim.s[S.vz] = -v;
+            let out = 0;
+            for (let t = 0; t < 400; t++) {
+                sim.step();
+                out = Math.max(out, sim.s[S.vz]);
+            }
+            console.log(`level hit at ${v} m/s: back at ${out.toFixed(2)} m/s (e ${(out / v).toFixed(3)})`);
+            expect(out / v).toBeGreaterThan(eMin);
+            expect(out / v).toBeLessThan(eMax);
+        }
+    });
+
+    it('a 15 m/s nose-down hit on a wall bounces off it: motors off it tumbles away, throttle cut it floats clear', () => {
+        for (const [name, ch] of [['disarmed', [0, 0, -1, 0, -1, -1, 0, 0]], ['armed, throttle down', [0, 0, -1, 0, 1, -1, 0, 0]]] as [string, number[]][]) {
+            const sim = craft([0, 2, -4.4], true, false);
+            const h = (-30 * Math.PI) / 360;
+            sim.s[S.qw] = Math.cos(h); sim.s[S.qx] = Math.sin(h);
+            sim.s[S.vz] = -15;
+            let maxOut = 0;
+            for (let t = 0; t < 400; t++) {
+                sim.setChannels(ch);
+                sim.step();
+                maxOut = Math.max(maxOut, sim.s[S.vz]);
+            }
+            const gap = sim.s[S.pz] + 5;
+            console.log(`nose-down 15 m/s, ${name}: away at up to ${maxOut.toFixed(2)} m/s, ${gap.toFixed(2)} m from the wall 0.4 s later`);
+            // 0.6.0: it stayed flat on the wall (0.045 m) or came off it at well under 1 m/s
+            expect(maxOut, name).toBeGreaterThan(1.5);
+            expect(gap, name).toBeGreaterThan(0.3);
         }
     });
 

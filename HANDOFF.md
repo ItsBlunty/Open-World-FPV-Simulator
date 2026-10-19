@@ -19,12 +19,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   the fields station and goods yard; two solid steam trains half a lap apart, open coaches with side doors, people
   inside and room under them; billowing smoke; a footbridge and stair from the city station down to a new garden,
   walkers who board and get off there; one Settings switch; graphics settings grouped. [railway §0y, §0z, §1a]
-- **Tests:** `pnpm test`: 58 files, 500 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Wall bounces and blade strikes built (sim-core/0.7.0): side, prop and top hits bounce as measured (0.53, falling
+  with speed), a prop edge-on to a surface stalls; free flight unchanged. [contacts §1b, physics-review F6]
+- **Tests:** `pnpm test`: 58 files, 502 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
-  - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
+  - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
   - map v9 `69f4a50d…` (245 218 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 9, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 9, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -53,6 +55,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 9. **Railway and train:** spawn at "City station", "Fields station" or "Railway tunnel"; fly under a coach, through
    its windows and down its aisle, under the viaduct. Pull-away and stops feel real? Smoke OK? The train passes a spot
    every 3.9 min now (two trains). Watch people board at the city station; enough of them (35 % at the garden)? [railway §1a]
+10. **Wall hits (sim-core/0.7.0):** fly into walls and pillars at speed, level and nose down, throttle held and cut;
+   lean a prop on a wall; blip into the bando ceiling. Bounce strong enough, too much? Motors stall as on your quad?
+   Landings should feel as before. Turtle on an edge now flips with roll too. [contacts §1b]
 
 ## Left open (not started)
 
@@ -71,7 +76,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
-- Reverse prop thrust 0.73 is an estimate from a 7" test; hard hits barely bounce (owner chose turtle mode). [contacts]
+- Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
+  with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
+  saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - Traffic: mean car speed 1.89 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
 - Map: frame time after the 5x triangle count (map v4) not measured; slab undersides render very dark; the crane
@@ -99,7 +106,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | Note | Covers |
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
-| `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane |
+| `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle |

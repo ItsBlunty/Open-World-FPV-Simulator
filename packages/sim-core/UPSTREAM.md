@@ -82,3 +82,10 @@ so `git diff` against it shows exactly what we changed.
    `cda_vertical_inflow_cm2`. Tests: new `test/model-inflow.test.ts`; `model-drones-v08` checks the classic freestyle
    top speed band and the new one, and its no-prop-wash control drops `prop_pitch_in` too (each test says why).
    `SIM_CORE_VERSION` is `sim-core/0.6.0`.
+12. `src/sim.ts`, `src/index.ts` (sim-core/0.7.0, changes traces of flights that touch something): upstream's
+   restitution is kept for the underside only; hits on the props, arms, sides and top use a measured value falling
+   with speed (`E_WALL`, `V_WALL`, `restitution(a, up)`); blade strikes brake a prop edge-on to a surface (`BRAKE_*`,
+   `Sim.brake`, in `propStrikes`). Tests: in `packages/world-mesh`, `contact-solver` (new bounce tests; the wall lean and
+   wall slide), `turtle` (the edge pose is set directly; roll flips it now), `b12-dash` (the old reference crashes on a
+   second wall hit); `respawn-director` (the wedge settles after a bounce); `apps/fly` `stuck` (the slab blip bounces).
+   `SIM_CORE_VERSION` is `sim-core/0.7.0`.

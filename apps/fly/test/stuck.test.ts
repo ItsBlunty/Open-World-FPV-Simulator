@@ -62,11 +62,12 @@ const blip = (t: number, ch: Float32Array): void => {
 };
 
 describe('under a ceiling (the owner\'s bando flight, F2)', () => {
-    it('the blip reaches the slab, rests against it without rocking, and the quad drops away once the throttle is down', () => {
+    it('the blip reaches the slab, bounces off it without rocking, and the quad drops away once the throttle is down', () => {
         // the director's stuck rules off: nothing but the physics gets it down
         const { s, events, track } = fly(blip, 3000, { at: UNDER_SLAB, policy: { ...QUICK_RESPAWN, unstuck: false } });
         console.log(`under the slab: touching ticks ${track.touching[0]}..${track.touching[track.touching.length - 1]} (${track.touching.length}), max rotation then ${track.maxW.toExponential(2)} rad/s, y at 3 s ${s.sim.s[S.py].toFixed(3)}`);
-        expect(track.touching.length).toBeGreaterThan(50);
+        // 0.3.0-0.6.0: it rested against the slab (over 50 ticks); since sim-core/0.7.0 a hit on the top bounces (E_WALL)
+        expect(track.touching.length).toBeGreaterThan(0);
         // sim-core/0.2.0: 2-3 rad/s of alternating roll or yaw for as long as it stayed there
         expect(track.maxW).toBeLessThan(0.05);
         // it lets go when the stick goes down at t = 900 (the motors spin down over a few tens of ms)

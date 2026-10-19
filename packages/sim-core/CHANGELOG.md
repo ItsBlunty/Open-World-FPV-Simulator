@@ -2,6 +2,21 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
+
+Changes traces of any flight that touches something (new self-test hashes `1eb33767…`, classic physics `c1c4280b…`).
+Free flight is bit for bit 0.6.0. `docs/physics-review.md` F6.
+
+- **Restitution of hits on the props, arms, sides and top** (`E_WALL`, `V_WALL`): 0.526 up to 1.85 m/s, measured for a
+  rigid quadrotor on a wall (Liu and Karydis 2023, arXiv:2307.11309), then falling as (1.85 / v)^(1/4) (estimate):
+  0.34 at 10 m/s (was 0.10), 0.31 at 15 (was 0.07). Underside hits keep upstream's landing curve; between 30 and
+  60 deg from the body's up axis the two blend. A wall hit now bounces the quad off instead of leaving it flat on it.
+- **Blade strikes** (`BRAKE_*`, `Sim.brake`): a prop whose disc meets a surface edge-on (its normal more than 60 deg
+  from the thrust axis) stalls: the rotor speed decays with a 5 ms time constant (estimate) while it touches, and the
+  motor lag spins it back up once clear. Surfaces over or under the prop (within 30 deg of its axis) do not brake it.
+- Tests: new bounce tests in `packages/world-mesh/test/contact-solver.test.ts`; tests that recorded a quad resting
+  against a wall, slab or ceiling now record the bounce or the stall (each says why).
+
 ## sim-core/0.6.0: rotor inflow (2026-10-18)
 
 Changes traces of presets that opt in (the Nazgul `nazgulf5v3-6s`, the game's drone: new self-test hash `af127b88…`).

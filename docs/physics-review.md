@@ -28,8 +28,8 @@ logs are available); the first improvement is the airflow fix, G1.
 | 9 | Inertia | diagonal 1.6e-3 / 2.8e-3 / 1.6e-3 kg m^2 | estimate, sum of parts | B | High |
 | 10 | Flight controller | Betaflight 4.5.1 rate PID, FF, I-relax, dynamic I, airmode, filters, angle/horizon | re-implemented from Betaflight's formulas; rates checked to 0 error | A-B | High |
 | 11 | Gyro | a perfect sensor, then Betaflight's 250/500 Hz lowpass | - | B | Low |
-| 12 | Contacts | sphere colliders, all contacts solved together, Coulomb friction mu 0.4, restitution 0.1-0.35 | this project; F1-F5 below | B | Medium |
-| 13 | Prop strikes, turtle | no thrust when a surface covers the intake; reverse thrust 0.73 | estimate; one 7" thrust-stand test | B-C | Low |
+| 12 | Contacts | sphere colliders, all contacts solved together, Coulomb friction mu 0.4; restitution 0.53 falling with speed (sides, props, top; measured at 1.85 m/s), 0.1-0.35 (underside) | this project; one measured rigid-quad wall test; F1-F6 below | B | Medium |
+| 13 | Prop strikes, turtle | no thrust when a surface covers the intake; a prop edge-on to a surface stalls (5 ms brake); reverse thrust 0.73 | estimate; one 7" thrust-stand test | B-C | Low |
 | 14 | Wind | mean + seeded gusts + height gradient, acting through the drag | estimate | B | (off in the game) |
 
 Measured from the model (Nazgul, `probe-output.txt`):
@@ -131,8 +131,9 @@ within about two diameters (about 25 cm for a 5"); under a ceiling the rotors ar
 **Feel:** low in the open, noticeable in the bando. Effort: low (a distance query per prop; the contact world has it).
 
 ### G6. Contacts
-Solved for now (F1-F5 below; the owner: "okay for now"). Still open: restitution and friction are guesses (mu 0.4 on
-every surface); frames are rigid (F3); a real prop strike also kicks the quad and brakes the motor.
+Solved for now (F1-F6 below; the owner: "okay for now"). Still open: friction is a guess (mu 0.4 on every surface);
+restitution is measured at one speed only (F6); frames are rigid (F3); a real prop strike also kicks the quad sideways
+(the brake is built since 0.7.0, F6, the kick is not).
 
 ### G7. Sensor and controller timing
 The PID loop runs at 1 kHz with a perfect gyro; real flight controllers usually run faster, with a noisy gyro, RPM
@@ -285,3 +286,32 @@ For the review: friction is the same 0.4 on a car roof as on concrete; a car's p
 mass (movers are kinematic: a quad never slows a car, which is right for a 250 g quad and a 1.5 t car); fast
 impacts against a mover are found by the traffic world's sweep at the tick's pose of the movers (conservative
 advancement in `packages/traffic/src/world.ts`), not by a sweep of the relative motion.
+
+### F6. A wall hit barely bounces and leaves the quad flat on the wall (found 2026-10-19, owner; fixed in sim-core/0.7.0)
+
+The owner, after flying 0.6.0: "when we impact a wall or surface with throttle, we get essentially pushed into the
+wall flat and then end up sliding/stuck on the wall ... in real life we would likely hit and the momentum would bounce
+us back off the wall, often stalling the motor out". Reproduced in Node (Nazgul, damage off): 30 deg nose down at
+15 m/s, throttle held, the quad came off the wall at under 2 m/s, rotated flat against it with its props on it and slid
+down it; motors off it stayed within 0.2 m of the wall. Two causes:
+1. **Restitution.** Upstream's curve, 0.35 / (1 + (v - v_bounce) / 2), keeps 7 % of a 15 m/s approach. The one
+   measurement found: a rigid carbon-fibre quadrotor (0.84 kg, caged props, motors off) pushed into a rigid wall at
+   1.85 m/s keeps 0.526 (0.603 on a mat), contact time 31 ms, peak 235 m/s^2 (Liu and Karydis 2023,
+   arXiv:2307.11309, Table III; read in full). A compliant foldable micro quad: 0.5-0.6 (Bilkent thesis, abstract
+   only). No measurement at FPV crash speeds found. 0.7.0: sides, props and top keep 0.526 up to 1.85 m/s, then fall
+   as (1.85 / v)^(1/4), the shape of the elastic-plastic impact law (Johnson; constant and range not checked against a
+   source, "(to read)"): 0.34 at 10 m/s, 0.31 at 15. The underside keeps upstream's curve (landings, accepted by the
+   owner), blended over the same 30-60 deg band as the damage.
+2. **No stall.** A prop whose disc meets a surface edge-on kept its full speed and thrust: a quad leaning on a wall
+   with a prop climbed it. Real props hit the surface every pass and stall (the ESC then has to restart the motor;
+   no measured stall or restart time found, ESC docs only describe sync loss and anti-blocking). 0.7.0: blade strike,
+   the rotor loses its speed with a 5 ms time constant while the surface is near its disc plane [estimate], and the
+   motor lag spins it back up once clear. The wall takes the braking torque, so the body gets no yaw reaction from it.
+
+Measured after the fix (`packages/world-mesh/test/contact-solver.test.ts`): a level hit bounces back at e 0.522
+(1.85 m/s) and 0.343 (10 m/s); the 15 m/s nose-down hit leaves at 2.5 m/s, 0.83 m from the wall 0.4 s later motors
+off, 0.48 m with the throttle cut (0.6.0: 0.35 m/s, 0.20 m); leaning on a wall in angle mode the front motors stall
+to 0.09 (hover 0.30) and it slides down the wall. With the throttle held after a hit, acro holds the attitude the hit
+left (often thrust towards the wall) and the quad flies back into it; that is the controller doing its job, as on a
+real quad. Free flight is untouched: the brake is exactly 0 and restitution is not used without a contact.
+Still open: the sideways kick of a striking prop; a prop that breaks; restitution above 2 m/s measured nowhere.

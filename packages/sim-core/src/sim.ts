@@ -204,6 +204,32 @@ const STRIKE_COS_HI = 0.866;
 const STRIKE_COS_LO = 0.5;
 const STRIKE_GAP = 0.0005;
 /**
+ * Blade strikes (sim-core/0.7.0, this project): a prop whose disc meets a surface edge-on has its blades hitting
+ * that surface every pass, which brakes the rotor: the motor stalls, and the ESC spins it back up (motor_tau) once
+ * the prop is clear. Full braking when the surface's normal is more than acos(0.5) = 60 deg from the thrust axis on
+ * either side (near the disc plane), none within acos(0.866) = 30 deg of it, where the duct sphere touches with the
+ * motor's top or bottom and the blades stay clear: a floor under an upright quad (take-off is free), a ceiling over
+ * it (the intake strike takes that thrust). Faded in over STRIKE_GAP like the intake strike. The rotor speed loses
+ * DT / BRAKE_TAU of itself each tick while fully braked: 5 ms, a few blade passes at flight rpm [estimate, this
+ * project; no measured stall time found]. Against a motor lag of 17 ms the stalled rotor settles near a fifth of its
+ * command, so its thrust (rotor speed squared) is a few per cent. Without it a quad scraping a wall with a prop
+ * edge-on kept full thrust and climbed the wall (the owner's "pushed into the wall", 2026-10-19).
+ */
+const BRAKE_COS_HI = 0.866;
+const BRAKE_COS_LO = 0.5;
+const BRAKE_TAU = 0.005;
+/**
+ * Restitution of a hit on the props, arms, sides or top (sim-core/0.7.0): 0.526 measured for a rigid carbon-fibre
+ * quadrotor (0.84 kg, caged props) pushed into a rigid wall at 1.85 m/s, motors off (Liu and Karydis 2023,
+ * arXiv:2307.11309, Table III; 0.603 on a mat). Faster hits deform the frame and props more and keep less: above
+ * 1.85 m/s e falls as (1.85 / v)^(1/4), the shape of the elastic-plastic impact law (Johnson; the shape is an
+ * estimate here, its constant not checked against a source): 0.38 at 7 m/s, 0.31 at 15, 0.26 at 30. Upstream's
+ * curve (0.07 at 15 m/s) left a wall hit with nearly no bounce, so the quad slapped flat against the wall.
+ * The underside (BOTTOM_COS_HI) keeps upstream's gentle landing curve, which the owner flies and accepted.
+ */
+const E_WALL = 0.526;
+const V_WALL = 1.85;
+/**
  * Arming needs the craft within Betaflight's small_angle (default 25 deg, src/main/flight/imu.c) of level, unless the
  * turtle switch is on (src/main/fc/core.c updateArmingStatus): cos(25 deg).
  */
@@ -284,6 +310,8 @@ export class Sim {
     private thrust = new Float64Array(4);
     /** per-motor thrust share left by prop strikes this tick (1: free; exactly 1 without contacts) */
     private strike = new Float64Array(4);
+    /** per-motor share of the blade-strike brake this tick (0: free; exactly 0 without contacts) */
+    private brake = new Float64Array(4);
     private plat = new PlatformContact();
     // per-model constants of the self-level and drag terms (params do not change after construction)
     private maxR: number;
@@ -666,6 +694,7 @@ export class Sim {
         }
         this.propStrikes(nNear);
         const strike = this.strike;
+        const brake = this.brake;
         const dir = this.motorDir;
 
         // ---- airspeed ----
@@ -692,6 +721,8 @@ export class Sim {
             // the motor state is signed: below 0 the motor spins backwards (turtle mode), towards dir x command
             const dw = (dir[i] * out[i] - s[k]) * aa;
             s[k] += dw;
+            // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)
+            if (brake[i] > 0) s[k] -= s[k] * brake[i] * (DT / BRAKE_TAU);
             const w = s[k];
             const wa = w < 0 ? -w : w;
             // backwards: thrust and reaction torque the other way, at REVERSE_THRUST of the forward value
@@ -1060,7 +1091,7 @@ export class Sim {
             const allowed = gap > 0 ? -gap / DT : 0;
             let target = allowed;
             if (vn0 < allowed) {
-                const e = this.restitution(-vn0);
+                const e = this.restitution(-vn0, nx * R[1] + ny * R[4] + nz * R[7]);
                 if (e > 0) target = -vn0 * e;
             }
             c[o + 15] = target;
@@ -1125,6 +1156,8 @@ export class Sim {
     private propStrikes(m: number): void {
         const st = this.strike;
         st[0] = st[1] = st[2] = st[3] = 1;
+        const br = this.brake;
+        br[0] = br[1] = br[2] = br[3] = 0;
         if (this.nS < 5) return;
         const c = this.cn;
         const R = this.rot;
@@ -1135,11 +1168,19 @@ export class Sim {
             if (i > 3) continue;
             // how far the surface is over the intake: the normal points from the surface to the prop, so against the
             // side the thrust points to (up, or down for a reversed prop)
-            let a = (-(c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz) * this.motorDir[i] - STRIKE_COS_LO) / (STRIKE_COS_HI - STRIKE_COS_LO);
-            if (!(a > 0)) continue;
-            if (a > 1) a = 1;
+            const along = (c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz) * this.motorDir[i];
             let g = c[o + 20] / STRIKE_GAP;
             g = g < 0 ? 0 : g > 1 ? 1 : g;
+            // blade strike: a surface near the disc plane, on either side of it (BRAKE_COS_HI)
+            let b = (BRAKE_COS_HI - (along < 0 ? -along : along)) / (BRAKE_COS_HI - BRAKE_COS_LO);
+            if (b > 0) {
+                if (b > 1) b = 1;
+                b *= 1 - g;
+                if (b > br[i]) br[i] = b;
+            }
+            let a = (-along - STRIKE_COS_LO) / (STRIKE_COS_HI - STRIKE_COS_LO);
+            if (!(a > 0)) continue;
+            if (a > 1) a = 1;
             const f = 1 - a * (1 - g);
             if (f < st[i]) st[i] = f;
         }
@@ -1275,13 +1316,21 @@ export class Sim {
         return (a * a - safe * safe) / (crash * crash - safe * safe);
     }
 
-    /** Restitution of an impact approaching at `a` m/s (upstream's values; none under BOUNCE_MIN). */
-    private restitution(a: number): number {
+    /**
+     * Restitution of an impact approaching at `a` m/s; none under BOUNCE_MIN. up = the contact normal along the body's
+     * up axis, as in damageOf: the underside keeps upstream's landing values, the props, arms, sides and top bounce
+     * as measured (E_WALL), blended between BOTTOM_COS_LO and BOTTOM_COS_HI.
+     */
+    private restitution(a: number, up: number): number {
         const p = this.p;
         if (a < BOUNCE_MIN) return 0;
         if (this.s[S.crashed] > 0) return 0.3 / (1 + a * 0.5);
-        if (a < p.vBounce) return 0.1;
-        return 0.35 / (1 + (a - p.vBounce) * 0.5);
+        const land = a < p.vBounce ? 0.1 : 0.35 / (1 + (a - p.vBounce) * 0.5);
+        let f = (up - BOTTOM_COS_LO) / (BOTTOM_COS_HI - BOTTOM_COS_LO);
+        f = f < 0 ? 0 : f > 1 ? 1 : f;
+        if (f >= 1) return land;
+        const hit = a <= V_WALL ? E_WALL : E_WALL * Math.sqrt(Math.sqrt(V_WALL / a));
+        return hit + (land - hit) * f;
     }
 
     /** this.iw = R diag(1/I) R^T for the pose in this.rot: the world angular velocity is iw L. */

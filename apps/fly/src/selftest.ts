@@ -13,12 +13,13 @@ import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
 /** The hash Node computes (test/selftest.test.ts); the page shows whether its own run matches. */
-export const SELFTEST_HASH = 'af127b885c55f08344cd1e7c036b7a30691a6bae56754111fa23ee1e48ac6d59';
+export const SELFTEST_HASH = '1eb3376757a7b615f9822bccba5981441f39590d8ab490aae1e1f00a3b405a05';
 /**
- * The same flight with classic physics (sim-core/0.6.0 classicPhysics): it must keep the hash every earlier
- * sim-core (0.5.0) gave, which proves the classic model is the old one bit for bit.
+ * The same flight with classic physics (sim-core/0.6.0 classicPhysics). Until 0.7.0 it kept the hash 0.5.0 gave
+ * (cd45c59c…), which proved the classic model was the old one bit for bit; 0.7.0 changed the contacts (wall bounces,
+ * blade strikes) under both models, and the flight dives into the ground, so it has a new hash too.
  */
-export const CLASSIC_SELFTEST_HASH = 'cd45c59c63f9faf4f70770311685dd75b34b6dacde7379bf206de6f1c25ea8ef';
+export const CLASSIC_SELFTEST_HASH = 'c1c4280b98d10d23bfd6424892c08a3da2214be9aa50d49f2cd3789b9e36df1d';
 
 /** Sticks at tick t: arm, climb, fly north, dive into the ground, fly on after the respawn. */
 export function selftestSticks(t: number, out: Float32Array): Float32Array {

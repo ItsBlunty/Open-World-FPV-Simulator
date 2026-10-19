@@ -122,8 +122,9 @@ describe("B12 in the mesh room: the bot's dash-lead fix", () => {
     // the lopsided single-impulse contact of docs/physics-review.md F1 (the bounce spun it to 68 rad/s). The contact
     // solver shares the impact between the spheres that meet the wall: the same 3.2 m/s hit and a slower rebound, no
     // crash, but nearly all of the health gone (the damage model). Since sim-core/0.3.1 the hit leaves it with its props
-    // on the wall, they strike it, and it drops and crashes on the floor. The bot's fix still keeps the craft off the wall.
-    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall at 3.2 m/s, drops off it and crashes; the fixed bot restarts its dash and touches it gently', () => {
+    // on the wall, they strike it, and it drops and crashes on the floor; since 0.7.0 it bounces off and crashes on a second
+    // hit (see below). The bot's fix still keeps the craft off the wall.
+    it('from the rewind 0.41 m before the wall: the old reference flies full throttle into the wall at 3.2 m/s, bounces off, flies back in and crashes; the fixed bot restarts its dash and touches it gently', () => {
         const p = compileParams(PRESET, {});
         const fixed = flyRewind(0.5);
         expect(fixed.crashes).toHaveLength(0);
@@ -135,12 +136,15 @@ describe("B12 in the mesh room: the bot's dash-lead fix", () => {
         const old = flyRewind(Infinity);
         expect(old.restarts).toBe(0);
         expect(old.maxHit).toBeGreaterThan(3);
-        // sim-core/0.3.1: the hit leaves it flat against the wall, its props strike it and it drops; the landing ends
-        // the health the hit left (0.3.0: it stayed on the wall, badly damaged). Never a crash against the wall itself.
+        // sim-core/0.3.1: the hit left it flat against the wall, its props struck it and it dropped; the landing ended
+        // the health the hit left (0.3.0: it stayed on the wall, badly damaged). Since sim-core/0.7.0 the hit bounces it
+        // off the wall (E_WALL) and the old reference, still at full throttle, flies it back in: that second, slower
+        // hit on the wall ends the health the first left.
         expect(old.crashes).toHaveLength(1);
-        expect(old.crashes[0].ny).toBe(1);
+        expect(old.crashes[0].nx).toBe(1);
+        expect(old.crashes[0].speed).toBeLessThan(old.maxHit);
         expect(old.health).toBe(0);
-        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, hit ${fixed.maxHit.toFixed(2)} m/s; old reference hits at ${old.maxHit.toFixed(2)} m/s (recorded on the scan: 3.2 m/s, then a 5.21 m/s crash), then a crash on the floor at ${old.crashes[0].speed.toFixed(2)} m/s`);
+        console.log(`from the rewind: fixed ${fixed.contacts} contacts, ${fixed.restarts} restarts, hit ${fixed.maxHit.toFixed(2)} m/s; old reference hits at ${old.maxHit.toFixed(2)} m/s (recorded on the scan: 3.2 m/s, then a 5.21 m/s crash), then a crash on the wall at ${old.crashes[0].speed.toFixed(2)} m/s`);
     });
 
     // port: on the scan upstream's craft slid down the wall on its side for 6 s and then lay still, flipped, for

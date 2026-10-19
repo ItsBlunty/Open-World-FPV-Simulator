@@ -207,8 +207,10 @@ describe('stuck (items 18, 23)', () => {
         expect(arrived).toBeGreaterThan(40);
         expect(arrived).toBeLessThan(600);
         console.log(`wedged: arrived ${arrived}, respawn ${L!.startTick}, after ${L!.startTick - arrived} ticks`);
+        // the director counts 3 s from when it stops moving; since sim-core/0.7.0 the first touch bounces (E_WALL), so
+        // it comes to rest about 0.1 s after it first got there
         expect(L!.startTick - arrived).toBeGreaterThanOrEqual(2950);
-        expect(L!.startTick - arrived).toBeLessThanOrEqual(3050);
+        expect(L!.startTick - arrived).toBeLessThanOrEqual(3150);
     });
 
     it('control: 0.1 over hover (below the 0.15 margin) presses too, but is not a wedge', () => {
