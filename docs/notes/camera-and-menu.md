@@ -152,5 +152,15 @@ shape). Chrome (built-in browser pane, dev server, `?demo&cam=chase`, quad parke
 1 m inside Harbour Medical Centre, camera outside: the floor and quad show through the wall, image upright, colours
 match the frame). Moved into the open, the circle's fade went from 1 to 0. `pnpm test` 57 files, 489 tests.
 
+**Fix (owner, 2026-10-19): "a bit larger", and it was upside down.** The WebGPU circle showed the scene flipped
+top to bottom: the node renderer (WebGPU, and its WebGL fallback the same way) reads a render target with v = 0 at the
+image's top (three.js r186 `TextureNode.setupUV` flips render targets so), and the overlay plane has v = 0 at its
+bottom. The plane's v is now flipped for the node renderer; the classic low spec renderer reads v = 0 at the bottom and
+was right. The earlier `tree-webgpu.jpg` and `wall-webgpu.jpg` were in fact flipped (the trunk hangs from above);
+the "image upright" claim above was wrong. Radius 25 % to 32 % of the screen height (`RADIUS`, about two thirds of
+the screen high). Evidence: `flipped-before.jpg` (circle forced on in the open: buildings below, grass above) and
+`tree-webgpu-upright.jpg` (quad behind a pine: trunk down to the ground, horizon above). Low spec with the circle forced
+on: upright (its pavement matches the frame). `pnpm test` 58 files, 502 tests; typecheck clean.
+
 **Left open:** the owner's verdict on size, softness and fade; a single ray to the quad's centre, so a thin pole can
 flick the circle on briefly and a wall hiding only part of the quad does not; the spotter camera could use it too.

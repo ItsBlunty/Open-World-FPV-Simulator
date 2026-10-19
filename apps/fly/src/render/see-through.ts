@@ -8,8 +8,8 @@ import * as THREE from 'three/webgpu';
 import { CAMERA_NEAR } from './view';
 import type { Kit } from './kit';
 
-/** The circle's radius as a fraction of the screen height: a circle half the screen high */
-export const RADIUS = 0.25;
+/** The circle's radius as a fraction of the screen height: about two thirds of the screen high (owner, 2026-10-19: "a bit larger" than half) */
+export const RADIUS = 0.32;
 /** The mask is fully see-through out to this fraction of the radius, then fades to the edge */
 export const INNER = 0.55;
 /** What stays in front of the quad in the circle, m: past its prop tips (13 cm from the centre) */
@@ -72,7 +72,15 @@ export class SeeThrough {
         mask.needsUpdate = true;
         const o = { map: this.target.texture, alphaMap: mask, transparent: true, depthTest: false, depthWrite: false, fog: false };
         this.material = kit.lowSpec ? new THREE.MeshBasicMaterial(o) : new THREE.MeshBasicNodeMaterial(o);
-        this.quad = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.material);
+        const plane = new THREE.PlaneGeometry(1, 1);
+        // the node renderer (WebGPU, and its WebGL fallback likewise) reads a render target with v = 0 at the image's
+        // top, the plane has v = 0 at its bottom: flip the plane's v, or the circle shows the scene upside down
+        // (owner, 2026-10-19). The classic WebGLRenderer reads v = 0 at the bottom, as the plane does.
+        if (!kit.lowSpec) {
+            const uv = plane.getAttribute('uv');
+            for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+        }
+        this.quad = new THREE.Mesh(plane, this.material);
         this.quad.frustumCulled = false;
         this.overlay.add(this.quad);
     }

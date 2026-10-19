@@ -50,8 +50,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    the game switch to super by itself when the browser has no GPU, or just show a tip? [low-spec]
 7. **Report screen:** Esc > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
    (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
-8. **Chase see-through circle:** fly the chase camera (C) behind buildings and trees. Size (half the screen high), edge
-   softness and fade OK? Should the spotter camera get it too? [camera §0x]
+8. **Chase see-through circle:** now upright (it was upside down on WebGPU) and larger (about two thirds of the screen
+   high). Fly the chase camera (C) behind buildings and trees: size, edge softness and fade OK? Spotter camera too? [camera §0x]
 9. **Railway and train:** spawn at "City station", "Fields station" or "Railway tunnel"; fly under a coach, through
    its windows and down its aisle, under the viaduct. Pull-away and stops feel real? Smoke OK? The train passes a spot
    every 3.9 min now (two trains). Watch people board at the city station; enough of them (35 % at the garden)? [railway §1a]
