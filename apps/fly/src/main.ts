@@ -24,7 +24,7 @@ import { SettingsUi } from './ui/settings-ui';
 import { CollectionUi } from './ui/collection-ui';
 import { FlightsUi } from './ui/flights-ui';
 import { deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
-import { flightToJson } from './flights';
+import { flightFromJson, flightToJson } from './flights';
 import type { CheckResult, Flight } from './flights';
 import { ReplayUi } from './ui/replay-ui';
 import { RadioReplayControl } from './replay';
@@ -480,6 +480,20 @@ async function downloadSaved(id: number): Promise<void> {
     setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+/** a downloaded flight file, kept with the flights flown here (the viewer and the check then treat it the same) */
+async function openFlightFile(file: File): Promise<{ id: number } | { error: string }> {
+    let flight: Flight;
+    try {
+        flight = flightFromJson(await file.text());
+    } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+    }
+    // this visit's flight is saved again every minute and would overwrite it
+    if (flight.id === flightId) return { error: 'it is the flight of this visit, already here' };
+    if (!(await putFlight(flight, true))) return { error: 'this browser would not store it (private window, or storage full?)' };
+    return { id: flight.id };
+}
+
 /** The GPU the browser names, read once from a throwaway WebGL context (null when it will not say). */
 let gpuName: string | null | undefined;
 function gpu(): string | null {
@@ -535,7 +549,7 @@ function openReport(): void {
 function openFlights(): void {
     showMenu(false);
     void flightsUi.show({
-        list: listFlights, check: checkSaved, watch: (id) => void watchSaved(id), download: downloadSaved, remove: deleteFlight, currentId: flightId,
+        list: listFlights, check: checkSaved, watch: (id) => void watchSaved(id), download: downloadSaved, open: openFlightFile, remove: deleteFlight, currentId: flightId,
         close: () => { flightsUi.hide(); showMenu(true); }
     });
 }

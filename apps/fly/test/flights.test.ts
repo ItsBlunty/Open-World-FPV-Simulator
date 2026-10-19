@@ -62,6 +62,15 @@ describe('saved flights', () => {
         expect(checkFlight(bad, level, mesh).ok).toBe(false);
     });
 
+    it('refuses a file that is not a saved flight, saying why', () => {
+        expect(() => flightFromJson('hello')).toThrow(/not JSON/);
+        expect(() => flightFromJson('null')).toThrow(/not a saved flight/);
+        expect(() => flightFromJson('{"format":"owfpv-report/1"}')).toThrow(/not a saved flight/);
+        const cut = JSON.parse(flightToJson(flight)) as { lives: unknown };
+        cut.lives = {};
+        expect(() => flightFromJson(JSON.stringify(cut))).toThrow(/damaged/);
+    });
+
     it('refuses a flight from another map version, saying why', () => {
         const other = flightFromJson(flightToJson(flight));
         for (const l of other.lives) if (l.header.scene) l.header.scene.version = 999;

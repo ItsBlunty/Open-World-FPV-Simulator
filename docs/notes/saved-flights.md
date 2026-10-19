@@ -35,5 +35,16 @@ version is refused with the reason. `pnpm test` 52 files, 454 tests. In the buil
 `?demo`): a 19 s flight of 3 lives saved, "Replay matches" on the screen; its first two lives (one ended by the
 `stuck-wedged` rewind), taken out of IndexedDB, replay in Node to the same hashes: Chrome and Node agree.
 
+**Opening a flight file (2026-10-19, owner asked: "you can download but not upload it again").** Saved flights >
+Open a flight file… (or drop the file on the screen; several at once) reads a downloaded `.owfpv.json` and keeps it in
+this browser beside the flights flown here, marked "from a file"; Watch and Check replay then treat it the same. A file
+that is not a flight, or is damaged, is refused with the reason (`flightFromJson`); a file of this visit's own flight is
+refused (the minute save would overwrite it). The same flight opened twice replaces itself (same id). The 30 kept are
+now the 30 saved most recently (`savedAt` in the summary; older summaries count by their flight date), so an old file
+opened today is not dropped at once. Evidence: `flights.test.ts` refuses non-JSON, other formats and a damaged lives
+list (503 tests). In the built-in browser (dev server): an 8 s flight file written in Node, opened with a non-flight
+file: the flight added, "notes.json: not a saved flight (not JSON)" shown; Check replay "Replay matches (1 life)"; Watch
+plays it. Not tried: drag and drop by hand (same code path as the button).
+
 **Left open:** (the replay viewer is built since: `replay-viewer.md` §0u.) Flights of an older map or traffic version cannot be checked (keep old builds, or version
 the maps, if old flights must replay). A flight longer than the runner's 30 lives / 32 MiB keeps only its tail.

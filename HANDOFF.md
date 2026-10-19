@@ -8,7 +8,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
   sim-core/0.6.0). M3 started (owner): 56 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
-  replay viewer built (Saved flights > Watch). Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
+  replay viewer built (Saved flights > Watch); a downloaded flight opens again with Saved flights > Open a flight file. [saved-flights] Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
   of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
@@ -21,7 +21,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   walkers who board and get off there; one Settings switch; graphics settings grouped. [railway §0y, §0z, §1a]
   Wall bounces and blade strikes built (sim-core/0.7.0): side, prop and top hits bounce as measured (0.53, falling
   with speed), a prop edge-on to a surface stalls; free flight unchanged. [contacts §1b, physics-review F6]
-- **Tests:** `pnpm test`: 58 files, 502 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 58 files, 503 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
@@ -58,6 +58,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 10. **Wall hits (sim-core/0.7.0):** fly into walls and pillars at speed, level and nose down, throttle held and cut;
    lean a prop on a wall; blip into the bando ceiling. Bounce strong enough, too much? Motors stall as on your quad?
    Landings should feel as before. Turtle on an edge now flips with roll too. [contacts §1b]
+11. **Opening a flight file:** Esc > Flights > Download one, delete it, then Open a flight file… (or drop the file on
+   the screen) and Watch it. [saved-flights]
 
 ## Left open (not started)
 
@@ -113,7 +115,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
-| `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
+| `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
 | `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |

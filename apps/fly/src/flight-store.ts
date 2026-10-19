@@ -49,13 +49,14 @@ function result<T>(r: IDBRequest<T>): Promise<T | null> {
 }
 
 /** Save (or replace: the same visit is saved again as it goes on) a flight, then drop the oldest beyond the limits. */
-export async function putFlight(f: Flight): Promise<boolean> {
+export async function putFlight(f: Flight, imported = false): Promise<boolean> {
     const db = await open();
     if (!db) return false;
     try {
         const t = db.transaction([FLIGHTS, SUMMARIES], 'readwrite');
         t.objectStore(FLIGHTS).put(f);
-        t.objectStore(SUMMARIES).put(summary(f));
+        // an imported flight counts as saved when it was opened, so an old file is not dropped at once
+        t.objectStore(SUMMARIES).put({ ...summary(f), savedAt: Date.now(), ...(imported ? { imported } : {}) });
         if (!(await done(t))) return false;
         await prune(db);
         return true;
@@ -100,12 +101,13 @@ export async function deleteFlight(id: number): Promise<void> {
 }
 
 async function prune(db: IDBDatabase): Promise<void> {
-    const all = await listFlights();
+    // most recently saved first; flights saved before savedAt existed count as saved when they were flown
+    const all = (await listFlights()).sort((a, b) => (b.savedAt ?? b.id) - (a.savedAt ?? a.id));
     let bytes = 0;
     const drop: number[] = [];
     all.forEach((s, i) => {
         bytes += s.bytes;
-        // the newest is always kept
+        // the last saved is always kept
         if (i > 0 && (i >= KEEP_FLIGHTS || bytes > KEEP_BYTES)) drop.push(s.id);
     });
     if (!drop.length) return;

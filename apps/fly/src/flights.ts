@@ -60,6 +60,10 @@ export interface FlightSummary {
     seconds: number;
     bytes: number;
     props: number;
+    /** came from a file (Open a flight file), not flown in this browser */
+    imported?: boolean;
+    /** when this browser last saved or opened it (ms since 1970): the flights saved longest ago are dropped first */
+    savedAt?: number;
 }
 
 export function summary(f: Flight): FlightSummary {
@@ -182,8 +186,16 @@ export function flightToJson(f: Flight): string {
 }
 
 export function flightFromJson(text: string): Flight {
-    const f = JSON.parse(text) as Omit<Flight, 'lives'> & { lives: (Omit<SavedLife, 'records'> & { records: string })[] };
-    if (f.format !== FLIGHT_FORMAT) throw new Error(`not a saved flight (${String(f.format)})`);
+    let f: Omit<Flight, 'lives'> & { lives: (Omit<SavedLife, 'records'> & { records: string })[] };
+    try {
+        f = JSON.parse(text) as typeof f;
+    } catch {
+        throw new Error('not a saved flight (not JSON)');
+    }
+    if (f?.format !== FLIGHT_FORMAT) throw new Error(`not a saved flight (${String(f?.format)})`);
+    if (typeof f.id !== 'number' || !Array.isArray(f.lives) || !f.lives.every((l) => typeof l?.records === 'string')) {
+        throw new Error('the flight file is damaged');
+    }
     return { ...f, lives: f.lives.map((l) => ({ ...l, records: fromBase64(l.records) })) };
 }
 

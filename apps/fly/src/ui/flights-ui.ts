@@ -1,6 +1,7 @@
 // The saved flights screen (owner, 2026-10-18: save flights first, so graded attempts can be replayed and re-scored).
 // Lists what this browser keeps, newest first, and per flight: check it (replay it and compare every life's state
-// hash with the one saved while flying), download it as a file, or delete it.
+// hash with the one saved while flying), download it as a file, or delete it. A downloaded file comes back with
+// Open a flight file, or by dropping it on the screen.
 
 import type { CheckResult, FlightSummary } from '../flights';
 import { h, clear } from './dom';
@@ -11,6 +12,8 @@ export interface FlightsHost {
     /** open the replay viewer on it */
     watch(id: number): void;
     download(id: number): Promise<void>;
+    /** read a downloaded flight file and keep it here: the flight's id, or why it was refused */
+    open(file: File): Promise<{ id: number } | { error: string }>;
     remove(id: number): Promise<void>;
     /** the flight of this visit (still being flown), not deleted from here */
     currentId: number;
@@ -30,9 +33,42 @@ export class FlightsUi {
     /** per flight: a check running, or its result */
     private checks = new Map<number, CheckResult | 'running'>();
     private confirmDelete: number | null = null;
+    /** what the last opened files did */
+    private opened: { ok: boolean; text: string } | null = null;
+    private picker = h('input', { type: 'file', accept: '.json,application/json', multiple: true, style: 'display: none' });
 
     constructor() {
-        this.el = h('div', { class: 'overlay hidden' }, h('div', { class: 'panel wide' }, this.body));
+        this.el = h('div', { class: 'overlay hidden' }, h('div', { class: 'panel wide' }, this.body, this.picker));
+        this.picker.onchange = () => {
+            void this.openFiles([...(this.picker.files ?? [])]);
+            this.picker.value = '';
+        };
+        this.el.addEventListener('dragover', (e) => {
+            if (!this.open || !e.dataTransfer?.types.includes('Files')) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        this.el.addEventListener('drop', (e) => {
+            if (!this.open || !e.dataTransfer?.files.length) return;
+            e.preventDefault();
+            void this.openFiles([...e.dataTransfer.files]);
+        });
+    }
+
+    private async openFiles(files: File[]): Promise<void> {
+        const host = this.host;
+        if (!host || !files.length) return;
+        const added: string[] = [];
+        const refused: string[] = [];
+        for (const file of files) {
+            const r = await host.open(file);
+            if ('id' in r) added.push(when(r.id));
+            else refused.push(`${file.name}: ${r.error}.`);
+        }
+        const text = [added.length ? `Added the flight of ${added.join(', ')}.` : '', ...refused].filter(Boolean).join(' ');
+        this.opened = { ok: refused.length === 0, text };
+        this.flights = await host.list();
+        this.build(false);
     }
 
     get open(): boolean {
@@ -42,6 +78,7 @@ export class FlightsUi {
     async show(host: FlightsHost): Promise<void> {
         this.host = host;
         this.confirmDelete = null;
+        this.opened = null;
         this.el.classList.remove('hidden');
         this.flights = [];
         this.build(true);
@@ -67,6 +104,7 @@ export class FlightsUi {
         const rows = this.flights.map((f) => h('div', { class: 'flight' },
             h('div', { class: 'flight-main' },
                 h('strong', {}, when(f.id)), f.id === host.currentId ? h('span', { class: 'muted' }, ' · this visit') : null,
+                f.imported ? h('span', { class: 'muted' }, ' · from a file') : null,
                 h('div', { class: 'muted' },
                     `${length(f.seconds)} · ${f.lives} ${f.lives === 1 ? 'life' : 'lives'} · ${f.props} golden ${f.props === 1 ? 'prop' : 'props'} · ` +
                     `${(f.bytes / 1024 / 1024).toFixed(1)} MB · ${f.mapId} v${f.mapVersion}, ${f.simCore}`),
@@ -101,10 +139,13 @@ export class FlightsUi {
             h('div', { class: 'title' }, h('h1', {}, 'Saved flights'), h('button', { onclick: () => host.close() }, 'Done')),
             h('p', { class: 'muted' },
                 'Every visit you fly with a radio is saved here as your stick inputs, so it can be replayed exactly: Watch plays ',
-                'it back from any camera and lists the tricks flown, with their marks. Saved when you open the menu, and every minute while flying. The newest 30 are kept.'),
+                'it back from any camera and lists the tricks flown, with their marks. Saved when you open the menu, and every minute while flying. The 30 saved most recently are kept. ',
+                'Download keeps a flight as a file; Open a flight file (or drop the file here) brings it back, in this browser or another.'),
+            this.opened ? h('p', { class: this.opened.ok ? 'status-ok' : 'status-bad' }, this.opened.text) : null,
             loading ? h('p', { class: 'muted' }, 'Loading…') : rows.length ? h('div', {}, ...rows) : h('p', { class: 'muted' }, 'No saved flights yet.'),
             h('div', { class: 'row footer' },
                 h('span', { class: 'note' }, 'Kept in this browser only.'), h('span', { class: 'spacer' }),
+                h('button', { onclick: () => this.picker.click() }, 'Open a flight file…'),
                 h('button', { class: 'primary', onclick: () => host.close() }, 'Done')));
     }
 }
