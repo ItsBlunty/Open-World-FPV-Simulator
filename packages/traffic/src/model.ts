@@ -11,7 +11,8 @@ import type { Place } from './route';
 export const DT = 0.001;
 
 /** Bumped with any change that moves a mover or changes a shape: part of the world hash (replays). */
-export const TRAFFIC_VERSION = 6;
+/** 7: people take the train at the city station, and people out of sight are not solid (map v9) */
+export const TRAFFIC_VERSION = 7;
 
 export interface TrafficConfig {
     cars: boolean;

@@ -1,6 +1,6 @@
 # The railway: track, tunnel, station and the steam train
 
-Sections §0y, §0z. Read only when working on the railway or the train; `HANDOFF.md` has the current state.
+Sections §0y, §0z, §1a. Read only when working on the railway or the train; `HANDOFF.md` has the current state.
 
 ## 0y. Railway, tunnel and steam train (owner, 2026-10-19): built, then reworked in §0z (route, coaches, smoke)
 
@@ -157,3 +157,61 @@ stops, faster running? Is 1 in 72 and the viaduct's height right? The smoke's si
 **Left open:** the hill reads flat from above; no stairs up to the city platforms; the yard's wagons never move; a
 puff leaving just before a portal can pass through the hill; the train does not react to the quad; look-around does
 not run the sim, so the train stands still there.
+
+## 1a. The walkway to the city station, people taking the train, a second train (owner, 2026-10-19): map v9, traffic v7, train v3
+
+**Asked:** "we need a walkway down to that empty lot near the city station, add some nice trees and a path to the normal
+sidewalks and then we need some of the walking NPCs to go up to board and come down to leave the train when it stops at
+the city station. Leave everyone on the train at the other station, the boarding and unboarding will just happen at the
+city station. Also add a second train on the same loop."
+
+**Map v9 (decided by Claude):**
+- The lot is block 31 (x 9-71, z -241 to -179), just south of the city station. Its old draws (plaza or parking) still
+  happen, into a builder that is thrown away, so the rest of the city is as before.
+- The footbridge from the south platform's back (z -245) over the kerb and the sidewalk to z -235, 9.45 m up, 2.4 m
+  wide with railings. Then an open stair of two flights (27 risers each, 17.2 cm rise, 30 cm going [estimates]) with a
+  2 m landing on four columns, stringers and handrails, down to the garden at z -217.4.
+- The garden: four lawns 15 cm up behind a kerb, 3 trees on each (own `Rng(9)`), a paved cross path from the west
+  sidewalk to the east (z -205), a path from the stair south to the south sidewalk, and 8 benches. The lawns keep
+  1.3 m off the kerbs, where people walk.
+- The city platforms are raised to 9.45 m (the coaches' floors less 5 cm), so people step straight in.
+- `Railway.walkway` carries the block, the cross path, the walk up ([x, y, z] points), the platform's top, the waiting
+  line and the line inside the doors. 245 218 triangles, hash `69f4a50d…`.
+
+**Coaches (train v3):** a side door at each end of each side, 0.66 m wide, from the floor to the window heads, up to
+the end wall (like a Mark 1's vestibule doors). The first try at 0.8 m caught on the end seat backs by 1 cm.
+
+**The second train:** the same timetable half a lap (233 s) behind the first (`Train.lag`). Their fronts are never
+closer than 1559 m. It has a Brunswick-green engine and green coaches, and different people in the seats. There is
+one switch for both. Each train is a `TrainWorld` (chained) and a `TrainView`.
+
+**People taking the train (`network.ts`, traffic v7):**
+- When the trains run, a walker reaching a corner of the garden block goes up to the station 35 times in 100. They
+  walk along the block's side to the cross path, to the stair, up it and over the footbridge (phase 9). Then along the
+  waiting line to a spot by their coach door (10). The spots are in three rows and nine places either side of the door.
+- They wait (15). Once a train has stood at the city station 3 s (plus up to 5 s of their own), and while it has 12 s
+  or more left, they step to their door (16) and in (11).
+- On board they are out of sight and not solid (12) for 240 s at least. Then they get off at the city station from
+  whichever train stands there (13), walk back to the footbridge (17), and go down to one of the garden's corners (14).
+- Ten people start on board, so passengers get off at the first stop.
+- Nobody gets on or off at the fields station (there is no walkway there). Out-of-sight people (in buildings or on
+  trains) are no longer solid (`world.ts`). The walkers know the timetable from `Train.standing`.
+
+**Evidence:** `pnpm test` 58 files, 500 tests pass; `pnpm typecheck` clean.
+- `train.test.ts`: two trains never closer than 1559 m. Over 25 min of the network with the trains: 38 people went
+  up, 34 boarded, 25 got off, at most 7 waited at once, and every step on or off happened while a train stood at the
+  city station. A 0.25 m sphere fits through every platform-side door of every coach.
+- `first-map.test.ts`: a person (0.28 m spheres at 0.6 and 1.5 m) clears the whole walk up, every 10 cm, feet within
+  0.2 m of the treads. The cross path is clear from sidewalk to sidewalk.
+- `?selftest` MATCH in the built-in browser; the traffic hash now covers the network with the trains (people boarding
+  through the first city stop): `68fe64ac…`.
+- Seen there: the footbridge, stair, garden, lawns, trees and benches; people on the stair; people on the platform
+  beside the green train; the platform level with the coach floor and the side doors.
+
+**For the owner:** watch the platform when a train comes in (the first one at about 3.7 min), follow someone up the
+stair. Ask: enough people going by train (35 % at the garden's corners)? Should some ride to the fields station too
+(it would need a walkway there)? Is the second train's green right?
+
+**Left open:** people on the platform walk through each other if many pick one door. They do not queue at a door.
+Nobody is drawn in the coaches' aisles (boarders vanish inside the door). No stair on the north platform.
+

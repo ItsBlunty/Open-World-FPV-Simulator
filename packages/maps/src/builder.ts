@@ -150,6 +150,13 @@ export interface Railway {
     stops: { name: string; x: number; z: number }[];
     /** the tunnel: its straight bore from a0 to a1 along its axis, at `c` across it; its inside half width and crown height, m */
     tunnel: { axis: 'x' | 'z'; a0: number; a1: number; c: number; halfWidth: number; crown: number };
+    /**
+     * the way from the street up to the city station (map v9): the city block (Level.blocks index) whose garden it leaves
+     * from; the garden's cross path (z) that meets the block's west and east sidewalks; the walk from there up the stair to
+     * the platform's waiting line ([x, y, z] points); the platform's top; the waiting line (z, from waitX0 to waitX1) and
+     * the line just inside the coaches' doors (z)
+     */
+    walkway?: { block: number; plazaZ: number; up: [number, number, number][]; platformY: number; waitZ: number; doorZ: number; waitX0: number; waitX1: number };
 }
 
 /** Mulberry32: 32-bit integer state, Math.imul only, so every JavaScript engine draws the same numbers. */

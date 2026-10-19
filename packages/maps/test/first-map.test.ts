@@ -230,9 +230,36 @@ describe('first map', () => {
         // the fields platform's top 0.9 m up, its edge 1.5 m from the track; the city platforms 0.45 m over the rails
         expect(world.queryRay(292, 10, 480, 0, -1, 0, 20)!.y).toBeCloseTo(0.9, 6);
         expect(world.queryRay(292, 0.6, 475, 0, 0, 1, 5)!.z).toBeCloseTo(476.5, 6);
-        expect(world.queryRay(10, 20, -253.3, 0, -1, 0, 20)!.y).toBeCloseTo(8.9, 6);
-        expect(world.queryRay(10, 20, -246.7, 0, -1, 0, 20)!.y).toBeCloseTo(8.9, 6);
+        expect(world.queryRay(10, 20, -253.3, 0, -1, 0, 20)!.y).toBeCloseTo(9.45, 6);
+        expect(world.queryRay(10, 20, -246.7, 0, -1, 0, 20)!.y).toBeCloseTo(9.45, 6);
         expect(rw.stops.map((s) => s.name)).toEqual(['Fields station', 'City station']);
+    });
+
+    it('gives people a clear way from the garden up the stair and over the footbridge to the city platform', () => {
+        const w = level.railway!.walkway!;
+        const blk = level.blocks[w.block];
+        expect([blk.x0, blk.z0, blk.x1, blk.z1]).toEqual([9, -241, 71, -179]);
+        const out = { x: 0, y: 0, z: 0 };
+        // a person: spheres of 0.28 m at their legs and head along the walk, every 10 cm; their feet on what is under them
+        let n = 0;
+        for (let i = 0; i + 1 < w.up.length; i++) {
+            const [ax, ay, az] = w.up[i], [bx, by, bz] = w.up[i + 1];
+            const len = Math.hypot(bx - ax, bz - az);
+            for (let u = 0; u <= len; u += 0.1) {
+                const t = len > 0 ? u / len : 0;
+                const x = ax + (bx - ax) * t, y = ay + (by - ay) * t, z = az + (bz - az) * t;
+                for (const h of [0.6, 1.5]) expect(world.querySphere(x, y + h, z, 0.28, out), `walk at ${x.toFixed(1)}, ${y.toFixed(2)}, ${z.toFixed(1)}`).toBe(false);
+                const under = world.queryRay(x, y + 0.3, z, 0, -1, 0, 1)!.y;
+                expect(y - under, `feet at ${z.toFixed(1)}`).toBeLessThan(0.2);
+                expect(y - under).toBeGreaterThan(-0.01);
+                n++;
+            }
+        }
+        expect(n).toBeGreaterThan(400);
+        expect(w.up[0][1]).toBeCloseTo(0.15, 6);
+        expect(w.up[w.up.length - 1][1]).toBeCloseTo(w.platformY, 6);
+        // the garden's cross path from the west sidewalk to the east, clear for people
+        for (let x = blk.x0 + 1.3; x <= blk.x1 - 1.3; x += 0.2) expect(world.querySphere(x, 0.15 + 0.6, w.plazaZ, 0.28, out), `cross path at ${x.toFixed(1)}`).toBe(false);
     });
 
     it('puts every spawn point on a surface with room for the quad', () => {
@@ -252,4 +279,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'bc8162fa0b3b0f8a81cd5a5372f2eab185826c2159882509318a8af510276ee8';
+const PINNED = '69f4a50d9e7650b35a75522caaf11c79db103bb8eae12c74bdc434869becd82a';

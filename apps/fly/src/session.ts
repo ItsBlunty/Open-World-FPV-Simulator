@@ -12,7 +12,7 @@ import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } fro
 import { levelSha256, spawnPose } from '@owfpv/maps';
 import type { Level, SpawnPoint } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { TrafficWorld, TrainWorld, makeTraffic, makeTrain, worldSha256 } from '@owfpv/traffic';
+import { TrafficWorld, TrainWorld, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 import { Collector } from './collect';
@@ -52,10 +52,11 @@ export interface SessionOptions {
 
 const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
 
-/** The collision the sim flies in: the level's mesh, with the cars and people and the train moving in it (either may be null). */
-export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, train: Train | null): ContactWorld {
-    const w = traffic ? new TrafficWorld(mesh, traffic) : mesh;
-    return train ? new TrainWorld(w, train) : w;
+/** The collision the sim flies in: the level's mesh, with the cars and people (or null) and the trains moving in it. */
+export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, trains: readonly Train[]): ContactWorld {
+    let w = traffic ? new TrafficWorld(mesh, traffic) : mesh;
+    for (const t of trains) w = new TrainWorld(w, t);
+    return w;
 }
 
 export class FlightSession {
@@ -73,7 +74,7 @@ export class FlightSession {
     private trafficCfg: TrafficConfig;
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
     private trafficNow: TrafficModel | null = null;
-    private trainNow: Train | null = null;
+    private trainsNow: Train[] = [];
     private contactWorld: ContactWorld;
     private spawnPt: SpawnPoint;
     private pose: [number, number, number, number];
@@ -112,9 +113,14 @@ export class FlightSession {
         return this.trafficNow;
     }
 
-    /** The train running in the current life, null when it is off. */
+    /** The trains running in the current life (none when they are off). */
+    get trains(): readonly Train[] {
+        return this.trainsNow;
+    }
+
+    /** The first train, null when they are off. */
     get train(): Train | null {
-        return this.trainNow;
+        return this.trainsNow[0] ?? null;
     }
 
     get trafficConfig(): TrafficConfig {
@@ -124,8 +130,8 @@ export class FlightSession {
     private buildWorld(): ContactWorld {
         const c = this.trafficCfg;
         this.trafficNow = makeTraffic(this.level, c);
-        this.trainNow = makeTrain(this.level, c.train);
-        return worldWith(this.world, this.trafficNow, this.trainNow);
+        this.trainsNow = makeTrains(this.level, c.train);
+        return worldWith(this.world, this.trafficNow, this.trainsNow);
     }
 
     get spawn(): SpawnPoint {

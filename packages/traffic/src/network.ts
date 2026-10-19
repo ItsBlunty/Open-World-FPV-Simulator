@@ -21,6 +21,8 @@
 
 import type { Level } from '@owfpv/maps';
 import { pathThrough, placeAt } from './route';
+import { COACH, makeTrains, newTrainPlace } from './train';
+import type { Train } from './train';
 import type { Place, Route } from './route';
 import { CAR, DT } from './model';
 import type { Lamp, Mover, SignalHead, StaticBox, TrafficConfig, TrafficModel } from './model';
@@ -89,6 +91,22 @@ const ENTER_PCT = 25;
 const INSIDE = 1.5;
 const DWELL_MIN = 20;
 const DWELL_MAX = 120;
+/**
+ * Going by train (map v9, owner 2026-10-19: "some of the walking NPCs to go up to board and come down to leave the
+ * train when it stops at the city station") [design choices]: a person at a corner of the station's garden block goes
+ * up to the city station STATION_PCT times in a hundred (when the trains run), waits on the platform by a coach door,
+ * and boards the next train that stands there from BOARD_AFTER s after it stops until BOARD_LAST s before it leaves. On
+ * board they are out of sight (and not solid) for RIDE_MIN s at least, then get off at the city station from whichever
+ * train stands there, and walk down into the city. Nobody gets on or off at the fields station. ON_BOARD people start
+ * on the trains, so some get off at the first stop.
+ */
+const STATION_PCT = 35;
+const BOARD_AFTER = 3;
+const BOARD_LAST = 12;
+const RIDE_MIN = 240;
+const ON_BOARD = 10;
+/** a person's previous hub when there is none (after coming down from the station) */
+const NO_HUB = -1000000;
 /** the fastest a person crosses, m/s: the flashing phase (12 s) must see a road (19 m) crossed */
 const V_CROSS_MIN = 1.5;
 /**
@@ -156,11 +174,15 @@ function draw(st: Uint32Array, i: number): number {
 // per-car state slots
 const C_E = 0, C_S = 1, C_V = 2, C_GO = 3, C_NEXT = 4, C_ACC = 5, C_V0 = 6, CN = 7;
 // per-person state slots: phase (0 to a hub, 1 to a crossing queue, 2 waiting, 3 crossing, 4 to a hub after crossing,
-// 5 along the sidewalk to a door, 6 in through it, 7 inside, 8 out of it), edge from a to b, distance along it, speed,
-// base speed, target hub, previous hub (or -1 - crossing), crossing, side, queue row, kerb distance (crossing), lane
-// offset, which ends of the edge the lane offset eases in at (1 start, 2 end), door, tick to come out at
+// 5 along the sidewalk to a door, 6 in through it, 7 inside, 8 out of it; going by train: 9 up the walkway to the
+// platform, 10 along the platform to their waiting spot, 15 waiting, 16 along the platform to their coach door, 11 in
+// through it, 12 on board, 13 out of it onto the platform, 17 along the platform to the walkway, 14 down the walkway to
+// a corner of the garden block), edge from a to b, distance along it, speed, base speed, target hub, previous hub (or
+// -1 - crossing), crossing, side, queue row, kerb distance (crossing), lane offset, which ends of the edge the lane offset
+// eases in at (1 start, 2 end), door (a building's, or a coach door by number), tick to come out at (or to get off
+// after), the walkway path (by the garden corner it starts or ends at)
 const P_PH = 0, P_AX = 1, P_AZ = 2, P_BX = 3, P_BZ = 4, P_LEN = 5, P_S = 6, P_V = 7, P_VB = 8, P_H = 9, P_PREV = 10;
-const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, P_EASE = 16, P_DOOR = 17, P_OUT = 18, PN = 19;
+const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, P_EASE = 16, P_DOOR = 17, P_OUT = 18, P_PATH = 19, PN = 20;
 
 interface Checkpoint {
     step: number;
@@ -204,6 +226,20 @@ export class NetTraffic implements TrafficModel {
     private readonly doorFront: [number, number][] = [];
     private readonly doorIn: [number, number][] = [];
 
+    // going by train (empty when no trains run or the level has no walkway)
+    private readonly trains: Train[] = [];
+    /** the trains' city stop (an index into Train.stops) */
+    private cityStop = -1;
+    /** per corner of the garden block: the walk from its hub up to the platform's waiting line, [x, y, z] points, and the distance to each */
+    private readonly upPath: number[][][] = [];
+    private readonly upDist: number[][] = [];
+    /** the coach doors' x when a train stands at the city station, the line just inside them, the platform's top and the waiting line */
+    private readonly coachDoors: number[] = [];
+    private doorLineZ = 0;
+    private platformY = 0;
+    private waitZ = 0;
+    private walkX = 0;
+
     // state
     private readonly nCars: number;
     private readonly nPeople: number;
@@ -220,7 +256,7 @@ export class NetTraffic implements TrafficModel {
     private readonly tmp: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
 
     constructor(level: Level, config: TrafficConfig) {
-        this.config = { cars: config.cars, people: config.people, signals: true };
+        this.config = { cars: config.cars, people: config.people, signals: true, train: config.train === true };
         const b0 = level.blocks;
         // the grid: road centre lines half a road outside the blocks (city blocks on a regular grid)
         let gap = Infinity;
@@ -237,6 +273,7 @@ export class NetTraffic implements TrafficModel {
         this.buildRoads();
         this.buildSignals();
         this.buildWalks(level);
+        if (config.people) this.buildStation(level, config.train === true);
 
         // the starting state: one draw sequence each for cars and people, so either toggle leaves the other as it was
         const carRng = new Uint32Array([0xca75]);
@@ -265,6 +302,15 @@ export class NetTraffic implements TrafficModel {
                 if (config.people) startPeople.push(fwd ? [ha, hb, u, vb, seed, look] : [hb, ha, u, vb, seed, look]);
             }
         }
+        // the people already on the trains at the start: their own draws, after everyone else's
+        const nBlockPeople = startPeople.length;
+        if (this.trains.length) {
+            const rRng = new Uint32Array([0x7a1e5]);
+            for (let k = 0; k < ON_BOARD; k++) {
+                const vb = 1.1 + (draw(rRng, 0) % 6) / 10;
+                startPeople.push([-1, -1, 0, vb, draw(rRng, 0), draw(rRng, 0)]);
+            }
+        }
         this.nCars = startCars.length;
         this.nPeople = startPeople.length;
         this.cars = new Float64Array(this.nCars * CN);
@@ -285,6 +331,13 @@ export class NetTraffic implements TrafficModel {
             this.rngPeople[i] = seed;
             const o = i * PN;
             this.people[o + P_VB] = vb;
+            if (i >= nBlockPeople) {
+                // on board from the start: off at the first city stop, through a door of their own
+                this.people[o + P_PH] = 12;
+                this.people[o + P_DOOR] = (i - nBlockPeople) % this.coachDoors.length;
+                this.people[o + P_OUT] = 0;
+                return;
+            }
             this.walkEdge(i, 0, this.hubX[ha], this.hubZ[ha], this.hubX[hb], this.hubZ[hb], vb, WALK_OFF);
             this.people[o + P_S] = u * this.people[o + P_LEN];
             this.people[o + P_H] = hb;
@@ -445,6 +498,67 @@ export class NetTraffic implements TrafficModel {
         }
     }
 
+    /**
+     * Going by train: the trains (their timetable says when one stands at the city station), the walk from each corner of
+     * the station's garden block up to the platform (along the block's west or east sidewalk to the garden's cross path,
+     * along it to the stair, up the stair and over the footbridge: maps railway.ts), and the coach doors' places.
+     */
+    private buildStation(level: Level, trains: boolean): void {
+        const w = level.railway?.walkway;
+        if (!trains || !w) return;
+        this.trains.push(...makeTrains(level, true));
+        this.stationBlockIndex = w.block;
+        const t0 = this.trains[0];
+        this.cityStop = t0.stops.findIndex((x) => x.name === 'City station');
+        if (this.cityStop < 0) throw new Error('the railway has no city station');
+        this.platformY = w.platformY;
+        this.waitZ = w.waitZ;
+        this.doorLineZ = w.doorZ;
+        this.walkX = w.up[0][0];
+        const blk = level.blocks[w.block];
+        for (let c = 0; c < 4; c++) {
+            const h = w.block * 4 + c;
+            const hx = this.hubX[h], hz = this.hubZ[h];
+            // the corner's own side of the block (west for the north-west and south-west corners, east for the others)
+            const ex = c === 0 || c === 3 ? blk.x0 + HUB_IN : blk.x1 - HUB_IN;
+            const pts: number[][] = [[hx, this.walkY, hz], [ex, this.walkY, w.plazaZ], ...w.up.map((q) => [q[0], q[1], q[2]])];
+            const dist = [0];
+            for (let k = 1; k < pts.length; k++) {
+                const a = pts[k - 1], b = pts[k];
+                dist.push(dist[k - 1] + Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]) + (b[2] - a[2]) * (b[2] - a[2])));
+            }
+            this.upPath.push(pts);
+            this.upDist.push(dist);
+        }
+        // the side doors on the platform's side of each coach while a train stands at the city station
+        const pl = newTrainPlace();
+        const stopS = t0.stops[this.cityStop].s;
+        t0.vehicles.forEach((v, i) => {
+            if (v.kind !== 'coach') return;
+            t0.placeAtS(i, stopS, pl);
+            for (const f of [-1, 1]) this.coachDoors.push(pl.x + pl.fx * f * ((COACH.sideDoor0 + COACH.sideDoor1) / 2));
+        });
+        this.coachDoors.sort((a, b) => a - b);
+    }
+
+    /** Can a person board (or get off) now: a train stands at the city station, stopped long enough ago and not leaving soon? `wait` is the person's own extra wait, ms. */
+    private trainIn(tick: number, wait: number): boolean {
+        for (const t of this.trains) {
+            const st = t.standing(tick, this.cityStop);
+            if (st && tick - st.from >= BOARD_AFTER * 1000 + wait && st.to - tick >= BOARD_LAST * 1000) return true;
+        }
+        return false;
+    }
+
+    /** Person q's waiting spot on the platform: by their coach door, a little to one side, in one of three rows (none two on one spot unless a door draws more than 27). */
+    private spotX(q: number): number {
+        return this.coachDoors[this.people[q * PN + P_DOOR]] + (((q * 7) % 9) - 4) * 0.55;
+    }
+
+    private spotZ(q: number): number {
+        return this.waitZ - (Math.floor(q / 9) % 3) * 0.4;
+    }
+
     private buildWalks(level: Level): void {
         // hubs: one per block corner (NW, NE, SE, SW), in from both kerbs
         const corner = new Map<string, number>();
@@ -568,9 +682,11 @@ export class NetTraffic implements TrafficModel {
         return out;
     }
 
-    /** Person mover i is out of sight inside a building. */
+    /** Person mover i is out of sight inside a building or on a train (and not solid then: world.ts). */
     hidden(i: number): boolean {
-        return i >= this.nCars && this.people[(i - this.nCars) * PN + P_PH] === 7;
+        if (i < this.nCars) return false;
+        const ph = this.people[(i - this.nCars) * PN + P_PH];
+        return ph === 7 || ph === 12;
     }
 
     /** The door (Level.doors index) mover i is walking in or out through, else -1. */
@@ -898,6 +1014,20 @@ export class NetTraffic implements TrafficModel {
                 this.walkEdge(q, 8, p[o + P_BX], p[o + P_BZ], lx, lz, p[o + P_VB], 0);
                 continue;
             }
+            if (ph === 15) {
+                // waiting on the platform: to the door when a train stands here
+                if (!this.trainIn(tick, (q % 8) * 700)) continue;
+                const dx = this.coachDoors[p[o + P_DOOR]];
+                this.walkEdge(q, 16, p[o + P_BX], p[o + P_BZ], dx, this.waitZ, p[o + P_VB], 0);
+                continue;
+            }
+            if (ph === 12) {
+                // on board: off at the city station once the ride is long enough
+                if (tick < p[o + P_OUT] || !this.trainIn(tick, (q % 8) * 700)) continue;
+                const dx = this.coachDoors[p[o + P_DOOR]];
+                this.walkEdge(q, 13, dx, this.doorLineZ, dx, this.waitZ, p[o + P_VB], 0);
+                continue;
+            }
             if (ph === 2) {
                 const cid = p[o + P_C];
                 const j = this.crossings[cid].j;
@@ -913,6 +1043,33 @@ export class NetTraffic implements TrafficModel {
             p[o + P_S] = p[o + P_LEN];
             if (ph === 1) {
                 p[o + P_PH] = 2;
+            } else if (ph === 9) {
+                // on the platform: along the waiting line to their spot
+                this.walkEdge(q, 10, this.walkX, this.waitZ, this.spotX(q), this.spotZ(q), p[o + P_VB], 0);
+            } else if (ph === 10) {
+                p[o + P_PH] = 15;
+            } else if (ph === 16) {
+                const dx = this.coachDoors[p[o + P_DOOR]];
+                this.walkEdge(q, 11, dx, this.waitZ, dx, this.doorLineZ, p[o + P_VB], 0);
+            } else if (ph === 11) {
+                p[o + P_PH] = 12;
+                p[o + P_OUT] = tick + RIDE_MIN * 1000;
+            } else if (ph === 13) {
+                this.walkEdge(q, 17, p[o + P_BX], p[o + P_BZ], this.walkX, this.waitZ, p[o + P_VB], 0);
+            } else if (ph === 17) {
+                // down the walkway to one of the garden's corners
+                const c = draw(this.rngPeople, q) % 4;
+                p[o + P_PH] = 14;
+                p[o + P_PATH] = c;
+                p[o + P_S] = 0;
+                p[o + P_LEN] = this.upDist[c][this.upDist[c].length - 1];
+                p[o + P_V] = p[o + P_VB];
+            } else if (ph === 14) {
+                // at the corner's hub: on into the city
+                const c = p[o + P_PATH];
+                p[o + P_H] = this.upPath.length ? Math.floor(this.hubOfPath(c)) : 0;
+                p[o + P_PREV] = NO_HUB;
+                this.choose(q);
             } else if (ph === 5) {
                 // at the door: in through it
                 const d = p[o + P_DOOR];
@@ -948,6 +1105,17 @@ export class NetTraffic implements TrafficModel {
         const opts: number[] = [];
         for (const n of [blk * 4 + ((c + 1) % 4), blk * 4 + ((c + 3) % 4)]) if (n !== prev) opts.push(n);
         for (const x of this.crossAt[h]) if (-1 - x !== prev) opts.push(-1 - x);
+        // at a corner of the station's garden block: now and then up to the city station to take a train
+        if (this.upPath.length && prev !== NO_HUB && Math.floor(h / 4) === this.stationBlock && draw(this.rngPeople, q) % 100 < STATION_PCT) {
+            const c = h % 4;
+            p[o + P_PH] = 9;
+            p[o + P_PATH] = c;
+            p[o + P_S] = 0;
+            p[o + P_LEN] = this.upDist[c][this.upDist[c].length - 1];
+            p[o + P_V] = p[o + P_VB];
+            p[o + P_DOOR] = draw(this.rngPeople, q) % this.coachDoors.length;
+            return;
+        }
         const pick = opts[draw(this.rngPeople, q) % opts.length];
         const hx = this.hubX[h], hz = this.hubZ[h];
         if (pick >= 0) {
@@ -982,6 +1150,35 @@ export class NetTraffic implements TrafficModel {
         p[o + P_ROW] = row;
     }
 
+    /** The garden block's index in Level.blocks (-1: none). */
+    private get stationBlock(): number {
+        return this.upPath.length ? this.stationBlockIndex : -1;
+    }
+
+    private stationBlockIndex = -1;
+
+    /** The hub a walkway path starts at. */
+    private hubOfPath(c: number): number {
+        return this.stationBlockIndex * 4 + c;
+    }
+
+    /** The place `d` m along walkway path c from its hub end; facing up it, or down it when `down`. */
+    private pathPlace(c: number, d: number, down: boolean, out: Place): void {
+        const pts = this.upPath[c], dist = this.upDist[c];
+        let k = 1;
+        while (k < pts.length - 1 && d > dist[k]) k++;
+        const a = pts[k - 1], b = pts[k];
+        const seg = dist[k] - dist[k - 1];
+        const t = seg > 1e-9 ? Math.min(1, Math.max(0, (d - dist[k - 1]) / seg)) : 0;
+        out.x = a[0] + (b[0] - a[0]) * t;
+        out.y = a[1] + (b[1] - a[1]) * t;
+        out.z = a[2] + (b[2] - a[2]) * t;
+        const ex = b[0] - a[0], ez = b[2] - a[2];
+        const l = Math.sqrt(ex * ex + ez * ez);
+        const sg = down ? -1 : 1;
+        if (l > 1e-9) { out.hx = (ex / l) * sg; out.hz = (ez / l) * sg; } else { out.hx = 0; out.hz = -sg; }
+    }
+
     private personPlace(q: number, out: Place): void {
         const p = this.people, o = q * PN;
         const ax = p[o + P_AX], az = p[o + P_AZ], bx = p[o + P_BX], bz = p[o + P_BZ];
@@ -989,6 +1186,28 @@ export class NetTraffic implements TrafficModel {
         let hx = 1, hz = 0;
         if (len > 1e-9) { hx = (bx - ax) / len; hz = (bz - az) / len; }
         const ph = p[o + P_PH];
+        if (ph === 9 || ph === 14) {
+            // on the walkway: up it from the garden's corner, or down it from the platform
+            this.pathPlace(p[o + P_PATH], ph === 9 ? s : len - s, ph === 14, out);
+            return;
+        }
+        if (ph === 12) {
+            // on board: out of sight, just inside their door (where they will step out)
+            out.x = this.coachDoors[p[o + P_DOOR]]; out.y = this.platformY; out.z = this.doorLineZ;
+            out.hx = 0; out.hz = 1;
+            return;
+        }
+        if (ph === 15) {
+            // waiting: facing the track
+            out.x = bx; out.z = bz; out.y = this.platformY;
+            out.hx = 0; out.hz = -1;
+            return;
+        }
+        if (ph === 10 || ph === 11 || ph === 13 || ph === 16 || ph === 17) {
+            out.x = ax + hx * s; out.z = az + hz * s; out.y = this.platformY;
+            out.hx = hx; out.hz = hz;
+            return;
+        }
         if (ph === 7) {
             // inside, out of sight
             out.x = bx; out.z = bz; out.y = this.walkY;

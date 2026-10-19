@@ -160,7 +160,7 @@ export class SettingsUi {
                     this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); })
                 ]
                 : [h('p', { class: 'note' }, `No cars, people or traffic lights in ${graphicsName(host.graphicsNow)} mode.`)]),
-            this.check('Steam train (solid: round the railway, through the tunnel, stopping at the station)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
+            this.check('Steam trains (two, solid: round the whole map, stopping at the fields and city stations; people ride them)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
             h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
             h('h2', {}, 'Physics'),
             h('label', { class: 'row' },

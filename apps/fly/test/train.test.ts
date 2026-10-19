@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { MODE_CHANNEL, S, hoverStickOf } from '@owfpv/sim-core';
 import type { PresetJson, Sim } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
-import { COACH, DWELL_S, TRAIN_VCURVE, TRAIN_VMAX, Train, newTrainPlace, worldSha256 } from '@owfpv/traffic';
+import { COACH, DWELL_S, NetTraffic, TRAIN_VCURVE, TRAIN_VMAX, Train, makeTrains, newTrainPlace, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig, TrainState } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from '../src/session';
@@ -158,6 +158,49 @@ describe('the steam train', () => {
         expect(most).toBeLessThan(1);
     });
 
+    it('runs a second train half a lap behind the first, never near it', () => {
+        const [a, b] = makeTrains(level, true);
+        expect(b.lag).toBe(Math.round(a.cycleTicks / 2));
+        const L = a.route.length, sa = newState(), sb = newState();
+        let least = Infinity;
+        for (let t = 0; t < a.cycleTicks; t += 500) {
+            const d = (((a.state(t, sa).s - b.state(t, sb).s) % L) + L) % L;
+            least = Math.min(least, d, L - d);
+        }
+        console.log(`two trains: their fronts at least ${least.toFixed(0)} m apart round the ${L.toFixed(0)} m loop`);
+        expect(least).toBeGreaterThan(300);
+    });
+
+    it('takes people up to the city station, on board while a train stands there, and back down off it', () => {
+        const t = new NetTraffic(level, { cars: false, people: true, signals: true, train: true });
+        const trains = makeTrains(level, true);
+        const city = trains[0].stops.findIndex((x) => x.name === 'City station');
+        const standing = (tick: number): boolean => trains.some((tr) => tr.standing(tick, city) !== null);
+        const n = t.movers.length;
+        const was = new Int32Array(n).fill(-1);
+        let boarded = 0, off = 0, up = 0, mostWaiting = 0, wrong = 0;
+        const step = 50;
+        for (let tick = 0; tick <= 25 * 60000; tick += step) {
+            t.at(tick);
+            let waiting = 0;
+            for (let i = 0; i < n; i++) {
+                const ph = t.inspect(i).phase;
+                if (ph === 15) waiting++;
+                if (ph === 9 && was[i] !== 9) up++;
+                // stepping into a coach (on board) or out of one onto the platform: only with a train there
+                if (ph === 12 && was[i] === 11) { boarded++; if (!standing(tick)) wrong++; }
+                if (ph === 13 && was[i] === 12) { off++; if (!standing(tick)) wrong++; }
+                was[i] = ph;
+            }
+            mostWaiting = Math.max(mostWaiting, waiting);
+        }
+        console.log(`by train over 25 min: ${up} went up the walkway, ${boarded} boarded, ${off} got off, at most ${mostWaiting} waiting on the platform`);
+        expect(wrong).toBe(0);
+        expect(up).toBeGreaterThan(10);
+        expect(boarded).toBeGreaterThan(5);
+        expect(off).toBeGreaterThan(10);
+    });
+
     it('names the train in the collision hash, and leaves the old hashes alone without it', () => {
         const sha = 'f'.repeat(64);
         const off = { cars: true, people: true, signals: true };
@@ -194,7 +237,9 @@ describe('the steam train', () => {
                 windows++;
             }
             // and a wall beside each window (it is a coach, not a cage)
-            expect(free(at(i, fk(0) - 1.3, 3.0, COACH.halfW))).toBe(false);
+            expect(free(at(i, fk(0) + 1.3, 3.0, COACH.halfW))).toBe(false);
+            // and a person-sized way in through each side door on the platform side (the coach's right at a westbound stop: s < 0 here)
+            for (const f of [-9.21, 9.21]) for (let side = -2.5; side <= -0.6; side += 0.1) expect(free(at(i, f, 2.5, side)), `coach ${i} door at ${f}, ${side.toFixed(1)}`).toBe(true);
         }
         // down the aisle of the second coach, through its front door and the third's back door, down the third's aisle
         for (let f = 5; f <= 19.66 + 5; f += 0.1) expect(free(at(3, f, 2.4, 0)), `the aisle at ${f.toFixed(1)}`).toBe(true);

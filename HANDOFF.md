@@ -15,15 +15,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
   300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]
   Chase camera see-through circle built: a wall between the camera and the quad shows it through a soft circle. [camera §0x]
-  Railway built (map v8): a 3.6 km loop round the whole map, over the city on a viaduct with a city station, a tunnel,
-  the fields station and goods yard; a solid steam train with open coaches (people inside, room under them), stopping
-  35 s at each station, billowing smoke; its own Settings switch; graphics settings grouped. [railway §0y, §0z]
-- **Tests:** `pnpm test`: 58 files, 497 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Railway built (map v9): a 3.6 km loop round the whole map, over the city on a viaduct with a city station, a tunnel,
+  the fields station and goods yard; two solid steam trains half a lap apart, open coaches with side doors, people
+  inside and room under them; billowing smoke; a footbridge and stair from the city station down to a new garden,
+  walkers who board and get off there; one Settings switch; graphics settings grouped. [railway §0y, §0z, §1a]
+- **Tests:** `pnpm test`: 58 files, 500 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
-  - traffic self-test `226587db…` (traffic v6 and the train v2)
-  - map v8 `bc8162fa…` (243 542 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 8, `TRAFFIC_VERSION` 6, `TRAIN_VERSION` 2, `GRADE_VERSION` 1.
+  - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
+  - map v9 `69f4a50d…` (245 218 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 9, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -51,7 +52,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    softness and fade OK? Should the spotter camera get it too? [camera §0x]
 9. **Railway and train:** spawn at "City station", "Fields station" or "Railway tunnel"; fly under a coach, through
    its windows and down its aisle, under the viaduct. Pull-away and stops feel real? Smoke OK? The train passes a spot
-   every 7.8 min: too rare (a second train, shorter stops)? [railway §0z]
+   every 3.9 min now (two trains). Watch people board at the city station; enough of them (35 % at the garden)? [railway §1a]
 
 ## Left open (not started)
 
@@ -62,7 +63,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   collections. [collectibles]
 - Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
   cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
-- Railway: the hill reads flat from above; no stairs to the city platforms; the yard's wagons never move; a puff can
+- Railway: the hill reads flat from above; people on the platform don't queue (they can overlap at a door); no stair on the north platform; the yard's wagons never move; a puff can
   pass through the hill at a portal; the train ignores the quad; look-around doesn't run the sim (the train stands). [railway]
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
   trigger it. [camera §0x]
@@ -109,7 +110,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
 | `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
-| `railway.md` | §0y: the first railway (map v7) and the steam train; §0z: round the whole map, the city viaduct and station, open coaches (map v8) |
+| `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 
 Owner decisions: `docs/decisions.md`.

@@ -541,12 +541,44 @@ function goodsYard(b: LevelBuilder): void {
 }
 
 /**
- * The city station, up on the viaduct over the street: a platform each side of the track (their edges 1.5 m from it, the
- * tops 0.45 m over the rails, as at the fields station), a canopy over each on a row of columns along its outer edge.
+ * The city platforms' tops: level with the coaches' floors less 5 cm (train.ts: the floor 1.5 m over a vehicle's base,
+ * the base 0.3 m under the bed), so people step straight in through the doors.
+ */
+const CITY_PLATFORM_TOP = CITY_BED - BALLAST_TOP + 1.45;
+/**
+ * The way down from the city station to the garden in the empty lot south of it (owner, 2026-10-19: "a walkway down to
+ * that empty lot"): a footbridge from the south platform's back over the edge of the street and the sidewalk, then a
+ * straight open stair of two flights (27 risers each, 17.2 cm rise, 30 cm going [usual public-stair sizes, estimates])
+ * with a landing between, 2.4 m wide, down to the garden's path. Its centre line is at x 36.2.
+ */
+const WALK_X = 36.2, WALK_HW = 1.2;
+const BRIDGE_Z1 = -235;
+const RISERS = 27;
+const GOING = 0.3;
+const LANDING = 2;
+/** where people wait on the south platform for a train (along this line), and the coaches' door sills are reached */
+const WAIT_Z = CITY_Z + 3.4;
+/** the garden's cross path (the people's paths meet there) */
+const PLAZA_Z = -205;
+
+/** The stair's numbers: rise per step, the landing's height and where the flights start and end along z. */
+function stairLayout(): { rise: number; land: number; z1: number; z2: number; foot: number } {
+    const drop = CITY_PLATFORM_TOP - 0.15;
+    const rise = drop / (2 * RISERS);
+    const z1 = BRIDGE_Z1 + (RISERS - 1) * GOING; // the end of the first flight (the landing's start)
+    const z2 = z1 + LANDING;
+    const foot = z2 + (RISERS - 1) * GOING;
+    return { rise, land: CITY_PLATFORM_TOP - RISERS * rise, z1, z2, foot };
+}
+
+/**
+ * The city station, up on the viaduct over the street: a platform each side of the track (their edges 1.5 m from it),
+ * level with the coaches' floors, a canopy over each on a row of columns along its outer edge, a waiting shelter, and
+ * from the south platform the footbridge and stair down to the garden.
  */
 function cityStation(b: LevelBuilder): void {
     const { x0, x1 } = CITY_STATION;
-    const z = CITY_Z, top = CITY_BED + RAIL_OVER_BED + 0.45, bot = CITY_BED - DECK;
+    const z = CITY_Z, top = CITY_PLATFORM_TOP, bot = CITY_BED - DECK;
     for (const side of [-1, 1]) {
         const za = z + side * 1.5, zb = z + side * 5;
         b.box('concrete', x0, bot, Math.min(za, zb), x1, top, Math.max(za, zb));
@@ -559,6 +591,38 @@ function cityStation(b: LevelBuilder): void {
         // a waiting shelter at the platform's back
         b.box('brick', 40, top, Math.min(z + side * 4.0, z + side * 5), 52, top + 2.6, Math.max(z + side * 4.0, z + side * 5));
     }
+    // the footbridge: from the south platform's back (z -245) over the kerb and the sidewalk to the stair's head
+    const xa = WALK_X - WALK_HW, xb = WALK_X + WALK_HW;
+    b.box('concrete', xa, top - 0.25, z + 5, xb, top, BRIDGE_Z1);
+    for (const x of [xa, xb - 0.05]) b.box('metal', x, top, z + 5, x + 0.05, top + 1.1, BRIDGE_Z1);
+    // the stair: open treads (a quad flies under it), a stringer and a handrail each side, the landing on four columns
+    const st = stairLayout();
+    for (let i = 1; i < RISERS; i++) {
+        const y1 = top - i * st.rise, y2 = st.land - i * st.rise;
+        b.box('concrete', xa, y1 - 0.06, BRIDGE_Z1 + (i - 1) * GOING, xb, y1, BRIDGE_Z1 + i * GOING);
+        b.box('concrete', xa, y2 - 0.06, st.z2 + (i - 1) * GOING, xb, y2, st.z2 + i * GOING);
+    }
+    b.box('concrete', xa, st.land - 0.2, st.z1, xb, st.land, st.z2);
+    for (const x of [xa + 0.15, xb - 0.15]) for (const zz of [st.z1 + 0.15, st.z2 - 0.15]) b.block('metal', x, zz, 0.2, 0.2, 0.15, st.land - 0.35);
+    for (const x of [xa - 0.04, xb + 0.04]) {
+        b.bar('metal', [x, top - 0.1, BRIDGE_Z1], [x, st.land - 0.1, st.z1], 0.08);
+        b.bar('metal', [x, st.land - 0.1, st.z2], [x, 0.15, st.foot], 0.08);
+        b.bar('metal', [x, top + 1.0, BRIDGE_Z1], [x, st.land + 1.0, st.z1], 0.05);
+        b.bar('metal', [x, st.land + 1.0, st.z2], [x, 1.15, st.foot], 0.05);
+    }
+}
+
+/** The way people walk from the garden's cross path up to the waiting line on the south platform: [x, y, z] points. */
+function walkUp(): [number, number, number][] {
+    const st = stairLayout();
+    const top = CITY_PLATFORM_TOP;
+    // each flight: up its treads' nosings, then the last riser up onto the landing (or the bridge) one going on
+    const n = RISERS - 1;
+    return [
+        [WALK_X, 0.15, PLAZA_Z], [WALK_X, 0.15, st.foot + GOING], [WALK_X, st.land - n * st.rise, st.foot], [WALK_X, st.land, st.z2],
+        [WALK_X, st.land, st.z1 + GOING], [WALK_X, top - n * st.rise, st.z1], [WALK_X, top, BRIDGE_Z1],
+        [WALK_X, top, CITY_Z + 5.2], [WALK_X, top, WAIT_Z]
+    ];
 }
 
 /** Lay the railway: the line (ballast, viaduct, rails, sleepers, piers), the hill and tunnel, both stations, the goods yard. */
@@ -569,5 +633,8 @@ export function railway(b: LevelBuilder): void {
     fieldsStation(b);
     goodsYard(b);
     cityStation(b);
+    const lot = b.blocks.findIndex((k) => k.x0 === 9 && k.z0 === -241);
+    if (lot < 0) throw new Error('the lot by the city station is not a city block');
+    rw.walkway = { block: lot, plazaZ: PLAZA_Z, up: walkUp(), platformY: CITY_PLATFORM_TOP, waitZ: WAIT_Z, doorZ: CITY_Z + 1.0, waitX0: 22, waitX1: 82 };
     b.railway = rw;
 }

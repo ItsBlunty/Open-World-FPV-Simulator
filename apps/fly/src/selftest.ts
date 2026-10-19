@@ -8,7 +8,7 @@ import { FlightSession } from './session';
 import { Sha256 } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import type { Level } from '@owfpv/maps';
-import { Train, makeTraffic, newTrainPlace } from '@owfpv/traffic';
+import { makeTraffic, makeTrains, newTrainPlace } from '@owfpv/traffic';
 import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
@@ -86,12 +86,12 @@ export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOv
 }
 
 /** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
-export const TRAFFIC_HASH = '226587dba05f677c85a6fc2f8fdff902a45b48a56bafb7896b2221cdb32d60b4';
+export const TRAFFIC_HASH = '68fe64ac92f11a3778c192bc6353bab107ca7492982b3db825be8b3c9efaca1c';
 
 /**
  * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops
- * and for the signalled network (cars, people and lamps), and the network again after going back to 75 s (its
- * checkpoint restart), then the train's five vehicles (place and frame) at the same ticks, up its climb, and into the city station (from 200 s). The
+ * and for the signalled network (and it again with the trains running, people taking them) (cars, people and lamps), and the network again after going back to 75 s (its
+ * checkpoint restart), then both trains' five vehicles (place and frame) at the same ticks, up its climb, and into the city station (from 200 s). The
  * flight above has no traffic; this checks the traffic engines' arithmetic.
  */
 export function runTrafficSelftest(level: Level): string {
@@ -101,9 +101,11 @@ export function runTrafficSelftest(level: Level): string {
     const bytes = new Uint8Array(buf.buffer);
     const lamp = new Uint8Array(1);
     const LAMPS = { red: 0, yellow: 1, green: 2, walk: 3, flash: 4, stop: 5 } as const;
-    for (const signals of [false, true]) {
-        const t = makeTraffic(level, { cars: true, people: true, signals })!;
-        for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), 75007, 75507]) {
+    // the loops, the network, and the network with the trains (people going by train: through the first city stop)
+    for (const [signals, train] of [[false, false], [true, false], [true, true]]) {
+        const t = makeTraffic(level, { cars: true, people: true, signals, train })!;
+        const extra = train ? Array.from({ length: 100 }, (_, k) => 215000 + k * 457) : [];
+        for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), 75007, 75507, ...extra]) {
             t.at(tick);
             for (let i = 0; i < t.movers.length; i++) {
                 t.place(i, tick, p);
@@ -116,11 +118,10 @@ export function runTrafficSelftest(level: Level): string {
             }
         }
     }
-    const train = new Train(level);
     const tp = newTrainPlace();
     const tb = new Float64Array(4);
     const tbytes = new Uint8Array(tb.buffer);
-    for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), ...Array.from({ length: 100 }, (_, k) => 200000 + k * 97)]) {
+    for (const train of makeTrains(level, true)) for (const tick of [...Array.from({ length: 240 }, (_, k) => k * 500 + 7), ...Array.from({ length: 100 }, (_, k) => 200000 + k * 97)]) {
         for (let i = 0; i < train.vehicles.length; i++) {
             train.place(i, tick, tp);
             buf[0] = tp.x; buf[1] = tp.y; buf[2] = tp.z; buf[3] = tp.hx; buf[4] = tp.hz;

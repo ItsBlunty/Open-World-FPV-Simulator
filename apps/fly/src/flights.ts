@@ -11,7 +11,7 @@ import type { ContactWorld, Life, LifeHeader, LifeSnapshot, PresetJson, ReplayDe
 import { levelSha256 } from '@owfpv/maps';
 import type { Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { makeTraffic, makeTrain, worldSha256 } from '@owfpv/traffic';
+import { makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { FlightSession } from './session';
 import { worldWith } from './session';
@@ -120,7 +120,7 @@ export function trafficConfigFor(h: LifeHeader, levelSha: string): TrafficConfig
 /** The collision for a life's header: the map's mesh, with its traffic rebuilt from the toggles its hash names. */
 function worldFor(h: LifeHeader, level: Level, levelSha: string, mesh: MeshContactWorld): ContactWorld {
     const c = trafficConfigFor(h, levelSha);
-    return worldWith(mesh, makeTraffic(level, c), makeTrain(level, c.train));
+    return worldWith(mesh, makeTraffic(level, c), makeTrains(level, c.train));
 }
 
 /** What sim-core needs to replay one saved life on this build's map (throws when the life cannot be replayed here). */

@@ -6,7 +6,7 @@
 // their very collision boxes). Drawing never feeds back into the sim.
 //
 // Cheap on purpose: each vehicle is one merged mesh coloured per vertex, the wheels, rods and smoke are instanced, so
-// the whole train is ten draws. The smoke's puffs are a function of the tick too (each leaves the chimney at a fixed
+// each train is nine draws. The smoke's puffs are a function of the tick too (each leaves the chimney at a fixed
 // time slot), so a replay's smoke is the same smoke.
 
 import * as THREE from 'three/webgpu';
@@ -24,6 +24,9 @@ const STEEL = 0x9aa0a6;
 const COAL = 0x141414;
 /** British Railways maroon, a grey roof, a black underframe, a wooden floor, blue seats */
 const MAROON = 0x6e1f29;
+/** the second train (owner, 2026-10-19): Brunswick green engine and tender, green coaches, as BR painted both */
+const GREEN_LOCO = 0x1e4a2c;
+const GREEN_COACH = 0x2b5a35;
 const ROOF = 0x5d6165;
 const UNDER = 0x23252a;
 const FLOORING = 0x5a4634;
@@ -93,7 +96,7 @@ function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
 }
 
 /** The engine's body (wheels and rods apart), 9.8 m over the buffers, chimney forward. */
-function locoGeometry(seg: (f: number, l: number) => number): THREE.BufferGeometry {
+function locoGeometry(seg: (f: number, l: number) => number, BLACK: number): THREE.BufferGeometry {
     const s = seg(20, 10);
     const by = 2.65;
     return merge([
@@ -116,7 +119,7 @@ function locoGeometry(seg: (f: number, l: number) => number): THREE.BufferGeomet
     ]);
 }
 
-function tenderGeometry(): THREE.BufferGeometry {
+function tenderGeometry(BLACK: number): THREE.BufferGeometry {
     return merge([
         box(UNDER, 6.0, 0.55, 2.0, 0, 0.95, 0),
         box(BLACK, 6.0, 1.85, 2.6, 0, 2.15, 0),
@@ -134,14 +137,14 @@ function boxOf(b: TrainBox, c: number): THREE.BufferGeometry {
  * A coach drawn from its collision boxes (train.ts), so its walls, windows, seats and people are where the quad meets
  * them; the people drawn as beans with eyes looking along the coach (as the traffic's people), the roof with a crown.
  */
-function coachGeometry(v: Vehicle, seg: (f: number, l: number) => number): THREE.BufferGeometry {
-    const COL: Record<string, number> = { floor: FLOORING, wall: MAROON, roof: ROOF, bogie: UNDER, seat: SEATS };
+function coachGeometry(v: Vehicle, seg: (f: number, l: number) => number, body: number): THREE.BufferGeometry {
+    const COL: Record<string, number> = { floor: FLOORING, wall: body, roof: ROOF, bogie: UNDER, seat: SEATS };
     const parts: THREE.BufferGeometry[] = [];
     let top = 0, len = 0;
     for (const b of v.boxes) {
         top = Math.max(top, b.y1);
         len = Math.max(len, b.f1);
-        if (b.part !== 'rider') { parts.push(boxOf(b, COL[b.part] ?? MAROON)); continue; }
+        if (b.part !== 'rider') { parts.push(boxOf(b, COL[b.part] ?? body)); continue; }
         // a bean: a capsule from the seat up to the box's top, eyes on the side it faces
         const r = Math.min(b.f1 - b.f0, b.s1 - b.s0) / 2;
         const h = b.y1 - b.y0;
@@ -194,8 +197,9 @@ export class TrainView {
     private readonly blobs: number;
     private readonly slots: number;
 
-    constructor(private readonly kit: Kit = FULL_KIT) {
-        this.group.name = 'train';
+    /** `livery`: 0 black and maroon, 1 green (the second train) */
+    constructor(private readonly kit: Kit = FULL_KIT, private readonly livery = 0) {
+        this.group.name = `train${livery}`;
         // super low spec: shorter-lived smoke of fewer blobs (fewer to draw)
         this.life = kit.graphics === 'super' ? 5 : LIFE_S;
         this.blobs = kit.graphics === 'super' ? 2 : BLOBS;
@@ -223,7 +227,8 @@ export class TrainView {
         // one material for the whole train; the engine and tender have their own shapes, each coach is built from its boxes
         const mat = this.kit.lit({ vertexColors: true, roughness: 0.55, metalness: 0.15 });
         for (const v of train.vehicles) {
-            const geo = v.kind === 'loco' ? locoGeometry(seg) : v.kind === 'tender' ? tenderGeometry() : coachGeometry(v, seg);
+            const loco = this.livery ? GREEN_LOCO : BLACK;
+            const geo = v.kind === 'loco' ? locoGeometry(seg, loco) : v.kind === 'tender' ? tenderGeometry(loco) : coachGeometry(v, seg, this.livery ? GREEN_COACH : MAROON);
             const mesh = new THREE.Mesh(geo, mat);
             mesh.matrixAutoUpdate = false;
             mesh.castShadow = shadow;

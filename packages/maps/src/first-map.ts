@@ -15,9 +15,10 @@ import { nearTrack, railway, underHill } from './railway';
 export const MAP_ID = 'mixed-1';
 /**
  * 7: the railway loop, its hill and tunnel, the station and goods yard, and four golden props there (owner, 2026-10-19);
- * 8: the railway round the whole map, over the city on a viaduct with a station there, the hill moved (owner, 2026-10-19)
+ * 8: the railway round the whole map, over the city on a viaduct with a station there, the hill moved (owner, 2026-10-19);
+ * 9: the city station's footbridge and stair down to a garden in the lot beside it, its platforms raised (owner, 2026-10-19)
  */
-export const MAP_VERSION = 8;
+export const MAP_VERSION = 9;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -494,6 +495,38 @@ function buildingName(r: Rng, used: Set<string>, floors: number): string {
     return name;
 }
 
+/**
+ * The garden in the lot by the city station (map v9; owner, 2026-10-19: "add some nice trees and a path to the normal
+ * sidewalks"): four lawns raised 15 cm behind a kerb, with trees, and paved paths between them: one across the block
+ * from the west sidewalk to the east one, one from the station's stair (railway.ts, its foot at x 36.2) south to the
+ * south sidewalk, and benches along the cross path. The lawns keep 1.3 m clear of the kerbs, where people walk.
+ */
+function stationGarden(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number): void {
+    const px = 36.2, pz = -205, hw = 1.5;
+    const xs = [[x0 + 2.6, px - hw - 0.5], [px + hw + 0.5, x1 - 2.6]];
+    const zs = [[z0 + 2.6, pz - hw - 0.2], [pz + hw + 0.2, z1 - 2.6]];
+    for (const [xa, xb] of xs) for (const [za, zb] of zs) {
+        b.box('concrete', xa - 0.15, 0.15, za - 0.15, xb + 0.15, 0.3, zb + 0.15, FACE.bottom); // the kerb round the lawn
+        b.box('grass', xa, 0.3, za, xb, 0.32, zb, FACE.bottom);
+        // three trees on each lawn, kept off its edges
+        for (let k = 0; k < 3; k++) {
+            const tx = xa + 3 + r.int(0, Math.floor(xb - xa - 6));
+            const tz = za + 3 + r.int(0, Math.floor(zb - za - 6));
+            tree(b, r, tx, tz, 0.9);
+        }
+    }
+    // the paths, painted on the paving
+    b.decal('path', x0, pz - hw, x1, pz + hw, 0.15);
+    b.decal('path', px - hw, pz + hw, px + hw, z1, 0.15);
+    b.decal('path', px - hw, -217.4, px + hw, pz - hw, 0.15);
+    // benches along the cross path, facing it
+    for (const bx of [16, 26, 46, 56]) for (const side of [-1, 1]) {
+        const bz = pz + side * (hw + 0.35);
+        b.box('wood', bx - 1, 0.6, bz - 0.25, bx + 1, 0.7, bz + 0.25);
+        for (const dx of [-0.9, 0.9]) b.box('metal', bx + dx - 0.05, 0.15, bz - 0.2, bx + dx + 0.05, 0.6, bz + 0.2);
+    }
+}
+
 /** A steel frame under construction: columns and beams, no walls, a crane. */
 function construction(b: LevelBuilder, x0: number, z0: number): void {
     const levels = 6;
@@ -708,21 +741,26 @@ function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
             if (a === 5 && c === 1) { construction(b, x0, z0); continue; }
             if (a === 7 && c === 0) { carPark(b, x0, z0); continue; }
             const u = r.int(0, 99);
+            // (map v9) the lot by the city station becomes its garden; its old random draws still happen, drawn nowhere
+            const lot = a === 6 && c === 1;
+            if (lot) stationGarden(b, new Rng(9), x0, z0, x1, z1);
+            const g = lot ? new LevelBuilder() : b;
             if (u < 10) {
                 // plaza: planters with trees
                 for (let k = 0; k < 6; k++) {
                     const tx = x0 + 8 + r.int(0, BLOCK - 16);
                     const tz = z0 + 8 + r.int(0, BLOCK - 16);
-                    b.block('concrete', tx, tz, 3, 3, 0.15, 0.6);
-                    tree(b, r, tx, tz, 0.8);
+                    g.block('concrete', tx, tz, 3, 3, 0.15, 0.6);
+                    tree(g, r, tx, tz, 0.8);
                 }
                 continue;
             }
             if (u < 18) {
                 // surface parking: low walls only
-                b.box('concrete', x0 + 2, 0.15, z0 + 2, x1 - 2, 1.0, z0 + 2.3);
+                g.box('concrete', x0 + 2, 0.15, z0 + 2, x1 - 2, 1.0, z0 + 2.3);
                 continue;
             }
+            if (lot) throw new Error('the lot by the city station would have a building on it');
             const set = 2 + r.int(0, 3);
             const split = r.int(0, 2);
             if (split === 0) building(b, r, names, used, clutter, blk, x0 + set, z0 + set, x1 - set, z1 - set, maxFloors);

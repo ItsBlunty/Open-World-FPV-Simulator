@@ -111,7 +111,8 @@ export class TrafficWorld implements ContactWorld {
         const pl = this.p0[i];
         const out = this.near;
         if (m.kind === 'person') {
-            if (part > 0) return false;
+            // out of sight in a building or on a train: not there to hit
+            if (part > 0 || this.model.hidden?.(i)) return false;
             const ax = x - pl.x, az = z - pl.z;
             let cy = y - pl.y;
             cy = cy < PERSON.y0 ? PERSON.y0 : cy > PERSON.y1 ? PERSON.y1 : cy;

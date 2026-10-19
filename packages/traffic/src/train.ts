@@ -23,7 +23,7 @@ import { pathThrough, placeAt } from './route';
 import type { Place, Route } from './route';
 
 /** Bumped with any change that moves the train or changes its shape: part of the world hash (replays). */
-export const TRAIN_VERSION = 2;
+export const TRAIN_VERSION = 3;
 
 /** What a box is, for the renderer's colours (the collision treats them all alike). */
 export type TrainPart = 'loco' | 'tender' | 'floor' | 'wall' | 'roof' | 'bogie' | 'seat' | 'rider';
@@ -93,11 +93,14 @@ const TENDER: TrainBox[] = [sym(-3.0, 3.0, 1.35, FLOOR, 3.2, 'tender')];
  * A coach like a British Railways Mark 1 (19.66 m over the buffers, 2.82 m wide [estimates]), hollow: its body stands
  * 1.35 m up on two bogies 14 m apart, so a quad fits under it between them (0.9 m between the rails' top and the
  * floor; owner, 2026-10-19). Seven open windows a side, 1.6 m wide and 1.2 m high; a doorway at each end onto the next
- * coach; bays of facing seats either side of a 0.6 m aisle; people in about four seats in ten.
+ * coach; a side door at each end of each side (0.66 m wide, up to the end wall, as a Mark 1's vestibule doors), where people board at the
+ * city station; bays of facing seats either side of a 0.6 m aisle; people in about four seats in ten.
  */
 export const COACH = {
     halfL: 9.6, halfW: 1.41, wall: 0.06, bottom: 1.35, floor: 1.5, top: 4.0, roof: 0.15,
-    windows: 7, windowPitch: 2.6, windowHalfW: 0.8, sill: 2.25, head: 3.45, door: 0.45, doorTop: 3.5
+    windows: 7, windowPitch: 2.6, windowHalfW: 0.8, sill: 2.25, head: 3.45, door: 0.45, doorTop: 3.5,
+    /** the side doors: from sideDoor0 to sideDoor1 m from the middle, towards each end, floor to `head` */
+    sideDoor0: 8.88, sideDoor1: 9.54
 } as const;
 /** of 100 seats, how many have someone in them */
 const RIDERS_PER_100 = 40;
@@ -116,15 +119,21 @@ function coachBoxes(index: number): TrainBox[] {
     const fk = (k: number): number => (k - (C.windows - 1) / 2) * C.windowPitch;
     for (const side of [-1, 1]) {
         const s0 = side * (W - w), s1 = side * W;
-        box(-L, L, s0, s1, C.floor, C.sill, 'wall');
+        const d0 = C.sideDoor0, d1 = C.sideDoor1;
+        // below the windows, between the side doors (and the short ends beyond them); over the windows and doors
+        box(-L, -d1, s0, s1, C.floor, C.sill, 'wall');
+        box(-d0, d0, s0, s1, C.floor, C.sill, 'wall');
+        box(d1, L, s0, s1, C.floor, C.sill, 'wall');
         box(-L, L, s0, s1, C.head, C.top - C.roof, 'wall');
-        // piers between the windows (and the ends beyond the first and last)
-        let a = -L;
+        // piers between the windows (and between the end windows and the doors, and beyond the doors)
+        box(-L, -d1, s0, s1, C.sill, C.head, 'wall');
+        let a = -d0;
         for (let k = 0; k < C.windows; k++) {
             box(a, fk(k) - C.windowHalfW, s0, s1, C.sill, C.head, 'wall');
             a = fk(k) + C.windowHalfW;
         }
-        box(a, L, s0, s1, C.sill, C.head, 'wall');
+        box(a, d0, s0, s1, C.sill, C.head, 'wall');
+        box(d1, L, s0, s1, C.sill, C.head, 'wall');
         // the end walls, a doorway in the middle
         const e0 = side * (L - w), e1 = side * L;
         box(e0, e1, -(W - w), -C.door, C.floor, C.top - C.roof, 'wall');
@@ -242,11 +251,17 @@ export class Train {
     readonly cycleTicks: number;
     readonly tunnel: Railway['tunnel'];
     private readonly legs: Leg[];
+    /** this train's place in the timetable: it is where the first train was this many ticks earlier (a second train runs half a lap behind) */
+    readonly lag: number;
+    /** which train it is (0, 1): the renderer's colours and who sits where */
+    readonly index: number;
     private readonly a: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
     private readonly b: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
     private readonly st: TrainState = { run: 0, s: 0, v: 0, effort: 0, brake: 0 };
 
-    constructor(level: Level) {
+    /** The train `index` on the level's railway: train 1 runs half a lap (in time) behind train 0. */
+    constructor(level: Level, index = 0) {
+        this.index = index;
         const rw = level.railway;
         if (!rw) throw new Error(`${level.id} has no railway`);
         this.railway = rw;
@@ -260,7 +275,7 @@ export class Train {
         };
         add('loco', 9.8, 3.5, LOCO);
         add('tender', 6.4, 2.2, TENDER);
-        for (let k = 0; k < 3; k++) add('coach', 19.66, 7.0, coachBoxes(k));
+        for (let k = 0; k < 3; k++) add('coach', 19.66, 7.0, coachBoxes(index * 3 + k));
         this.vehicles = v;
         this.length = o;
         const L = this.route.length;
@@ -282,6 +297,25 @@ export class Train {
             cycle += ticks;
         }
         this.cycleTicks = cycle;
+        this.lag = index * Math.round(cycle / 2);
+    }
+
+    /**
+     * When this train stands at stop `stop` (an index into stops) around `tick`: the ticks its stand there starts and ends,
+     * or null when it is not standing there at `tick`.
+     */
+    standing(tick: number, stop: number): { from: number; to: number } | null {
+        const c = this.cycleTicks;
+        const t = tick - this.lag;
+        const r = t - Math.floor(t / c) * c;
+        let start = 0;
+        for (let i = 0; i < this.legs.length; i++) {
+            const g = this.legs[i];
+            const a = start + g.runTicks, b = start + g.ticks;
+            if ((i + 1) % this.legs.length === stop && r >= a && r < b) return { from: tick - (r - a), to: tick + (b - r) };
+            start += g.ticks;
+        }
+        return null;
     }
 
     /** The bed's height under route distance s (any value). */
@@ -368,8 +402,9 @@ export class Train {
     /** The state at `tick` (fractions too: the renderer's), into out. */
     state(tick: number, out: TrainState): TrainState {
         const c = this.cycleTicks;
-        const laps = Math.floor(tick / c);
-        let t = tick - laps * c;
+        const tt = tick - this.lag;
+        const laps = Math.floor(tt / c);
+        let t = tt - laps * c;
         const L = this.route.length;
         let leg = this.legs[this.legs.length - 1];
         for (const g of this.legs) {
@@ -432,9 +467,15 @@ export function newTrainPlace(): TrainPlace {
     return { x: 0, y: 0, z: 0, hx: 1, hz: 0, fx: 1, fy: 0, fz: 0, ux: 0, uy: 1, uz: 0 };
 }
 
-/** The train for a level, if it has a railway and the config wants one. */
-export function makeTrain(level: Level, on: boolean | undefined): Train | null {
-    return on && level.railway ? new Train(level) : null;
+/** How many trains run on the loop (owner, 2026-10-19: "add a second train on the same loop") */
+export const TRAINS = 2;
+
+/** The trains for a level, if it has a railway and the config wants them (none otherwise). */
+export function makeTrains(level: Level, on: boolean | undefined): Train[] {
+    if (!on || !level.railway) return [];
+    const out: Train[] = [];
+    for (let k = 0; k < TRAINS; k++) out.push(new Train(level, k));
+    return out;
 }
 
 /** Rail top above a vehicle's base, m, for the renderer's wheels. */

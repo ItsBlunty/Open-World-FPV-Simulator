@@ -668,7 +668,7 @@ function settingsSection(): Child[] {
             ['Rates', `${settings.rates ? 'your own' : 'the preset\'s'}. Type in your Betaflight rates.`],
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
-            ['Train', settings.train ? 'on: a steam train round the railway, through the tunnel and the station.' : 'off.'],
+            ['Trains', settings.train ? 'on: two steam trains round the whole map, over the city, through the tunnel.' : 'off.'],
             ['Graphics', lowSpecOn
                 ? `${graphicsName(graphicsNow)} mode (simple lighting, no shadows, flat camera), resolution ${graphicsNow === 'extra' ? 50 : graphicsNow === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
                 : `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
