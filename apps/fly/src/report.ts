@@ -85,7 +85,7 @@ export function detailsBlock(page: PageReport | null, engine: EngineReport | nul
     }
     if (page) {
         rows.push(
-            ['Saved flight', page.savedFlight !== null ? `${page.savedFlight} (Esc > Flights > Download, then attach the file here)` : 'none this visit'],
+            ['Saved flight', page.savedFlight !== null ? `${page.savedFlight} (Esc > Flight replay > Download, then attach the file here)` : 'none this visit'],
             ['Uptime', `${Math.round(page.uptimeS)} s`]
         );
     }
