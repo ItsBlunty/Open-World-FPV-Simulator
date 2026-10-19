@@ -64,3 +64,9 @@ Tests: 54 files, 475 pass; typecheck clean; pinned hashes unchanged (rendering o
 cheap lens for low spec (a single wide render warped in one pass could give a mild fisheye). Signal poles and lamps
 (about 77 k triangles) are still drawn city-wide. WebGL 1-only machines (pre-2012 GPUs or blocklisted drivers) can't
 run it: Three.js r163+ needs WebGL 2.
+
+**GPU acceleration off (owner question, 2026-10-19):** works. Chrome 155 on Windows with `--disable-gpu` (the same as
+"Use graphics acceleration when available" off) still gives WebGL 2, drawn by WARP ("Microsoft Basic Render Driver",
+Windows' own software D3D11), not SwiftShader, so Chrome's removal of the SwiftShader fallback doesn't block it. Headless
+probe on this machine, park spawn, menu open: low spec 60 fps (vsync cap), full graphics 8 fps. A slow laptop CPU will
+draw slower than this one. Not checked: Edge, Windows without WARP, real old hardware.

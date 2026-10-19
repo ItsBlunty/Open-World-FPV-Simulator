@@ -19,7 +19,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   - map v6 `27a17110…` (228 994 triangles, `packages/maps/test/first-map.test.ts`)
 - **Versions:** `SIM_CORE_VERSION` sim-core/0.6.0, `MAP_VERSION` 6, `TRAFFIC_VERSION` 6, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
-  The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only.
+  The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
   the replay viewer (radio controls not tried yet).
 
