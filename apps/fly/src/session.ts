@@ -74,6 +74,8 @@ export class FlightSession {
     readonly collector: Collector;
     /** the time trials: checked after every sim step, like the props */
     readonly trials: TrialRunner;
+    /** per prop, the hardest blade strike since takeStrikes (brake share x rotor speed share): read by the sound only */
+    private readonly strikes = new Float64Array(4);
     private overrides: ParamOverrides;
     private trafficCfg: TrafficConfig;
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
@@ -102,11 +104,27 @@ export class FlightSession {
         this.runner.director = this.director;
         this.collector = new Collector(o.level.collectibles);
         this.trials = new TrialRunner(o.level.trials, (pose) => this.onPad(pose), p.bodyBottom);
-        const c = this.collector, t = this.trials;
+        const c = this.collector, t = this.trials, k = this.strikes;
         this.runner.onStep = (s) => {
             c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
             t.step(s.s, s.tick);
+            // the hardest blade strike on each prop since the sound last asked (audio/frame.ts): brake x rotor speed
+            for (let i = 0; i < 4; i++) {
+                const b = s.bladeBrake(i);
+                if (b === 0) continue;
+                const m = s.s[S.m0 + i], v = b * (m < 0 ? -m : m);
+                if (v > k[i]) k[i] = v;
+            }
         };
+    }
+
+    /** The hardest blade strike on each prop since the last call (0 none, up to 1: full brake at full speed), into out. */
+    takeStrikes(out: Float32Array, at = 0): void {
+        const k = this.strikes;
+        for (let i = 0; i < 4; i++) {
+            out[at + i] = k[i];
+            k[i] = 0;
+        }
     }
 
     get sim(): Sim {

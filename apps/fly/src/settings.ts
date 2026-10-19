@@ -62,6 +62,13 @@ export interface Settings {
      * is the same in all of them. Applies on reload (docs/notes/low-spec.md). Was `lowSpec: boolean` before 2026-10-19.
      */
     graphics: GraphicsLevel;
+    /** sound on or off (audio/audio.ts; the M key too) */
+    sound: boolean;
+    /** volumes, 0-100: everything, the quad (motors, hits), the world (trains, the city, the park), the game's beeps and chimes */
+    volume: number;
+    quadVolume: number;
+    worldVolume: number;
+    effectsVolume: number;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -83,7 +90,12 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     shadows: true,
     shadowReach: 'near',
     renderScale: 1,
-    graphics: 'full'
+    graphics: 'full',
+    sound: true,
+    volume: 80,
+    quadVolume: 100,
+    worldVolume: 80,
+    effectsVolume: 80
 };
 
 const KEY = 'owfpv.settings';
@@ -127,6 +139,11 @@ export function loadSettings(): Settings {
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (isShadowReach(s.shadowReach)) out.shadowReach = s.shadowReach;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
+    if (typeof s.sound === 'boolean') out.sound = s.sound;
+    for (const k of ['volume', 'quadVolume', 'worldVolume', 'effectsVolume'] as const) {
+        const v = s[k];
+        if (typeof v === 'number' && v >= 0 && v <= 100) out[k] = Math.round(v);
+    }
     if (isGraphicsLevel(s.graphics)) out.graphics = s.graphics;
     // the old low spec switch (2026-10-18): on means low spec
     else if ((s as { lowSpec?: unknown }).lowSpec === true) out.graphics = 'low';

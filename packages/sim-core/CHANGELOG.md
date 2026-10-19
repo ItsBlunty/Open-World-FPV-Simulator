@@ -2,6 +2,11 @@
 
 Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a change alters flight traces.
 
+## Unreleased (no trace change)
+
+- `Sim.bladeBrake(i)`: reads how hard a surface brakes each prop this tick (the game's prop-strike sound). Traces and
+  hashes are unchanged, so `SIM_CORE_VERSION` stays 0.7.0.
+
 ## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
 
 Changes traces of any flight that touches something (new self-test hashes `1eb33767…`, classic physics `c1c4280b…`).

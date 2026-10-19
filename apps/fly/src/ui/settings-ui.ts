@@ -35,6 +35,8 @@ export interface SettingsHost {
     onTraffic(): void;
     /** resolution scale changed: apply at once */
     onGraphics(): void;
+    /** sound on or off, or a volume changed: apply at once */
+    onSound(): void;
     /** the shadow setting differs from what this page started with (it applies on reload) */
     shadowsPending(): boolean;
     /** the graphics level this page runs in (graphics.ts) */
@@ -47,12 +49,13 @@ export interface SettingsHost {
     pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[];
 }
 
-export type SettingsTab = 'radio' | 'camera' | 'graphics' | 'world' | 'about';
+export type SettingsTab = 'radio' | 'camera' | 'graphics' | 'sound' | 'world' | 'about';
 
 const TABS: { id: SettingsTab; label: string }[] = [
     { id: 'radio', label: 'Radio and controls' },
     { id: 'camera', label: 'Camera' },
     { id: 'graphics', label: 'Graphics' },
+    { id: 'sound', label: 'Sound' },
     { id: 'world', label: 'World and physics' },
     { id: 'about', label: 'Help and about' }
 ];
@@ -248,6 +251,16 @@ export class SettingsUi {
                 // changing a detail makes it "Custom". The physics is the same at every setting.
                 h('h2', {}, 'Graphics'),
                 ...this.graphics(host, s),
+            ],
+            sound: [
+                h('h2', {}, 'Sound'),
+                this.check('Sound on (M turns it on and off while flying)', s.sound, (v) => { s.sound = v; host.save(); host.onSound(); this.build(); }),
+                this.slider('Volume', 0, 100, s.volume, '%', (v) => { s.volume = v; host.onSound(); host.save(); }),
+                this.slider('Quad', 0, 100, s.quadVolume, '%', (v) => { s.quadVolume = v; host.onSound(); host.save(); }),
+                this.slider('World', 0, 100, s.worldVolume, '%', (v) => { s.worldVolume = v; host.onSound(); host.save(); }),
+                this.slider('Game sounds', 0, 100, s.effectsVolume, '%', (v) => { s.effectsVolume = v; host.onSound(); host.save(); }),
+                h('p', { class: 'note' }, 'Quad: the motors and props from the physics (each rotor\'s speed), hits and prop strikes. World: the steam trains, the city and the park. Game sounds: the time trial beeps and the golden prop chime.'),
+                h('p', { class: 'note' }, 'On the FPV camera you hear the quad from on board, wind on the camera\'s microphone included; on the chase camera from behind it, as someone standing there would. Headphones place the sounds best.'),
             ],
             world: [
                 // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight

@@ -44,6 +44,9 @@ import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
 import { PRESET_NAMES, cheaperPreset, graphicsFromParam, isLowSpec, trafficAllowed } from './graphics';
+import { AudioEngine } from './audio/audio';
+import type { SoundLevels } from './audio/audio';
+import { bladesOf } from './audio/quad-sound';
 
 /** the last errors and warnings this page logged, for bug reports (report.ts); the console still gets them */
 const errorLog = new ErrorLog();
@@ -77,6 +80,24 @@ function trafficConfig(): TrafficConfig {
     if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false, train: settings.train };
     return { cars: settings.cars, people: settings.people, signals: settings.signals, train: settings.train };
 }
+
+function soundLevels(): SoundLevels {
+    return { on: settings.sound, master: settings.volume, quad: settings.quadVolume, world: settings.worldVolume, effects: settings.effectsVolume };
+}
+
+/**
+ * The sound (audio/audio.ts): the quad from its rotor speeds, the trains, the city and park, the game's beeps. It starts
+ * on the first click or key press (browsers only play sound after one). The Nazgul's props are 3-blade; a hover takes
+ * 1 / sqrt(thrust-to-weight) of the top rotor speed.
+ */
+const presetFields = (preset as unknown as { fields: Record<string, { value: unknown }> }).fields;
+const sound = new AudioEngine(soundLevels(), {
+    blades: bladesOf(String(presetFields.prop?.value ?? '')),
+    hoverShare: 1 / Math.sqrt(Number(presetFields.twr?.value ?? 4)),
+    axles: [],
+    base: new URL('sounds/', document.baseURI).href
+});
+for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sound.unlock(), { capture: true });
 
 function engineSettings(): EngineSettings {
     return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
@@ -196,6 +217,7 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         props = m.props;
         trials = m.trials;
         mapId = m.mapId;
+        sound.setAxles(m.axles);
         sendFlown();
         renderMenu();
     } else if (m.type === 'trial') {
@@ -209,11 +231,14 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         for (const n of m.n) {
             if (mine.includes(n)) continue;
             mine.push(n);
+            sound.collect();
             const p = props[n - 1];
             hud.toast(`GOLDEN PROP #${n}`, `${mine.length} / ${props.length} found${p ? ` · ${p.spot}` : ''}`);
         }
         saveCollection(collection);
         collectionUi.refresh();
+    } else if (m.type === 'audio') {
+        sound.frame(m.a);
     } else if (m.type === 'hud') {
         hudSnap = m.hud;
         drawHud();
@@ -397,6 +422,7 @@ function openSettings(): void {
         onFlight: () => send({ type: 'settings', what: 'flight', settings: engineSettings() }),
         onTraffic: () => send({ type: 'settings', what: 'traffic', settings: engineSettings() }),
         onGraphics: () => send({ type: 'settings', what: 'graphics', settings: engineSettings() }),
+        onSound: () => sound.setLevels(soundLevels()),
         shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows') && !lowSpecOn,
         graphicsNow,
         graphicsPending: () => settings.graphics !== graphicsNow && graphicsFromParam(params.get('lowspec')) === null,
@@ -444,6 +470,7 @@ function sendFlown(): void {
 function onTrial(e: TrialEvent): void {
     const t = trials[e.course];
     if (!t) return;
+    sound.trial(e.type);
     if (e.type === 'ask') {
         const c = timesOf(t);
         if (mouseCaptured()) document.exitPointerLock();
@@ -767,7 +794,7 @@ const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
 function controlsSection(): Child[] {
     const keys = keyList;
     const rows: [string, string][] = profile || demo
-        ? [['Esc', 'menu'], ['R', 'back to the start point'], ['C', 'FPV / chase camera']]
+        ? [['Esc', 'menu'], ['R', 'back to the start point'], ['C', 'FPV / chase camera'], ['M', 'sound on / off']]
         : [['Click', 'steer with the mouse'], ['W A S D', 'move'], ['Space or E', 'up'], ['Q', 'down'], ['Shift', 'faster'], ['R', 'back to the quad'], ['Esc', 'menu']];
     if (profile && !profile.arm) rows.push(['Space', 'arm / disarm (your radio has no arm switch set up)']);
     if (profile && !profile.turtle) rows.push(['T', 'turtle mode (your radio has no turtle switch set up)']);
@@ -778,7 +805,7 @@ function credits(): HTMLElement {
     return h('p', { class: 'note footer' },
         `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,
         h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'source code and issues'),
-        '. Flight model from ShramkoGSFPV by Andrii Shramko (MIT).');
+        '. Flight model from ShramkoGSFPV by Andrii Shramko (MIT). Sounds: recordings from Freesound (5deMayo, qubodup, CHallSmith, cauby43, Garuda1982, Oldome; CC0) and Kenney (CC0), listed in sounds/SOURCES.md.');
 }
 
 /** what the page adds to the Settings tabs (settings-ui.ts): everything the old main menu held that was not a screen */
@@ -913,6 +940,13 @@ addEventListener('keydown', (e) => {
     } else if (anyOverlay()) return;
     else if (e.code === 'KeyR' && lookAround()) send({ type: 'freecam', keys: [...held], dx: 0, dy: 0, enter: true });
     else if (e.code === 'KeyR') send({ type: 'reset' });
+    else if (e.code === 'KeyM') {
+        settings.sound = !settings.sound;
+        saveSettings(settings);
+        sound.setLevels(soundLevels());
+        if (settings.sound) sound.unlock();
+        hud.toast(settings.sound ? 'SOUND ON' : 'SOUND OFF', 'M to switch · volumes in Esc > Settings > Sound');
+    }
     else if (lookAround()) {
         held.add(e.code);
         camDirty = true;
@@ -930,6 +964,7 @@ function syncPause(): void {
     send({ type: 'pause', on: paused });
 }
 document.addEventListener('visibilitychange', syncPause);
+document.addEventListener('visibilitychange', () => sound.visible(document.visibilityState === 'visible'));
 
 /** when the frame rate first fell under SLOW_FPS while flying this visit (ms), and whether the low spec hint was shown */
 let slowSince: number | null = null;
@@ -1018,6 +1053,8 @@ requestAnimationFrame(pageFrame);
 // for checks from the browser console and automated tests
 (globalThis as { __fly?: unknown }).__fly = {
     settings,
+    /** the sound (audio/audio.ts): spectrum() for checks */
+    sound,
     get engine(): string {
         return `${backend} ${engineWhere()}${engineReady ? '' : ' (starting)'}`;
     },

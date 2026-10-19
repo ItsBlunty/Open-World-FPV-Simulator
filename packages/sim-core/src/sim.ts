@@ -432,6 +432,11 @@ export class Sim {
     }
 
     get armed(): boolean { return this.s[S.armed] > 0; }
+    /**
+     * How hard a surface brakes prop i this tick, 0 (free) to 1: the blade strike (sim-core/0.7.0). Read only, for the
+     * game's sound of props hitting things; nothing in the sim reads it from here.
+     */
+    bladeBrake(i: number): number { return this.brake[i]; }
     get crashed(): boolean { return this.s[S.crashed] > 0; }
 
     /** What the craft collides with: the scene, plus the platform while it is on. */

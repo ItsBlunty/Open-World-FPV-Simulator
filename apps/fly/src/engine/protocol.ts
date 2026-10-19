@@ -152,7 +152,9 @@ export interface EngineReport {
 }
 
 export type EngineMsg =
-    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[]; trials: TrialInfo[] }
+    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[]; trials: TrialInfo[]; axles: number[] }
+    /** what the sound needs this frame (audio/frame.ts A), every frame */
+    | { type: 'audio'; a: Float32Array }
     /** something happened in a time trial (trials.ts TrialEvent) */
     | { type: 'trial'; e: TrialEvent }
 

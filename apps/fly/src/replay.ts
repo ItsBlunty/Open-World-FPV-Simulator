@@ -29,7 +29,9 @@ export const T = {
     /** sim-core channels: roll, pitch, throttle, yaw, each -1..1 */
     roll: 10, pitch: 11, thr: 12, yaw: 13,
     armed: 14, crashed: 15,
-    size: 16
+    /** each rotor's speed, rad/s (signed), for the sound */
+    w0: 16, w1: 17, w2: 18, w3: 19,
+    size: 20
 } as const;
 
 /** A teleport between two poses (a respawn): further apart than this, m, is never one flight path. */
@@ -83,7 +85,7 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
     const ticks = new Int32Array(cap);
     const data = new Float32Array(cap * T.size);
     let n = 0;
-    const keep = (tick: number, s: Float64Array, ch: ArrayLike<number>): void => {
+    const keep = (tick: number, s: Float64Array, ch: ArrayLike<number>, omegaMaxPerVolt: number): void => {
         ticks[n] = tick;
         const o = n * T.size;
         data[o + T.px] = s[S.px]; data[o + T.py] = s[S.py]; data[o + T.pz] = s[S.pz];
@@ -92,6 +94,7 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
         data[o + T.roll] = ch[0]; data[o + T.pitch] = ch[1]; data[o + T.thr] = ch[2]; data[o + T.yaw] = ch[3];
         data[o + T.armed] = s[S.armed] > 0 ? 1 : 0;
         data[o + T.crashed] = s[S.crashed] > 0 ? 1 : 0;
+        for (let i = 0; i < 4; i++) data[o + T.w0 + i] = s[S.m0 + i] * omegaMaxPerVolt * s[S.volt];
         n++;
     };
     const lives: Track['lives'] = [];
@@ -105,10 +108,10 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
         const sim = player.sim;
         const first = sim.tick;
         if (i > 0) marks.push({ tick: first, kind: 'respawn', label: REASONS[saved.header.life.reason as RespawnReason] ?? 'respawn' });
-        keep(first, sim.s, sim.ch);
+        keep(first, sim.s, sim.ch, sim.p.omegaMaxPerVolt);
         grader.reset();
         player.onStep = (x) => {
-            if (x.tick % TRACK_STEP === 0 || x.tick === player.endTick) keep(x.tick, x.s, x.ch);
+            if (x.tick % TRACK_STEP === 0 || x.tick === player.endTick) keep(x.tick, x.s, x.ch, x.p.omegaMaxPerVolt);
             grader.step(x.tick, x.s, x.ch);
         };
         player.onEvent = (e) => {
