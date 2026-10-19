@@ -25,7 +25,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   trees with limbs and gaps to fly through; tree lines and the border broken up; the yard's containers stacked loosely,
   some opened; the grain plant, trailers, racking, sheds; 7 new golden props (63). [map §1c]
   Shadow distance built: 110 m, 250 m or 500 m, applies live. [browsers-input-performance §1d] Graphics settings laid out
-  as games do: a quality preset (High, Medium, Low, Very low, Super low; Custom), then Renderer, Resolution, Shadows. [camera §1e]
+  as games do: a quality preset (High, Medium, Low, Very low, Super low; Custom), then Renderer, Resolution, Shadows; long tick box labels wrap beside the box. [camera §1e]
 - **Tests:** `pnpm test`: 58 files, 514 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)

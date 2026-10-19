@@ -36,6 +36,10 @@ input[type=range] { padding: 0; width: 220px; }
 /* a group of details under a setting (Graphics > Details) */
 .subhead { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 600; }
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+/* a tick box and its text: the text wraps beside the box, never under it */
+label.row { flex-wrap: nowrap; align-items: flex-start; }
+label.row > input[type=checkbox] { flex: none; margin: 3px 0 0; }
+label.row > span { flex: 1; min-width: 0; }
 .spacer { flex: 1; }
 .muted { color: var(--muted); font-size: 14px; }
 a { color: var(--accent); }

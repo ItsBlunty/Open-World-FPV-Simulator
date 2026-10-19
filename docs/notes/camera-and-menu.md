@@ -184,3 +184,7 @@ the details). The main menu's summary names the preset; the "running slowly" tip
 250 m shadows), `custom.jpg` (shadows set Off: Custom, reload notice), `low.jpg` (Low: Simple renderer, shadows none).
 Medium moved the engine's shadow square back to 120 m live; after a reload on Low the page ran "WebGL 2, low spec" and
 the menu read "Low: simple lighting, ...". 58 test files, 514 tests (5 new in `graphics.test.ts`); typecheck clean.
+
+**Tick boxes (owner, 2026-10-19):** a long label (Steam trains, Classic physics, Damage) wrapped under its tick box,
+because `.row` wraps its items. `label.row` now keeps the box and the text on one line, the text wrapping beside the
+box (`style.css`; the Report screen's box too). Evidence: `tick-boxes.jpg`.
