@@ -188,3 +188,31 @@ the menu read "Low: simple lighting, ...". 58 test files, 514 tests (5 new in `g
 **Tick boxes (owner, 2026-10-19):** a long label (Steam trains, Classic physics, Damage) wrapped under its tick box,
 because `.row` wraps its items. `label.row` now keeps the box and the text on one line, the text wrapping beside the
 box (`style.css`; the Report screen's box too). Evidence: `tick-boxes.jpg`.
+
+## 1f. Title card, pause menu, Settings in tabs (owner, 2026-10-19): built, waiting for the owner
+
+**Asked:** a cleaner start: a title card with Start flying, Settings, Collection and Flight replay, showing the
+connected radio but no connect button; the rest of the old menu merged into Settings; Esc in game opens a pause popup
+with an X (or Esc again) and Settings, Collection, Flight replay.
+
+**Built (`main.ts` `renderMenu`, `settings-ui.ts`, `style.css`):**
+- Title card (before the first Start flying): name, the radio line (name and ready / not set up, or "No radio
+  connected (Settings > Radio and controls)"), the Firefox / no-WebHID notice when it applies, four big buttons
+  (Collection shows "n / 63"), a GitHub link and the renderer. Esc does nothing there.
+- Pause menu (after Start flying): "Paused", an X, Settings, Collection, Flight replay; Esc or the X goes back to
+  flying. The sim pauses while it is open, as before.
+- Settings now has tabs, so the merged content stays short: Radio and controls (radio connection, setup, how to
+  connect; flight mode; rates; the key list), Camera, Graphics, World and physics (start point, traffic and trains,
+  physics, crashes), Help and about (Report or suggest, about, credits). An X closes it; Esc too. The page adds its own
+  sections through `SettingsHost.pageSections`; `settingsUi.refresh()` redraws it when a radio connects.
+- Radio setup and the Report screen open from Settings and return there. Collection is titled "Collection", the saved
+  flights screen "Flight replay"; both got the X.
+- Dropped from the old menu: the settings summary list (Settings itself is the place now) and the gear button.
+
+**Evidence** (`docs/evidence/2026-10-19-title-and-pause/`, built-in browser): `title.jpg`, `pause.jpg`,
+`settings-world.jpg`, `settings-about.jpg`. Scripted: Collection and Flight replay open from the title and Esc returns
+to it; a simulated radio shows on the title card; Start flying hides the menu; Esc opens Paused, the X closes it, Esc
+twice opens and closes it. 58 test files, 514 tests; typecheck clean.
+
+**Left open:** no "back to title" or "restart" in the pause menu (not asked); the spawn point moved to Settings > World
+and physics, which is one more click before a flight.

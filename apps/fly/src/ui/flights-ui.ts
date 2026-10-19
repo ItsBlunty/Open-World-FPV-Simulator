@@ -5,6 +5,7 @@
 
 import type { CheckResult, FlightSummary } from '../flights';
 import { h, clear } from './dom';
+import { closeButton } from './settings-ui';
 
 export interface FlightsHost {
     list(): Promise<FlightSummary[]>;
@@ -136,7 +137,7 @@ export class FlightsUi {
                     }
                 }, this.confirmDelete === f.id ? 'Click again to delete' : 'Delete'))));
         clear(this.body,
-            h('div', { class: 'title' }, h('h1', {}, 'Saved flights'), h('button', { onclick: () => host.close() }, 'Done')),
+            h('div', { class: 'title' }, h('h1', {}, 'Flight replay'), closeButton(() => host.close())),
             h('p', { class: 'muted' },
                 'Every visit you fly with a radio is saved here as your stick inputs, so it can be replayed exactly: Watch plays ',
                 'it back from any camera and lists the tricks flown, with their marks. Saved when you open the menu, and every minute while flying. The 30 saved most recently are kept. ',

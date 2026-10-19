@@ -3,6 +3,7 @@
 
 import type { PropInfo } from '../engine/protocol';
 import { h, clear } from './dom';
+import { closeButton } from './settings-ui';
 
 export interface CollectionHost {
     props: readonly PropInfo[];
@@ -49,7 +50,7 @@ export class CollectionUi {
         const areas = [...new Set(props.map((p) => p.area))];
         const pct = props.length ? Math.round((found / props.length) * 100) : 0;
         clear(this.body,
-            h('div', { class: 'title' }, h('h1', {}, 'Golden props'), h('button', { onclick: () => host.close() }, 'Done')),
+            h('div', { class: 'title' }, h('h1', {}, 'Collection'), closeButton(() => host.close())),
             h('p', { class: 'muted' }, `${found} of ${props.length} found. They are hidden all over the map: fly through one to take it.`),
             h('div', { class: 'prog gold' }, h('div', { style: `width:${pct}%` })),
             ...areas.flatMap((a) => {

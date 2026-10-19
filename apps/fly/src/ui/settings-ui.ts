@@ -1,4 +1,6 @@
-// Settings screen: FPV camera, flight mode without a mode switch, graphics, traffic and the train, and the pilot's rates. The rates box
+// Settings screen, in tabs as games have them (owner, 2026-10-19): the radio and controls, the camera, graphics, the world
+// and physics, help and about. The page adds its own sections to some tabs (the radio connection, the start point, the
+// key list, the report link: main.ts pageSections). The rates box
 // offers Betaflight's two common rate types; field names, scales and limits are sim-core's
 // rates-edit.ts (read from Betaflight Configurator 10.10.0 by sim-core's author), so values typed
 // here mean what they mean in Configurator.
@@ -9,6 +11,7 @@ import type { Settings } from '../settings';
 import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
+import type { Child } from './dom';
 import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, applyPreset, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
 import type { GraphicsLevel, QualityPreset } from '../graphics';
 import { SHADOW_REACH_IDS } from '../render/shadow-follow';
@@ -40,7 +43,19 @@ export interface SettingsHost {
     graphicsPending(): boolean;
     save(): void;
     close(): void;
+    /** the page's own sections for a tab, above (`top`) or below the screen's own */
+    pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[];
 }
+
+export type SettingsTab = 'radio' | 'camera' | 'graphics' | 'world' | 'about';
+
+const TABS: { id: SettingsTab; label: string }[] = [
+    { id: 'radio', label: 'Radio and controls' },
+    { id: 'camera', label: 'Camera' },
+    { id: 'graphics', label: 'Graphics' },
+    { id: 'world', label: 'World and physics' },
+    { id: 'about', label: 'Help and about' }
+];
 
 /** how far the shadows reach (render/shadow-follow.ts SHADOW_REACHES: the square's half side less up to 16 m) */
 const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
@@ -74,6 +89,8 @@ export class SettingsUi {
     /** the rates being edited, applied with Apply */
     private draft: RatesConfig | null = null;
     private msg = '';
+    /** the tab shown; kept between visits to the screen */
+    private tab: SettingsTab = 'radio';
 
     constructor() {
         this.el = h('div', { class: 'overlay hidden' }, h('div', { class: 'panel' }, this.body));
@@ -93,6 +110,17 @@ export class SettingsUi {
 
     hide(): void {
         this.el.classList.add('hidden');
+    }
+
+    /** Draw it again when what the page shows in it changed (a radio connected), keeping the tab. */
+    refresh(): void {
+        if (this.open && this.host) this.build();
+    }
+
+    /** Open on this tab next time (or now, when open). */
+    showTab(tab: SettingsTab): void {
+        this.tab = tab;
+        this.refresh();
     }
 
     /** `done` runs when the drag ends (rebuilding the screen while dragging would drop the slider) */
@@ -176,67 +204,86 @@ export class SettingsUi {
                     }
                 }))),
                 h('td', {}, String(Math.round(max[axis]))))));
+        const own: Record<SettingsTab, Child[]> = {
+            radio: [
+                h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
+                h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
+                    ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
+                h('h2', {}, 'Rates'),
+                h('p', { class: 'note' }, `Flying with ${using} rates. Type your Betaflight rates as Configurator shows them, then Apply.`),
+                h('div', { class: 'row' }, h('span', {}, 'Rates type'),
+                    h('select', { onchange: (e: Event) => {
+                        const t = (e.target as HTMLSelectElement).value as RatesType;
+                        // switching type keeps the feel: the closest curves of the new type (sim-core fitRates)
+                        this.draft = fitRates(this.draft!, t).config;
+                        this.msg = `Converted to ${t === 'ACTUAL' ? 'Actual' : 'Betaflight'} rates with the closest curves.`;
+                        this.build();
+                    } }, ...TYPES.map((t) => h('option', { value: t.type, selected: d.type === t.type }, t.label)),
+                    ...(TYPES.some((t) => t.type === d.type) ? [] : [h('option', { value: d.type, selected: true }, d.type)]))),
+                table,
+                h('div', { class: 'hint' }, this.msg),
+                h('div', { class: 'row' },
+                    h('button', { onclick: () => { s.rates = null; this.draft = copyRates(host.presetRates); this.msg = 'Back to the preset\'s rates.'; host.save(); host.onFlight(); this.build(); } }, 'Preset default'),
+                    h('button', { class: 'primary', onclick: () => { s.rates = copyRates(this.draft!); this.msg = 'Applied: your quad is back at the spawn point with these rates.'; host.save(); host.onFlight(); this.build(); } }, 'Apply rates')),
+            ],
+            camera: [
+                h('h2', {}, 'FPV camera'),
+                this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
+                isLowSpec(host.graphicsNow)
+                    ? h('p', { class: 'note' }, 'Low spec modes draw a flat camera (a fisheye lens draws the city up to five times a frame).')
+                    : h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
+                    h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
+                        h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
+                        ...LENSES.map((l) => {
+                            const f = lensFov(l);
+                            return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
+                        }))),
+                // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
+                s.lens === NO_LENS || isLowSpec(host.graphicsNow)
+                    ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })
+                    : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.`),
+            ],
+            graphics: [
+                // what is drawn and how, laid out as games do (owner, 2026-10-19): a quality preset, then the details it sets;
+                // changing a detail makes it "Custom". The physics is the same at every setting.
+                h('h2', {}, 'Graphics'),
+                ...this.graphics(host, s),
+            ],
+            world: [
+                // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight
+                h('h2', {}, 'Traffic and train'),
+                ...(trafficAllowed(host.graphicsNow)
+                    ? [
+                        this.check('Cars (solid: you can hit them and land on them)', s.cars, (v) => { s.cars = v; host.save(); host.onTraffic(); }),
+                        this.check('People (solid too)', s.people, (v) => { s.people = v; host.save(); host.onTraffic(); }),
+                        this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); })
+                    ]
+                    : [h('p', { class: 'note' }, `No cars, people or traffic lights in ${graphicsName(host.graphicsNow)} mode.`)]),
+                this.check('Steam trains (two, solid: round the whole map, stopping at the fields and city stations; people ride them)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
+                h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
+                h('h2', {}, 'Physics'),
+                this.check('Classic physics (the flight model before the airflow update, to compare). Changing it restarts at the spawn point.', s.classicPhysics, (v) => { s.classicPhysics = v; host.save(); host.onFlight(); }),
+                h('p', { class: 'note' }, 'Off: each prop feels the air through it, so thrust fades as you climb fast and grows as you fly forward, as measured on real 5-inch quads.'),
+                h('h2', {}, 'Crashes and damage'),
+                this.check('Damage and crashes (off: every hit is a bounce and you keep flying). Changing it restarts at the spawn point.', s.damage, (v) => { s.damage = v; host.save(); host.onFlight(); }),
+            ],
+            about: []
+        };
         clear(this.body,
-            h('h1', {}, 'Settings'),
-            h('h2', {}, 'FPV camera'),
-            this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
-            isLowSpec(host.graphicsNow)
-                ? h('p', { class: 'note' }, 'Low spec modes draw a flat camera (a fisheye lens draws the city up to five times a frame).')
-                : h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
-                h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
-                    h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
-                    ...LENSES.map((l) => {
-                        const f = lensFov(l);
-                        return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
-                    }))),
-            // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
-            s.lens === NO_LENS || isLowSpec(host.graphicsNow)
-                ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })
-                : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.`),
-            h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
-            h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
-                ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
-            // what is drawn and how, laid out as games do (owner, 2026-10-19): a quality preset, then the details it sets;
-            // changing a detail makes it "Custom". The physics is the same at every setting.
-            h('h2', {}, 'Graphics'),
-            ...this.graphics(host, s),
-            // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight
-            h('h2', {}, 'Traffic and train'),
-            ...(trafficAllowed(host.graphicsNow)
-                ? [
-                    this.check('Cars (solid: you can hit them and land on them)', s.cars, (v) => { s.cars = v; host.save(); host.onTraffic(); }),
-                    this.check('People (solid too)', s.people, (v) => { s.people = v; host.save(); host.onTraffic(); }),
-                    this.check('Traffic lights and realistic driving (off: cars and people just circle their block)', s.signals, (v) => { s.signals = v; host.save(); host.onTraffic(); })
-                ]
-                : [h('p', { class: 'note' }, `No cars, people or traffic lights in ${graphicsName(host.graphicsNow)} mode.`)]),
-            this.check('Steam trains (two, solid: round the whole map, stopping at the fields and city stations; people ride them)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
-            h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
-            h('h2', {}, 'Physics'),
-            h('label', { class: 'row' },
-                h('input', { type: 'checkbox', checked: s.classicPhysics, onchange: (e: Event) => { s.classicPhysics = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),
-                h('span', {}, 'Classic physics (the flight model before the airflow update, to compare). Changing it restarts at the spawn point.')),
-            h('p', { class: 'note' }, 'Off: each prop feels the air through it, so thrust fades as you climb fast and grows as you fly forward, as measured on real 5-inch quads.'),
-            h('h2', {}, 'Crashes and damage'),
-            h('label', { class: 'row' },
-                h('input', { type: 'checkbox', checked: s.damage, onchange: (e: Event) => { s.damage = (e.target as HTMLInputElement).checked; host.save(); host.onFlight(); } }),
-                h('span', {}, 'Damage and crashes (off: every hit is a bounce and you keep flying). Changing it restarts at the spawn point.')),
-            h('h2', {}, 'Rates'),
-            h('p', { class: 'note' }, `Flying with ${using} rates. Type your Betaflight rates as Configurator shows them, then Apply.`),
-            h('div', { class: 'row' }, h('span', {}, 'Rates type'),
-                h('select', { onchange: (e: Event) => {
-                    const t = (e.target as HTMLSelectElement).value as RatesType;
-                    // switching type keeps the feel: the closest curves of the new type (sim-core fitRates)
-                    this.draft = fitRates(this.draft!, t).config;
-                    this.msg = `Converted to ${t === 'ACTUAL' ? 'Actual' : 'Betaflight'} rates with the closest curves.`;
-                    this.build();
-                } }, ...TYPES.map((t) => h('option', { value: t.type, selected: d.type === t.type }, t.label)),
-                ...(TYPES.some((t) => t.type === d.type) ? [] : [h('option', { value: d.type, selected: true }, d.type)]))),
-            table,
-            h('div', { class: 'hint' }, this.msg),
-            h('div', { class: 'row' },
-                h('button', { onclick: () => { s.rates = null; this.draft = copyRates(host.presetRates); this.msg = 'Back to the preset\'s rates.'; host.save(); host.onFlight(); this.build(); } }, 'Preset default'),
-                h('button', { class: 'primary', onclick: () => { s.rates = copyRates(this.draft!); this.msg = 'Applied: your quad is back at the spawn point with these rates.'; host.save(); host.onFlight(); this.build(); } }, 'Apply rates')),
+            h('div', { class: 'title' }, h('h1', {}, 'Settings'), closeButton(() => host.close())),
+            h('div', { class: 'tabs', role: 'tablist' }, ...TABS.map((t) => h('button', {
+                class: t.id === this.tab ? 'on' : '', role: 'tab', 'aria-selected': String(t.id === this.tab),
+                onclick: () => { this.tab = t.id; this.build(); }
+            }, t.label))),
+            ...host.pageSections(this.tab, 'top'),
+            ...own[this.tab],
+            ...host.pageSections(this.tab, 'bottom'),
             h('div', { class: 'row' }, h('span', { class: 'spacer' }), h('button', { onclick: () => host.close() }, 'Done'))
         );
     }
+}
+
+/** A close button (an X), top right of a screen; Esc does the same. */
+export function closeButton(onclick: () => void): HTMLButtonElement {
+    return h('button', { class: 'icon-btn close-btn', onclick, title: 'Close (Esc)', 'aria-label': 'Close' }, '\u00d7');
 }

@@ -19,8 +19,8 @@ import { GamepadSource, gamepadKey, padClock } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
 import { Hud } from './ui/hud';
 import { RadioSetup } from './ui/radio-setup';
-import { LENSES } from './render/lenses';
-import { SettingsUi } from './ui/settings-ui';
+import { SettingsUi, closeButton } from './ui/settings-ui';
+import type { SettingsTab } from './ui/settings-ui';
 import { CollectionUi } from './ui/collection-ui';
 import { FlightsUi } from './ui/flights-ui';
 import { deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
@@ -37,8 +37,7 @@ import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, Pag
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
-import { PRESET_NAMES, cheaperPreset, graphicsFromParam, graphicsName, isLowSpec, presetOf, trafficAllowed } from './graphics';
-import { SHADOW_REACH_M } from './render/shadow-follow';
+import { PRESET_NAMES, cheaperPreset, graphicsFromParam, isLowSpec, trafficAllowed } from './graphics';
 
 /** the last errors and warnings this page logged, for bug reports (report.ts); the console still gets them */
 const errorLog = new ErrorLog();
@@ -335,7 +334,10 @@ const replayUi = new ReplayUi();
 const radioReplay = new RadioReplayControl();
 let sentShuttle = 0;
 const menuBody = h('div');
-const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
+const menuPanel = h('div', { class: 'panel' }, menuBody);
+const menu = h('div', { class: 'overlay' }, menuPanel);
+/** the pilot has left the title card (Start flying): from then on Esc opens the pause menu */
+let started = demo;
 document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el, reportUi.el, replayUi.el);
 let menuMsg = '';
 
@@ -350,17 +352,18 @@ function showMenu(on: boolean): void {
     if (on) renderMenu();
 }
 
+/** radio setup, opened from Settings > Radio and controls; back there when it ends */
 function openSetup(): void {
     if (!device) return;
     const d = device;
-    showMenu(false);
+    settingsUi.hide();
     setup.show({ key: d.key, name: d.name, nAxes: 8 }, settings.stickMode, (p) => {
         saveProfile(p);
         settings.stickMode = p.stickMode;
         saveSettings(settings);
         setProfile(p);
-        showMenu(true);
-    }, () => showMenu(true));
+        openSettings();
+    }, openSettings);
 }
 
 function openSettings(): void {
@@ -376,7 +379,8 @@ function openSettings(): void {
         graphicsNow,
         graphicsPending: () => settings.graphics !== graphicsNow && graphicsFromParam(params.get('lowspec')) === null,
         save: () => saveSettings(settings),
-        close: () => { settingsUi.hide(); showMenu(true); }
+        close: () => { settingsUi.hide(); showMenu(true); },
+        pageSections
     });
 }
 
@@ -533,9 +537,10 @@ function pageReport(saved: boolean): PageReport {
     };
 }
 
+/** the Report screen, opened from Settings > Help and about; back there when it closes */
 function openReport(): void {
-    // opened in the same task as the menu closes: with no screen open between them, the sim would run on
-    showMenu(false);
+    // opened in the same task as Settings closes: with no screen open between them, the sim would run on
+    settingsUi.hide();
     void reportUi.show({
         repo: REPO,
         gather: async () => {
@@ -543,7 +548,7 @@ function openReport(): void {
             return { page: pageReport(saved), engine: await engineReport() };
         },
         downloadFlight: () => downloadSaved(flightId),
-        close: () => { reportUi.hide(); showMenu(true); }
+        close: () => { reportUi.hide(); openSettings(); }
     });
 }
 
@@ -556,27 +561,6 @@ function openFlights(): void {
 }
 
 const REPO = 'https://github.com/ItsBlunty/Open-World-FPV-Simulator';
-
-/** an 8-tooth gear outline with a hole (24 x 24 box), drawn here rather than taken from an icon set */
-const GEAR_PATH = ((): string => {
-    const pt = (r: number, deg: number): string => {
-        const a = (deg * Math.PI) / 180;
-        return `${(12 + r * Math.cos(a)).toFixed(2)} ${(12 + r * Math.sin(a)).toFixed(2)}`;
-    };
-    const teeth = Array.from({ length: 8 }, (_, i) => {
-        const c = i * 45;
-        return [pt(7.6, c - 15), pt(10.5, c - 9), pt(10.5, c + 9), pt(7.6, c + 15)].join(' L ');
-    });
-    return `M ${teeth.join(' L ')} Z M 15.2 12 A 3.2 3.2 0 1 0 8.8 12 A 3.2 3.2 0 1 0 15.2 12 Z`;
-})();
-
-/** the gear alone (top-right corner), or the gear with a label */
-function gearButton(label?: string): HTMLButtonElement {
-    const b = h('button', { class: label ? 'gear-btn' : 'icon-btn', onclick: openSettings, title: 'Settings', 'aria-label': label ?? 'Settings' });
-    b.innerHTML = `<svg viewBox="0 0 24 24" width="${label ? 18 : 22}" height="${label ? 18 : 22}" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="${GEAR_PATH}"/></svg>`;
-    if (label) b.append(label);
-    return b;
-}
 
 const isFirefox = /firefox\//i.test(navigator.userAgent);
 /** the "How to connect a radio" box stays open across menu redraws */
@@ -600,12 +584,6 @@ function browserNotice(hidOk: boolean): HTMLElement | null {
 
 function controllerSection(hidOk: boolean): Child[] {
     const needsSetup = device !== null && profile === null;
-    const status = device
-        ? h('div', { class: 'status' },
-            h('span', { class: `dot ${profile ? 'ok' : 'pending'}` }),
-            h('strong', {}, device.name),
-            h('span', { class: 'muted' }, profile ? ` · ready (Mode ${profile.stickMode})` : ' · connected, not set up yet'))
-        : h('div', { class: 'status' }, h('span', { class: 'dot' }), h('span', { class: 'muted' }, 'No radio connected. You can still look around the map with the mouse and keyboard.'));
     const help = h('details', { class: 'help', ontoggle: (e: Event) => { helpOpen = (e.target as HTMLDetailsElement).open; } },
         h('summary', {}, 'How to connect a radio'),
         h('ol', {},
@@ -615,8 +593,8 @@ function controllerSection(hidOk: boolean): Child[] {
         h('p', { class: 'note' }, 'Tip: turning off the radio\'s internal and external RF modules makes EdgeTX run its mixer at 1000 Hz (EdgeTX manual, USB Joystick).'));
     help.open = helpOpen;
     return [
-        h('h2', {}, '1 · Controller'),
-        status,
+        h('h2', {}, 'Radio'),
+        radioStatus(true),
         menuMsg ? h('p', { class: 'hint' }, menuMsg) : null,
         h('div', { class: 'row' },
             hidOk ? h('button', { onclick: () => void connectHid() }, device?.kind === 'hid' ? 'Connect a different USB radio' : 'Connect USB radio') : null,
@@ -626,8 +604,19 @@ function controllerSection(hidOk: boolean): Child[] {
     ];
 }
 
-function startSection(): Child[] {
-    const flying = profile !== null || demo;
+/** the radio connected now, on the title card and in Settings (which needs no pointer to itself) */
+function radioStatus(inSettings = false): HTMLElement {
+    const go = inSettings ? '' : ' (Settings > Radio and controls)';
+    return device
+        ? h('div', { class: 'status' },
+            h('span', { class: `dot ${profile ? 'ok' : 'pending'}` }),
+            h('strong', {}, device.name),
+            h('span', { class: 'muted' }, profile ? ` · ready (Mode ${profile.stickMode})` : ` · connected, not set up yet${go}`))
+        : h('div', { class: 'status' }, h('span', { class: 'dot' }), h('span', { class: 'muted' }, `No radio connected${go}. Without one you look around with the mouse and keyboard.`));
+}
+
+/** where the quad starts (and goes back to with R or a respawn) */
+function startPointSection(): Child[] {
     const where = spawns.length === 0
         ? h('span', { class: 'muted' }, 'Loading the map…')
         : h('select', { 'aria-label': 'Start point', onchange: (e: Event) => {
@@ -638,60 +627,14 @@ function startSection(): Child[] {
             send({ type: 'settings', what: 'spawn', settings: engineSettings() });
         } }, ...spawns.map((s) => h('option', { value: s.id, selected: s.id === spawnId }, s.name)));
     return [
-        h('h2', {}, '2 · Start'),
-        h('div', { class: 'row' },
-            h('label', { class: 'muted' }, 'Start at'), where,
-            h('span', { class: 'spacer' }),
-            h('button', { class: device && !profile ? '' : 'primary', onclick: () => showMenu(false) }, flying ? 'Fly' : 'Look around')),
-        flying ? null : h('p', { class: 'note' }, 'Without a set-up radio, "Look around" flies a free camera so you can explore the map.')
-    ];
-}
-
-/** the golden props found so far, and the way to the collection screen */
-function propsSection(): Child[] {
-    if (!props.length) return [];
-    const n = found().length;
-    return [
-        h('div', { class: 'section-head' }, h('h2', {}, 'Golden props'), h('button', { onclick: openCollection }, 'Collection')),
-        h('p', { class: 'muted' }, n === 0
-            ? `${props.length} golden props are hidden around the map, some of them well. Fly through one to take it.`
-            : `${n} of ${props.length} found.${n === props.length ? ' Every one: well flown.' : ''}`)
-    ];
-}
-
-/** saved flights: every visit flown with a radio, as stick inputs that replay exactly */
-function flightsSection(): Child[] {
-    return [
-        h('div', { class: 'section-head' }, h('h2', {}, 'Saved flights'), h('button', { onclick: openFlights }, 'Flights')),
-        h('p', { class: 'muted' }, 'Every visit you fly is kept as your stick inputs, so it can be replayed exactly.')
+        h('h2', {}, 'Start point'),
+        h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Start at'), where),
+        h('p', { class: 'note' }, 'Changing it moves the quad there. R (or the respawn switch) brings it back here.')
     ];
 }
 
 const keyList = (rows: [string, string][], cls = 'keys'): HTMLElement =>
     h('dl', { class: cls }, ...rows.flatMap(([k, what]) => [h('dt', {}, k), h('dd', {}, what)]));
-
-/** what Settings holds, with the current values, so nobody has to guess that the camera and rates live there */
-function settingsSection(): Child[] {
-    // low spec mode draws no lens: the flat camera's field of view applies
-    const lens = lowSpecOn ? undefined : LENSES.find((l) => l.id === settings.lens);
-    const camera = `uptilt ${settings.uptiltDeg}°, ${lens ? `${lens.label} lens` : `flat, ${settings.fovDeg}° field of view`}`;
-    const traffic = !trafficAllowed(graphicsNow) ? `off in ${graphicsName(graphicsNow)} mode` : [settings.cars && 'cars', settings.people && 'people', settings.cars && settings.signals && 'traffic lights'].filter(Boolean).join(', ') || 'off';
-    return [
-        h('div', { class: 'section-head' }, h('h2', {}, 'Settings'), gearButton('Open settings')),
-        keyList([
-            ['FPV camera', `${camera}. Fisheye profiles of real FPV cameras, or a flat view.`],
-            ['Rates', `${settings.rates ? 'your own' : 'the preset\'s'}. Type in your Betaflight rates.`],
-            ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
-            ['Traffic', `${traffic}.`],
-            ['Trains', settings.train ? 'on: two steam trains round the whole map, over the city, through the tunnel.' : 'off.'],
-            ['Graphics', `${PRESET_NAMES[presetOf(settings)]}: ` + (isLowSpec(settings.graphics)
-                ? `simple lighting, no shadows, flat camera, resolution ${settings.graphics === 'extra' ? 50 : settings.graphics === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
-                : `resolution ${Math.round(settings.renderScale * 100)}%, shadows ${settings.shadows ? `to about ${SHADOW_REACH_M[settings.shadowReach]} m` : 'off'}.`)],
-            ['Physics', settings.classicPhysics ? 'classic (sim-core 0.5): thrust from motor speed alone.' : 'props feel the airflow: thrust fades as you climb fast and grows flying forward.'],
-            ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
-        ].map(([k, v]): [string, string] => [k, v[0].toUpperCase() + v.slice(1)]), 'keys plain')
-    ];
-}
 
 function controlsSection(): Child[] {
     const keys = keyList;
@@ -700,31 +643,71 @@ function controlsSection(): Child[] {
         : [['Click', 'steer with the mouse'], ['W A S D', 'move'], ['Space or E', 'up'], ['Q', 'down'], ['Shift', 'faster'], ['R', 'back to the quad'], ['Esc', 'menu']];
     if (profile && !profile.arm) rows.push(['Space', 'arm / disarm (your radio has no arm switch set up)']);
     if (profile && !profile.turtle) rows.push(['T', 'turtle mode (your radio has no turtle switch set up)']);
-    return [h('h2', {}, 'Controls'), keys(rows)];
+    return [h('h2', {}, 'Keys'), keys(rows)];
 }
 
-function renderMenu(): void {
+function credits(): HTMLElement {
+    return h('p', { class: 'note footer' },
+        `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,
+        h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'source code and issues'),
+        '. Flight model from ShramkoGSFPV by Andrii Shramko (MIT).');
+}
+
+/** what the page adds to the Settings tabs (settings-ui.ts): everything the old main menu held that was not a screen */
+function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
     const hidOk = HidSource.supported();
+    if (tab === 'radio') return where === 'top' ? [browserNotice(hidOk), ...controllerSection(hidOk)] : controlsSection();
+    if (tab === 'world' && where === 'top') return startPointSection();
+    if (tab === 'about' && where === 'top') {
+        return [
+            h('h2', {}, 'Problems or ideas'),
+            h('p', { class: 'note' }, 'Found a bug, or want something in the game? This opens it as an issue on GitHub, with the game\'s state attached so it can be found and replayed.'),
+            h('div', { class: 'row' }, h('button', { onclick: openReport }, 'Report or suggest')),
+            h('h2', {}, 'About'),
+            h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S). Your flights are kept in this browser as stick inputs, so each replays exactly.'),
+            credits()
+        ];
+    }
+    return [];
+}
+
+/** The menu's big buttons: the title card's and the pause menu's. */
+function menuButtons(first: HTMLElement | null): HTMLElement {
+    const n = found().length;
+    return h('div', { class: 'menu-buttons' },
+        first,
+        h('button', { onclick: openSettings }, 'Settings'),
+        h('button', { onclick: openCollection, disabled: props.length === 0 }, props.length ? `Collection  ${n} / ${props.length}` : 'Collection'),
+        h('button', { onclick: openFlights }, 'Flight replay'));
+}
+
+/**
+ * The title card before the first flight, the pause menu after it (owner, 2026-10-19: a cleaner start, and a pause
+ * popup as games have). Settings, Collection and Flight replay open their screens; closing those comes back here.
+ */
+function renderMenu(): void {
+    settingsUi.refresh();
+    if (!started) {
+        menuPanel.className = 'panel title-card';
+        clear(menuBody,
+            h('h1', { class: 'game-title' }, 'Open World FPV Simulator'),
+            h('p', { class: 'muted' }, '5" freestyle in an open city'),
+            browserNotice(HidSource.supported()),
+            h('div', { class: 'title-radio' }, radioStatus()),
+            menuButtons(h('button', { class: 'primary', onclick: startFlying }, 'Start flying')),
+            h('p', { class: 'note' }, h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗'), ` · ${backend}`));
+        return;
+    }
+    menuPanel.className = 'panel pause-card';
     clear(menuBody,
-        h('div', { class: 'title' },
-            h('h1', {}, 'Open World FPV Simulator'),
-            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗'),
-            gearButton()),
-        h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S).'),
-        browserNotice(hidOk),
-        ...controllerSection(hidOk),
-        ...startSection(),
-        ...propsSection(),
-        ...flightsSection(),
-        ...settingsSection(),
-        ...controlsSection(),
-        h('div', { class: 'section-head' }, h('h2', {}, 'Problems or ideas'), h('button', { onclick: openReport }, 'Report or suggest')),
-        h('p', { class: 'note' }, 'Found a bug, or want something in the game? This opens it as an issue on GitHub, with the game\'s state attached so it can be found and replayed.'),
-        h('p', { class: 'note footer' },
-            `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,
-            h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'source code and issues'),
-            '. Flight model from ShramkoGSFPV by Andrii Shramko (MIT).')
-    );
+        h('div', { class: 'title' }, h('h1', {}, 'Paused'), closeButton(() => showMenu(false))),
+        menuButtons(null),
+        h('p', { class: 'note' }, 'Esc goes back to flying.'));
+}
+
+function startFlying(): void {
+    started = true;
+    showMenu(false);
 }
 
 // ---------------------------------------------------------------- keys, mouse, free-fly camera (events)
@@ -765,23 +748,21 @@ addEventListener('keydown', (e) => {
         return;
     }
     if (e.code === 'Escape') {
-        if (flightsUi.open) {
-            flightsUi.hide();
-            showMenu(true);
-            return;
-        }
+        // a screen goes back to where it was opened from: the report to Settings, the rest to the menu
         if (reportUi.open) {
             reportUi.hide();
+            openSettings();
+            return;
+        }
+        for (const ui of [flightsUi, collectionUi, settingsUi]) {
+            if (!ui.open) continue;
+            ui.hide();
             showMenu(true);
             return;
         }
-        if (collectionUi.open) {
-            collectionUi.hide();
-            showMenu(true);
-            return;
-        }
-        if (setup.open || settingsUi.open) return;
-        showMenu(menu.classList.contains('hidden'));
+        if (setup.open) return;
+        // the title card stays until Start flying; after that Esc opens and closes the pause menu
+        if (started) showMenu(menu.classList.contains('hidden'));
     } else if (anyOverlay()) return;
     else if (e.code === 'KeyR' && lookAround()) send({ type: 'freecam', keys: [...held], dx: 0, dy: 0, enter: true });
     else if (e.code === 'KeyR') send({ type: 'reset' });

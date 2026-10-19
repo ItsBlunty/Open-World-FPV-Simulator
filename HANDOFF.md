@@ -26,6 +26,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   some opened; the grain plant, trailers, racking, sheds; 7 new golden props (63). [map §1c]
   Shadow distance built: 110 m, 250 m or 500 m, applies live. [browsers-input-performance §1d] Graphics settings laid out
   as games do: a quality preset (High, Medium, Low, Very low, Super low; Custom), then Renderer, Resolution, Shadows; long tick box labels wrap beside the box. [camera §1e]
+  Title card (Start flying, Settings, Collection, Flight replay, the radio), Esc pause popup, Settings in tabs. [camera §1f]
 - **Tests:** `pnpm test`: 58 files, 514 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
@@ -44,16 +45,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 2. **City pass (map v5):** look at the crane (it's solid lattice, you can fly through it), the building names and
    doors. Questions: should the crane turn? Are the names OK (real-sounding only, or more jokes)? How many walkers
    should go in (25 % of block-side walks now)? [map §0q]
-3. **Golden props (map v6):** hunt some (Esc > Golden props > Collection lists them by number). Is 1 m pickup reach
+3. **Golden props (map v6):** hunt some (Esc > Collection lists them by number). Is 1 m pickup reach
    right? Are the frosted shelters too easy or too hard to see through? More props, harder spots? [collectibles §0r]
 4. **Replay radio controls** (owner: later): tick "Radio controls" in the viewer, roll to wind, pitch to play / pause.
 5. **Grader v1 calibration:** fly flips, rolls, power loops (around something and in the open), split-S and dives, some
-   clean, some sloppy, then Esc > Flights > Watch and read the trick list. Do the marks rank them as you would? Which
+   clean, some sloppy, then Esc > Flight replay > Watch and read the trick list. Do the marks rank them as you would? Which
    reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
 6. **Low spec modes:** fly `?lowspec`, `?lowspec=extra` and `?lowspec=super` (or Settings > Graphics and reload),
    ideally on an old laptop with graphics acceleration off. View distances OK? Quarter resolution too blocky? Should
    the game switch to super by itself when the browser has no GPU, or just show a tip? [low-spec]
-7. **Report screen:** Esc > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
+7. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
    (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
 8. **Chase see-through circle:** now upright (it was upside down on WebGPU) and larger (about two thirds of the screen
    high). Fly the chase camera (C) behind buildings and trees: size, edge softness and fade OK? Spotter camera too? [camera §0x]
@@ -63,7 +64,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 10. **Wall hits (sim-core/0.7.0):** fly into walls and pillars at speed, level and nose down, throttle held and cut;
    lean a prop on a wall; blip into the bando ceiling. Bounce strong enough, too much? Motors stall as on your quad?
    Landings should feel as before. Turtle on an edge now flips with roll too. [contacts §1b]
-11. **Opening a flight file:** Esc > Flights > Download one, delete it, then Open a flight file… (or drop the file on
+11. **Opening a flight file:** Esc > Flight replay > Download one, delete it, then Open a flight file… (or drop the file on
    the screen) and Watch it. [saved-flights]
 12. **Forest and yard (map v10):** spawn "Forest track": fly the thickets, the open woods, under and through the big
    trees' crowns, under the fallen tree on the track. Then "Industrial yard": the container lanes, the open boxes, the
@@ -71,6 +72,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    Dense enough? Trees right? Were the "stumps" the hay bales? [map §1c]
 13. **Graphics presets and shadow distance:** Settings > Graphics: is the preset layout clear? Fly High (shadows to 250 m)
    and Shadows "to about 500 m": pop-in gone? 500 m too soft close up? Watch the fps (not measured). [camera §1e, §1d]
+14. **Title card and pause menu:** start, connect the radio in Settings > Radio and controls, fly, Esc. Clear enough? The
+   start point is now in Settings > World and physics: OK there, or back on the title card? Pause: add "Back to title"? [camera §1f]
 
 ## Left open (not started)
 
@@ -122,7 +125,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
-| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets |
+| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
