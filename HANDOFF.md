@@ -24,7 +24,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Forest and yard built (map v10): a forest with thickets, open woods, a track and a clearing where the hay bales were;
   trees with limbs and gaps to fly through; tree lines and the border broken up; the yard's containers stacked loosely,
   some opened; the grain plant, trailers, racking, sheds; 7 new golden props (63). [map §1c]
-- **Tests:** `pnpm test`: 58 files, 505 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Shadow distance setting built (Settings > Graphics): about 110 m (default), 250 m or 500 m, applies live. [browsers-input-performance §1d]
+- **Tests:** `pnpm test`: 58 files, 509 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
@@ -67,6 +68,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    trees' crowns, under the fallen tree on the track. Then "Industrial yard": the container lanes, the open boxes, the
    conveyor gallery, under the hopper bins. Watch the fps counter in the forest (245 k to 422 k triangles, not measured).
    Dense enough? Trees right? Were the "stumps" the hay bales? [map §1c]
+13. **Shadow distance:** Settings > Graphics > Shadow distance, try 250 m and 500 m while flying. Pop-in gone? Shadows
+   at 500 m too soft close up? Watch the fps counter (not measured at the bigger distances). [browsers-input-performance §1d]
 
 ## Left open (not started)
 
@@ -119,7 +122,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle |
-| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
+| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |

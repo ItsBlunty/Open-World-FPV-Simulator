@@ -11,6 +11,8 @@ import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
 import { GRAPHICS_LEVELS, graphicsName, isLowSpec, trafficAllowed } from '../graphics';
 import type { GraphicsLevel } from '../graphics';
+import { SHADOW_REACH_IDS } from '../render/shadow-follow';
+import type { ShadowReach } from '../render/shadow-follow';
 
 const FIELD_LABEL: Record<RateFieldName, string> = {
     rcRate: 'RC Rate', superRate: 'Super Rate', expo: 'Expo', rcCurve: 'RC Curve',
@@ -41,6 +43,13 @@ export interface SettingsHost {
 }
 
 /** The graphics choices as the settings screen lists them (graphics.ts) */
+/** how far the shadows reach (render/shadow-follow.ts SHADOW_REACHES: the square's half side less up to 16 m) */
+const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
+    near: 'About 110 m (lightest on the GPU)',
+    far: 'About 250 m (as sharp, 4x the shadow memory)',
+    farthest: 'About 500 m (softer up close, 4x the shadow memory)'
+};
+
 const GRAPHICS_LABELS: Record<GraphicsLevel, string> = {
     full: 'Full: shadows, fisheye lenses, everything',
     low: 'Low spec: for a weak GPU (simple lighting, no shadows or lens)',
@@ -147,6 +156,11 @@ export class SettingsUi {
             isLowSpec(host.graphicsNow)
                 ? h('p', { class: 'note' }, `No sun shadows in ${graphicsName(host.graphicsNow)} mode.`)
                 : this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
+            !isLowSpec(host.graphicsNow) && s.shadows
+                ? h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Shadow distance'),
+                    h('select', { onchange: (e: Event) => { s.shadowReach = (e.target as HTMLSelectElement).value as ShadowReach; host.onGraphics(); host.save(); } },
+                        ...SHADOW_REACH_IDS.map((r) => h('option', { value: r, selected: s.shadowReach === r }, SHADOW_REACH_LABELS[r]))))
+                : null,
             host.graphicsPending() || host.shadowsPending()
                 ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'This change applies when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
                 : null,

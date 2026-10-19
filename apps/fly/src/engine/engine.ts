@@ -20,6 +20,7 @@ import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { SeeThrough, blocked } from '../render/see-through';
 import { lensById } from '../render/lenses';
+import { shadowReach } from '../render/shadow-follow';
 import { kitFor } from '../render/kit';
 import { graphicsName } from '../graphics';
 import { HUD_HZ } from './protocol';
@@ -77,6 +78,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
 
     const scene = new THREE.Scene();
     const sun = environment(scene, kit);
+    // the shadow map may not be bigger than the GPU's largest texture (8192 is WebGPU's default limit)
+    const gpuBackend = gpuRenderer?.backend as { device?: { limits: { maxTextureDimension2D: number } }; gl?: WebGL2RenderingContext } | undefined;
+    const maxTexture: number = gpuBackend?.device?.limits.maxTextureDimension2D ?? (gpuBackend?.gl?.getParameter(0x0d33 /* MAX_TEXTURE_SIZE */) as number | undefined) ?? 4096;
+    const reachShadows = (): void => sun.setReach(shadowReach(cfg.shadowReach, maxTexture));
+    reachShadows();
     scene.add(levelGroup(level, kit));
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
@@ -311,6 +317,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 } else if (m.what === 'graphics') {
                     renderer.setPixelRatio(pixelRatio());
                     fitFisheye();
+                    reachShadows();
                 }
                 else if (m.what === 'spawn') {
                     const s = level.spawns.find((x) => x.id === cfg.spawn);

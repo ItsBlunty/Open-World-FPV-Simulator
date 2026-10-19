@@ -10,6 +10,8 @@ import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
 import { isGraphicsLevel } from './graphics';
 import type { GraphicsLevel } from './graphics';
+import { isShadowReach } from './render/shadow-follow';
+import type { ShadowReach } from './render/shadow-follow';
 
 export interface Settings {
     version: 1;
@@ -51,6 +53,8 @@ export interface Settings {
     train: boolean;
     /** the sun's shadows (switching them takes a reload: toggling them live crashed Three.js) */
     shadows: boolean;
+    /** how far the sun's shadows reach (render/shadow-follow.ts SHADOW_REACHES; owner, 2026-10-19). Applies live. */
+    shadowReach: ShadowReach;
     /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
     renderScale: number;
     /**
@@ -77,6 +81,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     signals: true,
     train: true,
     shadows: true,
+    shadowReach: 'near',
     renderScale: 1,
     graphics: 'full'
 };
@@ -120,6 +125,7 @@ export function loadSettings(): Settings {
     if (typeof s.signals === 'boolean') out.signals = s.signals;
     if (typeof s.train === 'boolean') out.train = s.train;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
+    if (isShadowReach(s.shadowReach)) out.shadowReach = s.shadowReach;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     if (isGraphicsLevel(s.graphics)) out.graphics = s.graphics;
     // the old low spec switch (2026-10-18): on means low spec

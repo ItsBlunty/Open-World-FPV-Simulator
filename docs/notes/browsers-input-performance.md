@@ -232,3 +232,25 @@ traffic parts). Flight 1's 4 mid-flight shadow shader builds (§0k) are unexplai
   in the engine (`fly.renderer`, `fly.session`, `fly.sun`, ...).
 
 
+
+## 1d. Shadow distance setting (owner, 2026-10-19): built, waiting for the owner to fly
+
+**Why:** the sun's shadows covered a 240 m square round the camera (§0l), so they ended 104-136 m away and popped in
+while the fog only starts at 250 m.
+
+**Built:** Settings > Graphics > Shadow distance (under Sun shadows; hidden in low spec and with shadows off). Three
+steps (`render/shadow-follow.ts` `SHADOW_REACHES`): near, the old 240 m square on a 4096 map (5.9 cm texels, the
+default); far, a 500 m square on 8192 (6.1 cm, as sharp, shadows to ~234-266 m); farthest, a 1000 m square on 8192
+(12 cm, softer close up, to ~484-516 m). Far and farthest use 4x the shadow memory (an 8192² depth map, ~256 MB) and
+draw more casters into the shadow map each frame. `Sun.setReach` changes it live: Three.js's shadow node resizes its
+map to `mapSize` on its next draw. The map is capped at the GPU's largest texture (WebGPU's default limit is 8192).
+The 16 m recentring (§0l) is unchanged. Rendering only; no sim state.
+
+**Evidence** (`docs/evidence/2026-10-19-shadow-distance/`, built-in browser, WebGPU, free camera 60 m up): at near the
+farmhouse ~150 m off is unshaded; at far it is shaded; at farthest the far towers' shadows show too. Engine read back
+half 250 / map 8192 after picking far in the menu, and the choice was saved. 58 test files, 509 tests (4 new in
+`shadow-follow.test.ts`); typecheck clean.
+
+**Left open:** frame time at far and farthest not measured (the pane's fps is not reliable). Cascaded shadow maps
+(sharp near, far reach, less memory) would be the better fix but the fisheye lens draws up to five cameras a frame, and
+Three.js's cascades fit one camera.

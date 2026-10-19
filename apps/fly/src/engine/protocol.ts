@@ -12,6 +12,7 @@ import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
 import type { GraphicsLevel } from '../graphics';
 import type { Track } from '../replay';
+import type { ShadowReach } from '../render/shadow-follow';
 
 /** The replay viewer's cameras (owner, 2026-10-18): the pilot's FPV, chase, a free camera, a spotter standing still. */
 export type ReplayCam = 'fpv' | 'chase' | 'free' | 'spotter';
@@ -24,6 +25,8 @@ export interface EngineSettings {
     /** FPV lens id (render/lenses), or 'none' for the flat camera */
     lens: string;
     renderScale: number;
+    /** how far the sun's shadows reach (render/shadow-follow.ts) */
+    shadowReach: ShadowReach;
     overrides: ParamOverrides;
     traffic: TrafficConfig;
     spawn: string;

@@ -2,13 +2,13 @@
 // Blockout surfaces get a world-aligned grid in the shader (1 m and 5 m lines): on flat colours an
 // FPV pilot cannot read speed or height, on a grid they can. City windows are geometry (the glass set
 // back in the walls, maps first-map.ts windowedBlock); the glass towers' ribbon glass gets its mullions
-// painted. TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera.
+// painted. TSL compiles it for WebGPU and WebGL 2. The sun casts shadows in a square that follows the camera (its size is a setting).
 // Low spec mode (kit.ts) draws the same grid in a few lines of GLSL added to a matte material, no mullions, in tiles.
 
 import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
-import { shadowNeedsRecentre } from './shadow-follow';
+import { SHADOW_REACHES, shadowNeedsRecentre } from './shadow-follow';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
 
@@ -271,38 +271,47 @@ export function levelGroup(level: Level, kit: Kit = FULL_KIT): THREE.Group {
 
 /** Where the sun is: from the south-west, high (a direction; the light itself follows the camera). */
 const SUN_DIR = new THREE.Vector3(-300, 500, 200).normalize();
-/** Half the side of the shadowed square around the camera, m, and the shadow map's size, texels (5.9 cm each). */
-const SHADOW_HALF = 120;
-const SHADOW_MAP = 4096;
-
 /** The sun with its shadow; call follow() each frame with the camera's position (it moves only now and then: shadow-follow.ts). */
 export class Sun {
     readonly light: THREE.DirectionalLight;
     private readonly toLight = new THREE.Matrix4();
     private readonly fromLight = new THREE.Matrix4();
     private readonly c = new THREE.Vector3();
-    /** the square's centre in the light's frame, null before the first follow() */
+    /** the square's centre in the light's frame, null before the first follow() and after a change of reach */
     private centre: THREE.Vector3 | null = null;
+    /** half the side of the shadowed square round the camera, m (setReach) */
+    private half: number = SHADOW_REACHES.near.half;
 
     constructor(scene: THREE.Scene) {
         const l = new THREE.DirectionalLight(0xfff4e0, 2.2);
         l.castShadow = true;
-        l.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
         const cam = l.shadow.camera;
-        cam.left = -SHADOW_HALF;
-        cam.right = SHADOW_HALF;
-        cam.top = SHADOW_HALF;
-        cam.bottom = -SHADOW_HALF;
         cam.near = 1;
         cam.far = 1200; // from 600 m up-sun to well below the ground under the camera
-        cam.updateProjectionMatrix();
         l.shadow.bias = -0.0002;
         l.shadow.normalBias = 0.04;
         scene.add(l, l.target);
         this.light = l;
+        this.setReach(SHADOW_REACHES.near);
         // a rotation into the light's view, to snap the shadow square to whole texels
         this.fromLight.lookAt(SUN_DIR, new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
         this.toLight.copy(this.fromLight).invert();
+    }
+
+    /**
+     * How far the shadows reach (shadow-follow.ts shadowReach): the square's half side, m, and the shadow map's side,
+     * texels. Takes effect live: Three.js's shadow node resizes its map to mapSize when it next draws it.
+     */
+    setReach(r: { half: number; map: number }): void {
+        const l = this.light, cam = l.shadow.camera;
+        l.shadow.mapSize.set(r.map, r.map);
+        cam.left = -r.half;
+        cam.right = r.half;
+        cam.top = r.half;
+        cam.bottom = -r.half;
+        cam.updateProjectionMatrix();
+        this.half = r.half;
+        this.centre = null;
     }
 
     /**
@@ -310,7 +319,7 @@ export class Sun {
      * texels so the shadows of things that stand still land on the same texels after the move.
      */
     follow(p: THREE.Vector3): void {
-        const texel = (2 * SHADOW_HALF) / SHADOW_MAP;
+        const texel = (2 * this.half) / this.light.shadow.mapSize.x;
         this.c.copy(p).applyMatrix4(this.toLight);
         if (!shadowNeedsRecentre(this.centre, this.c)) return;
         (this.centre ??= new THREE.Vector3()).copy(this.c);
