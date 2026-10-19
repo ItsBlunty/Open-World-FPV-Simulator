@@ -12,7 +12,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
-  Super low spec (no GPU, old CPU) measured, not built: pixels cost most, then triangles; plan waits for the owner. [low-spec]
+  Super low spec (no GPU, old CPU) measured, not built: 60 fps on 2 cores needs traffic off, 200 m view, half resolution; plan waits for the owner. [low-spec]
 - **Tests:** `pnpm test`: 55 files, 481 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)

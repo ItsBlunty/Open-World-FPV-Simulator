@@ -37,6 +37,7 @@ let ready = null;
 for (let i = 0; i < 40 && !ready; i++) { await sleep(500); ready = await ev(READY); }
 const loadS = (Date.now() - t0) / 1000;
 if (process.env.PRE) await ev(`__fly.ask(${JSON.stringify(fs.readFileSync(process.env.PRE,"utf8"))})`);
+if (process.env.PAGEPRE) await ev(process.env.PAGEPRE);
 await sleep(3000);
 let profile;
 if (process.env.PROF) {

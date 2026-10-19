@@ -1,0 +1,4 @@
+const m = {}; let tot = 0;
+const cam = fly.view.camera; cam.updateMatrixWorld(); const fr = new (fly.view.camera.constructor.prototype.constructor === undefined ? Object : Object)();
+fly.scene.traverseVisible((o) => { if (o.isMesh || o.isLine || o.isPoints) { const g = o.geometry; const n = Math.round((g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1)); let p = o.parent, path = o.name || o.type; while (p && p !== fly.scene) { path = (p.name || p.type) + '/' + path; p = p.parent; } const k = path.replace(/tile:-?\d+,-?\d+/, 'tile:*'); m[k] = (m[k] || 0) + n; tot += n; } });
+return JSON.stringify({ calls: fly.renderer.info.render.calls, drawn: fly.renderer.info.render.triangles, sceneTris: tot, parts: Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 25) });

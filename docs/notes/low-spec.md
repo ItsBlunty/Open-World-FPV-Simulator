@@ -102,3 +102,16 @@ Levers, one at a time (2 cores, traffic off, base 21 fps, 158 k triangles, 71 dr
 Main-thread JavaScript is about 5 % of a frame (profile: 4.1 s of 4.3 s outside JS, waiting on drawing). Physics stays
 small (20 µs per 1 ms step with traffic, about 6 µs without, on this machine), so the same physics fits an old CPU.
 Traffic costs about a quarter of the frame rate here, so super low spec turns cars, people and signals off.
+
+**Owner (2026-10-19): "We need to hit 60 fps not 45".** Same stand-in, menu closed and HUD on (the open menu alone
+cost about 6 fps), all levers above plus these (traffic off throughout):
+| Setup | 2 cores, street / 40 m up | 1 core, street / 40 m up |
+|---|---|---|
+| half resolution, 300 m view | 52 / 56 (HUD hidden) | |
+| half resolution, 200 m view (fog 80-195 m) | 59 / 60 | 43 / 53 |
+| 0.35 resolution, 200 m view | 60 / 60 | 54 / 56 |
+| empty level (sky only), half resolution | 60 (HUD hidden) | |
+At 200 m the city is 81 k triangles in 35-42 draws (300 m: 117-121 k). With traffic on (half resolution, 200 m):
+49 fps on 2 cores. At 6x CPU throttle instead of 4x: still 60 on 2 cores, so our JavaScript isn't the limit.
+**So:** 60 on 2 cores needs traffic off, 200 m view and half resolution; 1 core needs resolution lower than 0.35. A
+real old core is slower than these, so a resolution that drops by itself when frames run late is the way to hold 60.
