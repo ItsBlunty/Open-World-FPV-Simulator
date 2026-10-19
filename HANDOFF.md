@@ -32,7 +32,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   to the forest), power line wired on square crossarms from a substation to a riser pole. [map §1g]
   Time trials built (map v12): three courses (park, bando, grain plant) of gates through windows and gaps, a checkered
   arch, pad and flag each; rest 3 s on the pad, accept with the sticks, 3-2-1-GO with false starts, times saved and
-  listed in Esc > Time trials. [time-trials §1h]
+  listed in Esc > Time trials. [time-trials §1h] Clearer gates (thick pulsing frame, tinted pane, a floating arrow seen
+  through walls that keeps its size on screen, distance on the HUD) and a 3D "TIME TRIAL" arrow over each pad. [§1i]
 - **Tests:** `pnpm test`: 60 files, 533 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
@@ -86,7 +87,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 16. **Time trials (map v12):** spawn "Park", "Bando (front)" or "Industrial yard", find the checkered arch, land on its
    pad, race. Choices made without you, to confirm: gates count either way through; R restarts the race on the pad,
    Esc > Leave time trial ends it; the next gate is outlined (seen faintly through walls), the one after dim; the Time
-   Trials screen lists every gate. Courses right (yard too hard, park wires too tight)? Want split times, more courses? [time-trials §1h]
+   Trials screen lists every gate. Courses right (yard too hard, park wires too tight)? Want split times, more courses?
+   Gates and pad markers clear enough now? [time-trials §1h, §1i]
 
 ## Left open (not started)
 
@@ -152,7 +154,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
-| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times |
+| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers |
+
 
 
 Owner decisions: `docs/decisions.md`.

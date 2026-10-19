@@ -7,7 +7,7 @@
 // what they cost), ?lowspec turns low spec mode on for this visit (?lowspec=0 off), ?render=worker runs the engine in a worker.
 
 import './style.css';
-import { compileParams } from '@owfpv/sim-core';
+import { S, compileParams } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
@@ -456,7 +456,16 @@ function onTrial(e: TrialEvent): void {
     }
 }
 
+/** The next gate's name and how far it is from the quad, m. */
+function nextGate(x: HudSnapshot, t: TrialInfo, gate: number): string {
+    const at = t.at[gate];
+    if (!at) return '';
+    const d = Math.hypot(at[0] - x.s[S.px], at[1] - x.s[S.py], at[2] - x.s[S.pz]);
+    return `${t.gates[gate]} · ${Math.round(d)} m`;
+}
+
 /** The HUD's time trial parts from the engine's status (trials.ts TrialStatus). */
+
 function raceHud(x: HudSnapshot): Pick<HudExtra, 'race' | 'count' | 'padHint'> {
     const st = x.trial, t = trials[st.course], now = performance.now();
     const none = { race: null, count: null, padHint: '' };
@@ -472,7 +481,7 @@ function raceHud(x: HudSnapshot): Pick<HudExtra, 'race' | 'count' | 'padHint'> {
         };
     }
     return {
-        race: { clock: formatTime(st.ms), line: `${t.name} · GATE ${Math.min(st.gate + 1, st.gates)} / ${st.gates}`, next: t.gates[st.gate] ?? '' },
+        race: { clock: formatTime(st.ms), line: `${t.name} · GATE ${Math.min(st.gate + 1, st.gates)} / ${st.gates}`, next: nextGate(x, t, st.gate) },
         count: falseStart ?? (now < goUntil ? { text: 'GO!', kind: 'go' } : null),
         padHint: ''
     };

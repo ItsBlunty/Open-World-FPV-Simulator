@@ -472,7 +472,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             for (const e of session.trials.drain()) post({ type: 'trial', e });
         }
         collectView.update(now / 1000);
-        trialsView.update(session.trials.status(), now / 1000);
+        trialsView.update(session.trials.status(), now / 1000, view.camera.position);
         view.update(session.sim.s, dt);
         const lookAround = !radio.hasRadio && !demo;
         if (lookAround && !freeCam.active) freeCam.enter(view.camera);
@@ -535,7 +535,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     post({
         type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id, mapId: level.id,
         props: level.collectibles.map((c) => ({ n: c.n, area: c.area, spot: c.spot })),
-        trials: level.trials.map((t) => ({ id: t.id, name: t.name, area: t.area, version: t.version, gates: t.gates.map((g) => g.name) }))
+        trials: level.trials.map((t) => ({ id: t.id, name: t.name, area: t.area, version: t.version, gates: t.gates.map((g) => g.name), at: t.gates.map((g): [number, number, number] => [g.x, g.y, g.z]) }))
     });
 
     /**

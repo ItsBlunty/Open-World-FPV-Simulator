@@ -68,6 +68,9 @@ export interface TrialInfo {
     version: number;
     /** its gates' names, in order (the last is the start arch) */
     gates: string[];
+    /** its gates' centres, m, in the same order (the HUD's distance to the next one) */
+    at: [number, number, number][];
+
 }
 
 export type PageMsg =

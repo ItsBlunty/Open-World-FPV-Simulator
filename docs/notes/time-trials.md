@@ -84,3 +84,25 @@ screen, and declining with Esc (screenshots in the session's tool results, not s
 tight?). A saved flight keeps no race results: the replay viewer does not show gates or splits (the race's respawns are
 in it). No split times per gate on the HUD or saved (each gate's time is in the `gate` event). No ghost of the best run.
 No minimap or arrow to the pads; the Time Trials screen says where each is only by area.
+
+## 1i. Clearer gates and pad markers (owner, 2026-10-19): built, waiting for the owner to fly
+
+**Asked:** "We need a much clearer/more obvious gate graphic, its hard to tell where to go right now easily. The pad
+under the arch is not obvious at all, we should have a floating arrow indicator pointing down and bobbing up and down,
+and 3d, saying "Time Trial"."
+
+**Gates (`render/trials.ts`).** The next gate: a frame of 16 cm bars (was 6 cm) pulsing orange to yellow twice a second,
+a yellow pane over its opening at 14 % opacity, the frame also drawn at 35 % through walls, and a 3D down arrow (1.8 m,
+extruded, its tip 1.2 m over the frame, or 2 m over a flat gate's middle) bobbing 0.3 m every 1.4 s, turned to face the
+camera, drawn through walls. The arrow is life size within 15 m and grows with the distance beyond, so it stays the same
+size on screen and shows where to go from across the map. The gate after it: a thin dim frame, as before. HUD: the next
+gate's name now ends with its distance ("... · 34 m"; the gates' centres come with the course list).
+
+**Pads.** Over each pad an orange 3D arrow (1.5x the gate arrow, 2.7 m) pointing down at it, its tip about 1 m over the
+banner, with TIME TRIAL in 3D yellow block letters (0.9 m) over it; both bob and turn to face the camera. Hidden while
+its own course is offered or raced, and in the replay viewer. The letters are our own: strokes on a 4 x 6 grid drawn as
+bars (only T, I, M, E, R, A, L), so there is no font file to license.
+
+**Evidence:** `pnpm test` 60 files, 533 tests; typecheck and build clean. Seen in the built-in browser (WebGPU): the
+bando's first window gate from 40 m and 8 m (frame, pane, arrow, HUD distance), the bando and park pad markers. Not
+measured: frame time (a handful of draws).
