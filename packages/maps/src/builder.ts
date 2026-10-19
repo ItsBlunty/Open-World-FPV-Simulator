@@ -6,6 +6,7 @@
 // so every engine builds the same bytes; levelSha256 is the collision hash a log header records.
 
 import { sha256Hex } from '@owfpv/sim-core';
+import type { TimeTrial } from './trials';
 
 export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
@@ -131,6 +132,8 @@ export interface Level {
     collectibles: Collectible[];
     /** the railway the train runs on (map v7; not part of the collision, nor of its hash: the track itself is), or null */
     railway: Railway | null;
+    /** time trial courses (map v12; their gates are not part of the collision, nor of its hash: the arches and pads are) */
+    trials: TimeTrial[];
 }
 
 /**
@@ -200,6 +203,7 @@ export class LevelBuilder {
     readonly doors: Door[] = [];
     readonly collectibles: Collectible[] = [];
     railway: Railway | null = null;
+    readonly trials: TimeTrial[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -412,7 +416,8 @@ export class LevelBuilder {
             o += a.length;
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
-            buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway };
+            buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway,
+            trials: this.trials.slice() };
     }
 }
 

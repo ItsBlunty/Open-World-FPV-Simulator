@@ -13,7 +13,13 @@ import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { loadCollection, loadProfile, loadSettings, saveCollection, saveProfile, saveSettings } from './settings';
+import { loadCollection, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
+import { courseKey, formatDelta, formatTime, parseTrialTimes, recordRun } from './trial-times';
+import type { CourseTimes } from './trial-times';
+import type { TrialEvent } from './trials';
+import { TrialPrompt } from './ui/trial-prompt';
+import { TrialsUi } from './ui/trials-ui';
+import type { HudExtra } from './ui/hud';
 import { HidSource } from './devices/hid';
 import { GamepadSource, gamepadKey, padClock } from './devices/gamepad';
 import { findSavedGamepad, findSavedHid } from './devices/reconnect';
@@ -33,7 +39,7 @@ import type { CheckReply } from './check-worker';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
-import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo } from './engine/protocol';
+import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo, TrialInfo } from './engine/protocol';
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
@@ -117,6 +123,13 @@ let props: PropInfo[] = [];
 let mapId = '';
 const collection = loadCollection();
 const found = (): number[] => collection[mapId] ?? [];
+/** the time trial courses (from the engine) and the pilot's times, by map id, by course (kept in this browser) */
+let trials: TrialInfo[] = [];
+const trialTimes = parseTrialTimes(loadTrialTimesRaw());
+const timesOf = (t: TrialInfo): CourseTimes | null => trialTimes[mapId]?.[courseKey(t.id, t.version)] ?? null;
+/** page times (ms) until which the HUD shows GO! and FALSE START */
+let goUntil = 0;
+let falseStartUntil = 0;
 /** this visit's saved flight (flights.ts): named by when the page started; nothing in the sim reads it */
 const flightId = Date.now();
 
@@ -181,8 +194,11 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         spawns = m.spawns;
         spawnId = m.spawn;
         props = m.props;
+        trials = m.trials;
         mapId = m.mapId;
         renderMenu();
+    } else if (m.type === 'trial') {
+        onTrial(m.e);
     } else if (m.type === 'flight') {
         void putFlight(m.flight).then((ok) => {
             if (!ok) console.warn('This browser did not keep the flight (storage blocked or full).');
@@ -242,6 +258,8 @@ function onRaw(f: RawFrame): void {
     }
     if (!profile || demo) return;
     mapFrame(profile, f, ch, { arm: profile.arm ? undefined : keyArm, turtle: profile.turtle ? undefined : keyTurtle, fallbackMode: settings.mode });
+    // the time trial offer is answered with the sticks (the engine holds them centred for the quad meanwhile)
+    if (trialPrompt.open) trialPrompt.feed(ch);
     // watching a replay: the sticks fly nothing; with the option on, deliberate moves steer the replay (replay.ts)
     if (replayUi.open) {
         if (!replayUi.radioOn) return;
@@ -328,6 +346,8 @@ const hud = new Hud();
 const setup = new RadioSetup();
 const settingsUi = new SettingsUi();
 const collectionUi = new CollectionUi();
+const trialsUi = new TrialsUi();
+const trialPrompt = new TrialPrompt();
 const flightsUi = new FlightsUi();
 const reportUi = new ReportUi();
 const replayUi = new ReplayUi();
@@ -338,12 +358,12 @@ const menuPanel = h('div', { class: 'panel' }, menuBody);
 const menu = h('div', { class: 'overlay' }, menuPanel);
 /** the pilot has left the title card (Start flying): from then on Esc opens the pause menu */
 let started = demo;
-document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el, reportUi.el, replayUi.el);
+document.body.append(hud.el, trialPrompt.el, menu, setup.el, settingsUi.el, collectionUi.el, trialsUi.el, flightsUi.el, reportUi.el, replayUi.el);
 let menuMsg = '';
 
 /** a screen is open: the sim pauses (the replay viewer too: it plays a track, the sim stays where it was) */
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open || reportUi.open || replayUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || trialsUi.open || flightsUi.open || reportUi.open || replayUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -396,6 +416,66 @@ function openCollection(): void {
         },
         close: () => { collectionUi.hide(); showMenu(true); }
     });
+}
+
+function openTrials(): void {
+    showMenu(false);
+    trialsUi.show({
+        trials,
+        times: timesOf,
+        reset: () => {
+            trialTimes[mapId] = {};
+            saveTrialTimesRaw(trialTimes);
+        },
+        close: () => { trialsUi.hide(); showMenu(true); }
+    });
+}
+
+/** What the engine says happened in a time trial (trials.ts): the offer, false starts, GO, the finish. */
+function onTrial(e: TrialEvent): void {
+    const t = trials[e.course];
+    if (!t) return;
+    if (e.type === 'ask') {
+        const c = timesOf(t);
+        if (mouseCaptured()) document.exitPointerLock();
+        trialPrompt.show({ name: t.name, area: t.area, gates: t.gates.length, best: c ? formatTime(c.best) : null, stickMode: profile?.stickMode ?? settings.stickMode },
+            (a) => send({ type: 'trial', act: a }));
+    } else if (e.type === 'false-start') {
+        falseStartUntil = performance.now() + 1500;
+    } else if (e.type === 'go') {
+        goUntil = performance.now() + 800;
+    } else if (e.type === 'finish') {
+        const r = recordRun(trialTimes, mapId, courseKey(t.id, t.version), e.ms, Date.now());
+        saveTrialTimesRaw(trialTimes);
+        const vs = r.previous === null ? 'First time on this course'
+            : r.best ? `New best, ${formatDelta(r.ms - r.previous)} (was ${formatTime(r.previous)})` : `${formatDelta(r.ms - r.previous)} on your best ${formatTime(r.previous)}`;
+        hud.result(t.name, formatTime(e.ms), vs, r.previous === null ? '' : r.best ? 'best' : 'slower');
+        trialsUi.refresh();
+    } else if (e.type === 'quit') {
+        hud.toast('TIME TRIAL LEFT', t.name);
+    }
+}
+
+/** The HUD's time trial parts from the engine's status (trials.ts TrialStatus). */
+function raceHud(x: HudSnapshot): Pick<HudExtra, 'race' | 'count' | 'padHint'> {
+    const st = x.trial, t = trials[st.course], now = performance.now();
+    const none = { race: null, count: null, padHint: '' };
+    if (!t) return none;
+    if (st.phase === 'free') return { ...none, padHint: st.hold > 0 ? `${t.name.toUpperCase()} · stay on the pad` : '' };
+    if (st.phase === 'asking') return none;
+    const falseStart = now < falseStartUntil ? { text: 'FALSE START', kind: 'small' as const } : null;
+    if (st.phase === 'countdown') {
+        return {
+            race: { clock: formatTime(0), line: t.name, next: `First: ${t.gates[0]}` },
+            count: falseStart ?? (st.toGo === null ? null : { text: String(Math.max(1, Math.ceil(st.toGo / 1000))), kind: '' }),
+            padHint: ''
+        };
+    }
+    return {
+        race: { clock: formatTime(st.ms), line: `${t.name} · GATE ${Math.min(st.gate + 1, st.gates)} / ${st.gates}`, next: t.gates[st.gate] ?? '' },
+        count: falseStart ?? (now < goUntil ? { text: 'GO!', kind: 'go' } : null),
+        padHint: ''
+    };
 }
 
 /** checks and replay tracks are made in a worker (check-worker.ts), so a long replay does not freeze the page */
@@ -678,6 +758,7 @@ function menuButtons(first: HTMLElement | null): HTMLElement {
         first,
         h('button', { onclick: openSettings }, 'Settings'),
         h('button', { onclick: openCollection, disabled: props.length === 0 }, props.length ? `Collection  ${n} / ${props.length}` : 'Collection'),
+        h('button', { onclick: openTrials, disabled: trials.length === 0 }, 'Time trials'),
         h('button', { onclick: openFlights }, 'Flight replay'));
 }
 
@@ -699,9 +780,10 @@ function renderMenu(): void {
         return;
     }
     menuPanel.className = 'panel pause-card';
+    const racing = hudSnap !== null && (hudSnap.trial.phase === 'countdown' || hudSnap.trial.phase === 'racing');
     clear(menuBody,
         h('div', { class: 'title' }, h('h1', {}, 'Paused'), closeButton(() => showMenu(false))),
-        menuButtons(null),
+        menuButtons(racing ? h('button', { onclick: () => { send({ type: 'trial', act: 'quit' }); showMenu(false); } }, 'Leave time trial') : null),
         h('p', { class: 'note' }, 'Esc goes back to flying.'));
 }
 
@@ -736,6 +818,12 @@ addEventListener('keyup', (e) => { if (held.delete(e.code)) camDirty = true; });
 addEventListener('blur', () => { held.clear(); camDirty = true; });
 
 addEventListener('keydown', (e) => {
+    // the time trial offer: Enter races, Esc declines
+    if (trialPrompt.open && (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Escape')) {
+        trialPrompt.answer(e.code === 'Escape' ? 'decline' : 'race');
+        e.preventDefault();
+        return;
+    }
     if (replayUi.open) {
         if (e.code === 'Escape') return closeReplay();
         if (e.repeat && !e.code.startsWith('Arrow')) return;
@@ -754,7 +842,7 @@ addEventListener('keydown', (e) => {
             openSettings();
             return;
         }
-        for (const ui of [flightsUi, collectionUi, settingsUi]) {
+        for (const ui of [flightsUi, collectionUi, trialsUi, settingsUi]) {
             if (!ui.open) continue;
             ui.hide();
             showMenu(true);
@@ -810,6 +898,10 @@ function drawHud(): void {
     const x = hudSnap;
     if (!x) return;
     hintLowSpec(x.fps);
+    // the engine stopped asking (R, a new start point): the offer goes
+    if (trialPrompt.open && x.trial.phase !== 'asking') trialPrompt.hide();
+    hud.el.classList.toggle('asking', trialPrompt.open);
+
     hud.update(x, {
         respawnIn: x.respawnIn,
         hasRadio: profile !== null || demo,
@@ -819,12 +911,15 @@ function drawHud(): void {
         armHint: profile && !profile.arm ? 'DISARMED — throttle down, press Space to arm' : 'DISARMED — throttle down, flip the arm switch',
         turtleHint: `TILTED — ${profile && !profile.turtle ? 'press T' : 'turtle switch on'}, then arm to flip over (or R)`,
         props: props.length ? `${found().length} / ${props.length}` : '',
-        footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(x.fps)} fps · ${x.freeCam ? 'LOOK AROUND' : x.mode.toUpperCase()}`
+        footer: `${device ? `${device.name} ${rate.hz} Hz · ` : ''}${backend} · ${Math.round(x.fps)} fps · ${x.freeCam ? 'LOOK AROUND' : x.mode.toUpperCase()}`,
+        ...raceHud(x)
     });
 }
 
 function pageFrame(): void {
     setup.render();
+    trialPrompt.draw(performance.now());
+
     syncPause();
     // the replay viewer shows its own numbers
     hud.el.classList.toggle('hidden', replayUi.open);

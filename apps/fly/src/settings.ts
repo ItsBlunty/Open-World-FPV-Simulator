@@ -154,6 +154,18 @@ export function saveCollection(c: Record<string, number[]>): void {
     write(COLLECTION, c);
 }
 
+/** The time trial times (owner, 2026-10-19), as trial-times.ts keeps them: by map id, by course id and version. */
+const TRIAL_TIMES = 'owfpv.timeTrials';
+
+export function loadTrialTimesRaw(): unknown {
+    return read(TRIAL_TIMES);
+}
+
+export function saveTrialTimesRaw(t: unknown): void {
+    write(TRIAL_TIMES, t);
+}
+
+
 function allProfiles(): Record<string, RadioProfile> {
     const p = read(PROFILES);
     return p && typeof p === 'object' ? (p as Record<string, RadioProfile>) : {};

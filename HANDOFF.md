@@ -30,12 +30,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Map joined up (map v11): city edge a kerb and sidewalk (no road stubs), a road to the bando and the yard over a level
   crossing, the fields station's forecourt and lane, park paths carried on (foot crossings over the railway, a farm track
   to the forest), power line wired on square crossarms from a substation to a riser pole. [map §1g]
-- **Tests:** `pnpm test`: 58 files, 515 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Time trials built (map v12): three courses (park, bando, grain plant) of gates through windows and gaps, a checkered
+  arch, pad and flag each; rest 3 s on the pad, accept with the sticks, 3-2-1-GO with false starts, times saved and
+  listed in Esc > Time trials. [time-trials §1h]
+- **Tests:** `pnpm test`: 60 files, 533 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
-  - map v11 `71aa352f…` (433 062 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 11, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - map v12 `e99e66dc…` (433 278 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 12, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -80,6 +83,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 15. **Map joined up (map v11):** fly the city's edge, the yard road and its level crossing to the yard gate, the bando
    driveway, the park paths to the forest, the power line (wires are solid: try threading them), the station forecourt.
    Feels complete? Wires visible enough at speed (3.5 cm)? Cars on the roads out next? [map §1g]
+16. **Time trials (map v12):** spawn "Park", "Bando (front)" or "Industrial yard", find the checkered arch, land on its
+   pad, race. Choices made without you, to confirm: gates count either way through; R restarts the race on the pad,
+   Esc > Leave time trial ends it; the next gate is outlined (seen faintly through walls), the one after dim; the Time
+   Trials screen lists every gate. Courses right (yard too hard, park wires too tight)? Want split times, more courses? [time-trials §1h]
 
 ## Left open (not started)
 
@@ -90,6 +97,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   collections. [collectibles]
 - Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
   cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
+- Time trials: saved flights keep no race results (the replay viewer shows no gates or splits); no per-gate splits; no
+  ghost; no arrow or map to the pads. [time-trials §1h]
 - Railway: the hill reads flat from above; people on the platform don't queue (they can overlap at a door); no stair on the north platform; the yard's wagons never move; a puff can
   pass through the hill at a portal; the train ignores the quad; look-around doesn't run the sim (the train stands). [railway]
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
@@ -143,5 +152,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
+| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times |
+
 
 Owner decisions: `docs/decisions.md`.

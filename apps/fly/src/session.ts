@@ -16,6 +16,8 @@ import { TrafficWorld, TrainWorld, makeTraffic, makeTrains, worldSha256 } from '
 import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 import { Collector } from './collect';
+import { TrialRunner } from './trials';
+import type { Pose } from './trials';
 
 /**
  * SPEC.md 4.2, to prototype: after a crash, respawn quickly where you were. 1 s after the crash the
@@ -70,6 +72,8 @@ export class FlightSession {
     readonly levelSha256: string;
     /** the golden props: checked after every sim step, so a replay takes them on the same ticks */
     readonly collector: Collector;
+    /** the time trials: checked after every sim step, like the props */
+    readonly trials: TrialRunner;
     private overrides: ParamOverrides;
     private trafficCfg: TrafficConfig;
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
@@ -78,6 +82,8 @@ export class FlightSession {
     private contactWorld: ContactWorld;
     private spawnPt: SpawnPoint;
     private pose: [number, number, number, number];
+    /** a time trial's pad while one is being raced: where a respawn to the start goes then (null: the start point) */
+    private padPose: Pose | null = null;
 
     constructor(o: SessionOptions) {
         this.level = o.level;
@@ -92,11 +98,15 @@ export class FlightSession {
         this.pose = this.poseOf(this.spawnPt, sim);
         this.runner = new Runner(sim, this.header('start'), { runHash: o.runHash === true, traceHash: o.traceHash === true });
         const p = sim.p;
-        this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
+        this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.padPose ?? this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
         this.runner.director = this.director;
         this.collector = new Collector(o.level.collectibles);
-        const c = this.collector;
-        this.runner.onStep = (s) => c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
+        this.trials = new TrialRunner(o.level.trials, (pose) => this.onPad(pose), p.bodyBottom);
+        const c = this.collector, t = this.trials;
+        this.runner.onStep = (s) => {
+            c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
+            t.step(s.s, s.tick);
+        };
     }
 
     get sim(): Sim {
@@ -184,8 +194,15 @@ export class FlightSession {
         this.director.request('start');
     }
 
+    /** A time trial sets the quad down on its pad (a respawn to the start, logged as any other), or is over (null). */
+    private onPad(pose: Pose | null): void {
+        this.padPose = pose;
+        if (pose) this.director.request('start');
+    }
+
     /** A new spawn point: it becomes the start, and the craft goes there now. */
     setSpawn(s: SpawnPoint): void {
+        this.trials.quit();
         this.spawnPt = s;
         this.pose = this.poseOf(s, this.sim);
         this.director.request('start');
@@ -193,6 +210,7 @@ export class FlightSession {
 
     /** New flight-model settings (rates, ...): a new life on a model built from them, in place. */
     setOverrides(o: ParamOverrides): void {
+        this.trials.quit();
         this.overrides = JSON.parse(JSON.stringify(o)) as ParamOverrides;
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         // the new model starts at the spawn point: settings change in the menu, between flights
@@ -206,7 +224,9 @@ export class FlightSession {
     setTraffic(c: TrafficConfig): void {
         const o = this.trafficCfg;
         if (c.cars === o.cars && c.people === o.people && c.signals === o.signals && !c.train === !o.train) return;
+        this.trials.quit();
         this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals, train: c.train === true };
+
         this.contactWorld = this.buildWorld();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.runner.newLife(sim, this.header('settings'));

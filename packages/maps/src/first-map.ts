@@ -15,6 +15,7 @@ import { borderBelt, forest, treeLine } from './woods';
 import type { WoodSpot } from './woods';
 import { CITY_EDGE, YARD_ROAD, links } from './links';
 import { industrial } from './yard';
+import { timeTrials } from './trials';
 
 export const MAP_ID = 'mixed-1';
 /**
@@ -25,9 +26,10 @@ export const MAP_ID = 'mixed-1';
  * industrial yard filled out: opened and stacked containers, the grain plant, trailers, sheds (owner, 2026-10-19);
  * 11: the map joined up: the city's edge a kerb and sidewalk with no road stubs, a road out to the bando and the yard over
  * a level crossing, the fields station's forecourt and lane, the park's paths carried on, the power line's wires strung
- * on crossarms square to the line, from a substation to a riser pole (owner, 2026-10-19)
+ * on crossarms square to the line, from a substation to a riser pole (owner, 2026-10-19);
+ * 12: time trials: a start arch, landing pad and checkered flag for each of three courses (owner, 2026-10-19)
  */
-export const MAP_VERSION = 11;
+export const MAP_VERSION = 12;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -52,6 +54,8 @@ export function buildFirstMap(): Level {
     const hideouts = streetFurniture(b, new Rng(8), roofClutter);
     // (map v10) numbered after every prop before them, so those keep their numbers
     goldenProps(b, hideouts, [{ area: 'Industrial yard', spots: yardSpots }, { area: 'Forest', spots: woodSpots }]);
+    // (map v12) no random choices: the rest of the map is drawn as before
+    b.trials.push(...timeTrials(b));
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });

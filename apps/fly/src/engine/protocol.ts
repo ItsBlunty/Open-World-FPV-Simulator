@@ -13,6 +13,7 @@ import type { Flight } from '../flights';
 import type { GraphicsLevel } from '../graphics';
 import type { Track } from '../replay';
 import type { ShadowReach } from '../render/shadow-follow';
+import type { TrialEvent, TrialStatus } from '../trials';
 
 /** The replay viewer's cameras (owner, 2026-10-18): the pilot's FPV, chase, a free camera, a spotter standing still. */
 export type ReplayCam = 'fpv' | 'chase' | 'free' | 'spotter';
@@ -59,6 +60,16 @@ export interface PropInfo {
     spot: string;
 }
 
+/** A time trial course as the page lists it (maps TimeTrial, without the geometry). */
+export interface TrialInfo {
+    id: string;
+    name: string;
+    area: string;
+    version: number;
+    /** its gates' names, in order (the last is the start arch) */
+    gates: string[];
+}
+
 export type PageMsg =
     | InitMsg
     /** one mapped stick frame (sim-core channels) with its page time */
@@ -72,6 +83,8 @@ export type PageMsg =
     | { type: 'view'; mode: 'toggle' }
     /** the golden props taken, by number: the saved collection, or none after a reset */
     | { type: 'collection'; taken: number[] }
+    /** the time trial offer answered (race or decline), or the race left (quit: the pause menu) */
+    | { type: 'trial'; act: 'race' | 'decline' | 'quit' }
     /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
@@ -96,6 +109,8 @@ export interface HudSnapshot {
     fps: number;
     mode: 'fpv' | 'chase';
     freeCam: boolean;
+    /** the time trials: the pad being rested on, the countdown, the race */
+    trial: TrialStatus;
 }
 
 /** What the engine knows for a bug report (report.ts): where the flight is and how it is drawn. Read only. */
@@ -131,7 +146,10 @@ export interface EngineReport {
 }
 
 export type EngineMsg =
-    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[] }
+    | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[]; trials: TrialInfo[] }
+    /** something happened in a time trial (trials.ts TrialEvent) */
+    | { type: 'trial'; e: TrialEvent }
+
     /** golden props just taken, by number */
     | { type: 'collect'; n: number[] }
     /** the run so far, to save (sent when the sim pauses, and every minute of flying) */

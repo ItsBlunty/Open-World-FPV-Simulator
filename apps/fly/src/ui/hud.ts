@@ -25,6 +25,10 @@ export interface HudExtra {
     footer: string;
     /** golden props found, e.g. "12 / 51" (owner, 2026-10-18) */
     props: string;
+    /** a time trial (owner, 2026-10-19): the race line at the top, the countdown big in the middle, the pad's hint */
+    race: { clock: string; line: string; next: string } | null;
+    count: { text: string; kind: '' | 'go' | 'small' } | null;
+    padHint: string;
 }
 
 export class Hud {
@@ -35,9 +39,22 @@ export class Hud {
     private readonly bottom = h('div', { class: 'bottom' });
     private readonly toastEl = h('div', { class: 'toast' });
     private toastTimer: ReturnType<typeof setTimeout> | null = null;
+    private readonly raceEl = h('div', { class: 'race' });
+    private readonly countEl = h('div', { class: 'count' });
+    private readonly padEl = h('div', { class: 'pad-hint' });
+    private readonly resultEl = h('div', { class: 'result' });
+    private resultTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
-        this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, this.toastEl, h('div', { class: 'cross' }), this.bottom);
+        this.el = h('div', { id: 'hud' }, this.tl, this.tr, this.mid, this.toastEl, this.raceEl, this.countEl, this.padEl, this.resultEl, h('div', { class: 'cross' }), this.bottom);
+    }
+
+    /** A time trial finished: the course, the time big, and how it compares with the best before it, for a few seconds. */
+    result(name: string, time: string, vs: string, kind: 'best' | 'slower' | ''): void {
+        this.resultEl.replaceChildren(h('div', { class: 'name' }, name), h('div', { class: 'time' }, time), h('div', { class: `vs ${kind}` }, vs));
+        this.resultEl.classList.add('show');
+        if (this.resultTimer) clearTimeout(this.resultTimer);
+        this.resultTimer = setTimeout(() => this.resultEl.classList.remove('show'), 7000);
     }
 
     /** A golden prop taken: its number and the count big, where it was under them, for a few seconds. */
@@ -79,5 +96,12 @@ export class Hud {
         else if (turtle) msg = 'TURTLE — push a stick to flip over, then turtle switch off';
         this.mid.textContent = msg;
         this.bottom.textContent = x.footer;
+        if (x.race) {
+            this.raceEl.replaceChildren(h('div', { class: 'clock' }, x.race.clock), h('div', { class: 'line' }, x.race.line), h('div', { class: 'next' }, x.race.next));
+        } else if (this.raceEl.firstChild) this.raceEl.replaceChildren();
+        this.countEl.textContent = x.count?.text ?? '';
+        this.countEl.className = `count ${x.count?.kind ?? ''}`;
+        this.padEl.textContent = x.padHint;
+
     }
 }

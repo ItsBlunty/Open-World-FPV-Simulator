@@ -16,6 +16,7 @@ import { TrafficView } from '../render/traffic';
 import { TrainView } from '../render/train';
 import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
+import { TrialsView } from '../render/trials';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { SeeThrough, blocked } from '../render/see-through';
@@ -99,6 +100,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const collectView = new CollectiblesView(level.collectibles, kit);
     collectView.setTaken((n) => session.collector.isTaken(n));
     scene.add(collectView.group);
+    const trialsView = new TrialsView(level.trials, kit);
+    scene.add(trialsView.group);
     const view = new CraftView(kit);
     view.uptiltDeg = cfg.uptiltDeg;
     view.fovDeg = cfg.fovDeg;
@@ -126,6 +129,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const freeCam = new FreeCam();
     const radio = new RadioLink(init.timeOrigin, performance.timeOrigin);
     const ch = new Float32Array(8);
+    /** the pilot's sticks held centred while a time trial's offer is up (trials.ts filter) */
+    const heldSticks = new Float32Array(8);
     let paused = true;
     let lookDx = 0, lookDy = 0;
 
@@ -160,7 +165,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let replayTrains: Train[] | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, buildingsView, collectView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, buildingsView, collectView, trialsView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -276,6 +281,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         lookDx = lookDy = 0;
         r.path.update(r.tick);
         collectView.update(now / 1000);
+        trialsView.update(null, now / 1000);
         trafficView.update(tick, view.camera.position);
         drawTrains(r.tick);
         buildingsView.update(r.traffic, tick);
@@ -290,7 +296,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     function handle(m: PageMsg): void {
         switch (m.type) {
             case 'input':
-                if (!demo) radio.input(session, m.ch, m.t);
+                if (!demo) radio.input(session, session.trials.filter(m.ch, heldSticks), m.t);
                 break;
             case 'radio':
                 radio.hasRadio = m.on;
@@ -300,7 +306,14 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 paused = m.on;
                 break;
             case 'reset':
+                // in a time trial: back on its pad for the countdown again; while asked to race: no, and the start point
+                if (session.trials.restart()) break;
+                session.trials.quit();
                 session.resetToSpawn();
+                break;
+            case 'trial':
+                if (m.act === 'quit') session.trials.quit();
+                else session.trials.answer(m.act === 'race');
                 break;
             case 'settings':
                 cfg = m.settings;
@@ -432,7 +445,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let lastHud = -Infinity;
     const hudMsg: EngineMsg & { type: 'hud' } = {
         type: 'hud',
-        hud: { s: new Float64Array(session.sim.s.length), ch: new Float32Array(8), p: { cells: 0, crashOn: false }, respawnIn: null, fps: 0, mode: 'fpv', freeCam: false }
+        hud: { s: new Float64Array(session.sim.s.length), ch: new Float32Array(8), p: { cells: 0, crashOn: false }, respawnIn: null, fps: 0, mode: 'fpv', freeCam: false, trial: session.trials.status() }
     };
     function frame(): void {
         const now = performance.now();
@@ -456,8 +469,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 collectView.take(got, now / 1000);
                 post({ type: 'collect', n: got });
             }
+            for (const e of session.trials.drain()) post({ type: 'trial', e });
         }
         collectView.update(now / 1000);
+        trialsView.update(session.trials.status(), now / 1000);
         view.update(session.sim.s, dt);
         const lookAround = !radio.hasRadio && !demo;
         if (lookAround && !freeCam.active) freeCam.enter(view.camera);
@@ -487,6 +502,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             h.fps = fps;
             h.mode = view.mode;
             h.freeCam = freeCam.active;
+            h.trial = session.trials.status();
             post(hudMsg);
         }
         trafficView.update(session.sim.tick, view.camera.position);
@@ -518,7 +534,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     if (device) await device.queue.onSubmittedWorkDone();
     post({
         type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id, mapId: level.id,
-        props: level.collectibles.map((c) => ({ n: c.n, area: c.area, spot: c.spot }))
+        props: level.collectibles.map((c) => ({ n: c.n, area: c.area, spot: c.spot })),
+        trials: level.trials.map((t) => ({ id: t.id, name: t.name, area: t.area, version: t.version, gates: t.gates.map((g) => g.name) }))
     });
 
     /**
@@ -540,6 +557,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);
+        // a gate outline, its see-through copy and the next one shown, so their materials are built now too
+        trialsView.update({ phase: 'racing', course: 0, hold: 1, toGo: null, ms: 0, gate: 0, gates: 0 }, 0);
         sun.follow(p);
         for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
             // looking straight up or down, the camera's up must not be along the view
@@ -550,6 +569,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             if (gpuRenderer) fisheye?.warmUp(gpuRenderer, scene, cam);
         }
         seeThrough.warmUp(renderer, scene, cam);
+        trialsView.update(session.trials.status(), 0);
+
         cam.up.set(0, 1, 0);
         cam.position.copy(pos);
         cam.quaternion.copy(quat);

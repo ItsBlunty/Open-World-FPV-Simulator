@@ -54,6 +54,10 @@ practice on top of a sound flight model.
   health model. Landing on the underside does no harm unless very fast. **[proposed thresholds]** in sim-core/0.3.0.
 - Crashes: quick respawn where you are; nothing costs the pilot in normal flight, no penalties for now (owner).
 - Collectibles: numbered golden props hidden around the map, a collection screen with the count (owner).
+- Time trials: courses of gates through what the map has (windows, gaps), started from a pad under a checkered arch
+  after resting on it 3 s and accepting with the sticks; a 3-2-1-GO countdown with false starts; the arch is the last
+  gate; times saved and listed in a Time Trials screen (owner).
+
 - Solid stylised cars and people, traffic lights and crossings, each with a toggle in the settings.
 - Challenge types, progression and rewards: to design after a playable prototype.
 
