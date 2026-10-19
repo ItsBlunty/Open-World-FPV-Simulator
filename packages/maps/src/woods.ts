@@ -14,7 +14,9 @@
 // the clumps are real gaps. Angles come from sim-core's dsin and dcos, so every engine builds the same bytes.
 
 import { dcos, dsin } from '@owfpv/sim-core';
-import type { LevelBuilder, Material, Rng } from './builder';
+import { LevelBuilder } from './builder';
+import type { Material, Rng } from './builder';
+import { onWayOut } from './links';
 import { nearTrack, underHill } from './railway';
 
 const DEG = Math.PI / 180;
@@ -389,9 +391,11 @@ export function treeLine(b: LevelBuilder, r: Rng, x0: number, x1: number, z0: nu
         const s = 0.8 + r.int(0, 45) / 100;
         const kind: TreeKind = u < 70 ? 'broadleaf' : u < 85 ? 'spruce' : 'pine';
         if (!clearOfRailway(x, z, crownReach(kind, s, true))) continue;
-        if (kind === 'broadleaf') broadleaf(b, r, x, z, s, true, u % 4 === 0 ? 'foliage-light' : 'foliage');
-        else if (kind === 'spruce') spruce(b, r, x, z, s);
-        else pine(b, r, x, z, s);
+        // (map v11) one on the farm track is grown where nobody sees it, so the trees after it stay as they were
+        const g = onWayOut(x, z, crownReach(kind, s, true)) ? new LevelBuilder() : b;
+        if (kind === 'broadleaf') broadleaf(g, r, x, z, s, true, u % 4 === 0 ? 'foliage-light' : 'foliage');
+        else if (kind === 'spruce') spruce(g, r, x, z, s);
+        else pine(g, r, x, z, s);
     }
 }
 
@@ -415,9 +419,11 @@ export function borderBelt(b: LevelBuilder, r: Rng, e: number): void {
                 const s = 1 + r.int(0, 35) / 100;
                 const kind: TreeKind = u < 65 ? 'spruce' : u < 80 ? 'broadleaf' : 'pine';
                 if (!clearOfRailway(x, z, crownReach(kind, s, true))) continue;
-                if (kind === 'broadleaf') broadleaf(b, r, x, z, s, true);
-                else if (kind === 'spruce') spruce(b, r, x, z, s);
-                else pine(b, r, x, z, s);
+                // (map v11) one on a road or track out of the map is grown where nobody sees it, the rest stay as they were
+                const g = onWayOut(x, z, crownReach(kind, s, true)) ? new LevelBuilder() : b;
+                if (kind === 'broadleaf') broadleaf(g, r, x, z, s, true);
+                else if (kind === 'spruce') spruce(g, r, x, z, s);
+                else pine(g, r, x, z, s);
             }
         }
     }

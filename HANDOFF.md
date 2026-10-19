@@ -27,12 +27,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Shadow distance built: 110 m, 250 m or 500 m, applies live. [browsers-input-performance §1d] Graphics settings laid out
   as games do: a quality preset (High, Medium, Low, Very low, Super low; Custom), then Renderer, Resolution, Shadows; long tick box labels wrap beside the box. [camera §1e]
   Title card (Start flying, Settings, Collection, Flight replay, the radio), Esc pause popup, Settings in tabs. [camera §1f]
-- **Tests:** `pnpm test`: 58 files, 514 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Map joined up (map v11): city edge a kerb and sidewalk (no road stubs), a road to the bando and the yard over a level
+  crossing, the fields station's forecourt and lane, park paths carried on (foot crossings over the railway, a farm track
+  to the forest), power line wired on square crossarms from a substation to a riser pole. [map §1g]
+- **Tests:** `pnpm test`: 58 files, 515 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
-  - map v10 `7396a013…` (421 868 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 10, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - map v11 `71aa352f…` (433 062 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 11, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -74,6 +77,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    and Shadows "to about 500 m": pop-in gone? 500 m too soft close up? Watch the fps (not measured). [camera §1e, §1d]
 14. **Title card and pause menu:** start, connect the radio in Settings > Radio and controls, fly, Esc. Clear enough? The
    start point is now in Settings > World and physics: OK there, or back on the title card? Pause: add "Back to title"? [camera §1f]
+15. **Map joined up (map v11):** fly the city's edge, the yard road and its level crossing to the yard gate, the bando
+   driveway, the park paths to the forest, the power line (wires are solid: try threading them), the station forecourt.
+   Feels complete? Wires visible enough at speed (3.5 cm)? Cars on the roads out next? [map §1g]
 
 ## Left open (not started)
 
@@ -97,6 +103,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - Traffic: mean car speed 1.89 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
+- Map v11: no cars on the roads out; level-crossing lights and barriers don't react to the train; no lights at the yard
+  road's T. [map §1g]
 - Map: frame time after the 5x triangle count (map v4) and the forest (v10) not measured; no tree LOD in low spec; slab undersides render very dark; the crane
   doesn't move; no interiors; the car park, plaza and parking blocks have no names or doors. [map]
 - Loading glTF levels into `MeshContactWorld` (needed when CC0 assets replace the blockout); the Boxer's HID
@@ -123,7 +131,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
-| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out |
+| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line) |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance |

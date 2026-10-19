@@ -13,6 +13,7 @@ import type { Rect } from './golden-props';
 import { nearTrack, railway, underHill } from './railway';
 import { borderBelt, forest, treeLine } from './woods';
 import type { WoodSpot } from './woods';
+import { CITY_EDGE, YARD_ROAD, links } from './links';
 import { industrial } from './yard';
 
 export const MAP_ID = 'mixed-1';
@@ -21,9 +22,12 @@ export const MAP_ID = 'mixed-1';
  * 8: the railway round the whole map, over the city on a viaduct with a station there, the hill moved (owner, 2026-10-19);
  * 9: the city station's footbridge and stair down to a garden in the lot beside it, its platforms raised (owner, 2026-10-19);
  * 10: a forest in the south-east fields, trees with limbs to fly through, the tree lines and the border broken up, the
- * industrial yard filled out: opened and stacked containers, the grain plant, trailers, sheds (owner, 2026-10-19)
+ * industrial yard filled out: opened and stacked containers, the grain plant, trailers, sheds (owner, 2026-10-19);
+ * 11: the map joined up: the city's edge a kerb and sidewalk with no road stubs, a road out to the bando and the yard over
+ * a level crossing, the fields station's forecourt and lane, the park's paths carried on, the power line's wires strung
+ * on crossarms square to the line, from a substation to a riser pole (owner, 2026-10-19)
  */
-export const MAP_VERSION = 10;
+export const MAP_VERSION = 11;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -41,6 +45,9 @@ export function buildFirstMap(): Level {
     border(b, new Rng(6));
     // no random choices: the rest of the map is drawn as before it (bar the hay bales and fence posts on its line)
     railway(b);
+    // (map v11) no random choices but its own: the rest of the map is drawn as before
+    links(b);
+    cityEdge(b, new Rng(11));
     // after everything else, from their own Rng: the rest of the map is drawn exactly as before they existed
     const hideouts = streetFurniture(b, new Rng(8), roofClutter);
     // (map v10) numbered after every prop before them, so those keep their numbers
@@ -59,15 +66,23 @@ export function buildFirstMap(): Level {
 
 // ---------------------------------------------------------------- ground
 
-/** Asphalt under the city and the yard, grass everywhere else, as rectangles that never overlap. */
+/**
+ * Asphalt under the city's roads, the road out to the yard and the yard itself, grass everywhere else, as rectangles that
+ * never overlap. The city's outer sidewalk (cityEdge) stands on the ground round the roads, so none is drawn under it.
+ */
 function ground(b: LevelBuilder): void {
-    const G = GROUND;
-    b.floor('asphalt', -HALF, -HALF, HALF, -70);
+    const G = GROUND, E = CITY_EDGE, R = YARD_ROAD;
+    const ox0 = E.x0 - E.walk, ox1 = E.x1 + E.walk, oz0 = E.z0 - E.walk, oz1 = E.z1 + E.walk;
+    const rx0 = R.x - R.hw, rx1 = R.x + R.hw;
+    b.floor('asphalt', E.x0, E.z0, E.x1, E.z1);
+    // the yard road: through the gap in the outer sidewalk, then south to the yard
+    b.floor('asphalt', rx0, E.z1, rx1, R.z1);
     b.floor('asphalt', -460, 120, -200, 420);
-    b.floor('grass', -G, -G, G, -HALF);
-    b.floor('grass', -G, -HALF, -HALF, -70);
-    b.floor('grass', HALF, -HALF, G, -70);
-    b.floor('grass', -G, -70, G, 120);
+    b.floor('grass', -G, -G, G, oz0);
+    b.floor('grass', -G, oz0, ox0, oz1);
+    b.floor('grass', ox1, oz0, G, oz1);
+    b.floor('grass', -G, oz1, rx0, 120);
+    b.floor('grass', rx1, oz1, G, 120);
     b.floor('grass', -G, 120, -460, 420);
     b.floor('grass', -200, 120, G, 420);
     b.floor('grass', -G, 420, G, G);
@@ -93,7 +108,7 @@ function tree(b: LevelBuilder, r: Rng, x: number, z: number, scale = 1): void {
 function park(b: LevelBuilder, r: Rng): void {
     // spawn pad and paths (thin slabs, 5 cm)
     b.block('concrete', 0, 40, 5, 5, 0, 0.1);
-    b.box('path', -3, 0, -60, 3, 0.05, 37.5); // north-south path, stops at the pad
+    b.box('path', -3, 0, CITY_EDGE.z1 + CITY_EDGE.walk, 3, 0.05, 37.5); // north-south path from the city's sidewalk (map v11), stops at the pad
     b.box('path', -3, 0, 42.5, 3, 0.05, 200);
     b.box('path', -150, 0, 77, 150, 0.05, 83); // east-west path
     b.box('path', -100, 0, 150, 100, 0.05, 154); // southern loop
@@ -125,11 +140,7 @@ function park(b: LevelBuilder, r: Rng): void {
     b.box('concrete', 40, 0, 10, 41, 6, 11);
     b.box('concrete', 30, 6, 10, 41, 7, 11);
     for (let i = 0; i < 6; i++) b.box('concrete', -60 + i * 6, 0, 20, -57 + i * 6, 1 + i * 0.5, 21);
-    // power line: poles every 50 m along z = -40 (no wires: a sim wire is invisible at speed)
-    for (let x = -450; x <= 450; x += 50) {
-        b.prism('wood', x, -40, 0, 12, 0.2, 6);
-        b.box('wood', x - 1.5, 11, -40.1, x + 1.5, 11.25, -39.9);
-    }
+    // (the power line along z -40, poles and wires, is links.ts powerLine since map v11)
     // trees: scattered, kept off the paths, the pad, the fountain and the pond
     const clear = (x: number, z: number): boolean =>
         !(Math.abs(x) < 8) && !(z > 72 && z < 88) && !(z > 145 && z < 159 && Math.abs(x) < 108)
@@ -689,12 +700,15 @@ function roadMarkings(b: LevelBuilder): void {
     const W = 0.075; // half the line width
     const clear = ROAD / 2 + 4; // no centre line inside a junction or over its crossings
     // north-south roads
-    for (const x of xs) for (let z = -HALF; z + 3 <= -70; z += 9) {
+    // (map v11) only between the ring road's outer kerbs: the roads no longer run on past it
+    const E = CITY_EDGE;
+    for (const x of xs) for (let z = -HALF; z + 3 <= E.z1; z += 9) {
         if (nearAny(z, zs, clear) || nearAny(z + 3, zs, clear)) continue;
         b.decal('marking', x - W, z, x + W, z + 3);
     }
     // east-west roads
     for (const z of zs) for (let x = -HALF; x + 3 <= HALF; x += 9) {
+        if (x < E.x0 || x + 3 > E.x1) continue;
         if (nearAny(x, xs, clear) || nearAny(x + 3, xs, clear)) continue;
         b.decal('marking', x, z - W, x + 3, z + W);
     }
@@ -711,9 +725,10 @@ function roadMarkings(b: LevelBuilder): void {
         for (let s = -half; s + 0.5 <= half; s += 1) {
             for (const side of [-1, 1]) {
                 const zc = z + side * (ROAD / 2 + 1.5); // across the north-south road
-                if (zc - 1.5 >= -HALF) b.decal('marking', x + s, zc - 1.5, x + s + 0.5, zc + 1.5);
+                // (none across a road that does not go on past the ring road)
+                if (zc - 1.5 >= E.z0 && zc + 1.5 <= E.z1) b.decal('marking', x + s, zc - 1.5, x + s + 0.5, zc + 1.5);
                 const xc = x + side * (ROAD / 2 + 1.5); // across the east-west road
-                b.decal('marking', xc - 1.5, z + s, xc + 1.5, z + s + 0.5);
+                if (xc - 1.5 >= E.x0 && xc + 1.5 <= E.x1) b.decal('marking', xc - 1.5, z + s, xc + 1.5, z + s + 0.5);
             }
         }
     }
@@ -784,6 +799,47 @@ function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
                 building(b, r, names, used, clutter, blk, mx + 2, mz + 2, x1 - set, z1 - set, maxFloors);
             }
         }
+    }
+}
+
+/**
+ * The city's edge (map v11; owner, 2026-10-19: "the edges of the city dont really make sense (they are just weird edges
+ * of asphalt)"): the ring road round the blocks ends at a kerb, with a 5 m sidewalk outside it at the blocks' kerb height
+ * (the traffic lights' poles on the outer corners stand on it), street lamps along it over the road midway between the
+ * junctions, a gap in it where the yard road leaves, and a row of street trees on the grass verge towards the park.
+ */
+function cityEdge(b: LevelBuilder, r: Rng): void {
+    const E = CITY_EDGE, w = E.walk, y = 0.15, R = YARD_ROAD;
+    const ox0 = E.x0 - w, ox1 = E.x1 + w;
+    b.box('sidewalk', ox0, 0, E.z0 - w, ox1, y, E.z0, FACE.bottom); // north
+    b.box('sidewalk', ox0, 0, E.z0, E.x0, y, E.z1, FACE.bottom); // west
+    b.box('sidewalk', E.x1, 0, E.z0, ox1, y, E.z1, FACE.bottom); // east
+    b.box('sidewalk', ox0, 0, E.z1, R.x - R.hw, y, E.z1 + w, FACE.bottom); // south, either side of the yard road
+    b.box('sidewalk', R.x + R.hw, 0, E.z1, ox1, y, E.z1 + w, FACE.bottom);
+    // lamps by the kerb, their arms out over the road, midway between junctions (junctions every 80 m from -480 / -90)
+    const lamp = (lx: number, lz: number, ax: number, az: number): void => {
+        b.prism('metal', lx, lz, y, 7, 0.12, 4);
+        if (ax) {
+            b.box('metal', lx, 6.8, lz - 0.05, lx + ax * 1.8, 6.92, lz + 0.05);
+            b.box('metal', lx + ax * 1.15, 6.62, lz - 0.16, lx + ax * 1.85, 6.8, lz + 0.16);
+        } else {
+            b.box('metal', lx - 0.05, 6.8, lz, lx + 0.05, 6.92, lz + az * 1.8);
+            b.box('metal', lx - 0.16, 6.62, lz + az * 1.15, lx + 0.16, 6.8, lz + az * 1.85);
+        }
+    };
+    for (let x = -440; x <= 440; x += PITCH) {
+        if (Math.abs(x - R.x) > 10) lamp(x, E.z1 + 0.4, 0, -1);
+        lamp(x, E.z0 - 0.4, 0, 1);
+    }
+    for (let z = -130; z >= -450; z -= PITCH) {
+        lamp(E.x0 - 0.4, z, 1, 0);
+        lamp(E.x1 + 0.4, z, -1, 0);
+    }
+    // street trees on the verge south of the city, every 24 m, kept off the yard road, the park's path and the substation
+    for (let x = -452; x <= 470; x += 24) {
+        const tz = E.z1 + w + 8 + r.int(0, 3);
+        if (Math.abs(x - R.x) < 12 || Math.abs(x) < 10) continue;
+        tree(b, r, x + r.int(-2, 2), tz, 0.9);
     }
 }
 

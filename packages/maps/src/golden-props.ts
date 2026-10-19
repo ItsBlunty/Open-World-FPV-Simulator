@@ -288,7 +288,7 @@ const PARK: [number, number, number, string][] = [
     [-28.5, 4.4, 20.5, 'On the tallest step of the low wall line'], // the last step: x -30 to -27, 3.5 m high
     [-66, 1.7, 114, 'Under the gazebo roof'], // posts at x -70 / -62, z 110 / 118, the roof at 3 m
     [72, 0.7, 120, 'Skimming the pond'],
-    [200, 12.9, -40, 'On top of a power pole, east of the park'] // poles 12 m tall every 50 m along z = -40
+    [225, 12.9, -40, 'On top of a power pole, east of the park'] // poles 12 m tall every 50 m along z = -40, from x -425 (map v11)
 ];
 const BANDO: [number, number, number, string][] = [
     [-229, 1.6, -3, "At the bottom of the bando's lift shaft"], // the shaft: x -232 to -226, z -6 to 0, open every floor

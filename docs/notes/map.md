@@ -187,3 +187,49 @@ track at 3 m, the stack field's alley, the apron tube with its prop inside, the 
 too, so it says nothing); low spec modes draw every tree (no tree LOD or billboards); leaves are solid (a real quad
 pushes through twigs); the forest floor is plain grass; the yard's middle (x -350 to -270, z 200-330) is still open
 apron; the trains don't use the yard; the park's trees are still cones.
+
+## 1g. The map joined up (owner, 2026-10-19): map v11, built, waiting for the owner
+
+Owner: "Lets make the map feel more complete. The paths in each section dont match up with each other, the edges of
+the city dont really make sense (they are just weird edges of asphalt), there are power poles but no lines, and the
+poles are facing the wrong way to connect, etc." Answers (asked first): wires solid; roads out to the yard, the bando
+and the fields station, no cars on them yet; the city's edge a kerb, sidewalk and verge (not suburbs).
+
+Found from a top-down render of the level (a throwaway vitest that rasterises `level.parts` from above, not committed;
+`docs/evidence/2026-10-19-map-joined/top-down-v10.png` and `-v11.png`): the city's asphalt ran 11 m past the ring road
+on three sides, so every street ended in a stub at the grass, with zebras across the stubs and the outer traffic lights'
+poles floating 15 cm over asphalt; the park's paths ended in the grass and at -60 (10 m short of the city), and ran
+under the railway's ballast; the yard, the bando and the fields station had no way in; the crossarms ran along the line
+and a pole stood in the park's main path (x 0).
+
+Built (`packages/maps/src/links.ts`, `first-map.ts ground / cityEdge / roadMarkings`):
+- **City edge:** asphalt only kerb to kerb (x ±489, z -499 to -81); a 5 m sidewalk round it at kerb height (the outer
+  signal poles stand on it), lamps midway between junctions, a row of street trees on the south verge (own Rng 11).
+  No dashes, zebras or stop lines past the ring road.
+- **Yard road:** x -360, 7 m, from the ring road (a gap in the sidewalk, a stop line) south between the bando and the
+  park, over the railway on a level crossing (concrete deck 0.44 m, 1 cm under the rails, ramps 6.5 m; a crossbuck with
+  lights and a raised half barrier each side), into the yard between the two warehouses through a gate (sliding gate
+  open). The yard's fence now runs on its north and west sides too.
+- **Bando driveway:** cracked concrete slabs (painted, 1 in 9 gone, own Rng 12) off the yard road to a yard in front of
+  the loading dock; a worn line from the park path to it.
+- **Fields station:** a forecourt and car park behind the platform, a 1 in 12 ramp up to it, a lane south off the map.
+- **Paths:** the park's north-south path runs to the city's sidewalk; its east-west path on west to the yard road and
+  east to a farm track that leads south to the forest track's north end; the forest track runs on east off the map.
+  Boarded foot crossings where the park's paths cross the railway (3: one on the straight, two on the curve).
+  Trees of the tree line and the border belt that stood on these ways are grown into a throwaway builder, so the trees
+  after them keep their draws.
+- **Power line:** poles now at x -425 to 475 (clear of the path), 12 m, an 8 ft crossarm square to the line 0.6 m under
+  the top, three pin insulators, wires (3.5 cm drawn, solid) sagging 0.6 m over each 50 m span in 8 straight pieces.
+  West end: a fenced substation (gantry, transformer, gravel drive from the ring road). East end: a riser pole with a
+  guy wire and the cables down a conduit into the ground. The golden prop on a pole moved from x 200 to 225 (its number
+  stays).
+
+**Evidence:** `pnpm test` 58 files, 515 tests (new: "joins the map up": sidewalk where the stubs were, the wire's height
+at mid-span, the crossarm across the line, both crossing decks at 0.44 m; train clearance and all 63 props still pass).
+Map v11 hash `71aa352f...`, 433 062 triangles (v10: 421 868). Seen in the built-in browser (WebGPU, look-around camera):
+the level crossing, a pole with its wires, the city's corner and the substation, a foot crossing, the station forecourt
+(`docs/evidence/2026-10-19-map-joined/`). Flight and traffic self-test hashes unchanged.
+
+**Left open:** no cars on the roads out (traffic stays on the grid); the level crossing's lights and barriers don't
+work with the train; the yard road's T at the ring road has no lights; wires are 3.5 cm (real 1-2 cm) and may shimmer
+far off; the lane and the forest track just run on to the ground's edge at 2 km.

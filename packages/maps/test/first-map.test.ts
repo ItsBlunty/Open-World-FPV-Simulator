@@ -305,6 +305,25 @@ describe('first map', () => {
         for (const z of [250, 260, 270, 280]) for (let x = -240; x <= -224; x += 0.25) expect(world.querySphere(x, 2.2, z, 0.25, out), `bin ${z} at ${x}`).toBe(false);
     });
 
+    it('joins the map up: a kerbed city edge, wires on crossarms square to the line, level crossings (map v11)', () => {
+        const down = (x: number, z: number): number => world.queryRay(x, 30, z, 0, -1, 0, 40)!.y;
+        // outside the ring road: its sidewalk at kerb height (on map v10 the asphalt ran on, and the roads with it), then grass
+        expect(down(-440, -79)).toBeCloseTo(0.15, 6);
+        expect(down(-480, -78)).toBeCloseTo(0.15, 6);
+        expect(down(-491, -300)).toBeCloseTo(0.15, 6);
+        expect(down(-497, -300)).toBeCloseTo(0, 6);
+        expect(down(-360, -78)).toBeCloseTo(0, 6); // the yard road leaves through a gap in it
+        // the power line: a wire at mid-span between the poles at x 175 and 225, sagging about 0.6 m from the pins (11.61 m)
+        const wire = down(200, -40 - 1.1);
+        expect(wire).toBeGreaterThan(10.95);
+        expect(wire).toBeLessThan(11.1);
+        // the crossarm runs across the line (along z): 1 m off the line's centre it is in the way of a ray along x
+        expect(world.queryRay(170, 11.4, -39, 1, 0, 0, 10)!.x).toBeCloseTo(174.95, 6);
+        // the level crossing's deck 1 cm under the rails' tops (0.45 m), the foot crossing's the same
+        expect(down(-360, 100)).toBeCloseTo(0.44, 6);
+        expect(down(-102, 100)).toBeCloseTo(0.44, 6);
+    });
+
     it('puts every spawn point on a surface with room for the quad', () => {
         const groundY = (x: number, z: number): number => {
             const hit = world.queryRay(x, 500, z, 0, -1, 0, 1000);
@@ -322,4 +341,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '7396a0130c7a9b3f26b11ccda5cbc0f3e170827676d8bf83283b21eea314bd48';
+const PINNED = '71aa352fe058274db4acdd8850131b7f696eec0e22d1d9592dd881f18489a0c7';
