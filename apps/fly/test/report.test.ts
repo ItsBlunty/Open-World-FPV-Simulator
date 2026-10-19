@@ -58,7 +58,7 @@ describe('bug reports', () => {
         expect(d).toContain('| Map | mixed-1 v6, spawn park, traffic cars, signals (traffic v6) |');
         expect(d).toContain('tick 123456 (123.5 s), life 3, hitches 0, paused');
         expect(d).toContain('armed; at 12.3, 5.6, -78.9 m; 36 km/h');
-        expect(d).toContain('1760800000000 (Esc > Flights > Download');
+        expect(d).toContain('1760800000000 (Esc > Flight replay > Download');
         expect(d).toContain('WebGL 2, low spec, on the page, 58 fps, 88 draws, 127021 triangles');
         // the settings as JSON, and the errors as logged
         expect(d).toContain('```json\n{"version":1,"lens":"none","lowSpec":true,"rates":null}\n```');
