@@ -2,9 +2,10 @@
 // what each low spec mode draws (owner, 2026-10-19: three low spec modes).
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { cheaper, graphicsFromParam, graphicsName, isLowSpec, trafficAllowed } from '../src/graphics';
+import { QUALITY_PRESETS, applyPreset, cheaper, cheaperPreset, graphicsFromParam, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../src/graphics';
+import type { GraphicsChoice } from '../src/graphics';
 import { kitFor } from '../src/render/kit';
-import { loadSettings } from '../src/settings';
+import { DEFAULT_SETTINGS, loadSettings } from '../src/settings';
 
 function withStorage(v: unknown): void {
     const m = new Map<string, string>([['owfpv.settings', JSON.stringify(v)]]);
@@ -54,5 +55,48 @@ describe('graphics levels', () => {
         expect(extra.fog.far).toBeLessThanOrEqual(300);
         expect([sup.resolution, sup.details]).toEqual([0.25, false]);
         expect(sup.fog.far).toBeLessThanOrEqual(200);
+    });
+});
+
+describe('quality presets', () => {
+    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 });
+
+    it('the default settings are Medium', () => {
+        expect(presetOf(DEFAULT_SETTINGS)).toBe('medium');
+    });
+
+    it('each preset reads back as itself once applied, from any start', () => {
+        for (const start of QUALITY_PRESETS) {
+            for (const p of QUALITY_PRESETS) {
+                const c = base();
+                applyPreset(c, start);
+                applyPreset(c, p);
+                expect(presetOf(c)).toBe(p);
+            }
+        }
+    });
+
+    it('High is Medium with shadows to 250 m', () => {
+        const c = base();
+        expect(presetOf(c)).toBe('medium');
+        c.shadowReach = 'far';
+        expect(presetOf(c)).toBe('high');
+    });
+
+    it('changing a detail makes it custom; low spec presets ignore the shadow choice', () => {
+        expect(presetOf({ ...base(), renderScale: 0.8 })).toBe('custom');
+        expect(presetOf({ ...base(), shadows: false })).toBe('custom');
+        expect(presetOf({ ...base(), graphics: 'low', shadows: false })).toBe('low');
+        expect(presetOf({ ...base(), graphics: 'low', renderScale: 0.7 })).toBe('custom');
+        expect(presetOf({ ...base(), graphics: 'super', renderScale: 0.5 })).toBe('super');
+    });
+
+    it('suggests the next cheaper preset, none past super low', () => {
+        expect(cheaperPreset({ ...base(), shadowReach: 'far' })).toBe('medium');
+        expect(cheaperPreset(base())).toBe('low');
+        expect(cheaperPreset({ ...base(), graphics: 'super' })).toBeNull();
+        // a custom full-graphics mix: the first low spec preset
+        expect(cheaperPreset({ ...base(), renderScale: 0.6 })).toBe('low');
+        expect(cheaperPreset({ ...base(), graphics: 'low', renderScale: 0.6 })).toBe('verylow');
     });
 });

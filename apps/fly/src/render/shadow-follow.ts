@@ -39,3 +39,6 @@ export function shadowReach(reach: ShadowReach, maxTexture: number): { half: num
     const r = SHADOW_REACHES[reach];
     return { half: r.half, map: Math.min(r.map, Math.max(1024, maxTexture)) };
 }
+
+/** How far each reach draws shadows, round metres, as the settings name it (the square's half side less up to 16 m). */
+export const SHADOW_REACH_M: Record<ShadowReach, number> = { near: 110, far: 250, farthest: 500 };

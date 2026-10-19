@@ -9,8 +9,8 @@ import type { Settings } from '../settings';
 import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
-import { GRAPHICS_LEVELS, graphicsName, isLowSpec, trafficAllowed } from '../graphics';
-import type { GraphicsLevel } from '../graphics';
+import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, applyPreset, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
+import type { GraphicsLevel, QualityPreset } from '../graphics';
 import { SHADOW_REACH_IDS } from '../render/shadow-follow';
 import type { ShadowReach } from '../render/shadow-follow';
 
@@ -42,19 +42,29 @@ export interface SettingsHost {
     close(): void;
 }
 
-/** The graphics choices as the settings screen lists them (graphics.ts) */
 /** how far the shadows reach (render/shadow-follow.ts SHADOW_REACHES: the square's half side less up to 16 m) */
 const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
-    near: 'About 110 m (lightest on the GPU)',
-    far: 'About 250 m (as sharp, 4x the shadow memory)',
-    farthest: 'About 500 m (softer up close, 4x the shadow memory)'
+    near: 'To about 110 m',
+    far: 'To about 250 m (4x the shadow memory)',
+    farthest: 'To about 500 m (softer up close, 4x the shadow memory)'
 };
 
+/** What each preset is, under the preset box */
+const PRESET_NOTES: Record<QualityPreset | 'custom', string> = {
+    high: 'Full lighting and fisheye lenses, shadows to about 250 m, full resolution.',
+    medium: 'Full lighting and fisheye lenses, shadows to about 110 m, full resolution.',
+    low: 'For a weak GPU: simple lighting, no shadows or fisheye lens, 650 m view.',
+    verylow: 'Simple lighting at half resolution, 300 m view, no cars, people or traffic lights.',
+    super: 'For no GPU at all: quarter resolution, 200 m view, no cars, people or traffic lights.',
+    custom: 'Your own mix of the details below.'
+};
+
+/** The renderer levels (graphics.ts) as the Renderer box lists them */
 const GRAPHICS_LABELS: Record<GraphicsLevel, string> = {
-    full: 'Full: shadows, fisheye lenses, everything',
-    low: 'Low spec: for a weak GPU (simple lighting, no shadows or lens)',
-    extra: 'Extra low spec: half resolution, 300 m view, no traffic',
-    super: 'Super low spec: no GPU; quarter resolution, 200 m view, no traffic'
+    full: 'Full (lit, shadows, fisheye lenses)',
+    low: 'Simple (650 m view)',
+    extra: 'Simple, half resolution (300 m view, no traffic)',
+    super: 'Simple, quarter resolution (200 m view, no traffic)'
 };
 
 export class SettingsUi {
@@ -85,11 +95,12 @@ export class SettingsUi {
         this.el.classList.add('hidden');
     }
 
-    private slider(label: string, min: number, max: number, value: number, unit: string, set: (v: number) => void): HTMLElement {
+    /** `done` runs when the drag ends (rebuilding the screen while dragging would drop the slider) */
+    private slider(label: string, min: number, max: number, value: number, unit: string, set: (v: number) => void, done?: () => void): HTMLElement {
         const out = h('span', {}, `${value}${unit}`);
         return h('div', { class: 'row' },
             h('span', { style: 'width:150px' }, label),
-            h('input', { type: 'range', min, max, step: 1, value, oninput: (e: Event) => { const v = Number((e.target as HTMLInputElement).value); out.textContent = `${v}${unit}`; set(v); } }),
+            h('input', { type: 'range', min, max, step: 1, value, oninput: (e: Event) => { const v = Number((e.target as HTMLInputElement).value); out.textContent = `${v}${unit}`; set(v); }, onchange: () => done?.() }),
             out);
     }
 
@@ -97,6 +108,49 @@ export class SettingsUi {
         return h('label', { class: 'row' },
             h('input', { type: 'checkbox', checked: value, onchange: (e: Event) => set((e.target as HTMLInputElement).checked) }),
             h('span', {}, label));
+    }
+
+    /** A setting's row: its name in a column on the left, the control on the right. */
+    private field(label: string, control: HTMLElement): HTMLElement {
+        return h('div', { class: 'row' }, h('span', { style: 'width:150px' }, label), control);
+    }
+
+    private select<T extends string>(value: T, options: readonly { value: T; label: string; disabled?: boolean }[], set: (v: T) => void): HTMLElement {
+        return h('select', { onchange: (e: Event) => set((e.target as HTMLSelectElement).value as T) },
+            ...options.map((o) => h('option', { value: o.value, selected: o.value === value, disabled: o.disabled ?? false }, o.label)));
+    }
+
+    /** Settings > Graphics: the quality preset, then its details, as saved (the renderer and shadows on/off apply on reload). */
+    private graphics(host: SettingsHost, s: Settings): (HTMLElement | null)[] {
+        const changed = (): void => { host.onGraphics(); host.save(); this.build(); };
+        const preset = presetOf(s);
+        const shadow: ShadowReach | 'off' = s.shadows ? s.shadowReach : 'off';
+        return [
+            this.field('Quality preset', this.select<QualityPreset | 'custom'>(preset, [
+                ...QUALITY_PRESETS.map((p) => ({ value: p, label: PRESET_NAMES[p] })),
+                ...(preset === 'custom' ? [{ value: 'custom' as const, label: PRESET_NAMES.custom, disabled: true }] : [])
+            ], (v) => { if (v !== 'custom') applyPreset(s, v); changed(); })),
+            h('p', { class: 'note' }, PRESET_NOTES[preset]),
+            h('div', { class: 'subhead' }, 'Details'),
+            this.field('Renderer', this.select<GraphicsLevel>(s.graphics, GRAPHICS_LEVELS.map((g) => ({ value: g, label: GRAPHICS_LABELS[g] })),
+                (v) => { s.graphics = v; changed(); })),
+            s.graphics === 'extra' || s.graphics === 'super'
+                ? this.field('Resolution', h('span', { class: 'note' }, `${s.graphics === 'extra' ? 'Half' : 'A quarter'}, set by this renderer`))
+                : this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }, () => this.build()),
+            isLowSpec(s.graphics)
+                ? this.field('Shadows', h('span', { class: 'note' }, 'None with this renderer'))
+                : this.field('Shadows', this.select<ShadowReach | 'off'>(shadow, [
+                    { value: 'off', label: 'Off' },
+                    ...SHADOW_REACH_IDS.map((r) => ({ value: r, label: SHADOW_REACH_LABELS[r] }))
+                ], (v) => { s.shadows = v !== 'off'; if (v !== 'off') s.shadowReach = v; changed(); })),
+            host.graphicsNow !== s.graphics && !host.graphicsPending()
+                ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)
+                : null,
+            host.graphicsPending() || host.shadowsPending()
+                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'A new renderer, or shadows on or off, applies when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
+                : null,
+            h('p', { class: 'note' }, 'The physics is the same at every setting.')
+        ];
     }
 
     private build(): void {
@@ -142,29 +196,10 @@ export class SettingsUi {
             h('h2', {}, 'Flight mode (when your radio has no mode switch)'),
             h('div', { class: 'row' }, h('select', { onchange: (e: Event) => { s.mode = (e.target as HTMLSelectElement).value as FlightMode; host.save(); } },
                 ...(['acro', 'horizon', 'angle'] as FlightMode[]).map((m) => h('option', { value: m, selected: s.mode === m }, m[0].toUpperCase() + m.slice(1))))),
-            // what is drawn and how: every choice here is the renderer's, the physics is the same at every level
+            // what is drawn and how, laid out as games do (owner, 2026-10-19): a quality preset, then the details it sets;
+            // changing a detail makes it "Custom". The physics is the same at every setting.
             h('h2', {}, 'Graphics'),
-            h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Graphics level'),
-                h('select', { onchange: (e: Event) => { s.graphics = (e.target as HTMLSelectElement).value as GraphicsLevel; host.save(); this.build(); } },
-                    ...GRAPHICS_LEVELS.map((g) => h('option', { value: g, selected: s.graphics === g }, GRAPHICS_LABELS[g])))),
-            host.graphicsNow !== s.graphics && !host.graphicsPending()
-                ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)
-                : null,
-            host.graphicsNow === 'extra' || host.graphicsNow === 'super'
-                ? h('p', { class: 'note' }, `Resolution: ${host.graphicsNow === 'extra' ? 'half' : 'a quarter'}, set by ${graphicsName(host.graphicsNow)} mode.`)
-                : this.slider('Resolution', 50, 100, Math.round(s.renderScale * 100), '%', (v) => { s.renderScale = v / 100; host.onGraphics(); host.save(); }),
-            isLowSpec(host.graphicsNow)
-                ? h('p', { class: 'note' }, `No sun shadows in ${graphicsName(host.graphicsNow)} mode.`)
-                : this.check('Sun shadows', s.shadows, (v) => { s.shadows = v; host.save(); this.build(); }),
-            !isLowSpec(host.graphicsNow) && s.shadows
-                ? h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Shadow distance'),
-                    h('select', { onchange: (e: Event) => { s.shadowReach = (e.target as HTMLSelectElement).value as ShadowReach; host.onGraphics(); host.save(); } },
-                        ...SHADOW_REACH_IDS.map((r) => h('option', { value: r, selected: s.shadowReach === r }, SHADOW_REACH_LABELS[r]))))
-                : null,
-            host.graphicsPending() || host.shadowsPending()
-                ? h('div', { class: 'row' }, h('span', { class: 'hint' }, 'This change applies when the page reloads.'), h('button', { onclick: () => location.reload() }, 'Reload now'))
-                : null,
-            h('p', { class: 'note' }, 'The physics is the same at every level.'),
+            ...this.graphics(host, s),
             // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight
             h('h2', {}, 'Traffic and train'),
             ...(trafficAllowed(host.graphicsNow)

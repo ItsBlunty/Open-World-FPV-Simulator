@@ -164,3 +164,23 @@ on: upright (its pavement matches the frame). `pnpm test` 58 files, 502 tests; t
 
 **Left open:** the owner's verdict on size, softness and fade; a single ray to the quad's centre, so a thin pole can
 flick the circle on briefly and a wall hiding only part of the quad does not; the spotter camera could use it too.
+
+## 1e. Graphics quality presets (owner, 2026-10-19): built, waiting for the owner
+
+**Asked:** lay out the graphics settings as a real game does: an overall setting at the top. **Owner's answers:** five
+presets (keep all three low spec modes); High and Medium differ in shadows and resolution.
+
+**Built:** Settings > Graphics now starts with **Quality preset**: High (full renderer, shadows to about 250 m, 100 %),
+Medium (the same with shadows to about 110 m; the default settings are Medium, so nobody's game changes), Low,
+Very low and Super low (the low, extra and super low spec levels). A line under it says what the preset is. Under
+**Details**: Renderer (the four levels), Resolution, and Shadows (Off / 110 / 250 / 500 m: the old on/off switch and
+the distance in one box). Changing a detail shows the preset as Custom. The renderer and shadows on/off still apply on
+reload (the notice and Reload now button stay); resolution and shadow distance apply at once. The presets live in
+`graphics.ts` (`PRESETS`, `presetOf`, `applyPreset`, `cheaperPreset`; no new stored setting: the preset is read from
+the details). The main menu's summary names the preset; the "running slowly" tip now suggests the next cheaper preset
+(High -> Medium -> Low -> Very low -> Super low).
+
+**Evidence** (`docs/evidence/2026-10-19-graphics-presets/`, built-in browser): `high.jpg` (preset High from saved
+250 m shadows), `custom.jpg` (shadows set Off: Custom, reload notice), `low.jpg` (Low: Simple renderer, shadows none).
+Medium moved the engine's shadow square back to 120 m live; after a reload on Low the page ran "WebGL 2, low spec" and
+the menu read "Low: simple lighting, ...". 58 test files, 514 tests (5 new in `graphics.test.ts`); typecheck clean.

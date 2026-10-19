@@ -37,7 +37,8 @@ import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, Pag
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
-import { cheaper, graphicsFromParam, graphicsName, isLowSpec, trafficAllowed } from './graphics';
+import { PRESET_NAMES, cheaperPreset, graphicsFromParam, graphicsName, isLowSpec, presetOf, trafficAllowed } from './graphics';
+import { SHADOW_REACH_M } from './render/shadow-follow';
 
 /** the last errors and warnings this page logged, for bug reports (report.ts); the console still gets them */
 const errorLog = new ErrorLog();
@@ -683,9 +684,9 @@ function settingsSection(): Child[] {
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
             ['Trains', settings.train ? 'on: two steam trains round the whole map, over the city, through the tunnel.' : 'off.'],
-            ['Graphics', lowSpecOn
-                ? `${graphicsName(graphicsNow)} mode (simple lighting, no shadows, flat camera), resolution ${graphicsNow === 'extra' ? 50 : graphicsNow === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
-                : `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
+            ['Graphics', `${PRESET_NAMES[presetOf(settings)]}: ` + (isLowSpec(settings.graphics)
+                ? `simple lighting, no shadows, flat camera, resolution ${settings.graphics === 'extra' ? 50 : settings.graphics === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
+                : `resolution ${Math.round(settings.renderScale * 100)}%, shadows ${settings.shadows ? `to about ${SHADOW_REACH_M[settings.shadowReach]} m` : 'off'}.`)],
             ['Physics', settings.classicPhysics ? 'classic (sim-core 0.5): thrust from motor speed alone.' : 'props feel the airflow: thrust fades as you climb fast and grows flying forward.'],
             ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
         ].map(([k, v]): [string, string] => [k, v[0].toUpperCase() + v.slice(1)]), 'keys plain')
@@ -807,9 +808,10 @@ let slowSince: number | null = null;
 let slowHinted = false;
 const SLOW_FPS = 30;
 
-/** Running slowly for 5 s of flying: point at the next cheaper graphics level (none past super low spec), once a visit. */
+/** Running slowly for 5 s of flying: point at the next cheaper quality preset (none past super low), once a visit. */
 function hintLowSpec(fps: number): void {
-    const next = cheaper(graphicsNow);
+    // the preset to suggest, from what this visit runs with (a change waiting for a reload does not count)
+    const next = cheaperPreset({ graphics: graphicsNow, shadows: shadowsOn, shadowReach: settings.shadowReach, renderScale: settings.renderScale });
     if (slowHinted || !next || sentPaused !== false || replayUi.open) {
         slowSince = null;
         return;
@@ -819,7 +821,7 @@ function hintLowSpec(fps: number): void {
     else if (slowSince === null) slowSince = now;
     else if (now - slowSince > 5000) {
         slowHinted = true;
-        hud.toast('RUNNING SLOWLY', `Try ${graphicsName(next)[0].toUpperCase()}${graphicsName(next).slice(1)} mode: Esc > Settings > Graphics`);
+        hud.toast('RUNNING SLOWLY', `Try the ${PRESET_NAMES[next]} quality preset: Esc > Settings > Graphics`);
     }
 }
 
