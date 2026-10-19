@@ -4,7 +4,7 @@
 
 import * as THREE from 'three/webgpu';
 import { WebGLRenderer } from 'three';
-import { S } from '@owfpv/sim-core';
+import { S, SIM_CORE_VERSION } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
@@ -24,9 +24,9 @@ import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
 import type { Track } from '../replay';
 import { PathLine, Spotter } from '../render/replay-view';
-import { makeTraffic } from '@owfpv/traffic';
+import { TRAFFIC_VERSION, makeTraffic } from '@owfpv/traffic';
 import type { TrafficConfig, TrafficModel } from '@owfpv/traffic';
-import type { EngineMsg, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam } from './protocol';
+import type { EngineMsg, EngineReport, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam } from './protocol';
 import { RadioLink } from './radio-link';
 
 export async function startEngine(port: Port, canvas: HTMLCanvasElement | OffscreenCanvas, init: InitMsg): Promise<void> {
@@ -342,6 +342,9 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             case 'replay-exit':
                 stopReplay();
                 break;
+            case 'report':
+                post({ type: 'report', id: m.id, state: report() });
+                break;
             case 'ask': {
                 let answer: EngineMsg;
                 try {
@@ -355,6 +358,25 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 break;
             }
         }
+    }
+    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const deg = (r: number): number => Math.round((r * 180) / Math.PI);
+    const round = (v: number, d = 2): number => Math.round(v * 10 ** d) / 10 ** d;
+    /** The flight's state for a bug report: where it is and how it is drawn (protocol.ts EngineReport). */
+    function report(): EngineReport {
+        const sim = session.sim, s = replay ? replay.s : sim.s;
+        euler.setFromQuaternion(new THREE.Quaternion(s[S.qx], s[S.qy], s[S.qz], s[S.qw]));
+        const info = renderer.info.render as { calls?: number; drawCalls?: number; triangles: number };
+        return {
+            simCore: SIM_CORE_VERSION, mapId: level.id, mapVersion: level.version, trafficVersion: TRAFFIC_VERSION,
+            spawn: session.spawn.id, traffic: session.trafficConfig, overrides: cfg.overrides,
+            tick: sim.tick, lives: session.runner.lives().length, hitches: session.runner.hitches, paused,
+            pos: [round(s[S.px]), round(s[S.py]), round(s[S.pz])], vel: [round(s[S.vx]), round(s[S.vy]), round(s[S.vz])],
+            roll: deg(euler.z), pitch: deg(euler.x), yaw: deg(euler.y),
+            armed: sim.s[S.armed] > 0, crashed: sim.s[S.crashed] > 0,
+            view: view.mode, freeCam: freeCam.active, replayTick: replay ? Math.round(replay.tick) : null,
+            renderer: backend, lowSpec, drawCalls: info.calls ?? info.drawCalls ?? 0, triangles: info.triangles
+        };
     }
     for (const m of early) handle(m);
     port.onmessage = (e: MessageEvent<PageMsg>) => handle(e.data);

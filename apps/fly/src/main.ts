@@ -33,7 +33,22 @@ import type { CheckReply } from './check-worker';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
-import type { EngineMsg, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo } from './engine/protocol';
+import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo } from './engine/protocol';
+import { ReportUi } from './ui/report-ui';
+import { ErrorLog } from './report';
+import type { PageReport } from './report';
+
+/** the last errors and warnings this page logged, for bug reports (report.ts); the console still gets them */
+const errorLog = new ErrorLog();
+for (const kind of ['error', 'warn'] as const) {
+    const original = console[kind].bind(console);
+    console[kind] = (...args: unknown[]) => {
+        errorLog.add(kind, args);
+        original(...args);
+    };
+}
+addEventListener('error', (e) => errorLog.add('uncaught', [e.error ?? e.message]));
+addEventListener('unhandledrejection', (e) => errorLog.add('unhandled rejection', [e.reason]));
 
 const params = new URLSearchParams(location.search);
 const preset = nazgul as unknown as PresetJson;
@@ -89,6 +104,7 @@ let spawns: { id: string; name: string }[] = [];
 let spawnId = params.get('spawn') ?? settings.spawn;
 let hudSnap: HudSnapshot | null = null;
 const asks = new Map<number, (r: { ok: boolean; value: unknown }) => void>();
+const reports = new Map<number, (s: EngineReport) => void>();
 let askId = 0;
 let sentPaused: boolean | null = null;
 /** the golden props: every one on this map (from the engine), and the ones found, by map id (kept in this browser) */
@@ -183,6 +199,9 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         if (worker && !engineReady) return fallBack(m.message);
         menuMsg = `The renderer failed: ${m.message}`;
         renderMenu();
+    } else if (m.type === 'report') {
+        reports.get(m.id)?.(m.state);
+        reports.delete(m.id);
     } else if (m.type === 'answer') {
         asks.get(m.id)?.({ ok: m.ok, value: m.value });
         asks.delete(m.id);
@@ -305,17 +324,18 @@ const setup = new RadioSetup();
 const settingsUi = new SettingsUi();
 const collectionUi = new CollectionUi();
 const flightsUi = new FlightsUi();
+const reportUi = new ReportUi();
 const replayUi = new ReplayUi();
 const radioReplay = new RadioReplayControl();
 let sentShuttle = 0;
 const menuBody = h('div');
 const menu = h('div', { class: 'overlay' }, h('div', { class: 'panel' }, menuBody));
-document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el, replayUi.el);
+document.body.append(hud.el, menu, setup.el, settingsUi.el, collectionUi.el, flightsUi.el, reportUi.el, replayUi.el);
 let menuMsg = '';
 
 /** a screen is open: the sim pauses (the replay viewer too: it plays a track, the sim stays where it was) */
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open || replayUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || flightsUi.open || reportUi.open || replayUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -453,6 +473,58 @@ async function downloadSaved(id: number): Promise<void> {
     const a = h('a', { href: url, download: `flight-${new Date(id).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.owfpv.json` });
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** The GPU the browser names, read once from a throwaway WebGL context (null when it will not say). */
+let gpuName: string | null | undefined;
+function gpu(): string | null {
+    if (gpuName !== undefined) return gpuName;
+    try {
+        const gl = document.createElement('canvas').getContext('webgl2') ?? document.createElement('canvas').getContext('webgl');
+        const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+        gpuName = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : null;
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+    } catch {
+        gpuName = null;
+    }
+    return gpuName;
+}
+
+/** The engine's state for a report, or null if it does not answer within 2 s (still starting, or failed). */
+function engineReport(): Promise<EngineReport | null> {
+    if (!engineReady) return Promise.resolve(null);
+    const id = ++askId;
+    return new Promise((resolve) => {
+        const timer = setTimeout(() => { reports.delete(id); resolve(null); }, 2000);
+        reports.set(id, (st) => { clearTimeout(timer); resolve(st); });
+        send({ type: 'report', id });
+    });
+}
+
+function pageReport(saved: boolean): PageReport {
+    const input = device
+        ? `${device.name} (${device.kind === 'hid' ? 'USB HID' : 'gamepad'}), ${rate.hz} Hz, stick mode ${settings.stickMode}${profile ? '' : ', not set up'}`
+        : demo ? 'none: the scripted demo sticks' : 'none: looking around with the mouse and keys';
+    return {
+        build: __BUILD__, url: location.href, userAgent: navigator.userAgent,
+        screen: `${innerWidth} x ${innerHeight} CSS px, ${devicePixelRatio}x`, gpu: gpu(), fps: hudSnap?.fps ?? null,
+        engineWhere: engineWhere(), input, settings, savedFlight: saved ? flightId : null,
+        uptimeS: performance.now() / 1000, errors: [...errorLog.lines]
+    };
+}
+
+function openReport(): void {
+    // opened in the same task as the menu closes: with no screen open between them, the sim would run on
+    showMenu(false);
+    void reportUi.show({
+        repo: REPO,
+        gather: async () => {
+            const saved = (await listFlights().catch(() => [])).some((f) => f.id === flightId);
+            return { page: pageReport(saved), engine: await engineReport() };
+        },
+        downloadFlight: () => downloadSaved(flightId),
+        close: () => { reportUi.hide(); showMenu(true); }
+    });
 }
 
 function openFlights(): void {
@@ -625,6 +697,8 @@ function renderMenu(): void {
         ...flightsSection(),
         ...settingsSection(),
         ...controlsSection(),
+        h('div', { class: 'section-head' }, h('h2', {}, 'Problems or ideas'), h('button', { onclick: openReport }, 'Report or suggest')),
+        h('p', { class: 'note' }, 'Found a bug, or want something in the game? This opens it as an issue on GitHub, with the game\'s state attached so it can be found and replayed.'),
         h('p', { class: 'note footer' },
             `Renderer: ${backend}, ${engineWhere()}. Free and open source (GPL-3.0-or-later): `,
             h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'source code and issues'),
@@ -672,6 +746,11 @@ addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
         if (flightsUi.open) {
             flightsUi.hide();
+            showMenu(true);
+            return;
+        }
+        if (reportUi.open) {
+            reportUi.hide();
             showMenu(true);
             return;
         }

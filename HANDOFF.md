@@ -11,7 +11,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   replay viewer built (Saved flights > Watch). Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
   of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
-- **Tests:** `pnpm test`: 54 files, 475 tests pass. `pnpm typecheck` clean.
+  Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
+- **Tests:** `pnpm test`: 55 files, 481 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
@@ -37,6 +38,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
 6. **Low spec mode:** open the Pages build with `?lowspec` (or tick it in Settings > Graphics and reload), fly it,
    ideally on an old laptop. Is 650 m view distance OK? Is the flat camera (no fisheye) OK there? [low-spec §0v]
+7. **Report screen:** Esc > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
+   (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
 
 ## Left open (not started)
 
@@ -90,6 +93,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
 | `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
+| `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 
 Owner decisions: `docs/decisions.md`.

@@ -72,6 +72,8 @@ export type PageMsg =
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
     | { type: 'ask'; id: number; code: string }
+    /** the flight's state for a bug report (report.ts) */
+    | { type: 'report'; id: number }
     /** watch a saved flight (replay.ts): the sim stays paused while the track plays */
     | { type: 'replay'; track: Track; cam: ReplayCam; path: PathMode }
     /**
@@ -92,6 +94,38 @@ export interface HudSnapshot {
     freeCam: boolean;
 }
 
+/** What the engine knows for a bug report (report.ts): where the flight is and how it is drawn. Read only. */
+export interface EngineReport {
+    simCore: string;
+    mapId: string;
+    mapVersion: number;
+    trafficVersion: number;
+    spawn: string;
+    traffic: TrafficConfig;
+    overrides: ParamOverrides;
+    /** sim ticks (1 ms) of the run, the lives it has had, steps skipped after a stall */
+    tick: number;
+    lives: number;
+    hitches: number;
+    paused: boolean;
+    /** world frame, m and m/s (y up); attitude in degrees */
+    pos: [number, number, number];
+    vel: [number, number, number];
+    roll: number;
+    pitch: number;
+    yaw: number;
+    armed: boolean;
+    crashed: boolean;
+    view: 'fpv' | 'chase';
+    freeCam: boolean;
+    /** the replay viewer's playhead when it is open */
+    replayTick: number | null;
+    renderer: string;
+    lowSpec: boolean;
+    drawCalls: number;
+    triangles: number;
+}
+
 export type EngineMsg =
     | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[] }
     /** golden props just taken, by number */
@@ -101,6 +135,7 @@ export type EngineMsg =
     | { type: 'hud'; hud: HudSnapshot }
     | { type: 'error'; message: string }
     | { type: 'answer'; id: number; ok: boolean; value: unknown }
+    | { type: 'report'; id: number; state: EngineReport }
     /** where the replay is, every frame it plays (the page draws the sticks and numbers from its own copy of the track) */
     | { type: 'replay-at'; tick: number; playing: boolean };
 

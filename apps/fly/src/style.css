@@ -141,3 +141,11 @@ button.danger { border-color: var(--bad); color: var(--bad); }
 .seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
 .seg button:last-child { border-radius: 0 6px 6px 0; }
 .seg button.on { background: var(--accent); border-color: var(--accent); color: #1a0d05; font-weight: 600; }
+
+/* the Report screen (ui/report-ui.ts) */
+.report-field { display: flex; flex-direction: column; gap: 4px; margin: 10px 0; }
+.report-field span { color: var(--muted); font-size: 13px; }
+.report-field input, .report-field textarea { width: 100%; }
+textarea { font: inherit; color: var(--text); background: #0f1217; border: 1px solid var(--line); border-radius: 4px; padding: 6px; resize: vertical; }
+.report-details pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; max-height: 240px; overflow-y: auto; background: #0f1217; border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+.report-details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
