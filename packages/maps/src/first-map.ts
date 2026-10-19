@@ -11,14 +11,19 @@ import type { Building, Level, Material } from './builder';
 import { goldenProps, streetFurniture } from './golden-props';
 import type { Rect } from './golden-props';
 import { nearTrack, railway, underHill } from './railway';
+import { borderBelt, forest, treeLine } from './woods';
+import type { WoodSpot } from './woods';
+import { industrial } from './yard';
 
 export const MAP_ID = 'mixed-1';
 /**
  * 7: the railway loop, its hill and tunnel, the station and goods yard, and four golden props there (owner, 2026-10-19);
  * 8: the railway round the whole map, over the city on a viaduct with a station there, the hill moved (owner, 2026-10-19);
- * 9: the city station's footbridge and stair down to a garden in the lot beside it, its platforms raised (owner, 2026-10-19)
+ * 9: the city station's footbridge and stair down to a garden in the lot beside it, its platforms raised (owner, 2026-10-19);
+ * 10: a forest in the south-east fields, trees with limbs to fly through, the tree lines and the border broken up, the
+ * industrial yard filled out: opened and stacked containers, the grain plant, trailers, sheds (owner, 2026-10-19)
  */
-export const MAP_VERSION = 9;
+export const MAP_VERSION = 10;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -31,14 +36,15 @@ export function buildFirstMap(): Level {
     park(b, new Rng(1));
     bando(b, new Rng(2));
     city(b, new Rng(3), roofClutter);
-    industrial(b, new Rng(4));
-    southEast(b, new Rng(5));
+    const yardSpots = industrial(b, new Rng(4), (x, z) => nearTrack(x, z, 4));
+    const woodSpots = southEast(b, new Rng(5));
     border(b, new Rng(6));
     // no random choices: the rest of the map is drawn as before it (bar the hay bales and fence posts on its line)
     railway(b);
     // after everything else, from their own Rng: the rest of the map is drawn exactly as before they existed
     const hideouts = streetFurniture(b, new Rng(8), roofClutter);
-    goldenProps(b, hideouts);
+    // (map v10) numbered after every prop before them, so those keep their numbers
+    goldenProps(b, hideouts, [{ area: 'Industrial yard', spots: yardSpots }, { area: 'Forest', spots: woodSpots }]);
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
@@ -47,6 +53,7 @@ export function buildFirstMap(): Level {
     b.spawn({ id: 'station', name: 'Fields station', x: 292, z: 480, yawDeg: 270 });
     b.spawn({ id: 'city-station', name: 'City station (on the viaduct)', x: 10, z: -253.3, yawDeg: 90 });
     b.spawn({ id: 'tunnel', name: 'Railway tunnel', x: 30, z: 335, yawDeg: 0 });
+    b.spawn({ id: 'forest', name: 'Forest track', x: 196, z: 318, yawDeg: 150 });
     return b.build(MAP_ID, MAP_VERSION, 'Park, bando and city', HALF);
 }
 
@@ -780,60 +787,9 @@ function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
     }
 }
 
-// ---------------------------------------------------------------- industrial yard
-
-function warehouse(b: LevelBuilder, x0: number, z0: number, sx: number, sz: number, h: number): void {
-    const t = 0.3;
-    // three full walls, the fourth (south) with two big doors; a roof with skylight gaps
-    b.box('metal', x0, 0, z0, x0 + sx, h, z0 + t);
-    b.box('metal', x0, 0, z0, x0 + t, h, z0 + sz);
-    b.box('metal', x0 + sx - t, 0, z0, x0 + sx, h, z0 + sz);
-    const zs = z0 + sz - t;
-    b.box('metal', x0, 0, zs, x0 + 6, h, zs + t);
-    b.box('metal', x0 + 14, 0, zs, x0 + sx - 14, h, zs + t);
-    b.box('metal', x0 + sx - 6, 0, zs, x0 + sx, h, zs + t);
-    b.box('metal', x0 + 6, 6, zs, x0 + 14, h, zs + t);
-    b.box('metal', x0 + sx - 14, 6, zs, x0 + sx - 6, h, zs + t);
-    for (let x = x0; x < x0 + sx; x += 12) {
-        const w = Math.min(12, x0 + sx - x);
-        if ((x - x0) % 36 === 24) continue; // skylight gap
-        b.box('rust', x, h, z0, x + w, h + 0.3, z0 + sz);
-    }
-    // roof trusses visible through the gaps
-    for (let x = x0 + 6; x < x0 + sx; x += 12) b.box('rust', x - 0.2, h - 1, z0, x + 0.2, h, z0 + sz);
-}
-
-function industrial(b: LevelBuilder, r: Rng): void {
-    warehouse(b, -440, 140, 72, 36, 10);
-    warehouse(b, -350, 140, 60, 30, 12);
-    // container rows, stacked one to three high (12.2 x 2.44 x 2.6 m, ISO 40 ft)
-    const mats: Material[] = ['container-a', 'container-b', 'container-c'];
-    for (let row = 0; row < 5; row++) {
-        const z = 230 + row * 14;
-        for (let k = 0; k < 6; k++) {
-            if (r.chance(1, 5)) continue;
-            const x = -440 + k * 13;
-            const stack = r.int(1, 3);
-            for (let s = 0; s < stack; s++) b.box(r.pick(mats), x, s * 2.6, z, x + 12.2, (s + 1) * 2.6, z + 2.44);
-        }
-    }
-    // silos and a gantry to fly through
-    for (let i = 0; i < 3; i++) {
-        b.prism('metal', -260, 250 + i * 12, 0, 22, 4.5, 8);
-        b.cone('metal', -260, 250 + i * 12, 22, 24, 4.6, 8);
-    }
-    b.box('rust', -310, 0, 330, -309, 14, 331);
-    b.box('rust', -280, 0, 330, -279, 14, 331);
-    b.box('rust', -310, 13, 329, -279, 15, 332);
-    // yard fence posts
-    // yard fence posts, with gaps where the railway runs through (map v7)
-    for (let x = -460; x <= -200; x += 10) if (!nearTrack(x, 420, 4)) b.prism('metal', x, 420, 0, 2.4, 0.08, 4);
-    for (let z = 120; z <= 420; z += 10) if (!nearTrack(-200, z, 4)) b.prism('metal', -200, z, 0, 2.4, 0.08, 4);
-}
-
 // ---------------------------------------------------------------- south-east fields
 
-function southEast(b: LevelBuilder, r: Rng): void {
+function southEast(b: LevelBuilder, r: Rng): WoodSpot[] {
     // water tower: four legs braced by two rings of girders between them, a tank
     for (const [dx, dz] of [[-4, -4], [4, -4], [-4, 4], [4, 4]]) b.prism('metal', 250 + dx, 260 + dz, 0, 24, 0.4, 6);
     for (const y of [8, 16]) {
@@ -842,25 +798,14 @@ function southEast(b: LevelBuilder, r: Rng): void {
     }
     b.prism('metal', 250, 260, 24, 32, 7, 8);
     b.cone('metal', 250, 260, 32, 35, 7.2, 8);
-    // hay bales and a tree line
-    // (the same draws as before the railway; the bales it would run through are left out, map v7)
-    for (let k = 0; k < 25; k++) {
-        const x = 150 + r.int(0, 250);
-        const z = 300 + r.int(0, 150);
-        if (!nearTrack(x, z, 4)) b.prism('wood', x, z, 0, 1.4, 0.8, 8);
-    }
-    for (let x = 120; x <= 480; x += 9) tree(b, r, x, 220 + r.int(-3, 3), 1.1);
+    // (map v10) the tree line north of the water tower, wandering and broken, and the forest where the hay bales stood
+    treeLine(b, r, 118, 482, 220);
+    return forest(b, new Rng(10));
 }
 
 // ---------------------------------------------------------------- border
 
-/** A ring of trees just outside the playable square, so its edge reads as a place, not a line. */
+/** A belt of trees just outside the playable square, so its edge reads as a place, not a line (map v10: woods.ts). */
 function border(b: LevelBuilder, r: Rng): void {
-    const e = HALF + 20;
-    for (let t = -e; t <= e; t += 14) {
-        tree(b, r, t + r.int(-3, 3), -e + r.int(-3, 3), 1.3);
-        tree(b, r, t + r.int(-3, 3), e + r.int(-3, 3), 1.3);
-        tree(b, r, -e + r.int(-3, 3), t + r.int(-3, 3), 1.3);
-        tree(b, r, e + r.int(-3, 3), t + r.int(-3, 3), 1.3);
-    }
+    borderBelt(b, r, HALF + 20);
 }

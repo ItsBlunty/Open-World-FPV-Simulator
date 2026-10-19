@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, bedAt, buildFirstMap, levelSha256, loopPieces, spawnPose } from '../src/index';
+import { CLEARING, FOREST, LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, bedAt, buildFirstMap, levelSha256, loopPieces, spawnPose } from '../src/index';
 
 /** For a closed shape around `c`, every triangle's normal must point away from c. */
 function outward(tris: Float32Array, c: number[]): number {
@@ -30,6 +30,14 @@ describe('level builder', () => {
             const c = new LevelBuilder().cone('metal', 1, 2, 0, 3, 0.5, n).build('t', 1, 't', 1);
             expect(outward(c.parts.get('metal')!, [1, 0.75, 2])).toBe(0);
         }
+        // a hopper: a cone pointing down
+        for (const n of [6, 8]) {
+            const h = new LevelBuilder().cone('metal', 1, 2, 3, 0, 0.5, n).build('t', 1, 't', 1);
+            expect(outward(h.parts.get('metal')!, [1, 2.25, 2])).toBe(0);
+            const l = new LevelBuilder().blob('foliage', 1, 2, 3, 1.5, 1, n).build('t', 1, 't', 1);
+            expect(outward(l.parts.get('foliage')!, [1, 2, 3])).toBe(0);
+            expect(l.triangleCount).toBe(4 * n);
+        }
         const x = new LevelBuilder().box('metal', 0, 0, 0, 2, 3, 4).build('t', 1, 't', 1);
         expect(outward(x.parts.get('metal')!, [1, 1.5, 2])).toBe(0);
         const f = new LevelBuilder().floor('grass', 0, 0, 1, 1).build('t', 1, 't', 1).parts.get('grass')!;
@@ -49,6 +57,7 @@ describe('level builder', () => {
 describe('first map', () => {
     const level = buildFirstMap();
     const world = new MeshContactWorld(level.collision);
+    const out = { x: 0, y: 0, z: 0 };
 
     it('builds the same triangles every time (pinned hash)', () => {
         console.log(`map ${level.id} v${MAP_VERSION}: ${level.triangleCount} triangles, sha256 ${levelSha256(level)}`);
@@ -262,6 +271,40 @@ describe('first map', () => {
         for (let x = blk.x0 + 1.3; x <= blk.x1 - 1.3; x += 0.2) expect(world.querySphere(x, 0.15 + 0.6, w.plazaZ, 0.28, out), `cross path at ${x.toFixed(1)}`).toBe(false);
     });
 
+    it('grows the forest in thickets and open woodland, the clearing open to the sky (map v10)', () => {
+        // how much of each 30 m square of the forest a quad can't be in, 6 m up (the thickets' crowns, the open woods'
+        // limbs): sampled every metre
+        const cover: number[] = [];
+        for (let x0 = FOREST.x0; x0 + 30 <= FOREST.x1; x0 += 30) for (let z0 = FOREST.z0; z0 + 30 <= FOREST.z1; z0 += 30) {
+            let hit = 0;
+            for (let x = x0 + 0.5; x < x0 + 30; x += 1) for (let z = z0 + 0.5; z < z0 + 30; z += 1) if (world.querySphere(x, 6, z, 0.25, out)) hit++;
+            cover.push(hit / 900);
+        }
+        cover.sort((a, b) => a - b);
+        const q = (p: number): number => cover[Math.floor(p * (cover.length - 1))];
+        console.log(`forest cover 6 m up, per 30 m square: least ${q(0).toFixed(3)}, quartile ${q(0.25).toFixed(3)}, median ${q(0.5).toFixed(3)}, most ${q(1).toFixed(3)}`);
+        expect(q(0.25)).toBeLessThan(0.03); // open woodland: a few trunks and limbs
+        expect(q(1)).toBeGreaterThan(0.12); // a thicket: the canopy filling in
+        expect(q(1)).toBeGreaterThan(5 * q(0.25));
+        // and nowhere solid: even the thickest square leaves most of its air to fly in
+        expect(q(1)).toBeLessThan(0.5);
+        // the clearing: nothing over its ground but the lone oak's crown in the middle
+        for (const [dx, dz] of [[14, 0], [-14, 0], [0, 14], [0, -14], [10, 10], [-10, -10]]) {
+            expect(world.queryRay(CLEARING.x + dx, 1.5, CLEARING.z + dz, 0, 1, 0, 300), `clearing at ${dx}, ${dz}`).toBeNull();
+        }
+    });
+
+    it('opens up containers and the grain gallery to fly through (map v10)', () => {
+        // the open box on top of the apron stack (yard.ts apron): a clear run right through it, end to end
+        expect(world.queryRay(-426, 2.591 + 0.15 + 1.1, 353.219, 1, 0, 0, 14)).toBeNull();
+        for (let x = -424.6; x <= -413; x += 0.4) expect(world.querySphere(x, 2.591 + 0.15 + 1.1, 353.219, 0.25, out), `tube at ${x.toFixed(1)}`).toBe(false);
+        // the conveyor gallery: a quad fits all the way along inside it, over the belt
+        const yb = (x: number): number => 2 + 24 * (x - -338) / (-263.5 - -338);
+        for (let x = -337; x <= -264.5; x += 0.25) expect(world.querySphere(x, yb(x) + 1.4, 288, 0.25, out), `gallery at ${x.toFixed(2)}`).toBe(false);
+        // under the hopper bins: through between the legs, under the braces, east to west under each
+        for (const z of [250, 260, 270, 280]) for (let x = -240; x <= -224; x += 0.25) expect(world.querySphere(x, 2.2, z, 0.25, out), `bin ${z} at ${x}`).toBe(false);
+    });
+
     it('puts every spawn point on a surface with room for the quad', () => {
         const groundY = (x: number, z: number): number => {
             const hit = world.queryRay(x, 500, z, 0, -1, 0, 1000);
@@ -279,4 +322,4 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '69f4a50d9e7650b35a75522caaf11c79db103bb8eae12c74bdc434869becd82a';
+const PINNED = '7396a0130c7a9b3f26b11ccda5cbc0f3e170827676d8bf83283b21eea314bd48';

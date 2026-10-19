@@ -18,7 +18,7 @@ export interface Rect {
 }
 
 /** A place a prop goes, found while the furniture was built. */
-interface Spot {
+export interface Spot {
     x: number;
     y: number;
     z: number;
@@ -331,7 +331,7 @@ const RAILWAY: [number, number, number, string][] = [
 ];
 
 /** Number every prop, area by area: the park (by the first spawn) first. */
-export function goldenProps(b: LevelBuilder, h: Hideouts): void {
+export function goldenProps(b: LevelBuilder, h: Hideouts, later: { area: string; spots: Spot[] }[] = []): void {
     const add = (area: string, spots: Spot[]): void => {
         for (const s of spots) b.collectibles.push({ n: b.collectibles.length + 1, x: s.x, y: s.y, z: s.z, area, spot: s.spot });
     };
@@ -342,5 +342,7 @@ export function goldenProps(b: LevelBuilder, h: Hideouts): void {
     add('Industrial yard', fixed(YARD));
     add('Fields', fixed(FIELDS));
     add('Railway', fixed(RAILWAY));
+    // (map v10) props found while later areas were built, after all the rest
+    for (const l of later) add(l.area, l.spots);
 }
 

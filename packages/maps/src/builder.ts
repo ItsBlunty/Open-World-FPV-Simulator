@@ -19,7 +19,9 @@ export const MATERIALS = [
     // street furniture: a bus shelter's frosted panels (drawn see-through, solid as glass), a dumpster, billboard faces
     'frosted', 'dumpster', 'billboard',
     // the railway (map v7): track ballast, steel rails, wooden sleepers (paint), the tunnel's stonework, goods wagons
-    'ballast', 'rail', 'sleeper', 'stone', 'wagon'
+    'ballast', 'rail', 'sleeper', 'stone', 'wagon',
+    // map v10: two more container colours, conifer needles and a lighter broadleaf green
+    'container-d', 'container-e', 'foliage-dark', 'foliage-light'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -334,13 +336,49 @@ export class LevelBuilder {
         return this;
     }
 
-    /** Upright n-sided cone (tree canopies): base centre x, y0, z, radius r, apex at y1. */
+    /** Upright n-sided cone (tree canopies): base centre x, y0, z, radius r, apex at y1 (below y0: a hopper, point down). */
     cone(m: Material, x: number, z: number, y0: number, y1: number, r: number, n = 6): this {
+        const down = y1 < y0;
         for (let i = 0; i < n; i++) {
             const a = corner(n, i, r);
             const b = corner(n, i + 1, r);
-            this.push(m, [x + a[0], y0, z + a[1]], [x + b[0], y0, z + b[1]], [x, y1, z]);
-            this.push(m, [x, y0, z], [x + b[0], y0, z + b[1]], [x + a[0], y0, z + a[1]]);
+            const pa = [x + a[0], y0, z + a[1]], pb = [x + b[0], y0, z + b[1]];
+            if (down) {
+                this.push(m, pb, pa, [x, y1, z]);
+                this.push(m, [x, y0, z], pa, pb);
+            } else {
+                this.push(m, pa, pb, [x, y1, z]);
+                this.push(m, [x, y0, z], pb, pa);
+            }
+        }
+        return this;
+    }
+
+    /** Triangle a-b-c, wound to face away from `centre`. */
+    triOut(m: Material, centre: number[], a: number[], b: number[], c: number[]): void {
+        const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+        const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+        const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+        const out = nx * (a[0] - centre[0]) + ny * (a[1] - centre[1]) + nz * (a[2] - centre[2]);
+        if (out >= 0) this.push(m, a, b, c);
+        else this.push(m, a, c, b);
+    }
+
+    /**
+     * A rounded lump (a clump of leaves): centre (x, y, z), radius r across and ry up. An n-sided band from 0.4 ry
+     * below the centre to 0.4 ry above it, at 0.92 r, capped by a point at each end: 4n triangles.
+     */
+    blob(m: Material, x: number, y: number, z: number, r: number, ry: number, n = 6): this {
+        const c = [x, y, z];
+        const top = [x, y + ry, z], bot = [x, y - ry, z];
+        const hi = y + 0.4 * ry, lo = y - 0.4 * ry, rr = 0.92 * r;
+        for (let i = 0; i < n; i++) {
+            const a = corner(n, i, rr), d = corner(n, i + 1, rr);
+            const ah = [x + a[0], hi, z + a[1]], dh = [x + d[0], hi, z + d[1]];
+            const al = [x + a[0], lo, z + a[1]], dl = [x + d[0], lo, z + d[1]];
+            this.quadOut(m, c, al, dl, dh, ah);
+            this.triOut(m, c, ah, dh, top);
+            this.triOut(m, c, dl, al, bot);
         }
         return this;
     }

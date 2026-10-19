@@ -122,3 +122,68 @@ no interiors (people vanish 1.5 m behind the door); signs are not lit at night (
 surface-parking blocks have no names or doors.
 
 
+
+
+## 1c. Forest, trees to fly through, the yard filled out (owner, 2026-10-19): map v10, built, waiting for the owner
+
+**Asked:** "The random treelines should probably be spread out and more random, larger multi branch trees so you can fly
+through and around them, a forest area where you could fly through dense and sparse areas. Maybe in the 'stumps' area
+that is currently near the Fields Station. Also lets flesh out the area with the silos, buildings and shipping crates.
+Open some of the crates up to fly through, stack them somewhat more randomly, etc." The "stumps" were read as the hay
+bales (short wooden octagons, x 150-400, z 300-450): that field is now the forest, and its clearing has real stumps.
+
+**Trees (`woods.ts`, new; shapes and sizes are estimates of mature European trees).** New builder shapes: `blob` (a
+rounded clump, 4n triangles), `triOut`, and `cone` pointing down (hoppers). Three kinds:
+- broadleaf, 13-19 m (times its scale): a trunk forking into 4-6 limbs (bars), each ending in one or two leaf clumps, a
+  clump on the leader; the inside of the crown is open between the limbs. Open-grown: crown from 3-5 m, reaching about
+  10 m out. Forest-grown: crown from about 40 % of its height (shaded lower limbs die off), so you fly under it.
+- spruce, 15-23 m: four tiers of needles, from 1.5-3 m up in the open, 4.5-6 m in a thicket.
+- pine, 16-22 m: a bare trunk to about 60 % of its height, a few flat clumps on top.
+Plus snags (dead standing trees), fallen trees on their root plates, stumps, log piles and bushes. Everything is solid,
+leaves too. Only the new areas use them: the park, the garden and the plazas keep the old cone trees (the flight
+self-test flies in the park).
+
+**Forest (`woods.ts forest`, `Rng(10)`), x 112-492, z 288-450.** Trees thrown as darts, each kept clear of the ones
+before by a spacing that depends on where it lands: 4-7 m in seven thickets (radius 34-62 m; mostly spruce, some pines
+and tall thin broadleaves), 11-14 m in the open woodland between (big broadleaves, pines), wider at the edges. 260
+bushes in the undergrowth. A 4 m dirt track (painted, `FOREST_TRACK`) winds from the fields past the water tower through
+a 24 m clearing (one big open-grown oak, 18 stumps, two log piles) out to the east. A fallen tree lies across the track
+at x 404 on its root plate and a stump, about 1.1 m clear under it. In the first thicket, a 7 m gap where a tree fell.
+Spawn "Forest track" (196, 318). Measured cover 6 m up per 30 m square (test): quartile 1.6 %, median 2.8 %, thickest
+21 %; 12 m up the thickest is 36 %.
+
+**Tree line and border (`treeLine`, `borderBelt`).** The south-east tree line (was a tree every 9 m on z 220) now wanders
+up to 8 m either side, 5-16 m apart, with gaps, mostly broadleaves. The border ring (was every 14 m) is a belt 0-14 m
+outside the square, 8-20 m apart, a second tree behind one in three; mostly spruces, the cheapest to draw.
+
+**Yard (`yard.ts`, new; `industrial()` moved there, still `Rng(4)`).**
+- Containers at ISO 668 sizes (40 ft 12.192 m, 20 ft 6.058 m, 2.438 x 2.591 m), 5 colours (new `container-d` green,
+  `container-e` white). A stack field of 8 blocks of 2-3 rows (0.4 m apart, lanes 3-10 m between blocks), 6-8 slots,
+  stacks 0-4 high, each box set down up to 0.4 m off the one below, the top one sometimes up to 3 m off; one slot in four
+  holds two 20 ft boxes. A box with no neighbour at its ends may be a **tube** (both ends cut off) or have its **doors**
+  swung open; one with free sides may be **cut** (two 3.6 m holes through both sides). Now and then a box lies across
+  the top of a block (over an empty middle row it makes an arch); half of those are tubes. The lane of the old prop
+  "Down the alley between the container rows" stays (z 261.3-271). On the apron to the south, 14 lone stacks set down
+  any which way, many opened; a white tube on a blue box at (-425, 352) holds a prop.
+- Grain plant: the three silos as before, a 30 m headhouse frame (machinery room to 35 m), a catwalk over the silo tops
+  (deck 24.2-24.3 m), a 74 m open-truss conveyor gallery up from an intake shed at 17.9 degrees (a quad fits along inside
+  it), three trestles, four hopper bins on legs (rims at 8 m, braced at 4.4 m: fly under them), two spouts.
+- Pallet racking in the big warehouse (three back-to-back rows, beams at 1.6-6.4 m, pallets on 6 in 10 places), two
+  semi-trailers at its doors (1 m clear underneath), a three-cabin site office with a stair, an open shed with pallets
+  and a workshop container, a roofless old brick workshop (windows, doorways, fallen bays, three roof beams), pallets.
+
+**Golden props:** 7 new ones, 57-63, after all the others (so none renumbers): in the apron tube, inside the gallery,
+under the hopper bins, under a trailer (Industrial yard); under the fallen tree on the track, in the big oak's crown
+(`inCrown`: the heading furthest from every limb), in the thicket's gap (Forest, a new area name).
+
+**Evidence:** `pnpm test` 58 files, 505 tests (new: down-pointing cones and blobs wind outwards; the forest's cover
+spread and the clearing open to the sky; a quad fits through the apron tube, along the gallery and under each bin; all
+63 props clear and reachable from the sky). Map v10 hash `7396a013...`, **421 868 triangles (v9: 245 218)**: forest
+100 k, border 55 k, yard 29 k, tree line 8 k. Flight and traffic self-test hashes unchanged. Production build clean.
+Seen in the built-in browser (WebGPU): the forest from above (thickets darker, the track, the clearing) and from the
+track at 3 m, the stack field's alley, the apron tube with its prop inside, the gallery and the headhouse.
+
+**Left open:** frame time not measured (the built-in browser pane ran 12-36 fps everywhere, the unchanged city view
+too, so it says nothing); low spec modes draw every tree (no tree LOD or billboards); leaves are solid (a real quad
+pushes through twigs); the forest floor is plain grass; the yard's middle (x -350 to -270, z 200-330) is still open
+apron; the trains don't use the yard; the park's trees are still cones.

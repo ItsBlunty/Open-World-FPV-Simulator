@@ -21,12 +21,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   walkers who board and get off there; one Settings switch; graphics settings grouped. [railway §0y, §0z, §1a]
   Wall bounces and blade strikes built (sim-core/0.7.0): side, prop and top hits bounce as measured (0.53, falling
   with speed), a prop edge-on to a surface stalls; free flight unchanged. [contacts §1b, physics-review F6]
-- **Tests:** `pnpm test`: 58 files, 503 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Forest and yard built (map v10): a forest with thickets, open woods, a track and a clearing where the hay bales were;
+  trees with limbs and gaps to fly through; tree lines and the border broken up; the yard's containers stacked loosely,
+  some opened; the grain plant, trailers, racking, sheds; 7 new golden props (63). [map §1c]
+- **Tests:** `pnpm test`: 58 files, 505 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
-  - map v9 `69f4a50d…` (245 218 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 9, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - map v10 `7396a013…` (421 868 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 10, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -60,6 +63,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    Landings should feel as before. Turtle on an edge now flips with roll too. [contacts §1b]
 11. **Opening a flight file:** Esc > Flights > Download one, delete it, then Open a flight file… (or drop the file on
    the screen) and Watch it. [saved-flights]
+12. **Forest and yard (map v10):** spawn "Forest track": fly the thickets, the open woods, under and through the big
+   trees' crowns, under the fallen tree on the track. Then "Industrial yard": the container lanes, the open boxes, the
+   conveyor gallery, under the hopper bins. Watch the fps counter in the forest (245 k to 422 k triangles, not measured).
+   Dense enough? Trees right? Were the "stumps" the hay bales? [map §1c]
 
 ## Left open (not started)
 
@@ -83,7 +90,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - Traffic: mean car speed 1.89 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
-- Map: frame time after the 5x triangle count (map v4) not measured; slab undersides render very dark; the crane
+- Map: frame time after the 5x triangle count (map v4) and the forest (v10) not measured; no tree LOD in low spec; slab undersides render very dark; the crane
   doesn't move; no interiors; the car park, plaza and parking blocks have no names or doors. [map]
 - Loading glTF levels into `MeshContactWorld` (needed when CC0 assets replace the blockout); the Boxer's HID
   descriptor as a test fixture. [foundation]
@@ -109,7 +116,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
-| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors |
+| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows |
