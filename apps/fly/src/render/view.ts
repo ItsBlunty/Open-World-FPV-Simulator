@@ -6,7 +6,7 @@
 
 import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
-import { FULL_KIT, LOW_SPEC_FOG } from './kit';
+import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
 
 const X = new THREE.Vector3(1, 0, 0);
@@ -36,7 +36,7 @@ export class CraftView {
     private chaseInit = false;
 
     constructor(kit: Kit = FULL_KIT) {
-        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, kit.lowSpec ? LOW_SPEC_FOG.far + 10 : 5000);
+        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, kit.lowSpec ? kit.fog.far + 10 : 5000);
         this.craft = craftModel(kit);
     }
 

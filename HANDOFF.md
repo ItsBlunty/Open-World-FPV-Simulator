@@ -12,8 +12,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
-  Super low spec (no GPU, old CPU) measured, not built: 60 fps on 2 cores needs traffic off, 200 m view, half resolution; plan waits for the owner. [low-spec]
-- **Tests:** `pnpm test`: 55 files, 481 tests pass. `pnpm typecheck` clean.
+  Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
+  300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]
+- **Tests:** `pnpm test`: 56 files, 486 tests pass. `pnpm typecheck` clean.
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `af127b88…`; classic physics `cd45c59c…` (`apps/fly/src/selftest.ts`)
   - traffic self-test `59f44e0a…` (traffic v6)
@@ -37,8 +38,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 5. **Grader v1 calibration:** fly flips, rolls, power loops (around something and in the open), split-S and dives, some
    clean, some sloppy, then Esc > Flights > Watch and read the trick list. Do the marks rank them as you would? Which
    reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
-6. **Low spec mode:** open the Pages build with `?lowspec` (or tick it in Settings > Graphics and reload), fly it,
-   ideally on an old laptop. Is 650 m view distance OK? Is the flat camera (no fisheye) OK there? [low-spec §0v]
+6. **Low spec modes:** fly `?lowspec`, `?lowspec=extra` and `?lowspec=super` (or Settings > Graphics and reload),
+   ideally on an old laptop with graphics acceleration off. View distances OK? Quarter resolution too blocky? Should
+   the game switch to super by itself when the browser has no GPU, or just show a tip? [low-spec]
 7. **Report screen:** Esc > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
    (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
 
@@ -49,8 +51,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no pickup sound (no audio yet), no minimap. Renumbering props breaks saved
   collections. [collectibles]
-- Low spec: not tried on a real old laptop; no view-distance slider; no cheap lens; signal poles and lamps still
-  drawn city-wide. [low-spec]
+- Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
+  cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
 - Chase camera has no collision and can end up inside buildings (owner: "on the list").
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not

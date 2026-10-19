@@ -8,6 +8,8 @@ import type { RadioProfile, StickMode } from '@owfpv/input';
 import { copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
+import { isGraphicsLevel } from './graphics';
+import type { GraphicsLevel } from './graphics';
 
 export interface Settings {
     version: 1;
@@ -50,10 +52,10 @@ export interface Settings {
     /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
     renderScale: number;
     /**
-     * low spec mode, for old laptops with barely a GPU: Three.js's classic WebGL renderer, matte materials, no shadows, no
-     * fisheye lens, simpler cars and people. The physics is the same. Applies on reload (docs/notes/low-spec.md).
+     * full graphics or one of the three low spec modes (graphics.ts), for old laptops with a weak GPU or none. The physics
+     * is the same in all of them. Applies on reload (docs/notes/low-spec.md). Was `lowSpec: boolean` before 2026-10-19.
      */
-    lowSpec: boolean;
+    graphics: GraphicsLevel;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -73,7 +75,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     signals: true,
     shadows: true,
     renderScale: 1,
-    lowSpec: false
+    graphics: 'full'
 };
 
 const KEY = 'owfpv.settings';
@@ -115,7 +117,9 @@ export function loadSettings(): Settings {
     if (typeof s.signals === 'boolean') out.signals = s.signals;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
-    if (typeof s.lowSpec === 'boolean') out.lowSpec = s.lowSpec;
+    if (isGraphicsLevel(s.graphics)) out.graphics = s.graphics;
+    // the old low spec switch (2026-10-18): on means low spec
+    else if ((s as { lowSpec?: unknown }).lowSpec === true) out.graphics = 'low';
     return out;
 }
 

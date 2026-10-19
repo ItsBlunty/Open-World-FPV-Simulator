@@ -37,6 +37,7 @@ import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, Pag
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
+import { cheaper, graphicsFromParam, graphicsName, isLowSpec, trafficAllowed } from './graphics';
 
 /** the last errors and warnings this page logged, for bug reports (report.ts); the console still gets them */
 const errorLog = new ErrorLog();
@@ -65,6 +66,8 @@ function overrides(): ParamOverrides {
 }
 
 function trafficConfig(): TrafficConfig {
+    // extra and super low spec: no traffic, whatever the switches say (they keep the pilot's choice for the other levels)
+    if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false };
     return { cars: settings.cars, people: settings.people, signals: settings.signals };
 }
 
@@ -92,8 +95,9 @@ function attachMouse(c: HTMLCanvasElement): void {
 // ---------------------------------------------------------------- engine
 
 // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
-// low spec mode too (it picks the renderer); ?lowspec turns it on for this visit, ?lowspec=0 off
-const lowSpecOn = params.has('lowspec') ? params.get('lowspec') !== '0' : settings.lowSpec;
+// the graphics level too (it picks the renderer); ?lowspec, ?lowspec=extra, ?lowspec=super or ?lowspec=0 say one for this visit
+const graphicsNow = graphicsFromParam(params.get('lowspec')) ?? settings.graphics;
+const lowSpecOn = isLowSpec(graphicsNow);
 const shadowsOn = settings.shadows && !params.has('noshadows') && !lowSpecOn;
 let canvas = newCanvas();
 let engine: Port;
@@ -125,7 +129,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, lowSpec: lowSpecOn, settings: engineSettings(), collection, flightId
+        search: location.search, shadows: shadowsOn, graphics: graphicsNow, settings: engineSettings(), collection, flightId
     };
 }
 
@@ -367,8 +371,8 @@ function openSettings(): void {
         onTraffic: () => send({ type: 'settings', what: 'traffic', settings: engineSettings() }),
         onGraphics: () => send({ type: 'settings', what: 'graphics', settings: engineSettings() }),
         shadowsPending: () => settings.shadows !== shadowsOn && !params.has('noshadows') && !lowSpecOn,
-        lowSpecNow: lowSpecOn,
-        lowSpecPending: () => settings.lowSpec !== lowSpecOn && !params.has('lowspec'),
+        graphicsNow,
+        graphicsPending: () => settings.graphics !== graphicsNow && graphicsFromParam(params.get('lowspec')) === null,
         save: () => saveSettings(settings),
         close: () => { settingsUi.hide(); showMenu(true); }
     });
@@ -655,7 +659,7 @@ function settingsSection(): Child[] {
     // low spec mode draws no lens: the flat camera's field of view applies
     const lens = lowSpecOn ? undefined : LENSES.find((l) => l.id === settings.lens);
     const camera = `uptilt ${settings.uptiltDeg}°, ${lens ? `${lens.label} lens` : `flat, ${settings.fovDeg}° field of view`}`;
-    const traffic = [settings.cars && 'cars', settings.people && 'people', settings.cars && settings.signals && 'traffic lights'].filter(Boolean).join(', ') || 'off';
+    const traffic = !trafficAllowed(graphicsNow) ? `off in ${graphicsName(graphicsNow)} mode` : [settings.cars && 'cars', settings.people && 'people', settings.cars && settings.signals && 'traffic lights'].filter(Boolean).join(', ') || 'off';
     return [
         h('div', { class: 'section-head' }, h('h2', {}, 'Settings'), gearButton('Open settings')),
         keyList([
@@ -664,7 +668,7 @@ function settingsSection(): Child[] {
             ['Flight mode', `${settings.mode[0].toUpperCase()}${settings.mode.slice(1)}, used when your radio has no mode switch.`],
             ['Traffic', `${traffic}.`],
             ['Graphics', lowSpecOn
-                ? `low spec mode (simple lighting, no shadows, flat camera), resolution ${Math.round(settings.renderScale * 100)}%.`
+                ? `${graphicsName(graphicsNow)} mode (simple lighting, no shadows, flat camera), resolution ${graphicsNow === 'extra' ? 50 : graphicsNow === 'super' ? 25 : Math.round(settings.renderScale * 100)}%.`
                 : `resolution ${Math.round(settings.renderScale * 100)}%, sun shadows ${settings.shadows ? 'on' : 'off'}.`],
             ['Physics', settings.classicPhysics ? 'classic (sim-core 0.5): thrust from motor speed alone.' : 'props feel the airflow: thrust fades as you climb fast and grows flying forward.'],
             ['Crashes', settings.damage ? 'damage on.' : 'damage off: every hit is a bounce.']
@@ -787,9 +791,10 @@ let slowSince: number | null = null;
 let slowHinted = false;
 const SLOW_FPS = 30;
 
-/** Running slowly in full graphics for 5 s of flying: point at low spec mode, once a visit. */
+/** Running slowly for 5 s of flying: point at the next cheaper graphics level (none past super low spec), once a visit. */
 function hintLowSpec(fps: number): void {
-    if (slowHinted || lowSpecOn || sentPaused !== false || replayUi.open) {
+    const next = cheaper(graphicsNow);
+    if (slowHinted || !next || sentPaused !== false || replayUi.open) {
         slowSince = null;
         return;
     }
@@ -798,7 +803,7 @@ function hintLowSpec(fps: number): void {
     else if (slowSince === null) slowSince = now;
     else if (now - slowSince > 5000) {
         slowHinted = true;
-        hud.toast('RUNNING SLOWLY', 'Try Low spec mode: Esc > Settings > Graphics');
+        hud.toast('RUNNING SLOWLY', `Try ${graphicsName(next)[0].toUpperCase()}${graphicsName(next).slice(1)} mode: Esc > Settings > Graphics`);
     }
 }
 

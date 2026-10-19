@@ -115,3 +115,25 @@ At 200 m the city is 81 k triangles in 35-42 draws (300 m: 117-121 k). With traf
 49 fps on 2 cores. At 6x CPU throttle instead of 4x: still 60 on 2 cores, so our JavaScript isn't the limit.
 **So:** 60 on 2 cores needs traffic off, 200 m view and half resolution; 1 core needs resolution lower than 0.35. A
 real old core is slower than these, so a resolution that drops by itself when frames run late is the way to hold 60.
+
+**Built (owner, 2026-10-19: "three low spec modes"):** Settings > Graphics is now a choice of four (`graphics.ts`,
+`render/kit.ts`); the old low spec switch carries over as Low spec. `?lowspec` = low, `?lowspec=extra`,
+`?lowspec=super`, `?lowspec=0` full, for one visit.
+- **Extra low spec:** low spec at half resolution (fixed; the slider is hidden), fog 120-290 m and the camera's far
+  plane 300 m, no cars, people or traffic lights (whatever their switches say; the switches keep the pilot's choice
+  for full and low), no doors or name signs (the entrances show their shop-front glass), golden props with fewer
+  segments. Frosted shelter glass stays (it is solid, and props hide behind it).
+- **Super low spec:** the same at a quarter resolution, fog 80-195 m, far plane 205 m.
+- The slow-running hint now points at the next cheaper level (full > low > extra > super), once a visit.
+- Saved flights keep their own traffic in their header, so replays of flights flown with traffic still show it.
+
+**Measured, built game** (same stand-in: no GPU, 4x CPU, menu closed, HUD on; traffic switches all on, forced off):
+| Mode | 2 cores, street / 40 m up | 1 core, street / 40 m up |
+|---|---|---|
+| Extra low spec | 41 / 50 | 35 / 42 |
+| Super low spec | **60 / 60** | 55 / 54 |
+Super draws 88 k triangles in 38-45 draws. Screenshots: `docs/evidence/2026-10-19-no-gpu/city-extra.png`,
+`city-super.png` (blocky, and thin lattice like the crane breaks up at a quarter resolution), `settings-super.png`.
+Tests: 56 files, 486 pass (new `graphics.test.ts`); typecheck clean; hashes unchanged (rendering and traffic toggles only).
+**Left open:** not tried on a real old laptop; 1 core stays under 60 in super; no automatic switch when the browser
+has no GPU (owner not asked yet: auto-switch or tip).

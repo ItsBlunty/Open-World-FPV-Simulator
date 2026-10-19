@@ -10,6 +10,7 @@
 import type { ParamOverrides } from '@owfpv/sim-core';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
+import type { GraphicsLevel } from '../graphics';
 import type { Track } from '../replay';
 
 /** The replay viewer's cameras (owner, 2026-10-18): the pilot's FPV, chase, a free camera, a spotter standing still. */
@@ -39,8 +40,8 @@ export interface InitMsg {
     /** location.search: ?webgl, ?spawn, ?cam, ?noshadows, ?lowspec, ?demo */
     search: string;
     shadows: boolean;
-    /** low spec mode (render/kit.ts): the classic WebGL renderer with matte materials, for weak GPUs */
-    lowSpec: boolean;
+    /** full graphics or a low spec mode (graphics.ts, render/kit.ts) */
+    graphics: GraphicsLevel;
     settings: EngineSettings;
     /** the golden props this pilot has taken already, by map id, by number (the page keeps them) */
     collection: Record<string, number[]>;

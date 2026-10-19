@@ -118,6 +118,8 @@ export class BuildingsView {
         this.group.name = 'buildings';
         this.open = new Float64Array(level.doors.length);
         this.users = new Float64Array(level.doors.length);
+        // extra and super low spec draw neither (kit.ts): the entrances show their shop-front glass
+        if (!kit.details) return;
         if (level.buildings.length) this.buildSigns();
         if (level.doors.length) this.buildDoors();
     }

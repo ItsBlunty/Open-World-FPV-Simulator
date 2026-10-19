@@ -21,7 +21,7 @@ const POP = 1.7;
 const POP_S = 0.3;
 
 /** One blade along +x from the hub: a rounded outline, wide in the middle, a little pitch, 2 cm thick. */
-function blade(): THREE.BufferGeometry {
+function blade(curveSegments: number): THREE.BufferGeometry {
     const L = RADIUS, W = 0.09;
     const s = new THREE.Shape();
     s.moveTo(0.04, -W * 0.35);
@@ -29,24 +29,28 @@ function blade(): THREE.BufferGeometry {
     s.bezierCurveTo(L * 1.01, W * 0.15, L * 0.9, W * 0.5, L * 0.7, W * 0.55);
     s.bezierCurveTo(L * 0.4, W * 0.6, L * 0.15, W * 0.4, 0.04, W * 0.35);
     s.lineTo(0.04, -W * 0.35);
-    const g = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: false, curveSegments: 6 });
+    const g = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: false, curveSegments });
     g.translate(0, 0, -0.01);
     g.rotateX(0.35); // pitch
     return g;
 }
 
-/** Three blades and the hub, in the x-y plane (the hub's axis along z): the disc faces +z. */
-function propGeometry(): THREE.BufferGeometry {
+/**
+ * Three blades and the hub, in the x-y plane (the hub's axis along z): the disc faces +z. Extra and super low spec draw
+ * it with fewer segments (about a third of the triangles, the same outline from a few metres).
+ */
+function propGeometry(kit: Kit): THREE.BufferGeometry {
+    const cheap = (full: number, low: number): number => (kit.details ? full : low);
     const parts: THREE.BufferGeometry[] = [];
     for (let k = 0; k < 3; k++) {
-        const b = blade();
+        const b = blade(cheap(6, 2));
         b.rotateZ((k * 2 * Math.PI) / 3);
         parts.push(b);
     }
-    const hub = new THREE.CylinderGeometry(0.065, 0.065, 0.1, 16);
+    const hub = new THREE.CylinderGeometry(0.065, 0.065, 0.1, cheap(16, 6));
     hub.rotateX(Math.PI / 2);
     parts.push(hub);
-    const nut = new THREE.CylinderGeometry(0.03, 0.04, 0.06, 8);
+    const nut = new THREE.CylinderGeometry(0.03, 0.04, 0.06, cheap(8, 4));
     nut.rotateX(Math.PI / 2);
     nut.translate(0, 0, 0.075);
     parts.push(nut);
@@ -84,7 +88,7 @@ export class CollectiblesView {
         // not fully metallic: with no environment to reflect, a metal draws dark brown, not gold; the glow keeps it
         // gold in the shade too
         const mat = kit.lit({ color: 0xffcc33, metalness: 0.35, roughness: 0.3, emissive: 0xb07800 });
-        this.mesh = new THREE.InstancedMesh(propGeometry(), mat, Math.max(items.length, 1));
+        this.mesh = new THREE.InstancedMesh(propGeometry(kit), mat, Math.max(items.length, 1));
         this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         this.mesh.castShadow = true;
         this.mesh.frustumCulled = false;

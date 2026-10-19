@@ -79,3 +79,6 @@ Questions put to the owner and the answers, newest last. `SPEC.md` reflects them
 | 2026-10-18 | Next task? | Continue: the grader (first prototype, shown in the replay viewer) |
 | 2026-10-18 | Report bugs from the game? | Yes: an in-game button that opens GitHub issues or suggestions, formatted, with the game state for reference and replication |
 | 2026-10-18 | Low spec version? | Yes: a browser version an old laptop with barely a GPU can run, with good physics; keep going until it works |
+| 2026-10-19 | Super low spec for no GPU and an old CPU? | Yes, same physics; auto-disable cars, people and traffic lights in it |
+| 2026-10-19 | Is 45 fps enough? | No: "We need to hit 60 fps not 45" |
+| 2026-10-19 | How many low spec modes? | Three: low spec as it is; extra low spec at half resolution and a 300 m view; super low spec at a quarter resolution and a nearer view (200 m) |

@@ -18,7 +18,8 @@ import { CollectiblesView } from '../render/collectibles';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView } from '../render/fisheye';
 import { lensById } from '../render/lenses';
-import { FULL_KIT, LOW_SPEC_KIT } from '../render/kit';
+import { kitFor } from '../render/kit';
+import { graphicsName } from '../graphics';
 import { HUD_HZ } from './protocol';
 import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
@@ -51,21 +52,22 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? cfg.spawn)) ?? level.spawns[0]
     });
 
-    // Low spec mode (docs/notes/low-spec.md): Three.js's classic WebGL 2 renderer, matte materials, no multisampling, no
-    // shadows, no fisheye lens, at most one device pixel per CSS pixel. Read once: it applies on reload.
-    const lowSpec = init.lowSpec;
-    const kit = lowSpec ? LOW_SPEC_KIT : FULL_KIT;
+    // The low spec modes (graphics.ts, docs/notes/low-spec.md): Three.js's classic WebGL 2 renderer, matte materials, no
+    // multisampling, no shadows, no fisheye lens, at most one device pixel per CSS pixel; extra and super low spec at a
+    // fixed lower resolution and a nearer fog. Read once: it applies on reload.
+    const kit = kitFor(init.graphics);
+    const lowSpec = kit.lowSpec;
     // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
     // and Three.js falls back to normal depth without it
     const gpuRenderer = lowSpec ? null : new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
     const renderer = gpuRenderer ?? new WebGLRenderer({ canvas, antialias: false, reversedDepthBuffer: true });
     let size = { width: init.width, height: init.height, dpr: init.dpr };
-    const pixelRatio = (): number => Math.min(size.dpr, lowSpec ? 1 : 2) * cfg.renderScale;
+    const pixelRatio = (): number => Math.min(size.dpr, lowSpec ? 1 : 2) * (kit.resolution ?? cfg.renderScale);
     renderer.setPixelRatio(pixelRatio());
     // false: an OffscreenCanvas has no style; the page's CSS sizes the canvas element
     renderer.setSize(size.width, size.height, false);
     await gpuRenderer?.init();
-    const backend = !gpuRenderer ? 'WebGL 2, low spec' : (gpuRenderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
+    const backend = !gpuRenderer ? `WebGL 2, ${graphicsName(kit.graphics)}` : (gpuRenderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
 
     // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
     renderer.shadowMap.enabled = init.shadows && !lowSpec;

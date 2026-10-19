@@ -9,7 +9,7 @@ import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
 import { shadowNeedsRecentre } from './shadow-follow';
-import { FULL_KIT, LOW_SPEC_FOG } from './kit';
+import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
 
 type FloatNode = THREE.Node<'float'>;
@@ -129,7 +129,7 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
  * Low spec mode's level: the same grid as gridMaterial's nodes, as GLSL in Three.js's classic Lambert shader (its
  * `color_fragment` chunk sets the surface colour; the grid darkens it there, before the lighting). Every opaque
  * material shares one mesh per LOW_SPEC_TILE square, coloured per vertex with a 0/1 `grid` attribute (PLAIN surfaces
- * get none), so a tile is one draw and the tiles out of view or past the fog (LOW_SPEC_FOG) are not drawn at all.
+ * get none), so a tile is one draw and the tiles out of view or past the fog (the kit's) are not drawn at all.
  */
 const LOW_SPEC_TILE = 80;
 const LOW_SPEC_GRID_VERT = /* glsl */ `
@@ -315,7 +315,7 @@ export class Sun {
 export function environment(scene: THREE.Scene, kit: Kit = FULL_KIT): Sun {
     const sky = new THREE.Color(0x9cc4e4);
     scene.background = sky;
-    scene.fog = kit.lowSpec ? new THREE.Fog(sky, LOW_SPEC_FOG.near, LOW_SPEC_FOG.far) : new THREE.Fog(sky, 250, 1600);
+    scene.fog = new THREE.Fog(sky, kit.fog.near, kit.fog.far);
     scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.4));
     return new Sun(scene);
 }
