@@ -35,7 +35,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   listed in Esc > Time trials. [time-trials §1h] Clearer gates (thick pulsing frame, tinted pane, a floating arrow seen
   through walls that keeps its size on screen, distance on the HUD) and a 3D "TIME TRIAL" arrow over each pad. [§1i]
   Pads 4.6 m (map v13); the arrow under the arch over the pad and LAND HERE TO START until the course has a time. [§1j]
-- **Tests:** `pnpm test`: 60 files, 533 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Start at on the title card, Pause > Back to main menu, Settings > Help and about > Default settings / Clear all data. [camera §1k]
+- **Tests:** `pnpm test`: 61 files, 535 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
@@ -80,8 +81,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    Dense enough? Trees right? Were the "stumps" the hay bales? [map §1c]
 13. **Graphics presets and shadow distance:** Settings > Graphics: is the preset layout clear? Fly High (shadows to 250 m)
    and Shadows "to about 500 m": pop-in gone? 500 m too soft close up? Watch the fps (not measured). [camera §1e, §1d]
-14. **Title card and pause menu:** start, connect the radio in Settings > Radio and controls, fly, Esc. Clear enough? The
-   start point is now in Settings > World and physics: OK there, or back on the title card? Pause: add "Back to title"? [camera §1f]
+14. **Title card and pause menu:** pick Start at on the title card, fly, Esc > Back to main menu, pick another, fly. Then
+   Settings > Help and about: Default settings (keeps your radio setup, props, times, flights: right?) and Clear all data
+   (forgets all of it). [camera §1f, §1k]
 15. **Map joined up (map v11):** fly the city's edge, the yard road and its level crossing to the yard gate, the bando
    driveway, the park paths to the forest, the power line (wires are solid: try threading them), the station forecourt.
    Feels complete? Wires visible enough at speed (3.5 cm)? Cars on the roads out next? [map §1g]
@@ -145,7 +147,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line) |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
-| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs |
+| `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |

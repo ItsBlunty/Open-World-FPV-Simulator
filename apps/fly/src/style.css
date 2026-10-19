@@ -209,3 +209,6 @@ textarea { font: inherit; color: var(--text); background: #0f1217; border: 1px s
 .trial .gates { margin: 6px 0 0; padding-left: 22px; font-size: 13px; color: var(--muted); columns: 2 220px; }
 /* while the offer is up, the prompts under it (arming, the pad's hint) would show through its edges */
 #hud.asking .mid, #hud.asking .pad-hint { visibility: hidden; }
+.start-point { margin: 14px 0 0; }
+.start-point .row { justify-content: center; margin: 0; }
+.start-point .note { margin: 4px 0 0; }

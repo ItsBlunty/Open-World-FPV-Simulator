@@ -13,7 +13,7 @@ import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { loadCollection, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
+import { clearStoredSettings, defaultSettings, loadCollection, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
 import { courseKey, formatDelta, formatTime, parseTrialTimes, recordRun } from './trial-times';
 import type { CourseTimes } from './trial-times';
 import type { TrialEvent } from './trials';
@@ -29,7 +29,7 @@ import { SettingsUi, closeButton } from './ui/settings-ui';
 import type { SettingsTab } from './ui/settings-ui';
 import { CollectionUi } from './ui/collection-ui';
 import { FlightsUi } from './ui/flights-ui';
-import { deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
+import { clearFlights, deleteFlight, getFlight, listFlights, putFlight } from './flight-store';
 import { flightFromJson, flightToJson } from './flights';
 import type { CheckResult, Flight } from './flights';
 import { ReplayUi } from './ui/replay-ui';
@@ -389,6 +389,7 @@ function openSetup(): void {
 
 function openSettings(): void {
     showMenu(false);
+    confirmData = null;
     settingsUi.show({
         settings,
         presetRates,
@@ -713,8 +714,8 @@ function radioStatus(inSettings = false): HTMLElement {
         : h('div', { class: 'status' }, h('span', { class: 'dot' }), h('span', { class: 'muted' }, `No radio connected${go}. Without one you look around with the mouse and keyboard.`));
 }
 
-/** where the quad starts (and goes back to with R or a respawn) */
-function startPointSection(): Child[] {
+/** where the quad starts (and goes back to with R or a respawn), on the title card (owner, 2026-10-19: out of Settings) */
+function startPoint(): HTMLElement {
     const where = spawns.length === 0
         ? h('span', { class: 'muted' }, 'Loading the map…')
         : h('select', { 'aria-label': 'Start point', onchange: (e: Event) => {
@@ -724,10 +725,39 @@ function startPointSection(): Child[] {
             saveSettings(settings);
             send({ type: 'settings', what: 'spawn', settings: engineSettings() });
         } }, ...spawns.map((s) => h('option', { value: s.id, selected: s.id === spawnId }, s.name)));
+    return h('div', { class: 'start-point' },
+        h('div', { class: 'row' }, h('span', {}, 'Start at'), where),
+        h('p', { class: 'note' }, 'R (or the respawn switch) brings the quad back here.'));
+}
+
+/** which of the Help and about tab's data buttons waits for its second click */
+let confirmData: 'defaults' | 'all' | null = null;
+
+/** Settings > Help and about: back to the default settings, or forget everything kept in this browser (owner, 2026-10-19). */
+function dataSection(): Child[] {
+    const button = (what: 'defaults' | 'all', label: string, sure: string, act: () => Promise<void> | void): HTMLElement =>
+        h('button', {
+            class: confirmData === what ? 'danger' : '',
+            onclick: async () => {
+                if (confirmData !== what) {
+                    confirmData = what;
+                    return settingsUi.refresh();
+                }
+                confirmData = null;
+                await act();
+                // graphics and shadows only apply on a fresh page, and every screen should show what is kept now
+                location.reload();
+            }
+        }, confirmData === what ? sure : label);
     return [
-        h('h2', {}, 'Start point'),
-        h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Start at'), where),
-        h('p', { class: 'note' }, 'Changing it moves the quad there. R (or the respawn switch) brings it back here.')
+        h('h2', {}, 'Your data'),
+        h('p', { class: 'note' }, 'Default settings puts every setting back as it was at first (your radio setup stays). Clear all data also forgets your radio setup, golden props, time trial times and saved flights. Both reload the game.'),
+        h('div', { class: 'row' },
+            button('defaults', 'Default settings', 'Click again to reset every setting', () => saveSettings(defaultSettings(settings))),
+            button('all', 'Clear all data', 'Click again to erase everything', async () => {
+                clearStoredSettings();
+                await clearFlights();
+            }))
     ];
 }
 
@@ -755,12 +785,12 @@ function credits(): HTMLElement {
 function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
     const hidOk = HidSource.supported();
     if (tab === 'radio') return where === 'top' ? [browserNotice(hidOk), ...controllerSection(hidOk)] : controlsSection();
-    if (tab === 'world' && where === 'top') return startPointSection();
     if (tab === 'about' && where === 'top') {
         return [
             h('h2', {}, 'Problems or ideas'),
             h('p', { class: 'note' }, 'Found a bug, or want something in the game? This opens it as an issue on GitHub, with the game\'s state attached so it can be found and replayed.'),
             h('div', { class: 'row' }, h('button', { onclick: openReport }, 'Report or suggest')),
+            ...dataSection(),
             h('h2', {}, 'About'),
             h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S). Your flights are kept in this browser as stick inputs, so each replays exactly.'),
             credits()
@@ -770,14 +800,15 @@ function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
 }
 
 /** The menu's big buttons: the title card's and the pause menu's. */
-function menuButtons(first: HTMLElement | null): HTMLElement {
+function menuButtons(first: HTMLElement | null, last: HTMLElement | null = null): HTMLElement {
     const n = found().length;
     return h('div', { class: 'menu-buttons' },
         first,
         h('button', { onclick: openSettings }, 'Settings'),
         h('button', { onclick: openCollection, disabled: props.length === 0 }, props.length ? `Collection  ${n} / ${props.length}` : 'Collection'),
         h('button', { onclick: openTrials, disabled: trials.length === 0 }, 'Time trials'),
-        h('button', { onclick: openFlights }, 'Flight replay'));
+        h('button', { onclick: openFlights }, 'Flight replay'),
+        last);
 }
 
 /**
@@ -793,6 +824,7 @@ function renderMenu(): void {
             h('p', { class: 'muted' }, '5" freestyle in an open city'),
             browserNotice(HidSource.supported()),
             h('div', { class: 'title-radio' }, radioStatus()),
+            startPoint(),
             menuButtons(h('button', { class: 'primary', onclick: startFlying }, 'Start flying')),
             h('p', { class: 'note' }, h('a', { href: REPO, target: '_blank', rel: 'noopener' }, 'GitHub ↗'), ` · ${backend}`));
         return;
@@ -801,8 +833,17 @@ function renderMenu(): void {
     const racing = hudSnap !== null && (hudSnap.trial.phase === 'countdown' || hudSnap.trial.phase === 'racing');
     clear(menuBody,
         h('div', { class: 'title' }, h('h1', {}, 'Paused'), closeButton(() => showMenu(false))),
-        menuButtons(racing ? h('button', { onclick: () => { send({ type: 'trial', act: 'quit' }); showMenu(false); } }, 'Leave time trial') : null),
+        menuButtons(racing ? h('button', { onclick: () => { send({ type: 'trial', act: 'quit' }); showMenu(false); } }, 'Leave time trial') : null,
+            h('button', { onclick: backToTitle }, 'Back to main menu')),
         h('p', { class: 'note' }, 'Esc goes back to flying.'));
+}
+
+/** Pause > Back to main menu (owner, 2026-10-19): any time trial ends, the quad goes back to the start point, the title card shows. */
+function backToTitle(): void {
+    send({ type: 'trial', act: 'quit' });
+    send({ type: 'reset' });
+    started = false;
+    renderMenu();
 }
 
 function startFlying(): void {

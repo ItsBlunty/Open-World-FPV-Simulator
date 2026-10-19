@@ -216,3 +216,31 @@ twice opens and closes it. 58 test files, 514 tests; typecheck clean.
 
 **Left open:** no "back to title" or "restart" in the pause menu (not asked); the spawn point moved to Settings > World
 and physics, which is one more click before a flight.
+
+## 1k. Start point on the title card, Back to main menu, data reset buttons (owner, 2026-10-19): built, waiting for the owner
+
+**Asked:** buttons to clear all the pilot's data and to go back to default settings; "Back to main menu" in the pause
+menu; the "Start at" choice moved from Settings to the main menu.
+
+**Built (`main.ts`, `settings.ts`, `flight-store.ts`, `style.css`):**
+- Title card: a "Start at" row under the radio line, with "R (or the respawn switch) brings the quad back here".
+  Changing it moves the quad there, as before. It is gone from Settings > World and physics.
+- Pause menu: "Back to main menu" as the last button. It ends a time trial if one is running, puts the quad back on
+  the start point (a respawn, as R) and shows the title card, where the start point can be changed.
+- Settings > Help and about > Your data, both asking for a second click (red "Click again to ..."), as Reset
+  collection does, then reloading the page (graphics and shadows only apply on a fresh page):
+  - Default settings: every setting back to `DEFAULT_SETTINGS`, start point Park included. Kept: the radio setup, the
+    device to reconnect to and the stick mode (they come from the radio setup, not the Settings screen), and the
+    collection, times and flights. This choice was made without the owner: "your profile" read as everything the
+    game keeps for the pilot.
+  - Clear all data: every `owfpv.*` localStorage key (settings, radio setups, golden props, time trial times) and every
+    saved flight (IndexedDB stores emptied).
+
+**Evidence** (built-in browser, dev server): title card shows Start at; choosing City station saved `spawn:
+"city-station"`; Start flying, Esc showed Paused with Back to main menu; clicking it brought the title card back and
+Esc stayed there; World and physics no longer has Start at. Default settings: first click turned it red, the second
+reloaded with the settings at defaults (spawn park) and the collection kept. Clear all data: 3 saved flights and every
+`owfpv.*` key gone after the reload. No console errors. `test/settings-reset.test.ts`: 61 files, 535 tests pass.
+
+**Left open:** no "Restart" in the pause menu; clearing data does not remove a radio's browser permission (WebHID
+grants are the browser's).

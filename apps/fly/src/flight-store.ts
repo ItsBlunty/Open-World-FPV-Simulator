@@ -100,6 +100,20 @@ export async function deleteFlight(id: number): Promise<void> {
     }
 }
 
+/** Every saved flight gone (Settings > Help and about > Clear all data). */
+export async function clearFlights(): Promise<void> {
+    const db = await open();
+    if (!db) return;
+    try {
+        const t = db.transaction([FLIGHTS, SUMMARIES], 'readwrite');
+        t.objectStore(FLIGHTS).clear();
+        t.objectStore(SUMMARIES).clear();
+        await done(t);
+    } catch {
+        // nothing to undo
+    }
+}
+
 async function prune(db: IDBDatabase): Promise<void> {
     // most recently saved first; flights saved before savedAt existed count as saved when they were flown
     const all = (await listFlights()).sort((a, b) => (b.savedAt ?? b.id) - (a.savedAt ?? a.id));

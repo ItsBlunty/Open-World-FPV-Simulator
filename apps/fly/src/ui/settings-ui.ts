@@ -1,6 +1,6 @@
 // Settings screen, in tabs as games have them (owner, 2026-10-19): the radio and controls, the camera, graphics, the world
-// and physics, help and about. The page adds its own sections to some tabs (the radio connection, the start point, the
-// key list, the report link: main.ts pageSections). The rates box
+// and physics, help and about. The page adds its own sections to some tabs (the radio connection, the
+// key list, the report link, the data buttons: main.ts pageSections). The rates box
 // offers Betaflight's two common rate types; field names, scales and limits are sim-core's
 // rates-edit.ts (read from Betaflight Configurator 10.10.0 by sim-core's author), so values typed
 // here mean what they mean in Configurator.

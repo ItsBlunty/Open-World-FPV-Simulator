@@ -137,6 +137,28 @@ export function saveSettings(s: Settings): void {
     write(KEY, s);
 }
 
+/**
+ * Settings > Help and about > Default settings (owner, 2026-10-19): every setting back to its default. The radio
+ * stays as it was: the device to reconnect to and the stick mode come from the radio setup, not from the Settings screen.
+ */
+export function defaultSettings(now: Settings): Settings {
+    return { ...DEFAULT_SETTINGS, lastDevice: now.lastDevice, stickMode: now.stickMode };
+}
+
+/** Settings > Help and about > Clear all data: everything this game keeps in localStorage (its keys start "owfpv."). */
+export function clearStoredSettings(): void {
+    try {
+        const keys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k?.startsWith('owfpv.')) keys.push(k);
+        }
+        for (const k of keys) localStorage.removeItem(k);
+    } catch {
+        // storage blocked: there is nothing kept to clear
+    }
+}
+
 /** The golden props each map's pilot has taken, by map id, by number (owner, 2026-10-18). */
 const COLLECTION = 'owfpv.goldenProps';
 
