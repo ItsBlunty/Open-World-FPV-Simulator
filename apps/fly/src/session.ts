@@ -9,8 +9,8 @@ import {
     compileParams, hoverStickOf, lifeSim, makeLifeHeader
 } from '@owfpv/sim-core';
 import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } from '@owfpv/sim-core';
-import { levelSha256, spawnPose } from '@owfpv/maps';
-import type { Level, SpawnPoint } from '@owfpv/maps';
+import { courseFromFile, levelSha256, spawnPose } from '@owfpv/maps';
+import type { CourseFile, Level, SpawnPoint, TimeTrial } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import { TrafficWorld, TrainWorld, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
@@ -18,6 +18,8 @@ import { SimClock } from './simclock';
 import { Collector } from './collect';
 import { TrialRunner } from './trials';
 import type { Pose } from './trials';
+import { buildCourseSolids, courseWorld, layerOf, withCourses } from './course-world';
+import type { CourseSolids } from './course-world';
 
 /**
  * SPEC.md 4.2, to prototype: after a crash, respawn quickly where you were. 1 s after the crash the
@@ -55,6 +57,8 @@ export interface SessionOptions {
      * start where a train already is instead of flying the minutes before it comes.
      */
     startTick?: number;
+    /** time trial courses made in the creator (course-store.ts), after the map's own (their arches are solid too) */
+    courses?: readonly CourseFile[];
 }
 
 const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
@@ -77,8 +81,8 @@ export class FlightSession {
     readonly levelSha256: string;
     /** the golden props: checked after every sim step, so a replay takes them on the same ticks */
     readonly collector: Collector;
-    /** the time trials: checked after every sim step, like the props */
-    readonly trials: TrialRunner;
+    /** the time trials: checked after every sim step, like the props (a new runner when the courses change) */
+    trials: TrialRunner;
     /** per prop, the hardest blade strike since takeStrikes (brake share x rotor speed share): read by the sound only */
     private readonly strikes = new Float64Array(4);
     private overrides: ParamOverrides;
@@ -87,6 +91,16 @@ export class FlightSession {
     private trafficNow: TrafficModel | null = null;
     private trainsNow: Train[] = [];
     private contactWorld: ContactWorld;
+    /** the collision without the courses' own solids (map, traffic, trains), and those solids */
+    private innerWorld!: ContactWorld;
+    private solids: CourseSolids;
+    /** the custom courses, and every course (the map's first) */
+    private customFiles: CourseFile[];
+    private allCourses: TimeTrial[];
+    /** the solid layer on now (course-world.ts layerOf; 0: no race gates solid) */
+    private layer = 0;
+    /** every set of custom courses this visit flew with, by its collision hash part (a saved flight carries them) */
+    readonly courseSets = new Map<string, CourseFile[]>();
     private spawnPt: SpawnPoint;
     private pose: [number, number, number, number];
     /** a time trial's pad while one is being raced: where a respawn to the start goes then (null: the start point) */
@@ -100,6 +114,10 @@ export class FlightSession {
         this.levelSha256 = levelSha256(o.level);
         this.spawnPt = o.spawn ?? o.level.spawns[0];
         this.trafficCfg = { ...(o.traffic ?? NO_TRAFFIC) };
+        this.customFiles = (o.courses ?? []).map((f) => JSON.parse(JSON.stringify(f)) as CourseFile);
+        this.allCourses = this.coursesOf(this.customFiles);
+        this.solids = buildCourseSolids(this.allCourses);
+        this.noteCourses();
         this.contactWorld = this.buildWorld();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
         this.pose = this.poseOf(this.spawnPt, sim);
@@ -109,11 +127,16 @@ export class FlightSession {
         this.director = new RespawnDirector(o.policy ?? QUICK_RESPAWN, () => this.padPose ?? this.pose, new StateHistory({ margin: REWIND_MARGIN_M }), () => this.runner.sim.contactWorld, p.boundRadius, hoverStickOf(p));
         this.runner.director = this.director;
         this.collector = new Collector(o.level.collectibles);
-        this.trials = new TrialRunner(o.level.trials, (pose) => this.onPad(pose), p.bodyBottom);
-        const c = this.collector, t = this.trials, k = this.strikes;
+        this.trials = this.newTrials();
+        // a world record (the race layer switched): the collision with that course's race gates, or without
+        this.runner.onWorld = (ev) => {
+            this.layer = ev.layer ?? 0;
+            this.runner.sim.world = this.contactWorld = courseWorld(this.innerWorld, this.solids, this.layer);
+        };
+        const c = this.collector, k = this.strikes;
         this.runner.onStep = (s) => {
             c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
-            t.step(s.s, s.tick, s.ch[2]);
+            this.trials.step(s.s, s.tick, s.ch[2]);
             // the hardest blade strike on each prop since the sound last asked (audio/frame.ts): brake x rotor speed
             for (let i = 0; i < 4; i++) {
                 const b = s.bladeBrake(i);
@@ -137,9 +160,57 @@ export class FlightSession {
         return this.runner.sim;
     }
 
-    /** What the collision hash in each life header is: the level's, with the traffic folded in. */
+    /** What the collision hash in each life header is: the level's, with the traffic and the courses' solids folded in. */
     get collisionSha256(): string {
-        return worldSha256(this.levelSha256, this.trafficCfg);
+        return withCourses(worldSha256(this.levelSha256, this.trafficCfg), this.solids);
+    }
+
+    /** Every time trial course, the map's first, then the custom ones (TrialRunner's course numbers). */
+    get courses(): readonly TimeTrial[] {
+        return this.allCourses;
+    }
+
+    /** The custom courses as files. */
+    get customCourses(): readonly CourseFile[] {
+        return this.customFiles;
+    }
+
+    private coursesOf(files: readonly CourseFile[]): TimeTrial[] {
+        return [...this.level.trials, ...files.map((f) => courseFromFile(f, true))];
+    }
+
+    private newTrials(): TrialRunner {
+        return new TrialRunner(this.allCourses, (pose) => this.onPad(pose), this.sim.p.bodyBottom, (c) => this.raceLayer(c));
+    }
+
+    /** A course's race is on (its race gates solid), or none (-1): a world record, so a replay switches them on the same tick. */
+    private raceLayer(c: number): void {
+        const l = layerOf(this.solids, c);
+        if (l === this.layer) return;
+        this.runner.world({ s: 1, t: [0, 0, 0], floaterMinBlocks: 0, ceilingM: null, layer: l });
+    }
+
+    private noteCourses(): void {
+        if (this.solids.sha256 !== null) this.courseSets.set(this.solids.sha256, this.customFiles.map((f) => JSON.parse(JSON.stringify(f)) as CourseFile));
+    }
+
+    /**
+     * New custom courses (the creator saved, a file opened, one deleted): their pads and arches are solid, so the
+     * collision changes, and with it the life header's collision hash. A new life at `at` (the quad set down there: the
+     * editor's camera, a pad), or at the spawn point.
+     */
+    setCourses(files: readonly CourseFile[], at: Pose | null = null): void {
+        this.trials.quit();
+        this.customFiles = files.map((f) => JSON.parse(JSON.stringify(f)) as CourseFile);
+        this.allCourses = this.coursesOf(this.customFiles);
+        this.solids = buildCourseSolids(this.allCourses);
+        this.noteCourses();
+        this.layer = 0;
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow);
+        this.contactWorld = courseWorld(this.innerWorld, this.solids, 0);
+        this.trials = this.newTrials();
+        const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
+        this.runner.newLife(sim, this.header('settings', at ?? this.pose));
     }
 
     /** The cars and people moving in the current life, null when there are none. */
@@ -161,11 +232,14 @@ export class FlightSession {
         return { ...this.trafficCfg };
     }
 
+    /** The collision for the current traffic, with the courses' solids and no race layer (sets innerWorld). */
     private buildWorld(): ContactWorld {
         const c = this.trafficCfg;
         this.trafficNow = makeTraffic(this.level, c);
         this.trainsNow = makeTrains(this.level, c.train);
-        return worldWith(this.world, this.trafficNow, this.trainsNow);
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow);
+        this.layer = 0;
+        return courseWorld(this.innerWorld, this.solids, 0);
     }
 
     get spawn(): SpawnPoint {
@@ -182,14 +256,14 @@ export class FlightSession {
         return spawnPose(s, (x, z) => this.groundY(x, z), sim.p.bodyBottom);
     }
 
-    private header(reason: 'start' | 'settings') {
+    private header(reason: 'start' | 'settings', at: [number, number, number, number] = this.pose) {
         return makeLifeHeader({
             simCore: SIM_CORE_VERSION,
             preset: this.preset,
             overrides: this.overrides,
             collisionSha256: this.collisionSha256,
             scene: { id: this.level.id, version: this.level.version, transform: [1, 0, 0, 0], floaterMinBlocks: 0 },
-            at: this.pose,
+            at,
             opts: { platform: true },
             reason
         });

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-    LOG_FORMAT_V2, LOG_FORMAT_V3, REC_WORLD, Runner, WORLD_FLAG_CEILING, compileParams, forEachRecord, lifeConfigHash, lifeHeaderProblem,
+    LOG_FORMAT_V2, LOG_FORMAT_V3, LOG_FORMAT_V4, REC_WORLD, Runner, WORLD_FLAG_CEILING, compileParams, forEachRecord, lifeConfigHash, lifeHeaderProblem,
     lifeSim, readWorld, replayLife, replayLives, writeWorld
 } from '../src/index';
 import type { Life, LifeHeader, ReplayDeps, WindConfig, WorldEvent } from '../src/index';
@@ -32,8 +32,8 @@ function fly(frameHz: number, o: { world?: boolean; wind?: WindConfig } = {}): R
 }
 
 describe('format /3 headers and records', () => {
-    it('new headers are written as /3; /2 and /3 are both read', () => {
-        expect(header({ at: [0, 0, 0, 0] }).format).toBe(LOG_FORMAT_V3);
+    it('new headers are written as /4 (log-v4.test.ts); /2 and /3 are both read', () => {
+        expect(header({ at: [0, 0, 0, 0] }).format).toBe(LOG_FORMAT_V4);
         const h2 = { ...header({ at: [0, 0, 0, 0] }), format: LOG_FORMAT_V2 } as LifeHeader;
         expect(lifeHeaderProblem(h2)).toBeNull();
     });
@@ -69,7 +69,7 @@ describe('a flight in gusty wind with a rescale replays exactly', () => {
         expect(new Set(hashes).size).toBe(1);
         const r = runs[1];
         const life = r.current();
-        expect(life.header.format).toBe(LOG_FORMAT_V3);
+        expect(life.header.format).toBe(LOG_FORMAT_V4);
         expect(life.header.overrides.wind).toEqual(WIND);
         const rep = replayLife(life, roomDeps);
         expect(rep.hash).toBe(r.liveLifeHash()!.hash);
@@ -102,6 +102,6 @@ describe('a flight in gusty wind with a rescale replays exactly', () => {
         const r = fly(60);
         r.respawn(0, 0.05, 0, 0, { platform: true }, 'manual-start');
         expect(r.current().header.scene).toMatchObject({ transform: [1.5, 0, Math.fround(0.4), 0], ceilingM: 3 });
-        expect(r.current().header.format).toBe(LOG_FORMAT_V3);
+        expect(r.current().header.format).toBe(LOG_FORMAT_V4);
     }, 60000);
 });

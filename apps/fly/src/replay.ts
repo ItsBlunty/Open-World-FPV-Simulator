@@ -128,7 +128,7 @@ export function buildTrack(flight: Flight, level: Level, mesh: MeshContactWorld 
         }
         done += player.endTick - first;
         const hash = player.digest();
-        lives.push({ startTick: first, endTick: player.endTick, traffic: trafficConfigFor(saved.header, levelSha), ok: saved.traceHash !== null && hash === saved.traceHash });
+        lives.push({ startTick: first, endTick: player.endTick, traffic: trafficConfigFor(saved.header, levelSha, level, flight), ok: saved.traceHash !== null && hash === saved.traceHash });
     });
     const tricks = grader.tricks;
     for (const t of tricks) marks.push({ tick: t.startTick, kind: 'trick', label: t.mark === null ? t.name : `${t.name} ${t.mark.toFixed(1)}` });

@@ -4,6 +4,12 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- **Log format /4** (`LOG_FORMAT_V4`, written now; /2 and /3 still read): a solid layer the world switches on and off,
+  `WorldEvent.layer` (a whole number from 1; 0 or absent = none) in world records (ch[7], flag `WORLD_FLAG_LAYER` = 2 in
+  ch[6]) and `scene.layer` in the next life's header, like the ceiling. The world numbers its layers itself; the game's
+  time trial race gates are solid only while their race runs (owner, 2026-10-20). A /2 or /3 header with a layer is
+  refused. Traces unchanged (a log without layer records flies as before). Test: `test/log-v4.test.ts`.
+
 - `ParamOverrides.smallAngleDeg` (`SimParams.smallAngleDeg`): Betaflight's small_angle, 0-180 deg (clamped). Arming
   needs the craft within it of level unless the turtle switch is on; 180 arms at any tilt. Absent: 25, the exact
   constant as before (hashes unchanged). The game's "Arming angle" setting (default 180, owner 2026-10-20). Test:

@@ -1,12 +1,21 @@
 // Time trials (owner, 2026-10-19): courses through what the map already has (windows, gaps under roofs, the space
 // between legs and wires), linked in order. Each starts and ends at a checkered arch with a landing pad under it and a
 // checkered flag beside it: land on the pad to be offered the race, start on it, and finish by flying back through the
-// arch. The gates are metadata (not solid, not in the collision hash); the arch, pad and flag are solid geometry.
+// arch. An open gate is metadata (not solid, not in the collision hash); the arch, pad and flag are solid geometry.
 //
-// Every gate here was placed from the layout's own numbers (comments give them) and is checked by
-// test/trials.test.ts: its opening is clear of geometry and a quad can fly from each gate to the next.
+// Courses are files (owner, 2026-10-20: "a simplified system to create time trials", by hand in the in-game creator,
+// or by Claude): `owfpv-course/1` JSON, CourseFile below. The game's own are in `packages/maps/courses/`, one file each,
+// every gate placed from the layout's own numbers (each file's `notes` give them) and checked by test/trials.test.ts:
+// its opening is clear of geometry and a quad can fly from each gate to the next. Courses made in the creator are kept
+// in the browser (apps/fly course-store.ts) and their arches are built apart from the map (courseSolids). A gate of
+// kind 'gate' is a race gate standing in the open: drawn always, solid only while its own course is raced (owner,
+// 2026-10-20), so it is never part of the map's collision.
 
-import type { LevelBuilder } from './builder';
+import { LevelBuilder } from './builder';
+import type { Level } from './builder';
+import park from '../courses/01-park.json';
+import bando from '../courses/02-bando.json';
+import yard from '../courses/03-yard.json';
 
 /**
  * A gate: a rectangle the quad's centre must pass through, either way. Its across axis is horizontal; its up axis is
@@ -26,7 +35,16 @@ export interface Gate {
     hh: number;
     /** what it is, said the way one pilot tells another */
     name: string;
+    /**
+     * 'open' (the default): a window, a gap, a space between things, marked only while racing; 'gate': a race gate
+     * standing there (a frame round the opening, on two legs down to `foot`), solid only while its course is raced
+     */
+    kind?: GateKind;
+    /** a race gate's legs reach down to this height, m (the ground under it when it was placed); none: no legs */
+    foot?: number;
 }
+
+export type GateKind = 'open' | 'gate';
 
 /** The landing pad a course starts from: its centre, its top, its half size, and the heading the race starts on. */
 export interface TrialPad {
@@ -47,6 +65,8 @@ export interface TimeTrial {
     pad: TrialPad;
     /** in the order they are flown; the last is the start arch, which ends the race */
     gates: Gate[];
+    /** made in the creator (or opened from a file): its arch, pad and flag are not part of the map (courseSolids) */
+    custom?: boolean;
 }
 
 /**
@@ -130,89 +150,221 @@ function finish(pad: TrialPad): Gate {
     return { x: pad.x, y: pad.y + open / 2, z: pad.z, nx, ny: 0, nz, hw: inner - 0.05, hh: open / 2 - 0.1, name: 'Back through the start arch' };
 }
 
-const pad = (x: number, z: number, yawDeg: number, ground = 0): TrialPad => ({ x, z, y: ground + PAD_H, half: PAD_HALF, yawDeg });
-const gx = (x: number, y: number, z: number, hw: number, hh: number, name: string): Gate => ({ x, y, z, nx: 1, ny: 0, nz: 0, hw, hh, name });
-const gz = (x: number, y: number, z: number, hw: number, hh: number, name: string): Gate => ({ x, y, z, nx: 0, ny: 0, nz: 1, hw, hh, name });
-/** a flat gate: hw along x, hh along z */
-const gy = (x: number, y: number, z: number, hw: number, hh: number, name: string): Gate => ({ x, y, z, nx: 0, ny: 1, nz: 0, hw, hh, name });
+// ---------------------------------------------------------------- course files
 
-/**
- * Park: an easy, open course. The post gate (posts at x 30-31 and 40-41, z 10-11, bar from 6 to 7 m); the power line's
- * wires at mid-span between the poles at x -25 and 25 (links.ts: pins 11.61 m up, 0.6 m sag, wires at z -41.1, -40.4
- * and -38.9, so 1.5 m between the last two; 1 m east of mid-span, where the wire is 11.016 m up, not on a joint of its
- * pieces); the fountain (column 0.8 m round, basin 7 m to its corners, water at
- * 0.62 m); the gazebo (posts at x -70 and -62, z 110 and 118, roof from 3 m; the gate between its west posts); the pond (x 50-95, z 100-140).
- */
-function parkRun(): TimeTrial {
-    const p = pad(68, 48, 0);
-    return {
-        id: 'park', name: 'Park loop', area: 'Park', version: 1, pad: p,
-        gates: [
-            gz(35.5, 3, 10.5, 4.2, 2.8, 'Under the bar of the post gate'),
-            gy(1, 11.015, -39.65, 3, 0.55, 'Up between the power line\'s wires'),
-            gx(0, 2.1, 83.85, 2.8, 1.3, 'Past the fountain, inside its rim'),
-            gx(-70, 1.5, 114, 3.6, 1.4, 'Under the gazebo roof'),
-            gx(72.5, 0.85, 120, 17.5, 0.75, 'Skim the pond, under 1.6 m'),
-            finish(p)
-        ]
-    };
+/** The format of a course file; bump it when a field changes meaning. */
+export const COURSE_FORMAT = 'owfpv-course/1';
+
+/** A gate as a course file has it. */
+export interface CourseGateFile {
+    name: string;
+    x: number;
+    y: number;
+    z: number;
+    nx: number;
+    ny: number;
+    nz: number;
+    hw: number;
+    hh: number;
+    kind?: GateKind;
+    foot?: number;
 }
 
 /**
- * Bando: in and out of windows, up the lift shaft, under the water tank, through the loading dock. The bando's frame
- * (first-map.ts bando): x -280 to -220, z -12 to 12, storeys 3.6 m; a window is 2.5 m wide, 1 to 2.8 m over its floor.
- * Which wall bays are windows is the map's own Rng(2): south face, first floor, bay x -244 to -238; north face, first
- * floor, bay x -256 to -250, and ground floor, bay x -232 to -226 (checked in the test). The shaft is bay x -232 to
- * -226, z -6 to 0, open through every floor and the roof (its beams on the column lines). The tank stands on legs at x
- * -236.5 and -233.5, z 4.5 and 7.5, its body from 22 m; the dunnage beams under the legs reach 18.4 m. The loading dock
- * annex: x -274 to -256, z 12 to 22, its dock 1.2 m up, roof from 7 m, posts on its south side at x -274, -268, -262,
- * -256; open to the east.
+ * A course as a file: what the creator exports, imports and proposes for the game, and what the game's own courses are
+ * (packages/maps/courses/*.json). The start arch, which ends every race, is not in `gates`: it follows from the pad.
  */
-function bandoRun(): TimeTrial {
-    const p = pad(-242, 36, 0);
-    return {
-        id: 'bando', name: 'Bando line', area: 'Bando', version: 1, pad: p,
-        gates: [
-            gz(-241, 5.5, 12, 1.15, 0.8, 'In at a first-floor window, south side'),
-            gz(-253, 5.5, -12, 1.15, 0.8, 'Out at a first-floor window, north side'),
-            gz(-229, 2.0, -12, 1.15, 0.8, 'In at the ground-floor window by the shaft'),
-            gy(-229, 18, -3, 2.6, 2.6, 'Up the lift shaft and out at the roof'),
-            gz(-235, 20.2, 4.5, 1.25, 1.7, 'Between the water tank\'s legs'),
-            gz(-265, 4.1, 22, 2.7, 2.8, 'Into the loading dock'),
-            gx(-256, 4.1, 17, 4.6, 2.8, 'Out of the dock\'s open end'),
-            finish(p)
-        ]
+export interface CourseFile {
+    format: typeof COURSE_FORMAT;
+    /** unique on its map: letters, digits, - and _ (the times are kept by id and version) */
+    id: string;
+    name: string;
+    /** the part of the map it is in */
+    area: string;
+    /** bump it when the gates or the pad change: times flown on the old course are kept apart */
+    version: number;
+    /** the map it is laid out on (Level.id) */
+    map: string;
+    /** the pad's centre and top (m), and the heading the race starts on: 0, 90, 180 or 270 (the arch spans across it) */
+    pad: { x: number; z: number; y: number; yawDeg: number };
+    gates: CourseGateFile[];
+    /** who made it, if they want it said */
+    author?: string;
+    /** how the gates were placed: free text */
+    notes?: string;
+}
+
+/** Limits on a course file, so a typo or a hostile file cannot build a gate across the whole map. */
+export const COURSE_LIMITS = { gates: 60, half: 30, name: 80, coord: 5000 } as const;
+
+/** Why a parsed JSON value is not a course this game can fly, or null. `mapId`: the map it must be for (any if omitted). */
+export function courseProblem(f: unknown, mapId?: string): string | null {
+    const c = f as Partial<CourseFile> | null;
+    if (!c || typeof c !== 'object') return 'not a course (not a JSON object)';
+    if (c.format !== COURSE_FORMAT) return `not a course file (format ${String(c.format)}, expected ${COURSE_FORMAT})`;
+    if (typeof c.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(c.id)) return 'its id must be 1-64 letters, digits, - or _';
+    const text = (v: unknown, what: string, max: number = COURSE_LIMITS.name): string | null =>
+        typeof v === 'string' && v.trim().length > 0 && v.length <= max ? null : `its ${what} must be text of 1-${max} characters`;
+    const named = text(c.name, 'name') ?? text(c.area, 'area');
+    if (named) return named;
+    if (!Number.isInteger(c.version) || (c.version as number) < 1) return 'its version must be a whole number from 1';
+    if (typeof c.map !== 'string') return 'it names no map';
+    if (mapId !== undefined && c.map !== mapId) return `it is laid out on map ${c.map}, not this one (${mapId})`;
+    const fin = (v: unknown, lim: number = COURSE_LIMITS.coord): v is number => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= lim;
+    const p = c.pad;
+    if (!p || !fin(p.x) || !fin(p.y) || !fin(p.z)) return 'its pad needs x, y and z (m)';
+    if (![0, 90, 180, 270].includes(p.yawDeg)) return 'its pad\'s yawDeg must be 0, 90, 180 or 270';
+    if (!Array.isArray(c.gates) || c.gates.length < 1) return 'it needs at least one gate before the arch';
+    if (c.gates.length > COURSE_LIMITS.gates) return `at most ${COURSE_LIMITS.gates} gates`;
+    for (let i = 0; i < c.gates.length; i++) {
+        const g = c.gates[i] as Partial<CourseGateFile> | null;
+        const at = `gate ${i + 1}`;
+        if (!g || typeof g !== 'object') return `${at} is not an object`;
+        const t = text(g.name, `${at}'s name`);
+        if (t) return t;
+        if (!fin(g.x) || !fin(g.y) || !fin(g.z)) return `${at} needs x, y and z (m)`;
+        if (!fin(g.hw, COURSE_LIMITS.half) || !fin(g.hh, COURSE_LIMITS.half) || g.hw < 0.05 || g.hh < 0.05) return `${at}'s hw and hh must be half sizes from 0.05 to ${COURSE_LIMITS.half} m`;
+        if (!fin(g.nx, 2) || !fin(g.ny, 2) || !fin(g.nz, 2)) return `${at} needs its way through, nx, ny and nz`;
+        if (Math.abs(Math.hypot(g.nx, g.ny, g.nz) - 1) > 1e-3) return `${at}'s nx, ny, nz must be a unit vector`;
+        // standing (the way through level) or flat (straight up): gateAxes knows these two
+        if (Math.abs(g.ny) > 1e-6 && Math.abs(Math.abs(g.ny) - 1) > 1e-6) return `${at} must stand (ny 0) or lie flat (ny 1)`;
+        if (g.kind !== undefined && g.kind !== 'open' && g.kind !== 'gate') return `${at}'s kind must be "open" or "gate"`;
+        if (g.foot !== undefined && (!fin(g.foot) || g.foot > g.y)) return `${at}'s foot must be a height under its centre`;
+    }
+    if (c.author !== undefined) {
+        const a = text(c.author, 'author');
+        if (a) return a;
+    }
+    if (c.notes !== undefined && (typeof c.notes !== 'string' || c.notes.length > 4000)) return 'its notes must be text of at most 4000 characters';
+    return null;
+}
+
+/** A course file as the game flies it (call courseProblem first): its gates and the start arch as the last. */
+export function courseFromFile(f: CourseFile, custom = false): TimeTrial {
+    const p: TrialPad = { x: f.pad.x, z: f.pad.z, y: f.pad.y, half: PAD_HALF, yawDeg: f.pad.yawDeg };
+    const gates = f.gates.map((g): Gate => {
+        const l = Math.hypot(g.nx, g.nz);
+        const out: Gate = Math.abs(g.ny) > 0.5
+            ? { x: g.x, y: g.y, z: g.z, nx: 0, ny: 1, nz: 0, hw: g.hw, hh: g.hh, name: g.name }
+            : { x: g.x, y: g.y, z: g.z, nx: g.nx / l, ny: 0, nz: g.nz / l, hw: g.hw, hh: g.hh, name: g.name };
+        if (g.kind === 'gate') out.kind = 'gate';
+        if (g.foot !== undefined) out.foot = g.foot;
+        return out;
+    });
+    const t: TimeTrial = { id: f.id, name: f.name, area: f.area, version: f.version, pad: p, gates: [...gates, finish(p)] };
+    if (custom) t.custom = true;
+    return t;
+}
+
+/** A course as a file again (the start arch left out: it follows from the pad). */
+export function courseToFile(t: TimeTrial, map: string, extra: { author?: string; notes?: string } = {}): CourseFile {
+    const f: CourseFile = {
+        format: COURSE_FORMAT, id: t.id, name: t.name, area: t.area, version: t.version, map,
+        pad: { x: t.pad.x, z: t.pad.z, y: t.pad.y, yawDeg: t.pad.yawDeg },
+        gates: t.gates.slice(0, -1).map((g) => {
+            const o: CourseGateFile = { name: g.name, x: g.x, y: g.y, z: g.z, nx: g.nx, ny: g.ny, nz: g.nz, hw: g.hw, hh: g.hh, kind: g.kind ?? 'open' };
+            if (g.foot !== undefined) o.foot = g.foot;
+            return o;
+        })
     };
+    if (extra.author) f.author = extra.author;
+    if (extra.notes) f.notes = extra.notes;
+    return f;
+}
+
+/** The pad's top for a pad standing on ground at height `ground`, m. */
+export const padTop = (ground: number): number => ground + PAD_H;
+
+/** The game's own courses (packages/maps/courses), in the order their arches are built (the map's hash depends on it). */
+export const COURSE_FILES: readonly CourseFile[] = [park, bando, yard] as CourseFile[];
+
+/**
+ * A race gate (kind 'gate'): a frame of bars round its opening and, standing, two legs from its lower corners down to
+ * its foot. [MultiGP's standard chapter gate is a 5 x 5 ft (1.52 m) opening of PVC pipe with vinyl panels (multigp.com,
+ * course obstacles; MultiGP shop, start-finish gate 5'x5'); bars 10 cm wide and 5 cm deep and 6 cm legs are estimates.]
+ */
+export const RACE_GATE = { bar: 0.1, depth: 0.05, leg: 0.06, defaultHalf: 0.76 } as const;
+
+/** A box centred on c with half sizes hu, hv, hn along the perpendicular unit axes u, v, n; faces wound outwards. */
+function orientedBox(b: LevelBuilder, c: number[], u: number[], v: number[], n: number[], hu: number, hv: number, hn: number): void {
+    const p = (a: number, e: number, d: number): number[] => [0, 1, 2].map((k) => c[k] + u[k] * a * hu + v[k] * e * hv + n[k] * d * hn);
+    const faces: number[][][] = [
+        [p(-1, -1, 1), p(1, -1, 1), p(1, 1, 1), p(-1, 1, 1)],
+        [p(-1, -1, -1), p(-1, 1, -1), p(1, 1, -1), p(1, -1, -1)],
+        [p(1, -1, -1), p(1, 1, -1), p(1, 1, 1), p(1, -1, 1)],
+        [p(-1, -1, -1), p(-1, -1, 1), p(-1, 1, 1), p(-1, 1, -1)],
+        [p(-1, 1, -1), p(-1, 1, 1), p(1, 1, 1), p(1, 1, -1)],
+        [p(-1, -1, -1), p(1, -1, -1), p(1, -1, 1), p(-1, -1, 1)]
+    ];
+    for (const [a, e, f, d] of faces) b.quadOut('metal', c, a, e, f, d);
+}
+
+/** A race gate's bars and legs, as boxes: centre, the three axes and half sizes (the collision and the drawing share them). */
+export function raceGateBoxes(g: Gate): { c: number[]; u: number[]; v: number[]; n: number[]; h: [number, number, number] }[] {
+    const { u, v } = gateAxes(g);
+    const n = [g.nx, g.ny, g.nz];
+    const { bar, depth, leg } = RACE_GATE;
+    const W = g.hw + bar / 2, H = g.hh + bar / 2;
+    const at = (a: number, e: number): number[] => [g.x + u[0] * a + v[0] * e, g.y + u[1] * a + v[1] * e, g.z + u[2] * a + v[2] * e];
+    const out = [
+        { c: at(0, H), u, v, n, h: [W + bar / 2, bar / 2, depth / 2] as [number, number, number] },
+        { c: at(0, -H), u, v, n, h: [W + bar / 2, bar / 2, depth / 2] as [number, number, number] },
+        { c: at(W, 0), u, v, n, h: [bar / 2, g.hh, depth / 2] as [number, number, number] },
+        { c: at(-W, 0), u, v, n, h: [bar / 2, g.hh, depth / 2] as [number, number, number] }
+    ];
+    // the legs: a standing gate whose bottom bar is clear of its foot
+    const bottom = g.y - g.hh - bar;
+    if (Math.abs(g.ny) > 0.5 || g.foot === undefined || bottom - g.foot < 0.05) return out;
+    for (const s of [-1, 1]) {
+        const top = at(s * W, 0);
+        out.push({ c: [top[0], (bottom + g.foot) / 2, top[2]], u, v: [0, 1, 0], n, h: [leg / 2, (bottom - g.foot) / 2, leg / 2] });
+    }
+    return out;
+}
+
+/** A race gate into b, solid (while its course is raced). */
+export function raceGate(b: LevelBuilder, g: Gate): void {
+    for (const x of raceGateBoxes(g)) orientedBox(b, x.c, x.u, x.v, x.n, x.h[0], x.h[1], x.h[2]);
 }
 
 /**
- * Industrial yard: the hard one. The gantry (legs at x -310 and -280, beam 13-15 m, z 329-332); the hopper bins on legs
- * (yard.ts: at x -232, z 250-280, legs 2.2 m out, 0.3 m square, braced at 4.4 m), flown under all four; the conveyor
- * gallery (from x -338, 2 m up, to the headhouse's west face at x -263.5, 26 m up, along z 288; 2.4 m square inside its
- * chords, the belt along its floor), flown inside from the bottom to the top; out of the headhouse's south face
- * (between its beams at 24 and 29.5 m; braced on its north and east faces only); through the open shed (x -328 to
- * -298, z 362-377, roof 6.5 m falling to 5 m) out of its west end.
+ * The solid parts of courses that are not the map's own, each as collision triangles: `always`, every custom course's
+ * pad, arch and flag; `race[c]`, course c's race gates (null when it has none), solid only while it is raced. `courses`
+ * is every course the game knows (the map's own arches are in the map already, so only custom ones are built here).
  */
-function yardRun(): TimeTrial {
-    const p = pad(-285, 348, 0);
-    return {
-        id: 'yard', name: 'Grain plant run', area: 'Industrial yard', version: 1, pad: p,
-        gates: [
-            gz(-294.5, 6.5, 330.5, 14.3, 6.3, 'Under the gantry'),
-            gz(-232, 2.2, 282.2, 1.8, 2.0, 'Under the hopper bins, in at the south end'),
-            gz(-232, 2.2, 247.8, 1.8, 2.0, 'Out under the north bin'),
-            gx(-336.5, 3.75, 288, 0.8, 0.7, 'Into the conveyor gallery at its foot'),
-            gx(-265, 26.9, 288, 0.8, 0.7, 'Up the gallery to the headhouse'),
-            gz(-260, 26.75, 291.5, 3.0, 2.6, 'Out of the headhouse\'s south side'),
-            gx(-328, 2.5, 369.5, 7.0, 2.3, 'Through the open shed, out its west end'),
-            finish(p)
-        ]
+export function courseSolids(courses: readonly TimeTrial[]): { always: Float64Array | null; race: (Float64Array | null)[] } {
+    const solid = (fill: (b: LevelBuilder) => number): Float64Array | null => {
+        const b = new LevelBuilder();
+        if (fill(b) === 0) return null;
+        return b.build('course-solids', 1, 'course solids', COURSE_LIMITS.coord).collision;
     };
+    const always = solid((b) => {
+        let n = 0;
+        for (const t of courses) if (t.custom) { startArch(b, t); n++; }
+        return n;
+    });
+    const race = courses.map((t) => solid((b) => {
+        let n = 0;
+        for (const g of t.gates) if (g.kind === 'gate') { raceGate(b, g); n++; }
+        return n;
+    }));
+    return { always, race };
 }
 
-/** Builds the arches, pads and flags (solid) and returns the courses. */
+/** The pads, arches and flags of the custom courses, as a level of their own (the renderer draws it like the map). */
+export function customArches(courses: readonly TimeTrial[]): Level {
+    const b = new LevelBuilder();
+    for (const t of courses) if (t.custom) startArch(b, t);
+    return b.build('custom-arches', 1, 'custom arches', COURSE_LIMITS.coord);
+}
+
+/** Builds the game's own courses' arches, pads and flags (solid, part of the map) and returns the courses. */
 export function timeTrials(b: LevelBuilder): TimeTrial[] {
-    const all = [parkRun(), bandoRun(), yardRun()];
+    const all = COURSE_FILES.map((f) => {
+        const problem = courseProblem(f);
+        if (problem) throw new Error(`course ${f.id}: ${problem}`);
+        return courseFromFile(f);
+    });
     for (const t of all) startArch(b, t);
     return all;
 }

@@ -1,0 +1,101 @@
+{
+  "format": "owfpv-course/1",
+  "id": "yard",
+  "name": "Grain plant run",
+  "area": "Industrial yard",
+  "version": 1,
+  "map": "mixed-1",
+  "pad": {
+    "x": -285,
+    "z": 348,
+    "y": 0.2,
+    "yawDeg": 0
+  },
+  "gates": [
+    {
+      "name": "Under the gantry",
+      "x": -294.5,
+      "y": 6.5,
+      "z": 330.5,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 14.3,
+      "hh": 6.3,
+      "kind": "open"
+    },
+    {
+      "name": "Under the hopper bins, in at the south end",
+      "x": -232,
+      "y": 2.2,
+      "z": 282.2,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.8,
+      "hh": 2,
+      "kind": "open"
+    },
+    {
+      "name": "Out under the north bin",
+      "x": -232,
+      "y": 2.2,
+      "z": 247.8,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.8,
+      "hh": 2,
+      "kind": "open"
+    },
+    {
+      "name": "Into the conveyor gallery at its foot",
+      "x": -336.5,
+      "y": 3.75,
+      "z": 288,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 0.8,
+      "hh": 0.7,
+      "kind": "open"
+    },
+    {
+      "name": "Up the gallery to the headhouse",
+      "x": -265,
+      "y": 26.9,
+      "z": 288,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 0.8,
+      "hh": 0.7,
+      "kind": "open"
+    },
+    {
+      "name": "Out of the headhouse's south side",
+      "x": -260,
+      "y": 26.75,
+      "z": 291.5,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 3,
+      "hh": 2.6,
+      "kind": "open"
+    },
+    {
+      "name": "Through the open shed, out its west end",
+      "x": -328,
+      "y": 2.5,
+      "z": 369.5,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 7,
+      "hh": 2.3,
+      "kind": "open"
+    }
+  ],
+  "notes": "Industrial yard: the hard one. The gantry (legs at x -310 and -280, beam 13-15 m, z 329-332); the hopper bins on legs (yard.ts: at x -232, z 250-280, legs 2.2 m out, 0.3 m square, braced at 4.4 m), flown under all four; the conveyor gallery (from x -338, 2 m up, to the headhouse's west face at x -263.5, 26 m up, along z 288; 2.4 m square inside its chords, the belt along its floor), flown inside from the bottom to the top; out of the headhouse's south face (between its beams at 24 and 29.5 m; braced on its north and east faces only); through the open shed (x -328 to -298, z 362-377, roof 6.5 m falling to 5 m) out of its west end."
+}

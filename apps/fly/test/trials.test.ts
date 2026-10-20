@@ -3,8 +3,8 @@
 // and the race changes nothing in the flight but the logged respawns onto the pad (so a saved flight still replays).
 
 import { describe, expect, it } from 'vitest';
-import { LevelBuilder } from '@owfpv/maps';
-import type { Gate, Level, TimeTrial } from '@owfpv/maps';
+import { COURSE_FORMAT, LevelBuilder, RACE_GATE, padTop } from '@owfpv/maps';
+import type { CourseFile, Gate, Level, TimeTrial } from '@owfpv/maps';
 import { S } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
@@ -191,7 +191,7 @@ interface Run {
  * The real sim: rest on the pad until asked, race, (optionally) arm and climb off the pad 1 s into the countdown, then
  * from GO the self-test's scripted sticks (arm, climb, fly north) for `fly` ticks. The quad's path after GO, every tick.
  */
-function run(gates: Gate[], fly: number, falseStart = false): Run {
+function run(gates: Gate[], fly: number, falseStart = false, quitAt = -1): Run {
     const session = new FlightSession({ preset, level: level(gates), runHash: true, traceHash: true });
     const r = session.runner, tr = session.trials;
     const ch = new Float32Array(8), held = new Float32Array(8);
@@ -219,6 +219,7 @@ function run(gates: Gate[], fly: number, falseStart = false): Run {
             if (e.type === 'false-start') jumped = true;
             if (e.type === 'go') go = r.sim.tick;
         }
+        if (go >= 0 && r.sim.tick === go + quitAt) tr.quit();
         if (go >= 0) path.push([r.sim.s[S.px], r.sim.s[S.py], r.sim.s[S.pz], r.sim.s[S.vx], r.sim.s[S.vy], r.sim.s[S.vz]]);
         if (t > 60000) throw new Error('no GO within 60 s');
     }
@@ -266,6 +267,80 @@ describe('a time trial in the real sim', () => {
         expect(go - readyAgain).toBe(COUNTDOWN_TICKS);
         const check = checkFlight(captureFlight(c.session, 1, []), c.session.level);
         expect(check.ok).toBe(true);
+    });
+});
+
+describe('race gates (owner, 2026-10-20: solid only while their time trial runs)', () => {
+    // where the quad is 1.5 s after GO (climbing straight up at 21 m/s), and its heading there
+    const a = run([gate(150, 50, 150, 0, 0, 1, 0.5, 0.5, 'away')], 2500);
+    const [x, y, z, vx, vy, vz] = a.path[1500];
+    const l = Math.hypot(vx, vz);
+    const nx = vx / l, nz = vz / l;
+    /** a race gate standing with its top bar where the quad will be: it climbs into the bar */
+    const inTheWay = (kind: 'open' | 'gate'): Gate => ({ ...gate(x, y - 1 - RACE_GATE.bar / 2, z, nx, 0, nz, 1, 1, 'bar'), kind, foot: 0 });
+    const away = gate(150, 50, 150, 0, 0, 1, 0.5, 0.5, 'away');
+
+    it('are solid during the race: the quad hits the bar, and the saved flight (gates switched by world records) replays exactly', () => {
+        const open = run([inTheWay('open'), away], 2500);
+        expect(open.hash, 'an open gate is not solid').toBe(a.hash);
+        const hit = run([inTheWay('gate'), away], 2500);
+        expect(hit.hash, 'the race gate is solid in the race').not.toBe(a.hash);
+        // the same until it reaches the bar (its body touches 0.1 s before its centre gets there), then off its line
+        const off = (k: number): number => Math.hypot(hit.path[k][0] - a.path[k][0], hit.path[k][1] - a.path[k][1], hit.path[k][2] - a.path[k][2]);
+        expect(off(1300)).toBe(0);
+        expect(off(1600)).toBeGreaterThan(1);
+        const check = checkFlight(captureFlight(hit.session, 1, []), hit.session.level);
+        expect(check.problem).toBeNull();
+        expect(check.ok).toBe(true);
+        expect(hit.session.runner.current().header.format).toBe('gsfpv-input-log/4');
+    });
+
+    it('are not solid once the race is left: the same flight as without them', () => {
+        const left = run([inTheWay('gate'), away], 2500, false, 500);
+        const none = run([away], 2500, false, 500);
+        expect(left.hash).toBe(none.hash);
+        const check = checkFlight(captureFlight(left.session, 1, []), left.session.level);
+        expect(check.ok).toBe(true);
+    });
+});
+
+describe('custom courses (the creator)', () => {
+    const file = (id: string, x: number): CourseFile => ({
+        format: COURSE_FORMAT, id, name: `Course ${id}`, area: 'Test', version: 1, map: 'test',
+        pad: { x, z: 40, y: padTop(0), yawDeg: 90 },
+        gates: [{ name: 'a race gate', x: x + 10, y: 1.5, z: 40, nx: 1, ny: 0, nz: 0, hw: 0.76, hh: 0.76, kind: 'gate', foot: 0 }]
+    });
+
+    it('their pads and arches are solid and in the collision hash; none leaves the hash as it was', () => {
+        const plain = new FlightSession({ preset, level: level([]) });
+        const withOne = new FlightSession({ preset, level: level([]), courses: [file('c1', 30)] });
+        expect(withOne.collisionSha256).not.toBe(plain.collisionSha256);
+        expect(withOne.courses.map((t) => t.id)).toEqual(['test', 'c1']);
+        const w = withOne.sim.contactWorld!;
+        const o = { x: 0, y: 0, z: 0 };
+        // the pad's top is 0.2 m up: a ball resting 0.1 m up in it is pushed out; beside it nothing
+        expect(w.pushOut(30, 0.15, 40, 0.1, o)).toBe(true);
+        expect(w.pushOut(30, 0.15, 50, 0.1, o)).toBe(false);
+        // the race gate's bar is not solid outside its race
+        expect(w.pushOut(40, 1.5 + 0.76 + RACE_GATE.bar / 2, 40, 0.05, o)).toBe(false);
+    });
+
+    it('setCourses starts a new life with the new collision, and a saved flight carries the courses to replay', () => {
+        const s = new FlightSession({ preset, level: level([]), traceHash: true });
+        const before = s.collisionSha256;
+        for (let i = 0; i < 500; i++) s.runner.stepOnce();
+        s.setCourses([file('c1', 30)], [0, 2, 0, 0]);
+        expect(s.collisionSha256).not.toBe(before);
+        expect(s.runner.current().header.collisionSha256).toBe(s.collisionSha256);
+        expect(s.runner.current().header.life.at).toEqual([0, 2, 0, 0]);
+        for (let i = 0; i < 500; i++) s.runner.stepOnce();
+        const f = captureFlight(s, 2, []);
+        expect(Object.values(f.courses ?? {})).toHaveLength(1);
+        const check = checkFlight(f, s.level);
+        expect(check.problem).toBeNull();
+        expect(check.ok).toBe(true);
+        // without the courses the flight carried, the second life's collision is unknown
+        expect(checkFlight({ ...f, courses: undefined }, s.level).problem).toMatch(/no collision of this build matches/);
     });
 });
 

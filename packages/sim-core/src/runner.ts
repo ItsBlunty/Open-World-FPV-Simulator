@@ -6,7 +6,10 @@
 // used it, so a replay reproduces the flight bit-for-bit no matter how frames were split.
 //
 // Log formats (docs/architecture-v03.md C.9):
-// - gsfpv-input-log/3 (v0.7, written now): /2 plus the wind of the place (the header's
+// - gsfpv-input-log/4 (written now): /3 plus a solid layer the world switches on and off (the
+//   header's scene.layer, and ch[7] of world records behind flag 2 in ch[6]); the game's time trial
+//   gates are solid only while their race runs. Readers take /2, /3 and /4; a /3 page refuses /4.
+// - gsfpv-input-log/3 (v0.7): /2 plus the wind of the place (the header's
 //   overrides.wind, wind.ts) and the collision ceiling (the header's scene.ceilingM, and ch[5] /
 //   ch[6] of world records). Readers take /2 and /3: a /2 log has neither, by construction, so it
 //   replays exactly as before; an older page refuses /3 by its format instead of replaying it wrong.
@@ -123,12 +126,16 @@ export interface TrajectoryPoint {
 // ---------------------------------------------------------------- format /2 records (C.9)
 
 export const LOG_FORMAT_V2 = 'gsfpv-input-log/2';
-/** v0.7: the format writers write (wind, collision ceiling); same records and codes as /2 */
+/** v0.7: wind, collision ceiling; same records and codes as /2 */
 export const LOG_FORMAT_V3 = 'gsfpv-input-log/3';
+/** the format writers write: /3 plus the solid layer (scene.layer, world records' ch[7]) */
+export const LOG_FORMAT_V4 = 'gsfpv-input-log/4';
 /** The formats this version replays, oldest first. */
-export const LOG_FORMATS: readonly LifeHeader['format'][] = [LOG_FORMAT_V2, LOG_FORMAT_V3];
+export const LOG_FORMATS: readonly LifeHeader['format'][] = [LOG_FORMAT_V2, LOG_FORMAT_V3, LOG_FORMAT_V4];
 /** World record ch[6] flag: ch[5] holds a collision ceiling (format /3). */
 export const WORLD_FLAG_CEILING = 1;
+/** World record ch[6] flag: ch[7] holds a solid layer, a whole number from 1 (format /4). */
+export const WORLD_FLAG_LAYER = 2;
 /** bytes per record, the same 36 as format /1: Int32 code + 8 Float32 channels */
 export const REC_BYTES = 36;
 export const REC_INPUT = 0;
@@ -203,10 +210,14 @@ export function readRespawn(ch: ArrayLike<number>): RespawnRecord {
 
 /**
  * Decodes a world record: ch[0] = s, ch[1..3] = t, ch[4] = floater minBlocks, ch[5] = collision
- * ceiling (scan metres) when ch[6] has WORLD_FLAG_CEILING; a /2 record has 0 in both: no ceiling.
+ * ceiling (scan metres) when ch[6] has WORLD_FLAG_CEILING; a /2 record has 0 in both: no ceiling;
+ * ch[7] = the solid layer when ch[6] has WORLD_FLAG_LAYER (format /4; otherwise none, and no layer field).
  */
 export function readWorld(ch: ArrayLike<number>): WorldEvent {
-    return { s: ch[0], t: [ch[1], ch[2], ch[3]], floaterMinBlocks: ch[4], ceilingM: ((ch[6] | 0) & WORLD_FLAG_CEILING) !== 0 ? ch[5] : null };
+    const f = ch[6] | 0;
+    const ev: WorldEvent = { s: ch[0], t: [ch[1], ch[2], ch[3]], floaterMinBlocks: ch[4], ceilingM: (f & WORLD_FLAG_CEILING) !== 0 ? ch[5] : null };
+    if ((f & WORLD_FLAG_LAYER) !== 0) ev.layer = ch[7];
+    return ev;
 }
 
 /** Encodes a world record (readWorld's layout) into `out`, which is cleared first. */
@@ -218,6 +229,13 @@ export function writeWorld(out: Float32Array, ev: WorldEvent): void {
         if (!Number.isFinite(c)) throw new RangeError(`collision ceiling must be finite, got ${c}`);
         out[5] = c;
         out[6] = WORLD_FLAG_CEILING;
+    }
+    const l = ev.layer ?? 0;
+    if (l !== 0) {
+        // a Float32 holds every whole number up to 2^24 exactly
+        if (!(Number.isInteger(l) && l > 0 && l <= 0x1000000)) throw new RangeError(`a solid layer is a whole number from 1 to 2^24, got ${l}`);
+        out[6] |= WORLD_FLAG_LAYER;
+        out[7] = l;
     }
 }
 
@@ -331,7 +349,7 @@ export function makeLifeHeader(o: LifeHeaderInput): LifeHeader {
     const overrides = JSON.parse(canonicalJson(o.overrides ?? {})) as ParamOverrides;
     const sha = presetSha256(o.preset);
     const h: LifeHeader = {
-        format: LOG_FORMAT_V3,
+        format: LOG_FORMAT_V4,
         simCore: o.simCore,
         preset: o.preset.id,
         presetSha256: sha,
@@ -353,6 +371,9 @@ export function lifeHeaderProblem(h: LifeHeader): string | null {
     // /2 had no wind and no ceiling: a /2 header with either was not written by a /2 writer
     if (format === LOG_FORMAT_V2 && (h.overrides?.wind !== undefined || h.scene?.ceilingM !== undefined)) return `log format ${LOG_FORMAT_V2} cannot carry wind or a collision ceiling (they came with ${LOG_FORMAT_V3})`;
     if (h.scene?.ceilingM !== undefined && !Number.isFinite(h.scene.ceilingM)) return `the collision ceiling ${String(h.scene.ceilingM)} is not a number`;
+    const layer = h.scene?.layer;
+    if (layer !== undefined && format !== LOG_FORMAT_V4) return `log format ${String(format)} cannot carry a solid layer (it came with ${LOG_FORMAT_V4})`;
+    if (layer !== undefined && !(Number.isInteger(layer) && layer > 0 && layer <= 0x1000000)) return `the solid layer ${String(layer)} is not a whole number from 1`;
     const wind = h.overrides?.wind === undefined ? null : windProblem(h.overrides.wind);
     if (wind) return wind;
     let hash: string;
@@ -646,6 +667,8 @@ export class Runner {
             out.floaterMinBlocks = w.floaterMinBlocks;
             if (w.ceilingM === null) delete out.ceilingM;
             else out.ceilingM = w.ceilingM;
+            if (!w.layer) delete out.layer;
+            else out.layer = w.layer;
         }
         return out;
     }

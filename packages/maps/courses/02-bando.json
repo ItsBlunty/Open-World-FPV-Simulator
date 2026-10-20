@@ -1,0 +1,101 @@
+{
+  "format": "owfpv-course/1",
+  "id": "bando",
+  "name": "Bando line",
+  "area": "Bando",
+  "version": 1,
+  "map": "mixed-1",
+  "pad": {
+    "x": -242,
+    "z": 36,
+    "y": 0.2,
+    "yawDeg": 0
+  },
+  "gates": [
+    {
+      "name": "In at a first-floor window, south side",
+      "x": -241,
+      "y": 5.5,
+      "z": 12,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.15,
+      "hh": 0.8,
+      "kind": "open"
+    },
+    {
+      "name": "Out at a first-floor window, north side",
+      "x": -253,
+      "y": 5.5,
+      "z": -12,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.15,
+      "hh": 0.8,
+      "kind": "open"
+    },
+    {
+      "name": "In at the ground-floor window by the shaft",
+      "x": -229,
+      "y": 2,
+      "z": -12,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.15,
+      "hh": 0.8,
+      "kind": "open"
+    },
+    {
+      "name": "Up the lift shaft and out at the roof",
+      "x": -229,
+      "y": 18,
+      "z": -3,
+      "nx": 0,
+      "ny": 1,
+      "nz": 0,
+      "hw": 2.6,
+      "hh": 2.6,
+      "kind": "open"
+    },
+    {
+      "name": "Between the water tank's legs",
+      "x": -235,
+      "y": 20.2,
+      "z": 4.5,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 1.25,
+      "hh": 1.7,
+      "kind": "open"
+    },
+    {
+      "name": "Into the loading dock",
+      "x": -265,
+      "y": 4.1,
+      "z": 22,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 2.7,
+      "hh": 2.8,
+      "kind": "open"
+    },
+    {
+      "name": "Out of the dock's open end",
+      "x": -256,
+      "y": 4.1,
+      "z": 17,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 4.6,
+      "hh": 2.8,
+      "kind": "open"
+    }
+  ],
+  "notes": "Bando: in and out of windows, up the lift shaft, under the water tank, through the loading dock. The bando's frame (first-map.ts bando): x -280 to -220, z -12 to 12, storeys 3.6 m; a window is 2.5 m wide, 1 to 2.8 m over its floor. Which wall bays are windows is the map's own Rng(2): south face, first floor, bay x -244 to -238; north face, first floor, bay x -256 to -250, and ground floor, bay x -232 to -226 (checked in the test). The shaft is bay x -232 to -226, z -6 to 0, open through every floor and the roof (its beams on the column lines). The tank stands on legs at x -236.5 and -233.5, z 4.5 and 7.5, its body from 22 m; the dunnage beams under the legs reach 18.4 m. The loading dock annex: x -274 to -256, z 12 to 22, its dock 1.2 m up, roof from 7 m, posts on its south side at x -274, -268, -262, -256; open to the east."
+}

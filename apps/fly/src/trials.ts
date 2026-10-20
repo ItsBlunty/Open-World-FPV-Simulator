@@ -94,9 +94,11 @@ export class TrialRunner {
 
     /**
      * place: set the quad down at this pose at the next tick (a 'start' respawn there), or null: back to the usual
-     * start point. bodyBottom: how far the craft's lowest point is below its centre, m.
+     * start point. bodyBottom: how far the craft's lowest point is below its centre, m. solid: a course's race is on
+     * from its countdown to its end (its race gates are solid then: FlightSession logs the switch), or none (-1).
      */
-    constructor(courses: readonly TimeTrial[], private readonly place: (p: Pose | null) => void, private readonly bodyBottom: number) {
+    constructor(courses: readonly TimeTrial[], private readonly place: (p: Pose | null) => void, private readonly bodyBottom: number,
+        private readonly solid: (course: number) => void = () => undefined) {
         this.courses = courses;
     }
 
@@ -203,6 +205,7 @@ export class TrialRunner {
         this.course = -1;
         this.holdTicks = 0;
         this.place(null);
+        this.solid(-1);
     }
 
     /** The pilot's answer to the offer: race (the quad goes onto the pad for the countdown) or not. */
@@ -215,6 +218,7 @@ export class TrialRunner {
             return;
         }
         this.phase = 'countdown';
+        this.solid(this.course);
         this.setDown();
     }
 
@@ -237,6 +241,7 @@ export class TrialRunner {
         this.holdTicks = 0;
         this.holdSticks = false;
         this.place(null);
+        this.solid(-1);
     }
 
     /** The events since the last call. */

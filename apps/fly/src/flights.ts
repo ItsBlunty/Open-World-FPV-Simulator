@@ -8,13 +8,15 @@
 
 import { LOG_FORMATS, presetSha256, replayLives } from '@owfpv/sim-core';
 import type { ContactWorld, Life, LifeHeader, LifeSnapshot, PresetJson, ReplayDeps } from '@owfpv/sim-core';
-import { levelSha256 } from '@owfpv/maps';
-import type { Level } from '@owfpv/maps';
+import { courseFromFile, levelSha256 } from '@owfpv/maps';
+import type { CourseFile, Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import { makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { FlightSession } from './session';
 import { worldWith } from './session';
+import { buildCourseSolids, courseWorld, withCourses } from './course-world';
+import type { CourseSolids } from './course-world';
 
 /** The format of a saved flight; bump it when a field changes meaning. */
 export const FLIGHT_FORMAT = 'owfpv-flight/1';
@@ -48,6 +50,11 @@ export interface Flight {
     endTick: number;
     /** golden props taken during this flight: [number, tick] */
     props: [number, number][];
+    /**
+     * the time trial courses made in the creator that lives flew with, by their part of the collision hash
+     * (course-world.ts): a life's collision is rebuilt from them, its race gates switched by its world records
+     */
+    courses?: Record<string, CourseFile[]>;
 }
 
 /** What a list of flights shows, without the records. */
@@ -94,10 +101,12 @@ export function captureFlight(session: FlightSession, id: number, props: [number
         };
     });
     const presets: Record<string, PresetJson> = { [presetSha256(session.preset)]: session.preset };
-    return {
+    const f: Flight = {
         format: FLIGHT_FORMAT, id, mapId: session.level.id, mapVersion: session.level.version, simCore: lives[0].header.simCore,
         presets, lives: saved, startTick: saved[0].snapshot?.tick ?? saved[0].header.life.startTick, endTick: now, props: props.slice()
     };
+    if (session.courseSets.size) f.courses = Object.fromEntries([...session.courseSets].map(([k, v]) => [k, JSON.parse(JSON.stringify(v)) as CourseFile[]]));
+    return f;
 }
 
 /** A saved life as sim-core's Life again. */
@@ -113,31 +122,62 @@ export function asLife(s: SavedLife): Life {
 const TRAFFIC_CONFIGS: TrafficConfig[] = [];
 for (const train of [false, true]) for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals, train });
 
-/** The traffic toggles a life's header was flown with (its collision hash names them). */
-export function trafficConfigFor(h: LifeHeader, levelSha: string): TrafficConfig {
-    const sha = h.collisionSha256;
-    const c = TRAFFIC_CONFIGS.find((x) => worldSha256(levelSha, x) === sha);
-    if (!c) throw new Error(`no collision of this build matches the flight's (${String(sha).slice(0, 12)}…): the map or traffic changed since`);
-    return { ...c };
+/** What a life's collision hash names: the traffic toggles and the custom courses (none: []). */
+export interface LifeCollision {
+    traffic: TrafficConfig;
+    courses: CourseFile[];
+    solids: CourseSolids;
 }
 
-/** The collision for a life's header: the map's mesh, with its traffic rebuilt from the toggles its hash names. */
-function worldFor(h: LifeHeader, level: Level, levelSha: string, mesh: MeshContactWorld): ContactWorld {
-    const c = trafficConfigFor(h, levelSha);
-    return worldWith(mesh, makeTraffic(level, c), makeTrains(level, c.train));
+/** The courses' solids per level, by set (the custom courses' hash part; '' = none of them), built once each. */
+const solidsCache = new WeakMap<Level, Map<string, { files: CourseFile[]; solids: CourseSolids }>>();
+
+/** The course sets a life of this flight may have flown with: none, and each the flight carries. */
+function courseSetsOf(flight: Pick<Flight, 'courses'>, level: Level): { files: CourseFile[]; solids: CourseSolids }[] {
+    let built = solidsCache.get(level);
+    if (!built) solidsCache.set(level, (built = new Map()));
+    const get = (key: string, files: CourseFile[]): { files: CourseFile[]; solids: CourseSolids } => {
+        let e = built!.get(key);
+        if (!e) built!.set(key, (e = { files, solids: buildCourseSolids([...level.trials, ...files.map((f) => courseFromFile(f, true))]) }));
+        return e;
+    };
+    return [get('', []), ...Object.entries(flight.courses ?? {}).map(([k, files]) => get(k, files))];
+}
+
+/** The traffic toggles and courses a life's header was flown with (its collision hash names them). */
+export function collisionFor(h: LifeHeader, levelSha: string, level: Level, flight: Pick<Flight, 'courses'> = {}): LifeCollision {
+    const sha = h.collisionSha256;
+    for (const { files, solids } of courseSetsOf(flight, level)) {
+        const c = TRAFFIC_CONFIGS.find((x) => withCourses(worldSha256(levelSha, x), solids) === sha);
+        if (c) return { traffic: { ...c }, courses: files, solids };
+    }
+    throw new Error(`no collision of this build matches the flight's (${String(sha).slice(0, 12)}…): the map, traffic or courses changed since`);
+}
+
+/** The traffic toggles a life's header was flown with (its collision hash names them). */
+export function trafficConfigFor(h: LifeHeader, levelSha: string, level: Level, flight: Pick<Flight, 'courses'> = {}): TrafficConfig {
+    return collisionFor(h, levelSha, level, flight).traffic;
 }
 
 /** What sim-core needs to replay one saved life on this build's map (throws when the life cannot be replayed here). */
 export function lifeDeps(flight: Flight, s: SavedLife, level: Level, levelSha: string, mesh: MeshContactWorld): ReplayDeps {
     if (!LOG_FORMATS.includes(s.header.format)) throw new Error(`log format ${s.header.format} is not one this sim-core reads`);
-    const world = worldFor(s.header, level, levelSha, mesh);
+    const c = collisionFor(s.header, levelSha, level, flight);
+    const inner = worldWith(mesh, makeTraffic(level, c.traffic), makeTrains(level, c.traffic.train));
+    // one world per solid layer (a course's race gates), as the life's world records and header ask
+    const byLayer = new Map<number, ContactWorld>();
+    const at = (layer: number): ContactWorld => {
+        let w = byLayer.get(layer);
+        if (!w) byLayer.set(layer, (w = courseWorld(inner, c.solids, layer)));
+        return w;
+    };
     return {
         preset: (sha) => flight.presets[sha] ?? null,
-        world: (scene) => {
+        world: (scene, ev) => {
             if (!scene || scene.id !== level.id || scene.version !== level.version) {
                 throw new Error(`flown on ${scene ? `${scene.id} v${scene.version}` : 'no map'}; this build has ${level.id} v${level.version}`);
             }
-            return world;
+            return at(ev ? ev.layer ?? 0 : scene.layer ?? 0);
         }
     };
 }

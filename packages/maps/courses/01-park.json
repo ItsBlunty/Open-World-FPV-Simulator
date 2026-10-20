@@ -1,0 +1,77 @@
+{
+  "format": "owfpv-course/1",
+  "id": "park",
+  "name": "Park loop",
+  "area": "Park",
+  "version": 1,
+  "map": "mixed-1",
+  "pad": {
+    "x": 68,
+    "z": 48,
+    "y": 0.2,
+    "yawDeg": 0
+  },
+  "gates": [
+    {
+      "name": "Under the bar of the post gate",
+      "x": 35.5,
+      "y": 3,
+      "z": 10.5,
+      "nx": 0,
+      "ny": 0,
+      "nz": 1,
+      "hw": 4.2,
+      "hh": 2.8,
+      "kind": "open"
+    },
+    {
+      "name": "Up between the power line's wires",
+      "x": 1,
+      "y": 11.015,
+      "z": -39.65,
+      "nx": 0,
+      "ny": 1,
+      "nz": 0,
+      "hw": 3,
+      "hh": 0.55,
+      "kind": "open"
+    },
+    {
+      "name": "Past the fountain, inside its rim",
+      "x": 0,
+      "y": 2.1,
+      "z": 83.85,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 2.8,
+      "hh": 1.3,
+      "kind": "open"
+    },
+    {
+      "name": "Under the gazebo roof",
+      "x": -70,
+      "y": 1.5,
+      "z": 114,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 3.6,
+      "hh": 1.4,
+      "kind": "open"
+    },
+    {
+      "name": "Skim the pond, under 1.6 m",
+      "x": 72.5,
+      "y": 0.85,
+      "z": 120,
+      "nx": 1,
+      "ny": 0,
+      "nz": 0,
+      "hw": 17.5,
+      "hh": 0.75,
+      "kind": "open"
+    }
+  ],
+  "notes": "Park: an easy, open course. The post gate (posts at x 30-31 and 40-41, z 10-11, bar from 6 to 7 m); the power line's wires at mid-span between the poles at x -25 and 25 (links.ts: pins 11.61 m up, 0.6 m sag, wires at z -41.1, -40.4 and -38.9, so 1.5 m between the last two; 1 m east of mid-span, where the wire is 11.016 m up, not on a joint of its pieces); the fountain (column 0.8 m round, basin 7 m to its corners, water at 0.62 m); the gazebo (posts at x -70 and -62, z 110 and 118, roof from 3 m; the gate between its west posts); the pond (x 50-95, z 100-140)."
+}

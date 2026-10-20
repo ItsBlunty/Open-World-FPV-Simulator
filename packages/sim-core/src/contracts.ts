@@ -73,15 +73,21 @@ export interface WorldEvent {
     t: [number, number, number];
     floaterMinBlocks: number;
     ceilingM: number | null;
+    /**
+     * Log format /4: an extra solid layer the world switches on, numbered by the world itself (the game: a time
+     * trial's race gates, solid only while that race runs). Absent or 0 = none (every /2 and /3 record).
+     */
+    layer?: number;
 }
 
 /**
- * Header of one life in format gsfpv-input-log/2 or /3 (/3 adds the wind, overrides.wind, and the
- * collision ceiling, scene.ceilingM and the world records' ceiling). A life is self-contained: the
+ * Header of one life in format gsfpv-input-log/2, /3 or /4 (/3 adds the wind, overrides.wind, and the
+ * collision ceiling, scene.ceilingM and the world records' ceiling; /4 the solid layer, scene.layer and the world
+ * records' layer). A life is self-contained: the
  * replay compiles its params from this header (presetSha256 + overrides), never from the session (D-g).
  */
 export interface LifeHeader {
-    format: 'gsfpv-input-log/2' | 'gsfpv-input-log/3';
+    format: 'gsfpv-input-log/2' | 'gsfpv-input-log/3' | 'gsfpv-input-log/4';
     simCore: string;
     preset: string;
     presetSha256: string;
@@ -96,9 +102,10 @@ export interface LifeHeader {
     /**
      * transform = [s, tx, ty, tz] at the start of the life; floaterMinBlocks = the floater filter
      * (G.3, 0 = off) and floaterSha256 = the hash of the filtered walls it gives (set when it is on);
-     * ceilingM = the collision ceiling in the scan's own coordinates (absent: none; format /3 only)
+     * ceilingM = the collision ceiling in the scan's own coordinates (absent: none; format /3 on);
+     * layer = the extra solid layer on at the start of the life (WorldEvent.layer; absent: none; format /4 only)
      */
-    scene: { id: string; version: number; transform: [number, number, number, number]; floaterMinBlocks: number; floaterSha256?: string; ceilingM?: number } | null;
+    scene: { id: string; version: number; transform: [number, number, number, number]; floaterMinBlocks: number; floaterSha256?: string; ceilingM?: number; layer?: number } | null;
     /** at = [x, y, z, yawDeg]; ch = the last applied channels; the tick continues across lives */
     life: { index: number; startTick: number; at: [number, number, number, number]; opts: RespawnOpts; soc: number; ch: number[]; reason: RespawnReason | 'start' };
     seed: 0;
