@@ -9,7 +9,8 @@ import { describe, expect, it } from 'vitest';
 import { buildFirstMap } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import { CAR, DT, LoopTraffic, NetTraffic, PERSON, TrafficWorld, makeTraffic, placeAt, rectRoute, worldSha256 } from '../src/index';
-import type { Place, Route, TrafficModel } from '../src/index';
+import type { Place, Route, TrafficModel, VBox } from '../src/index';
+import { vehicleExit } from '../src/world';
 
 const level = buildFirstMap();
 const mesh = new MeshContactWorld(level.collision);
@@ -547,5 +548,30 @@ describe('people keeping apart (traffic v8)', () => {
         expect(touching).toBeLessThan(400);
         expect(longTouch / 2).toBeLessThanOrEqual(3);
         expect(longStill / 2).toBeLessThan(10);
+    });
+});
+
+describe('the way out of a vehicle (vehicleExit, traffic.md §1z)', () => {
+    // the SUV's boxes (vehicles.ts suv()): body 0.25-1.1 m, glass 1.1-1.75 m from f -2.15 to 0.95
+    const b = (f0: number, f1: number, hw: number, y0: number, y1: number): VBox => ({ frame: 0, f0, f1, s0: -hw, s1: hw, y0, y1, paint: 'body' });
+    const SUV = [b(-2.3, 2.3, 0.95, 0.25, 1.1), b(-2.15, 0.95, 0.85, 1.1, 1.75)];
+    const out = { d: 0, nx: 0, ny: 0, nz: 0 };
+
+    it('just over the seam between body and glass: out through the roof, not back into the body', () => {
+        vehicleExit(SUV, 0, -0.6, 1.145, 0, out);
+        expect(out.d).toBeCloseTo(-0.605, 12);
+        expect([out.nx, out.ny, out.nz]).toEqual([0, 1, 0]);
+    });
+
+    it('low in the body: out through its floor; at the seam out the side; past the glass, the body\'s own faces', () => {
+        vehicleExit(SUV, 0, -0.6, 0.8, 0, out);
+        expect(out.d).toBeCloseTo(-0.55, 12);
+        expect([out.nx, out.ny, out.nz]).toEqual([0, -1, 0]);
+        vehicleExit(SUV, 0, -0.6, 1.1, 0.5, out);
+        expect(out.d).toBeCloseTo(-0.45, 12); // on the seam the body holds it too: past the glass's side (0.85) to the body's (0.95)
+        expect([out.nx, out.ny, out.nz]).toEqual([0, 0, 1]);
+        vehicleExit(SUV, 0, 2.0, 1.0, 0, out);
+        expect(out.d).toBeCloseTo(-0.1, 12);
+        expect([out.nx, out.ny, out.nz]).toEqual([0, 1, 0]);
     });
 });

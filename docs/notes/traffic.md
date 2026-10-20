@@ -280,8 +280,19 @@ height 1.145 / 1.055 m alternating, up-vector y 1.000000, commands 0.37 / 0.06 /
 On a real roof it tips: new test in `traffic.test.ts` (SUV at 8.6 m/s, angle mode, 90 % hover, roll 0.3 / pitch 0.2:
 8.1 deg in 0.3 s) and on a floor in `world-mesh/test/contact-solver.test.ts` (7.5 deg).
 
-Open: `TrafficWorld.pushOut` / `contacts` treat each of a vehicle's boxes as its own solid, so a point inside the
-vehicle is pushed through a face another box covers and stays trapped (fix: only exits that leave the whole vehicle).
-Game respawns do not check for traffic. Also: `onRoof` in `traffic.test.ts` puts the quad at `CAR.cabY1` (1.55 m, the
+Fixed the same day (traffic v10, owner asked for it here): `TrafficWorld` treated each of a vehicle's boxes as its own
+solid, so a point inside the vehicle was pushed through a face another box covers. Now `nearest()` first asks whether a
+box of that frame (the vehicle, or a semi's trailer) holds the point; if one does, that box answers with
+`vehicleExit()`, the shortest way out of all the frame's boxes along one of its six axes (crossing box after box), and
+the others are not there for that point. So `contacts()` gives one contact with that way out as its normal and
+`pushOut()` moves the quad out of the whole vehicle. Outside the vehicle nothing changes. Tests: `vehicleExit` on the SUV's
+boxes (over the seam: out through the roof, 0.605 m; low in the body: out through its floor, 0.55 m; on the seam: out the
+body's side, 0.45 m), and in `apps/fly/test/traffic.test.ts` an armed quad respawned at 0.8 m inside an SUV. Before the
+fix it stayed 90 mm inside from tick 5 on. Now it is clear of everything from tick 5 (least clearance -0.00 mm), under
+the car on the road, and tips 7.5 deg with the stick. Every pinned hash unchanged (the traffic hash pins mover places;
+no pinned flight goes inside a car); `TRAFFIC_VERSION` 9 -> 10 because the solid changed, so saved flights with traffic
+from v9 no longer open (as after a map change). The shortest way out can be down under the car: a teleport of up to
+about 1 m in one tick, with no speed added. Game respawns still do not check for traffic (owner asked whether they
+should, HANDOFF waiting list). Also: `onRoof` in `traffic.test.ts` puts the quad at `CAR.cabY1` (1.55 m, the
 saloon) but car 0 is an SUV (roof 1.75 m): it starts 20 cm inside the glass and the push-out lifts it onto the roof in
 the first tick (both roof tests still measure what they say).

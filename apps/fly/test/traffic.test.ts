@@ -203,6 +203,42 @@ describe('solid traffic in a session', () => {
         expect(above).toBeLessThan(0.1);
     });
 
+    // 2026-10-20 (traffic.md §1z, physics-review F7): a quad respawned inside an SUV's body was pushed up into its glass box,
+    // and each box pushed it back into the other: trapped, level, unable to tilt or climb. Out of the whole vehicle now.
+    it('a quad respawned inside a car comes out of the whole car and then flies (tips with the stick)', () => {
+        const s = new FlightSession({ preset, level, traffic: LOOPS, overrides: GAME });
+        const r = s.runner;
+        const car = 0;
+        const t0 = onStraight(s, car, 2000, 2000);
+        const ch = new Float32Array([0, 0, -1, 0, -1, MODE_CHANNEL.angle, 0, 0]);
+        r.enqueue({ tUs: 1000, ch });
+        for (let i = 0; i < 100; i++) r.stepOnce();
+        ch[4] = 1;
+        r.enqueue({ tUs: r.tUs + 1000, ch });
+        stepTo(s, t0 - 1);
+        const pl = newPlace();
+        s.traffic!.place(car, t0, pl);
+        // over the middle of the glass box, 0.8 m up: inside the body box (0.25-1.1 m)
+        const f = -0.6;
+        r.respawn(pl.x + pl.hx * f, pl.y + 0.8, pl.z + pl.hz * f, 0, { platform: false, keepArmed: true }, 'manual-start');
+        ch[0] = 0.3; ch[1] = 0.2; ch[2] = hoverStickOf(s.sim.p) * 0.9 * 2 - 1;
+        r.enqueue({ tUs: r.tUs + 1000, ch });
+        let worst = Infinity, minUp = 1;
+        for (let t = 0; t < 500; t++) {
+            r.stepOnce();
+            if (t >= 5) worst = Math.min(worst, clearance(s.sim));
+            const st = s.sim.s;
+            minUp = Math.min(minUp, 1 - 2 * (st[S.qx] ** 2 + st[S.qz] ** 2));
+        }
+        const at = newPlace();
+        s.traffic!.place(car, s.sim.tick, at);
+        console.log(`out of the car: least clearance from tick 5 ${(worst * 1000).toFixed(2)} mm; centre ${((s.sim.s[S.py] - at.y) * 1000).toFixed(0)} mm over the road; ` +
+            `least up-vector y ${minUp.toFixed(5)} (${(Math.acos(minUp) * 57.29578).toFixed(1)} deg)`);
+        expect(s.sim.armed).toBe(true);
+        expect(worst).toBeGreaterThan(-0.002);
+        expect(minUp).toBeLessThan(0.995);
+    });
+
     it('is the same flight among the signalled traffic twice (run hash), a car hitting the quad in it', () => {
         // a copy of the traffic (a function of the tick alone) finds a car driving at least 5 m in 0.6 s on a straight;
         // network traffic places movers only at the tick it was brought to (at), so a session cannot look ahead

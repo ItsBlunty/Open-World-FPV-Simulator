@@ -332,6 +332,6 @@ quad stayed exactly level (up-vector y 1.000000) and fixed to an SUV for 4 s. Pr
    it into the other. Its gyro read 0.05 rad/s about yaw only.
 
 So the solver is right and tipping on any surface is now tested (`contact-solver.test.ts`, `traffic.test.ts`). The
-trap is a fault of the traffic's shapes: each of a vehicle's boxes is solid on its own, so a point inside one is pushed
-out through a face another box covers. Open (traffic, not sim-core): a quad caught inside a vehicle stays there; game
-respawns (crash rewind, R) do not check for traffic, so a respawn into a passing car could do it (not seen in play).
+trap was a fault of the traffic's shapes: each of a vehicle's boxes was solid on its own, so a point inside one was
+pushed out through a face another box covers. Fixed in traffic v10 (traffic.md §1z): a vehicle's boxes are one solid
+and a quad inside is pushed out of the whole vehicle. Game respawns (crash rewind, R) still do not check for traffic.

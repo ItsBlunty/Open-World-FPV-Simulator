@@ -15,7 +15,8 @@ export const DT = 0.001;
 /** 7: people take the train at the city station, and people out of sight are not solid (map v9) */
 /** 8: people keep apart (follow, wait for each other at meeting paths), a spot each at the kerb when waiting to cross */
 /** 9: cars, saloons, SUVs, vans, pickups with loads and semis with trailers, each its own shape (vehicles.ts); vendors (owner 2026-10-20) */
-export const TRAFFIC_VERSION = 9;
+/** 10: a vehicle's boxes are one solid: a point inside it is pushed out of the whole vehicle (traffic.md §1z) */
+export const TRAFFIC_VERSION = 10;
 
 export interface TrafficConfig {
     cars: boolean;

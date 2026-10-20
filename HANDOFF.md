@@ -55,12 +55,13 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Duga remade (map v18-19, owner): separate wide towers, end masts, staggered dipole rows every 6.25 m on ochre feed
   pipes bent as in the owner's photos, no wires across (no open model found); 159 k triangles, no measurable frame cost. [map §1w, §1x]
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
-- **Tests:** `pnpm test`: 62 files, 560 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Quad trapped inside a car fixed (traffic v10): a vehicle's boxes are one solid, a quad inside is pushed out the shortest way out of the whole car. [traffic §1z]
+- **Tests:** `pnpm test`: 62 files, 563 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
   - map v19 `4bd550ca…` (595 250 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 19, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 19, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -128,6 +129,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 21. **Duga radar (map v19):** spawn "Duga radar", look at it from the city and close in front, fly between the rows of
    dipoles and along the face under the pipes, round the towers and end masts. Stagger, row spacing and pipe shape right
    now? Faces the city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w, §1x]
+22. **Respawn into a car (traffic v10):** a quad that lands inside a car is now pushed out the shortest way (from low in
+   the body that is down, under the car; high up, onto the roof). Should respawns (crash rewind, R) also avoid cars? [traffic §1z]
 
 ## Left open (not started)
 
@@ -150,7 +153,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
-- Traffic: a quad caught inside a vehicle stays trapped (each box pushes it into the next; it was the "won't tip on a roof" case, not a physics fault); respawns don't check for traffic. [traffic §1z, physics F7]
+- Traffic: respawns don't check for traffic (a quad inside a car is pushed out, not trapped, since v10); saved flights with traffic from v9 no longer open. [traffic §1z]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;

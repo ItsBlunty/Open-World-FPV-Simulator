@@ -11,6 +11,7 @@ import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
 import { DT, PERSON } from './model';
 import type { StaticBox, TrafficModel } from './model';
 import type { Place } from './route';
+import type { VBox } from './vehicles';
 
 /** Conservative-advancement steps per sphere and shape in sweep(); a hit is closer than SWEEP_EPS, m [numerical choices] */
 const SWEEP_STEPS = 32;
@@ -47,6 +48,45 @@ export function boxNear(lf: number, ly: number, ls: number, ef: number, ey: numb
         out.nx = 0; out.nz = 0; out.ny = ly < 0 ? -1 : 1;
         out.d = qy;
     }
+}
+
+/** Is the point (lf, ly, ls), in a vehicle's frame, in box b or on its surface? */
+function inBox(b: VBox, lf: number, ly: number, ls: number): boolean {
+    return lf >= b.f0 && lf <= b.f1 && ly >= b.y0 && ly <= b.y1 && ls >= b.s0 && ls <= b.s1;
+}
+
+/**
+ * The shortest way out of a vehicle's boxes of one frame (taken together as one solid) for a point inside them, along
+ * one of the frame's six axis directions, into out: d = minus that depth, (nx, ny, nz) = the direction in the frame
+ * (f, y, s). Along each direction the point crosses box after box until no box of the frame goes further.
+ */
+export function vehicleExit(boxes: readonly VBox[], frame: number, lf: number, ly: number, ls: number, out: Near): void {
+    let best = Infinity;
+    out.nx = 0; out.ny = 1; out.nz = 0;
+    for (let axis = 0; axis < 3; axis++) {
+        for (let sign = -1; sign <= 1; sign += 2) {
+            const start = axis === 0 ? lf : axis === 1 ? ly : ls;
+            let pos = start;
+            for (let it = 0; it <= boxes.length; it++) {
+                let far = sign * pos;
+                for (const b of boxes) {
+                    if (b.frame !== frame) continue;
+                    if (!inBox(b, axis === 0 ? pos : lf, axis === 1 ? pos : ly, axis === 2 ? pos : ls)) continue;
+                    const lo = axis === 0 ? b.f0 : axis === 1 ? b.y0 : b.s0, hi = axis === 0 ? b.f1 : axis === 1 ? b.y1 : b.s1;
+                    const v = sign > 0 ? hi : -lo;
+                    if (v > far) far = v;
+                }
+                if (!(far > sign * pos)) break;
+                pos = sign * far;
+            }
+            const depth = sign * (pos - start);
+            if (depth < best) {
+                best = depth;
+                out.nx = axis === 0 ? sign : 0; out.ny = axis === 1 ? sign : 0; out.nz = axis === 2 ? sign : 0;
+            }
+        }
+    }
+    out.d = -best;
 }
 
 export class TrafficWorld implements ContactWorld {
@@ -162,9 +202,23 @@ export class TrafficWorld implements ContactWorld {
         // the box in its frame: f along the heading, s across it (-hz, hx), y up from the road
         const b = boxes[part];
         if (b.frame === 1) pl = this.t0[i];
-        const cf = (b.f0 + b.f1) / 2, cs = (b.s0 + b.s1) / 2;
         const dx = x - pl.x, dz = z - pl.z;
-        boxNear(dx * pl.hx + dz * pl.hz - cf, y - pl.y - (b.y0 + b.y1) / 2, -dx * pl.hz + dz * pl.hx - cs, (b.f1 - b.f0) / 2, (b.y1 - b.y0) / 2, (b.s1 - b.s0) / 2, out);
+        const lf = dx * pl.hx + dz * pl.hz, ly = y - pl.y, ls = -dx * pl.hz + dz * pl.hx;
+        // inside the vehicle (a box of this frame holds the point): its boxes are one solid, so the first box holding the
+        // point answers with the way out of all of them and the rest are not there; each on its own would push the point
+        // out through a face another box covers, into that box, which pushes it back (traffic.md §1z)
+        let first = -1;
+        for (let j = 0; j < boxes.length && first < 0; j++) if (boxes[j].frame === b.frame && inBox(boxes[j], lf, ly, ls)) first = j;
+        if (first >= 0) {
+            if (part !== first) {
+                out.d = Infinity; out.nx = 0; out.ny = 1; out.nz = 0;
+                return true;
+            }
+            vehicleExit(boxes, b.frame, lf, ly, ls, out);
+        } else {
+            const cf = (b.f0 + b.f1) / 2, cs = (b.s0 + b.s1) / 2;
+            boxNear(lf - cf, ly - (b.y0 + b.y1) / 2, ls - cs, (b.f1 - b.f0) / 2, (b.y1 - b.y0) / 2, (b.s1 - b.s0) / 2, out);
+        }
         const nf = out.nx, ns = out.nz;
         out.nx = nf * pl.hx - ns * pl.hz;
         out.nz = nf * pl.hz + ns * pl.hx;
