@@ -5,3 +5,4 @@ export * from './woods';
 export * from './links';
 export * from './trials';
 export * from './vendors';
+export * from './duga';

@@ -255,3 +255,42 @@ of materials.
 inside the hopper bins' legs), slopes of 1-4 deg the test reads as flat (ramps and rails, not coplanar), a few cm² at
 the fields station. Map hash re-pinned `6923dfa1…` (433 278 triangles, count unchanged). The fixed spots were not
 screenshotted in the game.
+
+## 1u. The Duga radar (owner, 2026-10-20): map v17, built, waiting for the owner to fly it
+
+Owner: "add the duga radar array ... a simplified poly version of duga. It should still look like duga but not very
+high poly so the load isnt heavy to run it. If it ends up being a large part of the load we can add an option to remove
+it in the graphics, but only if its a big load."
+
+**Sources (read in full):** OpenStreetMap ways 432924904 (the low-band curtain, 541 x 34 m, `height` 150) and 437725923
+(the high-band one, 276 x 34 m), end to end in one straight line (Overpass API, measured from the way corners);
+chernobylx.com's Chernobyl-2 history (low band "135 - 150 meters" high, "almost 500 meters" long; high band 100 m high,
+250 m long); Wikipedia, Duga radar (cage or biconical dipoles in pairs, a wire reflector behind); twelve Wikimedia
+Commons photos (towers, stand-off arms, cages, rusted legs and grey bracing). Wikipedia's 700 m is the two together.
+No source gives the towers' size, spacing or the dipole grid: those are read off the photos [estimates].
+
+**Built (`packages/maps/src/duga.ts`):** north of the city past the border trees, front face along z -600 facing the
+city (south: the real one faces away from its control building; turned to the map so pilots see the cages), x -408 to
+409, on a 5 cm sand strip. The low band 16 bays (towers 33.8 m apart), the high band 12 bays (23 m), sharing a tower.
+Each tower: four 1 m rusted legs, 6 m wide by 12 m deep, a level every 12.5 m with a brace across its depth and a zigzag
+on each face; raking struts from 30 m up the back legs to the ground 20 m behind; girders the whole length at every
+level front and back, a diagonal across each bay's back every other level. Dipoles: two per bay per level (576), each
+two 6-sided cages (6 x 1.6 m low band, 4 x 1.2 m high band; a cone at the fed end, a cylinder out) on an arm 6 / 4.5 m in
+front. Left out: the reflector wires, the top walkway, the cages' wire mesh (solid cages), the control buildings.
+Three new plain materials (`duga-rust`, `duga-grey`, `duga-cage`). A spawn point "Duga radar" in front of it.
+
+**Cost:** 58 164 triangles (map 436 110 -> 494 274, +13 %). Frame time, Chrome WebGPU on this PC, 1024 x 768, the scene
+rendered in a loop with each frame waiting for the GPU (`onSubmittedWorkDone`), median of 80 frames, six rounds with the
+three Duga meshes shown and hidden in turn, from the city street looking north, 20 m up in front of it, and 60 m up over
+the park: no difference above the noise (shown / hidden: 17.0 / 17.0, 13.7 / 13.6, 13.1 / 13.4 ms). The frames were slow
+on this PC that hour with or without it (the morning's vehicle measurement got 4 ms): only the difference counts. Shadow
+map redraws (when the camera has moved far enough) were not timed. So no graphics switch to remove it, per the owner's
+rule. Low spec: drawn in the tiles like the rest, renders (screenshot); not timed.
+
+**Evidence:** `pnpm test` (new: "the Duga radar (map v17)": real lengths, the leg tops at 150 / 100 m, clear of the
+railway, nothing in the way along its front, a quad fits straight through a bay 6 m up); z-fight and spawn tests pass.
+Map v17 hash `9fb207fc...`. Screenshots in `docs/evidence/2026-10-20-duga/` (from-the-city: 4-sided cages, before they
+were made 6-sided; under-the-cages and low-spec: as built).
+
+**Left open:** fog hides it from the far side of the map in the extra and super low modes (290 / 195 m); no forest
+round it (the real one stands in pines); no golden prop on it; which way it faces is a choice made without the owner.

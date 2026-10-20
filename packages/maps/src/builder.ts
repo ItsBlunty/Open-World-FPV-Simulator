@@ -25,7 +25,9 @@ export const MATERIALS = [
     // map v10: two more container colours, conifer needles and a lighter broadleaf green
     'container-d', 'container-e', 'foliage-dark', 'foliage-light',
     // map v15: street vendors' carts (stainless steel) and their umbrellas' colours
-    'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green'
+    'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green',
+    // map v17: the Duga radar's rusted legs, its grey bracing and arms, its pale cages
+    'duga-rust', 'duga-grey', 'duga-cage'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 

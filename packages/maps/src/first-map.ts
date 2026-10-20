@@ -17,6 +17,7 @@ import { CITY_EDGE, YARD_ROAD, links } from './links';
 import { industrial } from './yard';
 import { timeTrials } from './trials';
 import { vendors } from './vendors';
+import { duga } from './duga';
 
 export const MAP_ID = 'mixed-1';
 /**
@@ -34,9 +35,10 @@ export const MAP_ID = 'mixed-1';
  * warehouse trusses and workshop beams end inside the walls, the site's plank decks 1 cm up, the driveway's slabs 5 mm up;
  * 15: street vendors' carts on the sidewalks and in the park (owner, 2026-10-20);
  * 16: no cart in front of a building's inner face (one stood inside the building next to it), carts in the tree plazas
- * and on a paved strip in the station garden, its south lawns pulled back for it (owner, 2026-10-20)
+ * and on a paved strip in the station garden, its south lawns pulled back for it (owner, 2026-10-20);
+ * 17: the Duga radar's two antenna curtains north of the city, past the border trees (owner, 2026-10-20)
  */
-export const MAP_VERSION = 16;
+export const MAP_VERSION = 17;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -66,6 +68,8 @@ export function buildFirstMap(): Level {
     b.trials.push(...timeTrials(b));
     // (map v15) last, from their own Rng: the rest of the map is drawn as before
     b.vendors.push(...vendors(b, new Rng(12), hideouts.shelters, plazas, stalls));
+    // (map v17) no random choices: the rest of the map is drawn as before
+    duga(b);
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
@@ -75,6 +79,7 @@ export function buildFirstMap(): Level {
     b.spawn({ id: 'city-station', name: 'City station (on the viaduct)', x: 10, z: -253.3, yawDeg: 90 });
     b.spawn({ id: 'tunnel', name: 'Railway tunnel', x: 30, z: 335, yawDeg: 0 });
     b.spawn({ id: 'forest', name: 'Forest track', x: 196, z: 318, yawDeg: 150 });
+    b.spawn({ id: 'duga', name: 'Duga radar', x: 0, z: -585, yawDeg: 0 });
     return b.build(MAP_ID, MAP_VERSION, 'Park, bando and city', HALF);
 }
 
