@@ -36,9 +36,10 @@ export const MAP_ID = 'mixed-1';
  * 15: street vendors' carts on the sidewalks and in the park (owner, 2026-10-20);
  * 16: no cart in front of a building's inner face (one stood inside the building next to it), carts in the tree plazas
  * and on a paved strip in the station garden, its south lawns pulled back for it (owner, 2026-10-20);
- * 17: the Duga radar's two antenna curtains north of the city, past the border trees (owner, 2026-10-20)
+ * 17: the Duga radar's two antenna curtains north of the city, past the border trees (owner, 2026-10-20);
+ * 18: the Duga remade after photos: separate towers, end masts, reflector wires, dipoles on bent feed pipes (owner, 2026-10-20)
  */
-export const MAP_VERSION = 17;
+export const MAP_VERSION = 18;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;

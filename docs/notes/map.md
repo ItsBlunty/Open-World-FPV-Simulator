@@ -294,3 +294,42 @@ were made 6-sided; under-the-cages and low-spec: as built).
 
 **Left open:** fog hides it from the far side of the map in the extra and super low modes (290 / 195 m); no forest
 round it (the real one stands in pines); no golden prop on it; which way it faces is a choice made without the owner.
+
+## 1w. The Duga remade (owner, 2026-10-20): map v18, built, waiting for the owner to fly it
+
+Owner: "the duga array doesn't look right to me, either remake it or find a model online with open source and move it
+in, don't tank performance though".
+
+**A model online:** none usable. The only free one found (free3d.com "duga 2026") is a 223 MB 3ds Max file marked
+"Editorial Only", with no CC0 / CC-BY terms. Nothing else came up as CC0 or CC-BY. So it is remade.
+
+**What was wrong (v17 against 27 Wikimedia Commons photos, looked at in full):** thick girders the whole length at every
+level made it read as scaffolding (the real towers stand apart, with only wires and feed pipes between them); no
+reflector (from afar the real one reads as a grey screen of level wires); no end masts (a free-standing tapered mast at
+each end of each curtain, two side by side between them); towers too narrow (photo from afar, zoomed: the grey lattice
+about half a bay wide, the rusted legs inside it); dipoles on short straight arms (real ones hang on pipes that run out
+from the face and bend down to them, and the cages taper at both ends).
+
+**Built (`packages/maps/src/duga.ts`):** same place and size. Low band 15 towers (as counted in the photo from afar),
+bays 33.65 m; high band 11, 22.41 m; first tower 0.8 bay in from the end mast (photo). Each tower: four rusted legs 8 m
+apart (6 m high band) and grey posts 3 m (2 m) out past them, a panel every 12.5 m with zigzags and a rail across front
+and back, a wider top frame with its tips turned up and a 6 m rod. End masts 8 m in from each end, 10 m square at the
+foot to 3 m at the top. Reflector: a 4 cm wire every 1.5 m up, mast to mast, on the towers' front face (solid: a quad hits
+one or threads between two). Dipoles: two per bay per row as before (496), each on a feed pipe along the face that runs
+out and bends down 45 deg; cages 6-sided, cone, cylinder, taper to 60 % at the outer end (34 triangles). The girders and
+the back diagonals are gone. New material `duga-wire`. Sizes not in any source are read off the photos [estimates].
+
+**Cost:** 97 916 triangles (v17: 58 164; map 494 274 -> 534 026, +8 %). Frame time, Chrome WebGPU on this PC, 1024 x 768,
+the scene rendered in a loop with each frame waiting for the GPU (`onSubmittedWorkDone`), median of 40 frames, three
+rounds with the four Duga meshes shown and hidden in turn, four views (from the city, along the face, from behind,
+over the park): 4.0-4.4 ms shown, 4.0-4.4 ms hidden, no difference above the noise. With the shadow map redrawn every frame
+(it is: `autoUpdate`): the same, 4.0-4.6 / 4.0-4.3 ms. So still no graphics switch. Low spec: renders, 46 fps in the pane.
+
+**Evidence:** `pnpm test` (the Duga tests rewritten: real lengths and heights, 15 towers, a lane along the face between
+the dipoles and the wires, a quad hits a wire at 6 m and threads between two at 6.75 m). Map v18 hash `6cae9210...`.
+Screenshots in `docs/evidence/2026-10-20-duga-v18/` (from the city, along the face, from behind, low spec).
+
+**Left open:** the wires are thin bars (they shimmer far off; no see-through veil drawn for the screen look from afar);
+cages solid, not wire; no walkways or ladders in the towers; tower panels are 12.5 m (the photo shows closer rungs);
+the facing and the rest of §1u's open points still stand.
+

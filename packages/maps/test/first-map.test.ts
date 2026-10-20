@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { CLEARING, DUGA, DUGA_FRONT, FOREST, LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, bedAt, buildFirstMap, levelSha256, loopPieces, nearTrack, spawnPose } from '../src/index';
+import { CLEARING, DUGA, DUGA_FRONT, FOREST, dugaScreen, dugaTowers, LevelBuilder, MAP_VERSION, RAIL_CORNERS, RAIL_RADIUS, bedAt, buildFirstMap, levelSha256, loopPieces, nearTrack, spawnPose } from '../src/index';
 
 /** For a closed shape around `c`, every triangle's normal must point away from c. */
 function outward(tris: Float32Array, c: number[]): number {
@@ -341,31 +341,49 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '9fb207fcef0902bd7a9d04c401b676e95dc5741422694b0bb26435d52519710a';
+const PINNED = '6cae921068f2acee9de1d880ae9d044aa7125708cdae8bfaa02dbc9e708283a4';
 
-describe('the Duga radar (map v17)', () => {
+describe('the Duga radar (map v18)', () => {
     const level = buildFirstMap();
     const world = new MeshContactWorld(level.collision);
     const out = { x: 0, y: 0, z: 0 };
     const down = (x: number, z: number): number | undefined => world.queryRay(x, 400, z, 0, -1, 0, 400)?.y;
+    const [low, high] = DUGA;
 
     it('stands at its real size: 541 m by 150 m and 276 m by 100 m, end to end', () => {
-        const [low, high] = DUGA;
         expect(low.x1 - low.x0).toBe(541);
         expect(high.x1 - high.x0).toBe(276);
         expect(high.x0).toBe(low.x1);
-        // the tops of the end towers' front legs, with the top girder (0.5 m) over them
-        expect(down(low.x0 - 3, DUGA_FRONT)).toBeCloseTo(150.25, 6);
-        expect(down(high.x1 + 3, DUGA_FRONT)).toBeCloseTo(100.25, 6);
+        // the low band's first tower and the high band's last: their front legs' tops, the top frame (0.5 m) over them
+        const lo = dugaTowers(low), hi = dugaTowers(high);
+        expect(down(lo.first - 3, DUGA_FRONT)).toBeCloseTo(150.25, 6);
+        expect(down(hi.first + high.bays * hi.bay + 3, DUGA_FRONT)).toBeCloseTo(100.25, 6);
+        // 15 towers in the low band, as counted in the photo from afar; bays of about 34 m and 22 m
+        expect(low.bays + 1).toBe(15);
+        expect(lo.bay).toBeCloseTo(33.65, 2);
+        expect(hi.bay).toBeCloseTo(22.41, 2);
     });
 
-    it('keeps clear of the railway and the border trees, and has room to fly through a bay', () => {
-        for (let x = DUGA[0].x0 - 15; x <= DUGA[1].x1 + 15; x += 5) for (const z of [DUGA_FRONT + 20, DUGA_FRONT - 40]) expect(nearTrack(x, z, 5), `${x}, ${z}`).toBe(false);
+    it('keeps clear of the railway and the border trees, and has room to fly along its face', () => {
+        for (let x = low.x0 - 15; x <= high.x1 + 15; x += 5) for (const z of [DUGA_FRONT + 20, DUGA_FRONT - 40]) expect(nearTrack(x, z, 5), `${x}, ${z}`).toBe(false);
         // along its front, 15 m out and 5 m up: nothing in the way (trees end short of it)
-        for (let x = DUGA[0].x0 - 10; x <= DUGA[1].x1 + 10; x += 1) expect(world.querySphere(x, 5, DUGA_FRONT + 15, 0.25, out), `front at ${x}`).toBe(false);
-        // straight through the middle of a low-band bay, 6 m up: between the dipoles, under the first girders, past the back's diagonals
-        const bay = (DUGA[0].x1 - DUGA[0].x0) / DUGA[0].bays, x = DUGA[0].x0 + 4.5 * bay;
-        for (let z = DUGA_FRONT + 15; z >= DUGA_FRONT - 45; z -= 0.25) expect(world.querySphere(x, 6, z, 0.25, out), `bay at ${z}`).toBe(false);
+        for (let x = low.x0 - 10; x <= high.x1 + 10; x += 1) expect(world.querySphere(x, 5, DUGA_FRONT + 15, 0.25, out), `front at ${x}`).toBe(false);
+        // between the dipoles and the reflector, 2.5 m out and 5 m up, from the first tower to the last
+        const lo = dugaTowers(low), hi = dugaTowers(high);
+        for (let x = lo.first; x <= hi.first + high.bays * hi.bay; x += 0.5) expect(world.querySphere(x, 5, DUGA_FRONT + 2.5, 0.25, out), `face at ${x}`).toBe(false);
+    });
+
+    it('has a reflector of wires 1.5 m apart: a quad hits a wire, or threads between two', () => {
+        const lo = dugaTowers(low), x = lo.first + 4.5 * lo.bay;
+        const through = (y: number): boolean => {
+            for (let z = DUGA_FRONT + 2.5; z >= DUGA_FRONT - 20; z -= 0.05) if (world.querySphere(x, y, z, 0.12, out)) return false;
+            return true;
+        };
+        expect(through(6)).toBe(false);
+        expect(through(6.75)).toBe(true);
+        const s = dugaScreen(low);
+        expect(s.x1 - s.x0).toBe(525);
+        expect(s.y1).toBe(150);
     });
 });
 
