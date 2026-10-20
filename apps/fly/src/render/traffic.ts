@@ -35,6 +35,8 @@ const PAINT: Record<Exclude<Paint, 'body' | 'trailer' | 'door' | 'glass'>, numbe
     trim: 0x2b2e33, chrome: 0xd5d9de, deck: 0x34363a, floor: 0x7d5f43, cardboard: 0xc49a6c, wood: 0xcfa66e, wood2: 0xb88d57,
     fabric: 0x6f8fb8, white: 0xf1f1ec, hay: 0xe0c565, wrap: 0xe9eef0, water: 0x4f9bd9, steel: 0x6c7279, flag: 0xff2a1a
 };
+/** What vehicles carry (vehicles.ts loads): drawn as one instanced box mesh, coloured per box. */
+const CARGO: ReadonlySet<Paint> = new Set<Paint>(['cardboard', 'wood', 'wood2', 'fabric', 'white', 'hay', 'wrap', 'water', 'steel', 'flag']);
 /** Trailers are mostly white, some silver or in a fleet's colour. */
 const TRAILER_COLOURS = [0xf4f4f0, 0xf4f4f0, 0xf4f4f0, 0xf4f4f0, 0xc9ced3, 0x2f6fb5, 0xc8352b, 0x2e8b57];
 const trailerColour = (look: number): number => TRAILER_COLOURS[(look >>> 20) % TRAILER_COLOURS.length];
@@ -203,23 +205,35 @@ export class TrafficView {
         const n = this.cars.length;
         if (!n) return;
         const seg = this.kit.seg;
-        // one set of meshes per distinct shape (a semi's pallets are its own, so some shapes have one vehicle)
+        // one set of meshes per distinct shape of each frame (a semi's tractor and its trailer apart), what it carries left
+        // out: every load's boxes are one instanced box mesh (cargo), so pickups and trailers with different loads, and
+        // tractors with different trailers, share their meshes
         const byKey = new Map<string, number>();
-        const shapes: VehicleShape[] = [];
+        const shapes: [VehicleShape, 0 | 1][] = [];
         this.shapeOf = [];
         this.shapeMeshes = [];
+        this.cargoOf = [];
+        let nCargo = 0;
         this.cars.forEach((i, k) => {
             const sh = model.movers[i].shape!;
-            const key = sh.boxes.map((b) => `${b.frame},${b.f0},${b.f1},${b.s0},${b.s1},${b.y0},${b.y1},${b.paint}`).join(';');
-            let m = byKey.get(key);
-            if (m === undefined) {
-                m = shapes.length;
-                byKey.set(key, m);
-                shapes.push(sh);
-                this.shapeMeshes.push({ layers: [], cars: [], n: 0 });
+            const load = sh.boxes.filter((b) => CARGO.has(b.paint));
+            this.cargoOf.push(load);
+            nCargo += load.length;
+            const mine: number[] = [];
+            for (const frame of sh.trailer ? [0, 1] as const : [0] as const) {
+                const key = `${sh.kind}|${frame}|` + sh.boxes.filter((b) => b.frame === frame && !CARGO.has(b.paint))
+                    .map((b) => `${b.f0},${b.f1},${b.s0},${b.s1},${b.y0},${b.y1},${b.paint}`).join(';');
+                let m = byKey.get(key);
+                if (m === undefined) {
+                    m = shapes.length;
+                    byKey.set(key, m);
+                    shapes.push([sh, frame]);
+                    this.shapeMeshes.push({ layers: [], cars: [], n: 0 });
+                }
+                this.shapeMeshes[m].cars.push(k);
+                mine.push(m);
             }
-            this.shapeMeshes[m].cars.push(k);
-            this.shapeOf.push(m);
+            this.shapeOf.push(mine);
         });
         const paint = this.material({ rough: 0.35 });
         const fixed = this.kit.lit({ vertexColors: true, roughness: 0.7 });
@@ -227,12 +241,13 @@ export class TrafficView {
         const glass = this.kit.lit({
             color: GLASS, roughness: 0.05, metalness: 0.1, transparent: true, opacity: GLASS_OPACITY, side: THREE.DoubleSide, depthWrite: false
         });
-        shapes.forEach((sh, m) => {
+        shapes.forEach(([sh, frame], m) => {
             const sm = this.shapeMeshes[m];
             const geos: Record<string, THREE.BufferGeometry[]> = {};
             const put = (key: string, g: THREE.BufferGeometry): void => { (geos[key] ??= []).push(g); };
             for (const b of sh.boxes) {
                 const f = b.frame;
+                if (f !== frame || CARGO.has(b.paint)) continue;
                 if (b.paint === 'body') put(`body${f}`, boxGeo(b, f === 0 ? 0.2 : 0.03, seg(3, 1)));
                 else if (b.paint === 'trailer') put(`trailer${f}`, boxGeo(b, 0.02, 1));
                 else if (b.paint === 'door') {
@@ -244,13 +259,14 @@ export class TrafficView {
                     this.cabin(b, sh, (g) => put(`body${f}`, g), (g) => put(`fixed${f}`, g));
                 } else put(`fixed${f}`, tint(boxGeo(b, 0.02, 1), PAINT[b.paint]));
             }
-            if (sh.kind === 'semi') this.semiDetails((g) => put('fixed0', g));
+            if (sh.kind === 'semi' && frame === 0) this.semiDetails((g) => put('fixed0', g));
             const count = sm.cars.length;
             for (const [key, gs] of Object.entries(geos)) {
                 const frame = key.endsWith('1') ? 1 : 0;
                 const kind = key.replace(/[01]$/, '');
                 const mat = kind === 'glass' ? glass : kind === 'fixed' ? fixed : paint;
-                const mesh = this.add(`${m}:${key}`, instanced(merge(gs), mat, count, kind !== 'glass'));
+                // the fixed-colour parts (insides, trim, windows) cast no shadow, as the toy car's inside never did: fewer draws
+                const mesh = this.add(`${m}:${key}`, instanced(merge(gs), mat, count, kind !== 'glass' && kind !== 'fixed'));
                 sm.layers.push({ mesh, frame, tint: kind === 'body' ? 'body' : kind === 'trailer' ? 'trailer' : null });
             }
         });
@@ -278,6 +294,7 @@ export class TrafficView {
         this.add('spoke', instanced(spoke, this.kit.lit({ color: HUB, roughness: 0.4 }), nWheels, false));
         this.add('headlight', instanced(head, this.kit.flat({ color: 0xfff6d0 }), 2 * n, false));
         const brake = this.add('brake', instanced(head.clone(), this.material({ basic: true }), 2 * n, false));
+        this.add('cargo', instanced(new THREE.BoxGeometry(1, 1, 1), this.material({ rough: 0.7 }), nCargo, true));
         for (let k = 0; k < 2 * n; k++) brake.setColorAt(k, this.c.setHex(BRAKE_OFF));
     }
 
@@ -372,9 +389,11 @@ export class TrafficView {
     }
 
     private eyeY = 0;
-    /** per car (index into cars), its shape's meshes (index into shapeMeshes) */
-    private shapeOf: number[] = [];
+    /** per car (index into cars), its shapes' meshes (index into shapeMeshes): one, or a semi's tractor and trailer */
+    private shapeOf: number[][] = [];
     private shapeMeshes: ShapeMesh[] = [];
+    /** per car (index into cars), the boxes of what it carries (drawn by the one cargo mesh) */
+    private cargoOf: VBox[][] = [];
 
     private buildSignals(model: TrafficModel): void {
         const boxes = model.allStatics();
@@ -462,7 +481,7 @@ export class TrafficView {
         const M = this.meshes;
         if (!M.wheel) return;
         for (const sm of this.shapeMeshes) sm.n = 0;
-        let w = 0, j = 0, q = 0;
+        let w = 0, j = 0, q = 0, cg = 0;
         const bodyC = new THREE.Color(), trailerC = new THREE.Color();
         this.cars.forEach((i, k) => {
             if (this.far[i]) return;
@@ -471,11 +490,19 @@ export class TrafficView {
             const f1 = sh.trailer ? this.trailerFrame(i) : f0;
             bodyC.setHex(carColour(mv.look));
             trailerC.setHex(trailerColour(mv.look));
-            const sm = this.shapeMeshes[this.shapeOf[k]];
-            const slot = sm.n++;
-            for (const L of sm.layers) {
-                L.mesh.setMatrixAt(slot, L.frame ? f1 : f0);
-                if (L.tint) L.mesh.setColorAt(slot, L.tint === 'body' ? bodyC : trailerC);
+            for (const s of this.shapeOf[k]) {
+                const sm = this.shapeMeshes[s];
+                const slot = sm.n++;
+                for (const L of sm.layers) {
+                    L.mesh.setMatrixAt(slot, L.frame ? f1 : f0);
+                    if (L.tint) L.mesh.setColorAt(slot, L.tint === 'body' ? bodyC : trailerC);
+                }
+            }
+            for (const b of this.cargoOf[k]) {
+                this.m.makeScale(b.f1 - b.f0, b.y1 - b.y0, b.s1 - b.s0).setPosition((b.f0 + b.f1) / 2, (b.y0 + b.y1) / 2, (b.s0 + b.s1) / 2);
+                this.m.premultiply(b.frame ? f1 : f0);
+                M.cargo.setMatrixAt(cg, this.m);
+                M.cargo.setColorAt(cg++, this.c.setHex(PAINT[b.paint as keyof typeof PAINT]));
             }
             for (const wh of sh.wheels) {
                 const turn = -this.dist[i] / wh.r;
@@ -521,13 +548,14 @@ export class TrafficView {
             if (L.mesh.instanceColor) L.mesh.instanceColor.needsUpdate = true;
         }
         for (const name of ['wheel', 'hub', 'spoke']) M[name].count = w;
+        M.cargo.count = cg;
         M.headlight.count = M.brake.count = 2 * j;
         M.rider.count = q;
         M.riderEye.count = M.riderPupil.count = 2 * q;
-        for (const name of ['rider', 'riderEye', 'riderPupil', 'wheel', 'hub', 'spoke', 'headlight', 'brake']) {
+        for (const name of ['rider', 'riderEye', 'riderPupil', 'wheel', 'hub', 'spoke', 'headlight', 'brake', 'cargo']) {
             M[name].instanceMatrix.needsUpdate = true;
         }
-        for (const name of ['rider', 'brake']) {
+        for (const name of ['rider', 'brake', 'cargo']) {
             const c = M[name].instanceColor;
             if (c) c.needsUpdate = true;
         }

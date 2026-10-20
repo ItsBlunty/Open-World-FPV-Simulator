@@ -202,5 +202,23 @@ flatbed's lumber; land on a pickup's load; find the carts (park: by the fountain
 10 %, too many pickups)? Trailers following the lane OK, or should they cut corners like real ones (would need wider
 corners)? Semis accelerate like cars: slower? More vendors, people stopping to buy?
 
-**Left open:** frame cost not measured (each vehicle shape has its own instanced meshes now, so more draws than the
-13 before; not counted); trailers don't off-track; no semis in the loops model; vendors serve nobody (walkers pass by).
+**Frame cost (measured 2026-10-20).** Chrome, this PC, the browser pane at 1024 x 768, camera at street level at
+(0, 1.8, -138) looking north up the x = 0 avenue, sim paused; the scene rendered in a loop, each frame waiting for the
+GPU (`onSubmittedWorkDone`; in low spec a 1-pixel `readPixels`), the median of 150 frames, six rounds with the vehicle
+meshes shown and hidden in turn (people and signals always shown). Same 134 vehicles in both builds.
+
+| Build | Vehicle meshes (casting shadows) | Full: with / without vehicles | Low spec: with / without |
+|---|---|---|---|
+| before (70b50bf, toy cars only) | 13 (5) | 4.0 / 3.6 ms: +0.4 | 0.6 / 0.6 ms: under 0.1 |
+| traffic v9 as first built (72a4c2a) | 60 (34) | 4.5 / 3.6-3.8 ms: +0.7 to +0.9 (shorter runs) | 0.9-1.0 / 0.6 ms: +0.35 |
+| after the cut below | 38 (14) | 4.2-4.5 / 3.6-4.0 ms: +0.55 | 0.8-0.9 / 0.55-0.6 ms: +0.3 |
+
+The cut (`apps/fly/src/render/traffic.ts`, nothing drawn or solid changed): everything vehicles carry (pallets,
+lumber, hay, boxes, the sofa, the fridge, steel, the flag) is one instanced box mesh coloured per box, so pickups and
+trailers with different loads share their meshes; a semi's tractor and trailer have meshes of their own, so tractors
+are shared across trailer kinds; the fixed-colour parts (insides, trim, windows) cast no shadow, as the toy car's
+inside never did. The vehicles still cost about 0.15 ms more than the toy cars in full quality and 0.3 ms more in
+low spec on this PC (2 % of a 60 fps frame); a weak laptop pays more per draw. Not measured on a weak laptop.
+
+**Left open:** the vehicles' cost on a weak laptop (each vehicle kind still draws its own body, glass and inside);
+trailers don't off-track; no semis in the loops model; vendors serve nobody (walkers pass by).

@@ -147,7 +147,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - People: walk through people standing (waiting, platform) and briefly through each other at corners; no sidestep. [traffic §1p]
-- Vehicles: frame cost of the new shapes not measured; trailers don't off-track; no semis with signals off; vendors serve nobody. [traffic §1t]
+- Vehicles: cost +0.55 ms full / +0.3 ms low spec on this PC (toy cars: +0.4 / under 0.1), not tried on a weak laptop; trailers don't off-track; no semis with signals off; vendors serve nobody. [traffic §1t]
 - Traffic: mean car speed 1.81 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
 - Map v11: no cars on the roads out; level-crossing lights and barriers don't react to the train; no lights at the yard
