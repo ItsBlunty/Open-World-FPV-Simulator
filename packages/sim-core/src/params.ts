@@ -106,34 +106,77 @@ export interface SimParams {
      * prop_pitch_in, and ParamOverrides.classicPhysics), bit for bit sim-core/0.5.0.
      */
     inflow: RotorInflow | null;
+    /**
+     * The motor and ESC (sim-core/0.8.0, this project): each rotor's speed from the torque balance of a DC motor driven at
+     * the commanded duty against its prop's aerodynamic torque, so a prop that unloads speeds up and the air can drive it
+     * while the ESC brakes (MotorModel). Present with the rotor inflow model only (its prop torque needs the inflow);
+     * null: the first-order lag `tau` of earlier versions.
+     */
+    motor: MotorModel | null;
 }
 
 /**
- * The propeller of the rotor inflow model (Sim.inflowThrust): blade-element thrust from Gill and D'Andrea,
+ * A brushless motor on an ESC with complementary PWM (active braking, the default of BLHeli_32, AM32 and Bluejay), in
+ * the averaged DC-motor form: the winding sees duty x pack voltage, current i = (d V - Ke w) / R, torque Kt i with
+ * Kt = Ke = 1 / Kv (SI units). The current may reverse, so the ESC brakes a rotor the air drives faster than d V / Ke.
+ * R is the effective resistance of the motor's speed-torque line, set so that the motor turns at the preset's loaded
+ * speed (rpm_loaded_fraction of Kv x V) against its prop's static torque at full output and nominal voltage.
+ */
+export interface MotorModel {
+    /** back-EMF and torque constant, V s / rad = N m / A (1 / Kv) */
+    ke: number;
+    /** effective resistance of the speed-torque line, ohm */
+    r: number;
+}
+
+/**
+ * The propeller of the rotor inflow model (Sim.propLoads): blade-element thrust and torque from Gill and D'Andrea,
  * "Computationally Efficient Force and Moment Models for Propellers in UAV Forward Flight Applications", Drones
- * 3(4):77, 2019 (their eq. 27), with its parameters predicted from the static thrust alone (their Section 4:
- * symmetric airfoil c_l0 = 0, delta = 0.2, theta_tip = 1.25 P / (2 pi R)). With c_l0 = 0 the lift slope and the
- * solidity only appear as their product `a`, which the static thrust fixes, so the blade chord is not needed. The
- * induced inflow is Glauert's momentum theory, which fitted NeuroBEM's measured flights better than Gill and
- * D'Andrea's closed form (eq. 69) in forward flight (docs/physics-review.md G1).
+ * 3(4):77, 2019 (thrust their eq. 27, torque eq. 37-38), with its parameters predicted from the static thrust and torque
+ * (their Section 4: symmetric airfoil c_l0 = 0, delta = 0.2, c_d0 = 0.05, c_d,alpha from the static torque). With
+ * c_l0 = 0 the thrust only needs the lift slope x solidity product `a`, fixed by the static thrust. The blade angle is
+ * theta_tip = INFLOW_PITCH_FACTOR P / (2 pi R), fitted to measured 5-inch props (sim-core/0.8.0). The induced inflow is
+ * Glauert's momentum theory, which fitted NeuroBEM's measured flights better than Gill and D'Andrea's closed form
+ * (eq. 69) in forward flight (docs/physics-review.md G1).
  */
 export interface RotorInflow {
     /** c_l,alpha x solidity, from the static thrust coefficient (Gill and D'Andrea eq. 87) */
     a: number;
-    /** blade pitch angle at the tip, rad (their eq. 82) */
+    /** blade pitch angle at the tip, rad (their eq. 82 with INFLOW_PITCH_FACTOR) */
     theta: number;
     /** prop radius, m */
     radius: number;
     /** one prop's disk area, m^2 */
     area: number;
+    /** solidity N_b c_tip / (pi R) of the c_tip / r chord (preset prop_solidity) */
+    sigma: number;
+    /** profile drag coefficient at zero angle of attack (INFLOW_CD0) */
+    cd0: number;
+    /** quadratic drag coefficient, from the static torque (their eq. 88) */
+    cdAlpha: number;
 }
 
 /** Gill and D'Andrea's "not useful" root fraction of the blade, fixed at 0.20 for predicted parameters (their Section 4.1). */
 export const INFLOW_DELTA = 0.2;
 /**
- * The inflow ratios are held inside the domain the model was checked on in the wind tunnel (Gill and D'Andrea: climb
- * ratio and advance ratio up to 0.3). Beyond it (a slow prop in a fast airflow: idle props in a dive or a fall) the
- * blade-element assumptions fail; the thrust stays at its value on the edge [numerical choice, this project].
+ * theta_tip = INFLOW_PITCH_FACTOR x P / (2 pi R). Gill and D'Andrea's eq. 82 gives 1.25 (1 / (1 - delta)); against the
+ * UIUC Propeller Database's axial-flow sweeps of five 5-inch props (two- and three-blade, 3000-9000 rpm), whose thrust
+ * reaches zero at 0.93-1.09 x the pitch speed, 1.25 is 8-21 % of the static thrust off and the median best fit, 1.025,
+ * 0.5-9 % [measured: docs/evidence/2026-10-20-motor-model/prop_fit.py; sim-core/0.8.0].
+ */
+export const INFLOW_PITCH_FACTOR = 1.025;
+/** profile drag coefficient at zero angle of attack, Gill and D'Andrea's predicted value (their Section 4.1) */
+export const INFLOW_CD0 = 0.05;
+/**
+ * The edge of the domain the model was checked on in the wind tunnel (Gill and D'Andrea: climb ratio and advance ratio
+ * up to about 0.3; near 0.2 a prop already makes about no thrust). Beyond it, a slow prop in a fast airflow (idle props
+ * in a dive, a fall or a throttle chop at speed), the blade-element assumptions fail and no measured data covers a
+ * 5-inch prop (Goyal, Sinnige et al. 2024: even blade-element momentum tools miss props in negative thrust). Past this
+ * ratio along the axis the prop's loads come from blade-element theory without the small-angle step and with a stalling
+ * section (Sim.bladeLoads, sim-core/0.8.0, blended in up to 0.45) [estimate, this project]; the advance ratio is held
+ * at this value. Until 0.7.0 both ratios were clamped here, which kept a slow prop's loads at the clamped coefficient
+ * x the rotor speed squared: no drag from a nearly stopped prop, no aerodynamic damping in a fast airflow, and a band
+ * where more rpm gave less thrust for the wrong reason (physics-review F9).
  */
 export const INFLOW_RATIO_MAX = 0.3;
 
@@ -433,7 +476,8 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const thr = p.fields.throttle.value as { mid: number; expo: number };
     const cdaScale = o.cdaScale ?? 1;
     const cdaH = (num(p, 'cda_horizontal_cm2') / 10000) * cdaScale;
-    const inflow = o.classicPhysics === true ? null : inflowOf(p, tmaxMotorNom, omegaMaxPerVolt * vNom);
+    const inflow = o.classicPhysics === true ? null : inflowOf(p, tmaxMotorNom, omegaMaxPerVolt * vNom, kappa);
+    const motor = inflow ? motorOf(kv, rpmFrac, vNom, kappa, tmaxMotorNom) : null;
     // with rotor inflow the props unload at speed themselves, so the vertical drag area is the frame's own; the
     // classic model's larger cda_vertical_cm2 stands in for that unloading
     const cdaV = (num(p, inflow ? 'cda_vertical_inflow_cm2' : 'cda_vertical_cm2') / 10000) * cdaScale;
@@ -503,31 +547,50 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         // validated here (a bad wind throws RangeError: a log carrying one refuses to replay)
         wind: compileWind(o.wind) ? { ...o.wind! } : null,
         ...wakeOf(p, o.wake ?? 1),
-        inflow
+        inflow,
+        motor
     };
 }
 
 /**
- * The rotor inflow model of a preset that has prop_pitch_in (with prop_diameter_mm and cda_vertical_inflow_cm2), or
- * null. Gill and D'Andrea's Section 4 parameter prediction: theta_tip from the pitch (their eq. 82), then the
- * lift-slope x solidity product `a` such that the model's static thrust coefficient is the preset's (their eq. 87):
- * hover with c_l0 = 0 gives C_T = (1 - delta) a (theta_tip - lambda_i) and momentum theory C_T = 4 lambda_i^2.
- * So at rest the model makes exactly the preset's thrust, and the hover throttle and thrust-to-weight stay.
+ * The rotor inflow model of a preset that has prop_pitch_in (with prop_diameter_mm, prop_solidity and
+ * cda_vertical_inflow_cm2), or null. Gill and D'Andrea's Section 4 parameter prediction: theta_tip from the pitch
+ * (their eq. 82, with INFLOW_PITCH_FACTOR), then the lift-slope x solidity product `a` such that the model's static
+ * thrust coefficient is the preset's (their eq. 87): hover with c_l0 = 0 gives C_T = (1 - delta) a (theta_tip -
+ * lambda_i) and momentum theory C_T = 4 lambda_i^2. So at rest the model makes exactly the preset's thrust, and the
+ * hover and thrust-to-weight stay. Then c_d,alpha such that the static torque is kappa x the thrust (their eq. 88).
  * tmaxMotor = one motor's full thrust at the nominal pack voltage, N; omegaMax = its rotor speed there, rad/s.
  */
-function inflowOf(p: PresetJson, tmaxMotor: number, omegaMax: number): RotorInflow | null {
+function inflowOf(p: PresetJson, tmaxMotor: number, omegaMax: number, kappa: number): RotorInflow | null {
     if (p.fields.prop_pitch_in === undefined) return null;
     const radius = num(p, 'prop_diameter_mm') / 2000;
     const pitch = num(p, 'prop_pitch_in') * 0.0254;
     num(p, 'cda_vertical_inflow_cm2');
+    const sigma = num(p, 'prop_solidity');
     const area = Math.PI * radius * radius;
-    const theta = pitch / (2 * Math.PI * radius * (1 - INFLOW_DELTA));
+    const theta = (INFLOW_PITCH_FACTOR * pitch) / (2 * Math.PI * radius);
     const tip = omegaMax * radius;
-    // Gill and D'Andrea's normalisation: C_T = T / (1/2 rho A (Omega R)^2)
+    // Gill and D'Andrea's normalisation: C_T = T / (1/2 rho A (Omega R)^2), C_Q = Q / (1/2 rho A (Omega R)^2 R)
     const ct = tmaxMotor / (0.5 * RHO * area * tip * tip);
     const lambdaI = Math.sqrt(ct / 4);
     if (!(theta > lambdaI)) throw new Error(`preset ${p.id}: prop_pitch_in too small for its static thrust (rotor inflow)`);
-    return { a: ct / ((1 - INFLOW_DELTA) * (theta - lambdaI)), theta, radius, area };
+    const d = INFLOW_DELTA;
+    // eq. 37-38 at rest (lambda = lambda_i, mu = 0): C_Q = C_T lambda_i + profile, with the profile's c_d,alpha unknown
+    const cq = (kappa / radius) * ct;
+    const prof0 = ((1 - d) * sigma * INFLOW_CD0 * (1 + d + d * d)) / 3;
+    const cdAlpha = (cq - ct * lambdaI - prof0) / ((1 - d) * sigma * (lambdaI - theta) * (lambdaI - theta));
+    if (!(cdAlpha >= 0)) throw new Error(`preset ${p.id}: motor_kappa_m too small for its prop's induced and profile torque (rotor inflow)`);
+    return { a: ct / ((1 - d) * (theta - lambdaI)), theta, radius, area, sigma, cd0: INFLOW_CD0, cdAlpha };
+}
+
+/**
+ * The motor model (MotorModel) of a preset with rotor inflow: Ke = 1 / Kv, and R such that at full output, nominal
+ * voltage and rest the motor holds its prop's static torque (kappa x the full thrust) at the loaded speed:
+ * Ke w_L = rpm_loaded_fraction V_nom, so R = Ke V_nom (1 - rpm_loaded_fraction) / Q_L.
+ */
+function motorOf(kv: number, rpmFrac: number, vNom: number, kappa: number, tmaxMotor: number): MotorModel {
+    const ke = 1 / (kv * 0.10471975511965977);
+    return { ke, r: (ke * vNom * (1 - rpmFrac)) / (kappa * tmaxMotor) };
 }
 
 /** Throttle-curve output (0..1) that hovers at nominal voltage: u = (1/sqrt(TWR_local) - idle) / (1 - idle). */
@@ -545,19 +608,24 @@ export function hoverThrottle(sp: SimParams): number {
  * stick goes through the Sim's auto-throttle map instead of the curve: stick 0.5 is the hover of a
  * fresh pack (the Sim's default hoverThr), so a drained pack needs a little more.
  */
-export function hoverSolve(sp: SimParams, soc = 1): { motor: number; throttle: number; stick: number; volts: number } {
+export function hoverSolve(sp: SimParams, soc = 1): { motor: number; share: number; throttle: number; stick: number; volts: number } {
     const h = solveHover(sp, soc);
-    if (!(h.motor <= 1)) return { motor: NaN, throttle: NaN, stick: NaN, volts: h.volts };
+    if (!(h.motor <= 1)) return { motor: NaN, share: NaN, throttle: NaN, stick: NaN, volts: h.volts };
     const throttle = (h.motor - sp.idle) / (1 - sp.idle);
     let stick: number;
     if (sp.gravityMode === 'auto-throttle') {
         const fresh = soc === 1 ? h : solveHover(sp, 1);
         stick = autoThrottleStick(throttle, (fresh.motor - sp.idle) / (1 - sp.idle));
     } else stick = invertThrottle(throttle, sp.throttle);
-    return { motor: h.motor, throttle, stick, volts: h.volts };
+    return { motor: h.motor, share: h.share, throttle, stick, volts: h.volts };
 }
 
-function solveHover(sp: SimParams, soc: number): { motor: number; volts: number } {
+/**
+ * motor = the motor command (mixer output after idle) that hovers; share = the rotor speed then, as the Sim's motor state
+ * holds it (a share of omegaMaxPerVolt x the pack voltage). Without a motor model the two are the same; with one
+ * (MotorModel) the command is the duty that holds that speed against the prop's static torque.
+ */
+function solveHover(sp: SimParams, soc: number): { motor: number; share: number; volts: number } {
     const need = (sp.mass * sp.gravity) / 4; // N per motor
     const vOc = sp.cells * voc(soc);
     let v = vOc;
@@ -569,7 +637,11 @@ function solveHover(sp: SimParams, soc: number): { motor: number; volts: number 
         const current = (4 * sp.kappa * need * omega) / (sp.eta * v);
         v = vOc - current * sp.rPack;
     }
-    return { motor: w, volts: v };
+    const m = sp.motor;
+    if (!m) return { motor: w, share: w, volts: v };
+    // duty d with d V = Ke w + R Q / Ke, Q = kappa x the hover thrust (the prop's static torque)
+    const omega = w * sp.omegaMaxPerVolt * v;
+    return { motor: (m.ke * omega + (m.r * sp.kappa * need) / m.ke) / v, share: w, volts: v };
 }
 
 /**

@@ -202,7 +202,10 @@ describe('grader on scripted flights', () => {
     });
 
     it('turns down a teardrop and says why', () => {
-        const t = one(fly(forwardThen((p) => { p.rate('pitch', -250, p.pitch > -90 ? 0.6 : 0.0); return p.pitch <= -350; }, 0.5), 9000).tricks);
+        // a held stick (about 260 deg/s), the throttle cut once vertical. sim-core/0.8.0: the script's rate-chasing stick
+        // rang against the motor model's slower motors (20-23 ms, from the rotor inertia), and the motors swinging between
+        // idle and full made enough thrust to carry the path round a loop
+        const t = one(fly(forwardThen((p) => { p.stick(0, -0.6, p.pitch > -90 ? 0.6 : 0.0); return p.pitch <= -350; }, 0.5), 9000).tricks);
         expect(t.name).toBe('Nearly a power loop');
         expect(t.mark).toBeNull();
         expect(t.miss).toMatch(/^teardrop/);

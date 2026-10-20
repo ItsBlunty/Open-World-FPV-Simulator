@@ -108,7 +108,9 @@ export const S = {
     health: 70,
     // turtle mode (crash flip) active: the turtle switch was on when the craft armed (sim-core/0.4.0)
     flip: 71,
-    size: 72
+    // anti-gravity (sim-core/0.8.0): the last throttle and the two PT2 stages of its weighted change; throttle boost's PT1
+    agT: 72, ag1: 73, ag2: 74, tbL: 75,
+    size: 76
 } as const;
 
 /**
@@ -116,7 +118,7 @@ export const S = {
  * hashes stay what they were. dynI: the controller's I term; dynPrev: the smoothed slowest-motor rps; airAct: Betaflight's
  * airmode-activated latch (set once the throttle reaches 25 %, cleared on disarm).
  */
-export const S_DYN = { dynI: 72, dynPrev: 73, airAct: 74, size: 75 } as const;
+export const S_DYN = { dynI: 76, dynPrev: 77, airAct: 78, size: 79 } as const;
 
 const PT1 = (fc: number) => {
     const rc = 1 / (2 * Math.PI * fc);
@@ -133,6 +135,22 @@ const K_GYRO1 = PT1(250);
 const K_GYRO2 = PT1(500);
 const K_FF = PT1(30);
 const K_RELAX = PT1(15);
+// Betaflight's PT2 moves the cutoff so the cascade, not each stage, is -3 dB at fc (filter.c pt2FilterGain): 1 / sqrt(2^(1/2) - 1)
+const PT2_CUTOFF_CORRECTION = 1 / Math.sqrt(Math.SQRT2 - 1);
+const PT2 = (fc: number) => {
+    const rc = 1 / (2 * Math.PI * fc * PT2_CUTOFF_CORRECTION);
+    return DT / (rc + DT);
+};
+// Betaflight 4.5 anti-gravity, on by default (config/feature.c FEATURE_ANTI_GRAVITY): anti_gravity_gain 80,
+// anti_gravity_cutoff_hz 5, anti_gravity_p_gain 100 (pid.c resetPidProfile); ANTIGRAVITY_KI 0.34, ANTIGRAVITY_KP 0.0034
+// (pid.h); the P gain is anti_gravity_p_gain / 100 x ANTIGRAVITY_KP (pid_init.c)
+const AG_GAIN = 80;
+const AG_KI = 0.34;
+const AG_KP = (100 / 100) * 0.0034;
+const K_AG = PT2(5);
+// throttle boost: throttle_boost 5 x 0.1, throttle_boost_cutoff 15 Hz PT1 (pid.c resetPidProfile, pid_init.c)
+const TBOOST = 5 * 0.1;
+const K_TBOOST = PT1(15);
 // Betaflight's PT3 moves the cutoff so the cascade, not each stage, is -3 dB at fc: 1 / sqrt(2^(1/3) - 1)
 const PT3_CUTOFF_CORRECTION = 1.961459177;
 const PT3 = (fc: number) => {
@@ -252,7 +270,20 @@ const SMALL_ANGLE_COS = 0.9063077870366499;
  * One 7-inch prop; for the presets' props an estimate. Used for the reaction torque too [estimate].
  */
 const REVERSE_THRUST = 0.59 / 0.81;
-/** bisection halvings of the rotor inflow (inflowThrust): 2^-32 of the bracket, far below what changes the thrust [numerical choice] */
+/**
+ * Sim.bladeLoads (sim-core/0.8.0): the axial inflow ratio from which the blade-element model alone gives a prop's loads,
+ * blended in linearly from INFLOW_RATIO_MAX [numerical choice]; 4-point Gauss-Legendre stations over the blade; the
+ * section's stall from 15 to 25 deg angle of attack [estimate: thin cambered sections at the props' Reynolds numbers
+ * stall at about 10-15 deg]; a flat plate's normal-force coefficient at 90 deg, 1.2 [estimate: the textbook value for
+ * a low aspect-ratio plate].
+ */
+const INFLOW_BLADE_FULL = 0.45;
+const BLADE_GAUSS_X = [-0.8611363115940526, -0.3399810435848563, 0.3399810435848563, 0.8611363115940526];
+const BLADE_GAUSS_W = [0.3478548451374538, 0.6521451548625461, 0.6521451548625461, 0.3478548451374538];
+const BLADE_STALL = 15 * DEG2RAD;
+const BLADE_STALL_FULL = 25 * DEG2RAD;
+const BLADE_CD90 = 1.2;
+/** bisection halvings of the rotor inflow (closedLoads): 2^-32 of the bracket, far below what changes the thrust [numerical choice] */
 const INFLOW_STEPS = 32;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
 const CRASH_LIN_DAMP = 0.5; // 1/s horizontal, scraping and bouncing losses [estimate]
@@ -320,6 +351,8 @@ export class Sim {
      */
     readonly motorDir = new Float64Array([1, 1, 1, 1]);
     private thrust = new Float64Array(4);
+    /** the motor model's rotor speeds at the end of the tick, rad/s (stored into the state once the voltage is known) */
+    private omegaNext = new Float64Array(4);
     /** per-motor thrust share left by prop strikes this tick (1: free; exactly 1 without contacts) */
     private strike = new Float64Array(4);
     /** per-motor share of the blade-strike brake this tick (0: free; exactly 0 without contacts) */
@@ -623,9 +656,30 @@ export class Sim {
         // rate-loop feed-forward follows the stick setpoint; Betaflight 4.5 forces it to 0 on axes
         // under angle-mode control (horizon keeps it)
         const ffRP = mode !== 'angle';
-        const pidR = this.axisPid(0, spR, acroR, ffRP, gR, p.pid.roll, dynCi, armed, 500, kD1);
-        const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1);
-        const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1);
+        // anti-gravity (sim-core/0.8.0): the throttle-change signal the mixer filtered last tick, as Betaflight's
+        // pidController reads what its mixTable left (pid.c: antiGravityThrottleD x anti_gravity_gain)
+        const agD = s[S.ag2] * AG_GAIN;
+        const pidR = this.axisPid(0, spR, acroR, ffRP, gR, p.pid.roll, dynCi, armed, 500, kD1, agD);
+        const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1, agD);
+        const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1, 0);
+
+        // ---- anti-gravity's throttle filter and throttle boost (Betaflight 4.5 mixer.c mixTable, pid.c) ----
+        // the size of the throttle change per second, weighted to low throttle, then a PT2 at 5 Hz
+        // (pidUpdateAntiGravityThrottleFilter, on the throttle before boost and dynamic idle)
+        {
+            const inv = 1 - thr;
+            const prev = s[S.agT];
+            let dThr = (thr > prev ? thr - prev : prev - thr) * (1 / DT) * inv * inv;
+            if (thr > prev) dThr *= inv * 0.5;
+            s[S.agT] = thr;
+            s[S.ag1] += (dThr - s[S.ag1]) * K_AG;
+            s[S.ag2] += (s[S.ag1] - s[S.ag2]) * K_AG;
+            // throttle boost: throttle_boost / 10 x the throttle's change over a 15 Hz PT1, kept in 0..1
+            const lpf = s[S.tbL] + (thr - s[S.tbL]) * K_TBOOST;
+            s[S.tbL] = lpf;
+            thr += TBOOST * (thr - lpf);
+            thr = thr < 0 ? 0 : thr > 1 ? 1 : thr;
+        }
 
         // ---- motor range floor: the static idle, or dynamic idle ----
         let lo = p.idle;
@@ -789,7 +843,49 @@ export class Sim {
         const bvz = r02 * airX + r12 * airY + r22 * airZ;
 
         const inflow = p.inflow;
-        for (let i = 0; i < 4; i++) {
+        const mot = p.motor;
+        const omNew = this.omegaNext;
+        if (inflow && mot) {
+            // the motor and ESC model (sim-core/0.8.0, params.ts MotorModel): the loads at the rotor speed of the start of
+            // the tick, then each rotor's speed from J dw/dt = Ke i - Q with i = (d V - Ke w) / R
+            const kw = p.omegaMaxPerVolt * volt;
+            for (let i = 0; i < 4; i++) {
+                const w = s[S.m0 + i];
+                const om = w * kw;
+                const wa = w < 0 ? -w : w;
+                let T: number;
+                let Q: number;
+                if (om > 0) {
+                    T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz);
+                    Q = this.propQ;
+                } else {
+                    // backwards (turtle mode) or stopped: thrust from the rotor speed alone at REVERSE_THRUST, and the
+                    // static torque against the rotation
+                    T = -REVERSE_THRUST * tmax * wa * wa;
+                    Q = -p.kappa * tmax * wa * wa;
+                }
+                // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
+                T *= keep * strike[i];
+                const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
+                const tauE = mot.ke * amps;
+                let next = om + ((tauE - Q) * DT) / p.rotorInertia;
+                // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)
+                if (brake[i] > 0) next -= next * brake[i] * (DT / BRAKE_TAU);
+                omNew[i] = next;
+                th[i] = T;
+                tSum += T;
+                wSum += wa;
+                // r x (0, T, 0) = (-rz T, 0, rx T)
+                tauX += -mp[i * 3 + 2] * T;
+                tauZ += mp[i * 3] * T;
+                // the stator takes the motor's torque back: the prop's drag plus spinning the rotor up (J dw/dt)
+                tauY += p.motorYaw[i] * tauE;
+                // shaft power into the prop: negative while the air drives it (the ESC then charges the pack)
+                power += Q * om;
+            }
+        }
+        for (let i = 0; i < 4 && !(inflow && mot); i++) {
             const k = S.m0 + i;
             // the motor state is signed: below 0 the motor spins backwards (turtle mode), towards dir x command
             const dw = (dir[i] * out[i] - s[k]) * aa;
@@ -801,9 +897,8 @@ export class Sim {
             // backwards: thrust and reaction torque the other way, at REVERSE_THRUST of the forward value
             const T0 = w < 0 ? -REVERSE_THRUST * tmax * wa * wa : tmax * w * w;
             const Tc = T0 * keep * strike[i];
-            // rotor inflow (sim-core/0.6.0): a forward-spinning prop's thrust from the air through it; the reaction
-            // torque stays with the thrust the rotor makes at this speed in still air (Tc), as the power does below
-            const T = inflow && w > 0 ? this.inflowThrust(inflow, i, w * p.omegaMaxPerVolt * volt, bvx, bvy, bvz, wx, wy, wz) * keep * strike[i] : Tc;
+            // thrust from the rotor speed alone: the classic model (the rotor inflow model runs the motor model above)
+            const T = Tc;
             th[i] = T;
             tSum += T;
             wSum += wa;
@@ -825,7 +920,9 @@ export class Sim {
         if (this.perturb) tSum += this.perturb() * 1e-9;
 
         // ---- battery ----
-        const amps = volt > 0.1 ? power / (p.eta * volt) : 0;
+        // shaft power over the drive's efficiency; power the air puts back through the braking ESC charges the pack, less
+        // the same losses (the classic model's power is never negative)
+        const amps = volt > 0.1 ? (power >= 0 ? power / (p.eta * volt) : (power * p.eta) / volt) : 0;
         let soc = s[S.soc];
         if (p.batteryDrain) {
             soc -= (amps * DT) / p.capacityAs;
@@ -834,6 +931,12 @@ export class Sim {
         }
         s[S.amps] = amps;
         s[S.volt] = p.cells * cellVoc(soc) - amps * p.rPack;
+        if (inflow && mot) {
+            // the motor state stays a share of omegaMaxPerVolt x the pack voltage (what the game and the sound read), so
+            // the new rotor speeds are stored against the new voltage
+            const kw = p.omegaMaxPerVolt * (s[S.volt] > 0.1 ? s[S.volt] : 0.1);
+            for (let i = 0; i < 4; i++) s[S.m0 + i] = omNew[i] / kw;
+        }
 
         // ---- forces (world) ----
         const speed = Math.sqrt(airX * airX + airY * airY + airZ * airZ);
@@ -929,20 +1032,26 @@ export class Sim {
     }
 
     /**
-     * Thrust of forward-spinning prop i at rotor speed omega (rad/s) from the air through it (sim-core/0.6.0,
-     * physics-review G1), N. The air at the hub, body frame: the airspeed (bvx, bvy, bvz) plus the body rotation's
-     * w x r at the motor, so a rolling craft's dropping side meets more air and pushes back (rotor damping). Its part
-     * along the thrust axis is the climb velocity, the rest the in-plane velocity. Normalised by the tip speed
-     * U = omega R: climb ratio lc, advance ratio mu (held within INFLOW_RATIO_MAX). Blade-element thrust (Gill and
-     * D'Andrea 2019 eq. 27 with c_l0 = 0, params.ts RotorInflow):
+     * Thrust (returned, N) and aerodynamic torque (this.propQ, N m, positive against the rotation) of forward-spinning
+     * prop i at rotor speed omega (rad/s), from the air through it (thrust sim-core/0.6.0, physics-review G1; torque and
+     * the range past the edge sim-core/0.8.0). The air at the hub, body frame: the airspeed (bvx, bvy, bvz) plus the body
+     * rotation's w x r at the motor, so a rolling craft's dropping side meets more air and pushes back (rotor damping).
+     * Its part along the thrust axis is the climb velocity, the rest the in-plane velocity. Normalised by the tip speed
+     * U = omega R: climb ratio lc, advance ratio mu. Blade-element thrust and torque (Gill and D'Andrea 2019 eq. 27 and
+     * eq. 37-38 with c_l0 = 0, params.ts RotorInflow), lambda = lc + li:
      *   C_T = a (1 - d) (theta - lc - li) + a (1 - d) theta mu^2 / (2 d),
+     *   C_Q = a (1 - d) lambda (theta - lambda) + (1 - d) sigma (c_d0 (1 + d + d^2) / 3 + c_da (lambda - theta)^2
+     *         + mu^2 (c_d0 d + c_da theta^2) / (2 d)),
      * and Glauert's momentum theory for the induced inflow li (as in NeuroBEM, Bauersfeld et al. 2021, eq. 5):
      *   C_T = 4 li sqrt(mu^2 + (lc + li)^2),
-     * solved together by bisection on the normal working state's branch (lc + li >= 0: the air goes down through
-     * the disk), INFLOW_STEPS halvings. T = 1/2 rho A U^2 C_T; at rest it is the preset's static thrust. Checked on
-     * NeuroBEM's 75 min of measured flight (docs/physics-review.md G1). Only + - * / and sqrt.
+     * solved together by bisection on the normal working state's branch (lc + li >= 0: the air goes down through the
+     * disk), INFLOW_STEPS halvings; past zero thrust (C_T 0 at li 0) the induced inflow is taken as 0.
+     * T = 1/2 rho A U^2 C_T, Q = 1/2 rho A U^2 R C_Q; at rest they are the preset's static thrust and kappa x it. The
+     * advance ratio is held at INFLOW_RATIO_MAX (the crossflow's lift comes from the blades turning; on a slow prop the
+     * reversed flow over the retreating blades cancels it). Past INFLOW_RATIO_MAX along the axis (a slow prop in a fast
+     * axial airflow) the loads come from bladeLoads instead, blended in up to INFLOW_BLADE_FULL.
      */
-    private inflowThrust(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
+    private propLoads(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
         const mp = this.p.motorPos;
         const mx = mp[i * 3], mz = mp[i * 3 + 2];
         // w x (mx, 0, mz) = (wy mz, wz mx - wx mz, -wy mx)
@@ -950,12 +1059,28 @@ export class Sim {
         const uy = bvy + wz * mx - wx * mz;
         const uz = bvz - wy * mx;
         const tip = omega * f.radius;
-        let lc = uy / tip;
-        lc = lc < -INFLOW_RATIO_MAX ? -INFLOW_RATIO_MAX : lc > INFLOW_RATIO_MAX ? INFLOW_RATIO_MAX : lc;
-        let mu = Math.sqrt(ux * ux + uz * uz) / tip;
+        const along = (uy < 0 ? -uy : uy) / tip;
+        if (along >= INFLOW_BLADE_FULL) return this.bladeLoads(f, omega, uy);
+        const t = this.closedLoads(f, tip, uy, Math.sqrt(ux * ux + uz * uz));
+        if (along <= INFLOW_RATIO_MAX) return t;
+        const q = this.propQ;
+        const b = (along - INFLOW_RATIO_MAX) / (INFLOW_BLADE_FULL - INFLOW_RATIO_MAX);
+        const tb = this.bladeLoads(f, omega, uy);
+        this.propQ = q + (this.propQ - q) * b;
+        return t + (tb - t) * b;
+    }
+
+    /**
+     * Gill and D'Andrea's closed form (the documentation of propLoads) at tip speed `tip`, axial airflow uy and in-plane
+     * airflow `side`, m/s: thrust returned, torque in this.propQ.
+     */
+    private closedLoads(f: RotorInflow, tip: number, uy: number, side: number): number {
+        const lc = uy / tip;
+        let mu = side / tip;
         if (mu > INFLOW_RATIO_MAX) mu = INFLOW_RATIO_MAX;
-        const ad = f.a * (1 - INFLOW_DELTA);
-        const ct0 = ad * (f.theta - lc) + (ad * f.theta * mu * mu) / (2 * INFLOW_DELTA); // C_T = ct0 - ad li
+        const d = INFLOW_DELTA;
+        const ad = f.a * (1 - d);
+        const ct0 = ad * (f.theta - lc) + (ad * f.theta * mu * mu) / (2 * d); // C_T = ct0 - ad li
         const mu2 = mu * mu;
         // the branch starts where the total inflow lc + li is 0; past ct0 / ad the blades make no thrust (C_T 0) while
         // the momentum side is >= 0, so the root lies between (when even the start is past it, between 0 and the start)
@@ -967,9 +1092,67 @@ export class Sim {
             const s = lc + li;
             if (4 * li * Math.sqrt(mu2 + s * s) > ct0 - ad * li) hi = li; else lo = li;
         }
-        const ct = ct0 - ad * ((lo + hi) * 0.5);
-        return 0.5 * this.p.rho * f.area * tip * tip * ct;
+        const li = (lo + hi) * 0.5;
+        const ct = ct0 - ad * li;
+        const lam = lc + li;
+        const dl = lam - f.theta;
+        const cq = ad * lam * (f.theta - lam)
+            + (1 - d) * f.sigma * ((f.cd0 * (1 + d + d * d)) / 3 + f.cdAlpha * dl * dl + (mu2 * (f.cd0 * d + f.cdAlpha * f.theta * f.theta)) / (2 * d));
+        const q = 0.5 * this.p.rho * f.area * tip * tip;
+        this.propQ = q * f.radius * cq;
+        return q * ct;
     }
+
+    /**
+     * A slow prop in a fast axial airflow (sim-core/0.8.0, physics-review F9): blade-element theory without the small-angle
+     * step, as wind-turbine codes run it, over BLADE_GAUSS stations of the same blade (theta = theta_tip / r, N_b c =
+     * pi R sigma / r): at radius r the blade meets the air at W^2 = (omega R r)^2 + uy^2 and the angle phi = atan2(uy,
+     * omega R r), so its angle of attack is alpha = theta - phi. Its section is the closed form's below stall (c_l =
+     * c_l,alpha alpha, c_d = c_d0 + c_d,alpha alpha^2) and a flat plate past it (normal force BLADE_CD90 sin alpha),
+     * blended between BLADE_STALL and BLADE_STALL_FULL. Thrust dT = 1/2 rho W^2 N_b c (c_l cos phi - c_d sin phi) R dr,
+     * torque dQ = 1/2 rho W^2 N_b c (c_l sin phi + c_d cos phi) R^2 r dr; no induced inflow (the airflow far outruns it)
+     * and no crossflow. A nearly stopped prop is then a drag of about BLADE_CD90 x its blade area, and a faster one
+     * passes through the windmill-brake state, where more speed gives more drag, before it pushes again. Thrust
+     * returned, torque in this.propQ.
+     */
+    private bladeLoads(f: RotorInflow, omega: number, uy: number): number {
+        const d = INFLOW_DELTA;
+        const R = f.radius;
+        const half = 0.5 * this.p.rho;
+        let t = 0, q = 0;
+        for (let k = 0; k < 4; k++) {
+            const r = ((1 - d) / 2) * BLADE_GAUSS_X[k] + (1 + d) / 2;
+            const wr = ((1 - d) / 2) * BLADE_GAUSS_W[k];
+            const ut = omega * R * r;
+            const w2 = ut * ut + uy * uy;
+            const phi = datan2(uy, ut);
+            const al = f.theta / r - phi;
+            const x = al < 0 ? -al : al;
+            let cl: number, cd: number;
+            const clA = (f.a / f.sigma) * al, cdA = f.cd0 + f.cdAlpha * al * al;
+            if (x <= BLADE_STALL) {
+                cl = clA; cd = cdA;
+            } else {
+                const sa = dsin(al), ca = dcos(al);
+                const clP = BLADE_CD90 * sa * ca, cdP = f.cd0 + BLADE_CD90 * sa * sa;
+                if (x >= BLADE_STALL_FULL) {
+                    cl = clP; cd = cdP;
+                } else {
+                    const g = (x - BLADE_STALL) / (BLADE_STALL_FULL - BLADE_STALL);
+                    cl = clA + (clP - clA) * g; cd = cdA + (cdP - cdA) * g;
+                }
+            }
+            const sp = dsin(phi), cp = dcos(phi);
+            const k0 = half * w2 * ((Math.PI * R * f.sigma) / r) * R * wr;
+            t += k0 * (cl * cp - cd * sp);
+            q += k0 * (cl * sp + cd * cp) * R * r;
+        }
+        this.propQ = q;
+        return t;
+    }
+
+    /** the aerodynamic torque of the last propLoads call, N m (positive against the rotation) */
+    private propQ = 0;
 
     /**
      * Motor output at which the craft hovers (fresh pack; session.ts sets hoverSolve().motor).
@@ -1045,7 +1228,7 @@ export class Sim {
      * sp = the setpoint the loop tracks (after self-level); ffIn = the stick setpoint whose
      * derivative drives the feed-forward (0 output when ffOn is false); dynCi = I-term windup gain.
      */
-    private axisPid(ax: number, sp: number, ffIn: number, ffOn: boolean, gyro: number, g: number[], dynCi: number, armed: boolean, limit: number, kD1: number): number {
+    private axisPid(ax: number, sp: number, ffIn: number, ffOn: boolean, gyro: number, g: number[], dynCi: number, armed: boolean, limit: number, kD1: number, agD: number): number {
         const s = this.s;
         const iK = S.iR + ax, dK = S.dfR + ax, fK = S.ffR + ax, spK = S.spR + ax;
         const e = sp - gyro;
@@ -1077,13 +1260,21 @@ export class Sim {
             const relax = 1 - (hp < 0 ? -hp : hp) / RELAX_THRESHOLD;
             iErr = e * (relax > 0 ? relax : 0);
         }
+        // anti-gravity (Betaflight 4.5 pid.c, from its formulas; agD is 0 on yaw): the I gain gains
+        // agD x ANTIGRAVITY_KI ("itermAccelerator"), and P is boosted by agD x anti_gravity_p_gain / 100 x ANTIGRAVITY_KP,
+        // attenuated above 50 deg/s of setpoint
         if (armed && dynCi > 0) {
-            let I = s[iK] + g[1] * I_SCALE * dynCi * iErr * DT;
+            let I = s[iK] + (g[1] * I_SCALE + agD * AG_KI) * dynCi * iErr * DT;
             I = I < -ITERM_LIMIT ? -ITERM_LIMIT : I > ITERM_LIMIT ? ITERM_LIMIT : I;
             s[iK] = I;
         }
         if (!armed) s[iK] = 0;
-        let sum = g[0] * P_SCALE * e + s[iK] + dTerm + ff;
+        let pBoost = 1;
+        if (agD > 0) {
+            const att = (sp < 0 ? -sp : sp) / 50;
+            pBoost = 1 + (agD / (att > 1 ? att : 1)) * AG_KP;
+        }
+        let sum = g[0] * P_SCALE * e * pBoost + s[iK] + dTerm + ff;
         sum = sum < -limit ? -limit : sum > limit ? limit : sum;
         return sum / 1000;
     }

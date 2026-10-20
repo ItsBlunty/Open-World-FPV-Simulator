@@ -1,0 +1,17 @@
+samples 449714, used (|w| < 3 rad/s) 404037; thrust k 1.514e-06 N/(rad/s)^2
+thrust: best pitch 4.25 in (factor 1.025), RMSE 0.713 N; quadratic 1.173 N
+spin directions [1, -1, -1, 1]; static model: kq 2.678e-09 N m/(rad/s)^2, rotor inertia 5.83e-07 kg m^2, bias -1.53e-06 N m
+  kappa = kq / k = 1.77 mm (torque / thrust at rest; the UIUC three-blade props: 0.105 x 127 mm = 13.3 mm)
+yaw torque RMSE, torque from rotor speed alone: 0.00545 N m (std of the measured yaw torque 0.00577)
+eq. 37-38, solidity 0.092: c_d,alpha -2.67; yaw torque RMSE 0.00546 N m (scale fitted 0.973, rotor inertia 5.79e-07)
+   climb > 3 m/s    n  34949: RMSE inflow 0.00768, rotor speed alone 0.00772
+   sink > 3 m/s     n  14342: RMSE inflow 0.01536, rotor speed alone 0.01527
+   forward > 8 m/s  n  55228: RMSE inflow 0.00770, rotor speed alone 0.00768
+eq. 37-38, solidity 0.115: c_d,alpha -2.28; yaw torque RMSE 0.00546 N m (scale fitted 0.968, rotor inertia 5.78e-07)
+   climb > 3 m/s    n  34949: RMSE inflow 0.00768, rotor speed alone 0.00772
+   sink > 3 m/s     n  14342: RMSE inflow 0.01537, rotor speed alone 0.01527
+   forward > 8 m/s  n  55228: RMSE inflow 0.00771, rotor speed alone 0.00768
+eq. 37-38, solidity 0.14: c_d,alpha -2.00; yaw torque RMSE 0.00546 N m (scale fitted 0.963, rotor inertia 5.78e-07)
+   climb > 3 m/s    n  34949: RMSE inflow 0.00768, rotor speed alone 0.00772
+   sink > 3 m/s     n  14342: RMSE inflow 0.01539, rotor speed alone 0.01527
+   forward > 8 m/s  n  55228: RMSE inflow 0.00771, rotor speed alone 0.00768
