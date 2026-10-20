@@ -237,3 +237,13 @@ the benches. 24 carts now. Test: no cart, vendor or umbrella over a building foo
 placement), nothing in a ring just outside each umbrella's rim (trees, walls), three carts in the garden. Map v16
 `27e377ab…` (436 110 triangles), traffic self-test `d31e59ea…`; `pnpm test` 63 files, 557 tests pass. Looked at in the
 browser: the garden's three stalls, a hot dog cart on a plaza's edge.
+
+## 1v. Contact queries against traffic: one scan a tick (2026-10-20)
+
+CI failed on the food-carts and Duga pushes: `train.test.ts` "is the same flight beside the train twice" timed out at
+120 s (52 s on this PC; the whole file was already 114 s on CI before the carts). Profiled (node inspector, 20 s of sim
+with the quad armed on the park pad): 64 % of the time in `TrafficWorld.moversNear`, which tested every car, person
+and vendor against each of the craft's ~20 contact and sweep asks a tick, so every mover added (trailers, vendors)
+made an armed quad dearer to simulate. Now the first ask of a tick scans every mover against a box 8 m bigger and the
+tick's later asks inside it test only those, in index order, so the same movers are found and nothing simulated changes
+(every pinned hash and replay test passes unchanged). 20 s armed: 4.9 s -> 1.2 s; the test 52 s -> 13 s, the file 23 s.

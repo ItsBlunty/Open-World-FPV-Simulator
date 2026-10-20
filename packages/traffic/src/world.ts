@@ -15,6 +15,8 @@ import type { Place } from './route';
 /** Conservative-advancement steps per sphere and shape in sweep(); a hit is closer than SWEEP_EPS, m [numerical choices] */
 const SWEEP_STEPS = 32;
 const SWEEP_EPS = 1e-4;
+/** how much bigger than the first ask of a tick moversNear's box is, m: the craft's spheres and its sweep over one tick fit in it */
+const NEAR_CACHE = 8;
 
 /** A closest-surface answer: signed distance from the point (negative inside) and the outward unit normal. */
 export interface Near {
@@ -62,6 +64,10 @@ export class TrafficWorld implements ContactWorld {
     private readonly stampT1: Float64Array;
     private readonly near: Near = { d: 0, nx: 0, ny: 0, nz: 0 };
     private readonly hits: number[] = [];
+    /** moversNear's box this tick and the movers that may reach into it */
+    private readonly cache = new Float64Array(6);
+    private cacheTick = -1;
+    private readonly cached: number[] = [];
 
     constructor(inner: ContactWorld, model: TrafficModel) {
         this.inner = inner;
@@ -98,27 +104,40 @@ export class TrafficWorld implements ContactWorld {
         this.placed = this.tick;
     }
 
-    /** The movers whose shapes may reach into the box [x0, x1] x [y0, y1] x [z0, z1] grown by pad (into this.hits). */
+    /**
+     * The movers whose shapes may reach into the box [x0, x1] x [y0, y1] x [z0, z1] grown by pad (into this.hits), in
+     * index order. The craft asks about 20 times a tick, all near it: the first ask in a tick scans every mover against
+     * a box NEAR_CACHE m bigger, and later asks inside that box test only those, so they find exactly the same movers.
+     */
     private moversNear(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, pad: number): number[] {
         this.placeAll();
+        const c = this.cache;
+        const bx0 = x0 - pad, by0 = y0 - pad, bz0 = z0 - pad, bx1 = x1 + pad, by1 = y1 + pad, bz1 = z1 + pad;
+        if (this.cacheTick !== this.tick || bx0 < c[0] || by0 < c[1] || bz0 < c[2] || bx1 > c[3] || by1 > c[4] || bz1 > c[5]) {
+            c[0] = bx0 - NEAR_CACHE; c[1] = by0 - NEAR_CACHE; c[2] = bz0 - NEAR_CACHE;
+            c[3] = bx1 + NEAR_CACHE; c[4] = by1 + NEAR_CACHE; c[5] = bz1 + NEAR_CACHE;
+            this.cacheTick = this.tick;
+            this.cached.length = 0;
+            for (let i = 0; i < this.p0.length; i++) if (this.reaches(i, c[0], c[1], c[2], c[3], c[4], c[5])) this.cached.push(i);
+        }
         const h = this.hits;
         h.length = 0;
-        const movers = this.model.movers;
-        for (let i = 0; i < this.p0.length; i++) {
-            const sh = movers[i].shape;
-            const top = sh ? sh.top : PERSON.y1 + PERSON.r;
-            const q = this.p0[i];
-            if (y1 < q.y - pad || y0 > q.y + top + pad) continue;
-            let p = (sh ? sh.reach[0] : PERSON.r) + pad;
-            let near = !(x1 < q.x - p || x0 > q.x + p || z1 < q.z - p || z0 > q.z + p);
-            if (!near && sh?.trailer) {
-                const t = this.t0[i];
-                p = sh.reach[1] + pad;
-                near = !(x1 < t.x - p || x0 > t.x + p || z1 < t.z - p || z0 > t.z + p);
-            }
-            if (near) h.push(i);
-        }
+        for (const i of this.cached) if (this.reaches(i, bx0, by0, bz0, bx1, by1, bz1)) h.push(i);
         return h;
+    }
+
+    /** May mover i's shape (or its trailer) reach into the box [x0, x1] x [y0, y1] x [z0, z1]? */
+    private reaches(i: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
+        const sh = this.model.movers[i].shape;
+        const top = sh ? sh.top : PERSON.y1 + PERSON.r;
+        const q = this.p0[i];
+        if (y1 < q.y || y0 > q.y + top) return false;
+        let p = sh ? sh.reach[0] : PERSON.r;
+        if (!(x1 < q.x - p || x0 > q.x + p || z1 < q.z - p || z0 > q.z + p)) return true;
+        if (!sh?.trailer) return false;
+        const t = this.t0[i];
+        p = sh.reach[1];
+        return !(x1 < t.x - p || x0 > t.x + p || z1 < t.z - p || z0 > t.z + p);
     }
 
     /** Part `part` of mover i (a vehicle: its box `part`; a person: 0) nearest the point, into this.near; false: no such part. */
