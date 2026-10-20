@@ -16,6 +16,7 @@ import type { WoodSpot } from './woods';
 import { CITY_EDGE, YARD_ROAD, links } from './links';
 import { industrial } from './yard';
 import { timeTrials } from './trials';
+import { vendors } from './vendors';
 
 export const MAP_ID = 'mixed-1';
 /**
@@ -30,9 +31,10 @@ export const MAP_ID = 'mixed-1';
  * 12: time trials: a start arch, landing pad and checkered flag for each of three courses (owner, 2026-10-19);
  * 13: the time trial pads 4.6 m square, filling their arches (owner, 2026-10-19);
  * 14: no faces flickering in each other (owner, 2026-10-19): stacked containers kept out of their neighbours, the
- * warehouse trusses and workshop beams end inside the walls, the site's plank decks 1 cm up, the driveway's slabs 5 mm up
+ * warehouse trusses and workshop beams end inside the walls, the site's plank decks 1 cm up, the driveway's slabs 5 mm up;
+ * 15: street vendors' carts on the sidewalks and in the park (owner, 2026-10-20)
  */
-export const MAP_VERSION = 14;
+export const MAP_VERSION = 15;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -59,6 +61,8 @@ export function buildFirstMap(): Level {
     goldenProps(b, hideouts, [{ area: 'Industrial yard', spots: yardSpots }, { area: 'Forest', spots: woodSpots }]);
     // (map v12) no random choices: the rest of the map is drawn as before
     b.trials.push(...timeTrials(b));
+    // (map v15) last, from their own Rng: the rest of the map is drawn as before
+    b.vendors.push(...vendors(b, new Rng(12), hideouts.shelters));
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });

@@ -87,10 +87,10 @@ export function runSelftest(preset: PresetJson, level: Level, overrides: ParamOv
 }
 
 /** The hash Node computes for the traffic (test/selftest.test.ts); the page shows whether its own matches. */
-export const TRAFFIC_HASH = '8afde0e9d47bcf2b73ab7ab1f8ee73b086b37feeb0aba8fa6c624545d721c13c';
+export const TRAFFIC_HASH = '9fba44b4615239a8ff766ab1caffdd84c44fe08cab86c13de218e092cdce7553';
 
 /**
- * Traffic determinism: every mover's place (x, y, z, heading) at a tick every 0.5 s for 2 min, for the loops
+ * Traffic determinism: every mover's place (x, y, z, heading; a semi's trailer's too) at a tick every 0.5 s for 2 min, for the loops
  * and for the signalled network (and it again with the trains running, people taking them) (cars, people and lamps), and the network again after going back to 75 s (its
  * checkpoint restart), then both trains' five vehicles (place and frame) at the same ticks, up its climb, and into the city station (from 200 s). The
  * flight above has no traffic; this checks the traffic engines' arithmetic.
@@ -112,6 +112,12 @@ export function runTrafficSelftest(level: Level): string {
                 t.place(i, tick, p);
                 buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; buf[3] = p.hx; buf[4] = p.hz;
                 h.update(bytes);
+                // (traffic v9) a semi's trailer
+                if (t.movers[i].shape?.trailer) {
+                    t.trailer!(i, tick, p);
+                    buf[0] = p.x; buf[1] = p.y; buf[2] = p.z; buf[3] = p.hx; buf[4] = p.hz;
+                    h.update(bytes);
+                }
             }
             for (let k = 0; k < t.signals.length; k++) {
                 lamp[0] = LAMPS[t.lamp(k, tick)];

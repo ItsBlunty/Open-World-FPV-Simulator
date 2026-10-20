@@ -341,4 +341,33 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '6923dfa147ed3fb2accead42ea4bf783865579d665bfc0f824243a812885e743';
+const PINNED = 'bb94691a5ea8dacadbaed42e8a36685c904ccf60f4b357fc5ae5ea859061370b';
+
+describe('street vendors (map v15)', () => {
+    const level = buildFirstMap();
+    const world = new MeshContactWorld(level.collision);
+    const out = { x: 0, y: 0, z: 0 };
+
+    it('stand behind their carts, clear of the level, with room to walk past in front', () => {
+        const kinds = new Set(level.vendors.map((v) => v.kind));
+        console.log(`vendors: ${level.vendors.length} (${level.vendors.map((v) => `${v.name} at ${v.cx.toFixed(1)}, ${v.cz.toFixed(1)}`).join('; ')})`);
+        expect(level.vendors.length).toBeGreaterThanOrEqual(9);
+        expect(kinds.size).toBe(5);
+        for (const v of level.vendors) {
+            // the vendor: a person's capsule (0.3 m round, 1.75 m tall, traffic PERSON) stands clear
+            for (const y of [0.32, 0.9, 1.45]) expect(world.querySphere(v.x, v.y + y, v.z, 0.28, out), `${v.name} at ${v.x}, ${v.z}`).toBe(false);
+            // the cart in front of them (its back face; a sphere wholly inside a box touches no face)
+            expect(world.querySphere(v.cx - v.nx * v.halfD, v.y + 0.6, v.cz - v.nz * v.halfD, 0.1, out), `${v.name}'s cart`).toBe(true);
+            // in front of the cart, where customers stand and people walk past: clear from the ground to over a head
+            const fx = v.cx + v.nx * (v.halfD + 0.45), fz = v.cz + v.nz * (v.halfD + 0.45);
+            for (const y of [0.4, 1.0, 1.7]) expect(world.querySphere(fx, v.y + y, fz, 0.3, out), `in front of ${v.name}'s cart`).toBe(false);
+        }
+        // the sidewalk carts stand off the walking line (people fill the first 1.9 m from the kerb)
+        for (const v of level.vendors) {
+            const blk = level.blocks.find((b) => v.cx > b.x0 && v.cx < b.x1 && v.cz > b.z0 && v.cz < b.z1);
+            if (!blk) continue;
+            const kerb = Math.min(v.cx - blk.x0, blk.x1 - v.cx, v.cz - blk.z0, blk.z1 - v.cz);
+            expect(kerb - v.halfD - 0.07, `${v.name} at ${v.cx}, ${v.cz}`).toBeGreaterThanOrEqual(1.9);
+        }
+    });
+});

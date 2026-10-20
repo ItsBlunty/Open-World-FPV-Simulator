@@ -6,6 +6,7 @@
 // Either way a mover's place is a function of the sim tick alone, so replays stay exact.
 
 import type { Place } from './route';
+import type { VehicleShape } from './vehicles';
 
 /** One 1 ms sim tick, s (sim-core's fixed step) */
 export const DT = 0.001;
@@ -13,7 +14,8 @@ export const DT = 0.001;
 /** Bumped with any change that moves a mover or changes a shape: part of the world hash (replays). */
 /** 7: people take the train at the city station, and people out of sight are not solid (map v9) */
 /** 8: people keep apart (follow, wait for each other at meeting paths), a spot each at the kerb when waiting to cross */
-export const TRAFFIC_VERSION = 8;
+/** 9: cars, saloons, SUVs, vans, pickups with loads and semis with trailers, each its own shape (vehicles.ts); vendors (owner 2026-10-20) */
+export const TRAFFIC_VERSION = 9;
 
 export interface TrafficConfig {
     cars: boolean;
@@ -24,11 +26,8 @@ export interface TrafficConfig {
     train?: boolean;
 }
 
-/** Toy car body and cabin, m: half length (along travel), half width, bottom and top, and the cabin's offset back [estimates]. */
-export const CAR = {
-    bodyHalfL: 2.0, bodyHalfW: 0.95, bodyY0: 0.12, bodyY1: 1.0,
-    cabHalfL: 1.1, cabHalfW: 0.8, cabY0: 1.0, cabY1: 1.55, cabBack: 0.25
-} as const;
+/** The toy car's body and cabin (vehicles.ts has every kind of vehicle). */
+export { CAR } from './vehicles';
 /** A person: a vertical capsule, radius and the ends of its axis above the ground, m (1.75 m tall) [estimates]. */
 export const PERSON = { r: 0.3, y0: 0.3, y1: 1.45 } as const;
 
@@ -40,6 +39,10 @@ export interface Mover {
     v: number;
     /** a number for its looks (colour, hat): the renderer's, never the physics' */
     look: number;
+    /** a vehicle's shape (cars only): its solid boxes, length, trailer */
+    shape?: VehicleShape;
+    /** a person who stands at a street vendor's cart and sells (never walks) */
+    vendor?: boolean;
 }
 
 /** A fixed solid box of the traffic hardware, axis-aligned, m. */
@@ -76,6 +79,8 @@ export interface TrafficModel {
     at(tick: number): void;
     /** Where mover i is at `tick` (this tick or the next, after at(); the renderer may pass fractions between). */
     place(i: number, tick: number, out: Place): Place;
+    /** Where semi i's trailer is at `tick` (its frame: at the kingpin, heading towards the tractor), as place(). */
+    trailer?(i: number, tick: number, out: Place): Place;
     /** Every fixed box (signal poles, arms, heads), for the renderer. */
     allStatics(): readonly StaticBox[];
     /** The fixed boxes that may be within `reach` of (x, z). */

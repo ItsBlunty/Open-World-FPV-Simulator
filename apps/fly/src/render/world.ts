@@ -60,7 +60,13 @@ const COLOURS: Record<Material, number> = {
     'container-d': 0x3d6b4a,
     'container-e': 0xd6d3cb,
     'foliage-dark': 0x2c5230,
-    'foliage-light': 0x5e8a36
+    'foliage-light': 0x5e8a36,
+    // map v15: street vendors' stainless carts and their umbrellas
+    cart: 0xc7cdd3,
+    'awning-red': 0xd8322a,
+    'awning-yellow': 0xf3c623,
+    'awning-blue': 0x2f6fd0,
+    'awning-green': 0x2f9b57
 };
 
 /**
@@ -76,7 +82,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper', 'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {

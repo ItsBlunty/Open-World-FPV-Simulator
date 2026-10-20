@@ -7,6 +7,7 @@
 
 import { sha256Hex } from '@owfpv/sim-core';
 import type { TimeTrial } from './trials';
+import type { Vendor } from './vendors';
 
 export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
@@ -22,7 +23,9 @@ export const MATERIALS = [
     // the railway (map v7): track ballast, steel rails, wooden sleepers (paint), the tunnel's stonework, goods wagons
     'ballast', 'rail', 'sleeper', 'stone', 'wagon',
     // map v10: two more container colours, conifer needles and a lighter broadleaf green
-    'container-d', 'container-e', 'foliage-dark', 'foliage-light'
+    'container-d', 'container-e', 'foliage-dark', 'foliage-light',
+    // map v15: street vendors' carts (stainless steel) and their umbrellas' colours
+    'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -134,6 +137,8 @@ export interface Level {
     railway: Railway | null;
     /** time trial courses (map v12; their gates are not part of the collision, nor of its hash: the arches and pads are) */
     trials: TimeTrial[];
+    /** street vendors (map v15; who sells and their signs are not part of the collision, nor of its hash: the carts are) */
+    vendors: Vendor[];
 }
 
 /**
@@ -204,6 +209,7 @@ export class LevelBuilder {
     readonly collectibles: Collectible[] = [];
     railway: Railway | null = null;
     readonly trials: TimeTrial[] = [];
+    readonly vendors: Vendor[] = [];
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -417,7 +423,7 @@ export class LevelBuilder {
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
             buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway,
-            trials: this.trials.slice() };
+            trials: this.trials.slice(), vendors: this.vendors.slice() };
     }
 }
 

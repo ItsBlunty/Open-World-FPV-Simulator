@@ -140,3 +140,67 @@ in 10 min 1229 (were 1311); cars unchanged (mean 1.81 m/s, 0 overlaps, 0 red run
 
 **Left open:** walkers still pass through people standing (waiting at a crossing or on the platform) and briefly
 through each other at corners; no sidestepping; the platform's waiting spots unchanged.
+
+## 1t. Vehicle variety, pickups, semis, street vendors (owner, 2026-10-20): traffic v9, map v15, built, waiting for the owner
+
+**Owner's ask:** "add some variety to the cars other than color, and lets add some pickup trucks, and some semi trucks.
+The pickup trucks should sometimes have things in the back that people are hauling. The semi trucks should sometimes be
+open in the back and sometimes have stuff in them when open. Add some vendors around the city selling hot dogs and
+similar items."
+
+**Vehicles (`packages/traffic/src/vehicles.ts`).** Each vehicle is a list of solid boxes in its frame; the collision
+(`world.ts`) takes those boxes and the renderer draws them, so what is drawn is what the quad hits (wheels, lamps,
+windows, roofs, riders are drawn only, inside or against the boxes). Kinds, out of 100: the old toy car 26, saloon 20
+(4.8 m), SUV 18 (4.6 m, glass to the tail), high-roof van 9 (5.4 m), crew-cab pickup 17 (5.9 m, bed floor 0.92 m up),
+semi 10. Sizes are typical ones, marked [estimate] in the code, except the US trailer limits (23 CFR 658: 102 in wide,
+48 / 53 ft; 13 ft 6 in high is the usual state limit).
+- *Pickup loads* (35 % empty): moving boxes; 12 ft lumber over the dropped tailgate with a red flag; a sofa; a fridge
+  and a box; small square hay bales stacked three layers.
+- *Semis:* a day-cab tractor (pink, teal...: the candy colours) and a trailer: 53 ft box van shut (30 %), open with
+  pallets (20 %) or open and empty (10 %); 28 ft pup shut or open with pallets (10 % each); 48 ft flatbed with lumber
+  bundles or steel beams (10 % each). Open doors are swung right round and latched against the sides (as drivers do
+  to drive with them open), with lock bars drawn on them. Pallets (48 x 40 in) fill from the front wall, 2 rows to a
+  full trailer, 1.0-1.6 m of boxes, wrapped goods or bottled water each. The box van's floor is 1.27 m up and there is
+  room under it between the landing gear and the axles: a quad can fly under a trailer, and into an open one.
+- *Trailer kinematics (a design choice, tell the owner):* the kingpin rides on the tractor 2.1 m behind its middle,
+  the trailer's axles stay on the lane line 12.2 m behind it (a 53 ft van), as a steered-axle trailer does. A real
+  trailer's axles cut inside a turn (off-tracking); the city's corners (6 m right turns) are too tight for that: a
+  53 ft trailer would cross the kerb and the people waiting there. Measured with the lane-following trailer, its edge
+  stays 2.6 m off the kerb corner on a right turn and 2.3 m off an opposing left turner (geometry script, not kept).
+- *Driving (`network.ts`):* each vehicle's own front and back in the following gap (IDM), the stop line, and the room
+  a car needs to leave a junction (a semi enters only when its whole length but the last 4 m fits past the box);
+  `boxClear` also waits for a tail (a trailer) still in the junction; people wait for a vehicle's tail, not its middle,
+  to clear their crossing; a follower on a sibling movement keeps seeing a semi until its trailer is past the split.
+  Every vehicle has the same acceleration and speeds as before (a real loaded semi accelerates slower: not modelled).
+  The kinds come from their own draw sequence (3 draws per vehicle, the third seeds a semi's pallets), so the cars'
+  speeds and routes draw as before. Signals off (loops): no semis (their corners are 5 m round, 3 m off the kerb).
+
+**Street vendors (`packages/maps/src/vendors.ts`, map v15).** 11 carts: 8 on sidewalks where a building stands 3.9 m
+or more back (14 m from corners, 5 m from doors, 8 m from bus shelters, 70 m apart), three in the park (ice cream and
+hot dogs by the fountain, coffee by the path from the city). Hot dogs (red and yellow umbrella, ketchup and mustard),
+pretzels (blue and yellow, a display case), ice cream (cream cart, red and white), coffee (green, an urn), tacos
+(green and red). The cart is solid: a cabinet, two wheels, the body, a counter 1 m up, lids, the pole and an
+eight-panel striped umbrella 2.2 m up, 1.2 m out [estimates, a New York cart]; it stands off the walking line (people
+use the first 1.9 m from the kerb). The vendor is a person of the traffic (`Mover.vendor`, there when People is on,
+solid, standing still behind the cart in a white cap); the sign ("HOT DOGS" ...) is drawn only, on the cart's front
+(`apps/fly/src/render/buildings.ts`, the building signs' atlas). New materials: `cart`, `awning-red/yellow/blue/green`.
+
+**Evidence (2026-10-20):** `pnpm test` 63 files, 557 tests pass; `pnpm typecheck` clean. Network over 10 min (now
+measured with each vehicle's real footprint, trailers included): 36 toy cars, 31 saloons, 19 SUVs, 12 vans, 28
+pickups, 8 semis; overlaps 0, red runs 0, people crossing within 1 m of any vehicle 0, vehicle boxes touching the level
+or a kerb 0 (sampled every 5 s), mean speed 1.81 m/s (was 1.81), longest stand-still 74.9 s. New tests: a semi's
+trailer is solid at its floor (moving with it), open at the back when its doors are (a sweep flies in over the
+pallets), shut ones stop it at the doors, and there is room under it; vendors stand clear of the level behind their
+carts with room in front, carts off the walking line. Re-pinned: traffic self-test `9fba44b4…` (now hashes the
+trailers too), map v15 `bb94691a…` (434 582 triangles). Looked at in the browser (local dev server, screenshots
+taken in this session, not kept): the open 53 ft van from behind (doors latched back, lock bars, wooden floor), the
+pink day cab at a junction, a pickup with lumber and its flag, an SUV, the hot dog cart on a sidewalk, the ice cream
+cart in the park.
+
+**For the owner to try:** spawn "City street" and look at the mix; fly into an open trailer and under one; ride a
+flatbed's lumber; land on a pickup's load; find the carts (park: by the fountain). Ask: mix and sizes right (semis
+10 %, too many pickups)? Trailers following the lane OK, or should they cut corners like real ones (would need wider
+corners)? Semis accelerate like cars: slower? More vendors, people stopping to buy?
+
+**Left open:** frame cost not measured (each vehicle shape has its own instanced meshes now, so more draws than the
+13 before; not counted); trailers don't off-track; no semis in the loops model; vendors serve nobody (walkers pass by).

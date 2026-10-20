@@ -15,6 +15,7 @@ import type { Block, Level } from '@owfpv/maps';
 import { placeAt, rectRoute } from './route';
 import type { Place, Route } from './route';
 import { DT } from './model';
+import { pickVehicle } from './vehicles';
 import type { Lamp, Mover, SignalHead, StaticBox, TrafficConfig, TrafficModel } from './model';
 
 /** Car lane: 3 m from the kerb (roads are 18 m kerb to kerb, a lane each way); corners of radius 5 m. */
@@ -27,6 +28,7 @@ const WALK_INNER = 1.6;
 const WALK_INNER_RC = 0.3;
 
 export interface LoopMover extends Mover {
+    /** its route (-1: none, a vendor standing at fixed place s0) */
     route: number;
     /** where on the route it is at tick 0, m */
     s0: number;
@@ -41,6 +43,8 @@ export class LoopTraffic implements TrafficModel {
     readonly signals: readonly SignalHead[] = [];
     /** per route, its movers' indices */
     readonly byRoute: number[][] = [];
+    /** the places of those who stand (the vendors) */
+    private readonly fixed: Place[] = [];
     /** the fastest mover, m/s (how far a surface can move in a tick) */
     readonly maxSpeed: number;
 
@@ -48,6 +52,8 @@ export class LoopTraffic implements TrafficModel {
         this.config = { cars: config.cars, people: config.people, signals: false };
         // one draw sequence whatever the config, so turning people off leaves the cars where they were
         const r = new Rng(0x7a11c);
+        // (traffic v9) each car's kind and load from a sequence of its own, so the rest is drawn as before; no semis here
+        const kinds = new Rng(0x5e3116);
         for (const b of level.blocks) {
             const car = this.addRoute(carRoute(b));
             const nCars = r.int(1, 3);
@@ -55,7 +61,10 @@ export class LoopTraffic implements TrafficModel {
             for (let k = 0; k < nCars; k++) {
                 const s0 = (this.routes[car].length * (k + r.int(0, 30) / 100)) / nCars;
                 const look = r.u32();
-                if (config.cars) this.add({ kind: 'car', route: car, s0, v: vCar, look });
+                // three draws each: kind, load, and the seed of the vehicle's own draws
+                const own = new Rng(kinds.u32());
+                const shape = pickVehicle(kinds.u32(), kinds.u32(), () => own.u32(), false);
+                if (config.cars) this.add({ kind: 'car', route: car, s0, v: vCar, look, shape });
             }
             for (const outer of [true, false]) {
                 const w = this.addRoute(walkRoute(b, outer));
@@ -67,6 +76,13 @@ export class LoopTraffic implements TrafficModel {
                     if (config.people) this.add({ kind: 'person', route: w, s0, v: vWalk, look });
                 }
             }
+        }
+        // (traffic v9) the street vendors, standing behind their carts (maps vendors.ts), on no route
+        if (config.people) {
+            (level.vendors ?? []).forEach((v, k) => {
+                this.fixed.push({ x: v.x, y: v.y, z: v.z, hx: v.nx, hz: v.nz });
+                this.movers.push({ kind: 'person', route: -1, s0: this.fixed.length - 1, v: 0, look: Math.imul(k + 1, 0x9e3779b1) >>> 0, vendor: true });
+            });
         }
         let vm = 0;
         for (const m of this.movers) vm = Math.max(vm, m.v);
@@ -90,6 +106,7 @@ export class LoopTraffic implements TrafficModel {
     /** Where mover i is at sim tick `tick` (any real tick: the renderer passes fractions). */
     place(i: number, tick: number, out: Place): Place {
         const m = this.movers[i];
+        if (m.route < 0) return Object.assign(out, this.fixed[m.s0]);
         return placeAt(this.routes[m.route], m.s0 + m.v * (tick * DT), out);
     }
 

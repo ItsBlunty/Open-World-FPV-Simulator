@@ -48,12 +48,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   People keep apart (traffic v8): a kerb spot each when waiting, followers keep 0.75 m back; touching 96 % less. [traffic §1p]
   Flickering faces fixed (map v14: stacked containers, trusses, beams, decks); a test finds coplanar faces. [map §1q]
   Shadow ring fixed: the shadow bias was 24 cm (a lit strip at every object's foot), now 1.2 cm. [browsers-input-performance §1r]
-- **Tests:** `pnpm test`: 63 files, 555 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Vehicle variety (traffic v9): toy cars, saloons, SUVs, vans, pickups with loads, semis (53 ft vans shut or open with
+  pallets, pups, flatbeds), all solid to their boxes; 11 street vendors' carts (map v15). [traffic §1t]
+- **Tests:** `pnpm test`: 63 files, 557 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
-  - traffic self-test `8afde0e9…` (traffic v8, people keeping apart, and the trains v3)
-  - map v14 `6923dfa1…` (433 278 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 14, `TRAFFIC_VERSION` 8, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - traffic self-test `9fba44b4…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
+  - map v15 `bb94691a…` (434 582 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 15, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -115,6 +117,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 19. **Shadows, people, flicker:** look at shadow feet (poles, trees, the quad on the ground), people at the city's
    crossings and on the sidewalks, the yard's container stacks, the warehouse and the bando driveway. Ring gone? Still
    people inside each other (they still pass through people standing)? Any flicker left, and where? [§1r, §1p, §1q]
+20. **Vehicles and vendors:** spawn "City street": look at the mix, fly into an open trailer and under one, land on a
+   pickup's load, find the carts (park: by the fountain). Mix right? Trailers follow the lane through turns (real ones
+   cut inside; the corners are too tight): OK? Semis accelerate like cars: slower? People buying at the carts? [traffic §1t]
 
 ## Left open (not started)
 
@@ -142,6 +147,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - People: walk through people standing (waiting, platform) and briefly through each other at corners; no sidestep. [traffic §1p]
+- Vehicles: frame cost of the new shapes not measured; trailers don't off-track; no semis with signals off; vendors serve nobody. [traffic §1t]
 - Traffic: mean car speed 1.81 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
 - Map v11: no cars on the roads out; level-crossing lights and barriers don't react to the train; no lights at the yard
@@ -173,7 +179,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test |
-| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots |
+| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |

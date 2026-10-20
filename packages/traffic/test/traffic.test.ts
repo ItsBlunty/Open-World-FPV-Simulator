@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { buildFirstMap } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
 import { CAR, DT, LoopTraffic, NetTraffic, PERSON, TrafficWorld, makeTraffic, placeAt, rectRoute, worldSha256 } from '../src/index';
-import type { Place, Route } from '../src/index';
+import type { Place, Route, TrafficModel } from '../src/index';
 
 const level = buildFirstMap();
 const mesh = new MeshContactWorld(level.collision);
@@ -142,17 +142,65 @@ describe('loop traffic (signals off)', () => {
     });
 });
 
-/** Two oriented car bodies overlap (separating axis test in x-z). */
-function carsOverlap(a: Place, b: Place): boolean {
-    const axes = [[a.hx, a.hz], [-a.hz, a.hx], [b.hx, b.hz], [-b.hz, b.hx]];
-    const corners = (p: Place): number[][] => [[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([f, s]) => [
-        p.x + f * CAR.bodyHalfL * p.hx - s * CAR.bodyHalfW * p.hz, p.z + f * CAR.bodyHalfL * p.hz + s * CAR.bodyHalfW * p.hx]);
-    const ca = corners(a), cb = corners(b);
-    for (const [ux, uz] of axes) {
-        const pa = ca.map(([x, z]) => x * ux + z * uz), pb = cb.map(([x, z]) => x * ux + z * uz);
+/** A footprint on the ground plan: four corners, and the two axes of its sides. */
+interface Foot {
+    c: number[][];
+    axes: number[][];
+}
+
+/** The footprints of vehicle i (its own frame's boxes, and its trailer's), from its shape, at the model's current tick. */
+function footprints(t: TrafficModel, i: number, tick: number, grow = 0): Foot[] {
+    const sh = t.movers[i].shape!;
+    const out: Foot[] = [];
+    for (const frame of [0, 1] as const) {
+        const bs = sh.boxes.filter((b) => b.frame === frame);
+        if (!bs.length) continue;
+        const p = newPlace();
+        if (frame === 0) t.place(i, tick, p); else t.trailer!(i, tick, p);
+        const f0 = Math.min(...bs.map((b) => b.f0)) - grow, f1 = Math.max(...bs.map((b) => b.f1)) + grow;
+        const s0 = Math.min(...bs.map((b) => b.s0)) - grow, s1 = Math.max(...bs.map((b) => b.s1)) + grow;
+        const c = [[f0, s0], [f0, s1], [f1, s0], [f1, s1]].map(([f, s]) => [p.x + f * p.hx - s * p.hz, p.z + f * p.hz + s * p.hx]);
+        out.push({ c, axes: [[p.hx, p.hz], [-p.hz, p.hx]] });
+    }
+    return out;
+}
+
+/** Two footprints overlap (separating axis test in x-z). */
+function feetOverlap(a: Foot, b: Foot): boolean {
+    for (const [ux, uz] of [...a.axes, ...b.axes]) {
+        const pa = a.c.map(([x, z]) => x * ux + z * uz), pb = b.c.map(([x, z]) => x * ux + z * uz);
         if (Math.max(...pa) < Math.min(...pb) || Math.max(...pb) < Math.min(...pa)) return false;
     }
     return true;
+}
+
+/** The point (x, z) is inside a footprint. */
+function inFoot(f: Foot, x: number, z: number): boolean {
+    return feetOverlap(f, { c: [[x, z], [x, z], [x, z], [x, z]], axes: [] });
+}
+
+/** Each solid box of vehicle i, sampled at points through it (small spheres), clear of the level; the number of hits. */
+function boxesClearOfLevel(t: TrafficModel, i: number, tick: number, label: string): number {
+    const sh = t.movers[i].shape!;
+    const out = { x: 0, y: 0, z: 0 };
+    const p0 = newPlace(), p1 = newPlace();
+    t.place(i, tick, p0);
+    if (sh.trailer) t.trailer!(i, tick, p1);
+    let hits = 0;
+    for (const b of sh.boxes) {
+        const p = b.frame === 0 ? p0 : p1;
+        const r = Math.min(0.1, (b.y1 - b.y0) / 2, (b.f1 - b.f0) / 2, (b.s1 - b.s0) / 2);
+        const nf = Math.max(1, Math.ceil((b.f1 - b.f0) / 1.5)), ns = Math.max(1, Math.ceil((b.s1 - b.s0) / 1.5));
+        for (let a = 0; a <= nf; a++) for (let c = 0; c <= ns; c++) for (const y of [b.y0 + r + 0.02, b.y1 - r]) {
+            const f = b.f0 + r + (b.f1 - b.f0 - 2 * r) * (a / nf), s = b.s0 + r + (b.s1 - b.s0 - 2 * r) * (c / ns);
+            // the road itself is touched by the tyres' block: only what stands on it counts
+            if (y < 0.16) continue;
+            if (mesh.querySphere(p.x + f * p.hx - s * p.hz, p.y + y, p.z + f * p.hz + s * p.hx, r, out)) {
+                if (hits++ < 3) console.log(`${label}: ${sh.kind} ${sh.load} box ${sh.boxes.indexOf(b)} in the level at ${(p.x + f * p.hx - s * p.hz).toFixed(1)}, ${(p.z + f * p.hz + s * p.hx).toFixed(1)}`);
+            }
+        }
+    }
+    return hits;
 }
 
 describe('network traffic (signals on)', () => {
@@ -182,7 +230,13 @@ describe('network traffic (signals on)', () => {
         const pl = Array.from({ length: n }, newPlace);
         const was = Array.from({ length: n }, () => net.inspect(0));
         let speedSum = 0, speedN = 0, redRuns = 0, overlaps = 0, nearCrossers = 0, crossings = 0, waited = 0, braked = 0;
-        let lastSum = 0, lastN = 0, longestStill = 0, arrowTurns = 0;
+        let lastSum = 0, lastN = 0, longestStill = 0, arrowTurns = 0, inLevel = 0;
+        const kinds = new Map<string, number>();
+        for (const i of carIds) kinds.set(net.movers[i].shape!.kind, (kinds.get(net.movers[i].shape!.kind) ?? 0) + 1);
+        console.log(`network vehicles: ${[...kinds].map(([k, v]) => `${v} ${k}`).join(', ')}`);
+        expect(kinds.get('semi')).toBeGreaterThan(5);
+        expect(kinds.get('pickup')).toBeGreaterThan(10);
+        let feet: Foot[][] = [];
         const still = new Map<number, number>(carIds.map((i) => [i, 0]));
         const STEPS = 12000; // 20 Hz
         net.at(0);
@@ -207,27 +261,38 @@ describe('network traffic (signals on)', () => {
                 if (st > longestStill) longestStill = st;
                 was[i] = now;
             }
+            if (k % 20 === 0) feet = carIds.map((i) => footprints(net, i, tick));
             for (const q of peopleIds) {
                 const now = net.inspect(q);
                 if (now.phase === 2) waited++;
                 if (was[q].phase !== 3 && now.phase === 3) crossings++;
                 if (now.phase === 3) {
-                    for (const i of carIds) if (Math.hypot(pl[i].x - pl[q].x, pl[i].z - pl[q].z) < CAR.bodyHalfL + 1) nearCrossers++;
+                    // within 1 m of any vehicle (a semi: its trailer too)
+                    for (const i of carIds) {
+                        if (Math.hypot(pl[i].x - pl[q].x, pl[i].z - pl[q].z) > 25) continue;
+                        if (footprints(net, i, tick, 1).some((f) => inFoot(f, pl[q].x, pl[q].z))) nearCrossers++;
+                    }
                 }
                 was[q] = now;
             }
             if (k % 20 === 0) {
                 for (let a = 0; a < carIds.length; a++) for (let b = a + 1; b < carIds.length; b++) {
                     const p = pl[carIds[a]], q = pl[carIds[b]];
-                    if (Math.abs(p.x - q.x) < 5 && Math.abs(p.z - q.z) < 5 && carsOverlap(p, q)) overlaps++;
+                    if (Math.abs(p.x - q.x) > 40 || Math.abs(p.z - q.z) > 40) continue;
+                    if (feet[a].some((fa) => feet[b].some((fb) => feetOverlap(fa, fb)))) {
+                        if (overlaps++ < 3) console.log(`overlap at ${tick}: ${net.movers[carIds[a]].shape!.kind} ${carIds[a]} and ${net.movers[carIds[b]].shape!.kind} ${carIds[b]} near ${p.x.toFixed(1)}, ${p.z.toFixed(1)}`);
+                    }
                 }
             }
+            if (k % 100 === 0) for (const i of carIds) inLevel += boxesClearOfLevel(net, i, tick, `car ${i} at ${tick}`);
         }
         const mean = speedSum / speedN, lastMean = lastSum / lastN;
         console.log(`network, 10 min: ${crossings} crossings started, ${waited} person-steps waiting, ${braked} car-steps braking, ` +
             `mean car speed ${mean.toFixed(2)} m/s (last minute ${lastMean.toFixed(2)}), longest stand-still ${longestStill / 20} s; ` +
-            `overlaps ${overlaps}, red runs ${redRuns}, crossers near cars ${nearCrossers}, arrow turns ${arrowTurns}`);
+            `overlaps ${overlaps}, red runs ${redRuns}, crossers near cars ${nearCrossers}, arrow turns ${arrowTurns}, ` +
+            `boxes in the level ${inLevel}`);
         expect(overlaps).toBe(0);
+        expect(inLevel).toBe(0);
         expect(redRuns).toBe(0);
         expect(nearCrossers).toBe(0);
         expect(crossings).toBeGreaterThan(200);
@@ -307,7 +372,11 @@ describe('network traffic (signals on)', () => {
             t.at(tick);
             const p = newPlace();
             const out: number[] = [];
-            for (let i = 0; i < t.movers.length; i++) { t.place(i, tick, p); out.push(p.x, p.y, p.z, p.hx, p.hz); }
+            for (let i = 0; i < t.movers.length; i++) {
+                t.place(i, tick, p);
+                out.push(p.x, p.y, p.z, p.hx, p.hz);
+                if (t.movers[i].shape?.trailer) { t.trailer(i, tick, p); out.push(p.x, p.y, p.z, p.hx, p.hz); }
+            }
             return out;
         };
         const back = fresh();
@@ -333,7 +402,7 @@ describe('network traffic (signals on)', () => {
 describe('the traffic world', () => {
     const loops = new LoopTraffic(level, { ...ALL, signals: false });
     const world = new TrafficWorld(mesh, loops);
-    const car = loops.movers.findIndex((m) => m.kind === 'car');
+    const car = loops.movers.findIndex((m) => m.shape?.kind === 'car');
     const tick = 5000;
 
     it('reports a car\'s roof under a point above it, moving with the car', () => {
@@ -367,6 +436,46 @@ describe('the traffic world', () => {
         expect(push.x * sx + push.z * sz).toBeCloseTo(0.06, 9);
     });
 
+    it('has a semi\'s trailer solid where its boxes are, open at the back when its doors are, and room inside', () => {
+        const net = new NetTraffic(level, { ...ALL, signals: true });
+        const w = new TrafficWorld(mesh, net);
+        const semi = (load: RegExp): number => net.movers.findIndex((m) => load.test(m.shape?.load ?? ''));
+        const open = semi(/^(van53|pup28)\/(pallets|empty)$/), shut = semi(/^(van53|pup28)\/closed$/);
+        expect(open).toBeGreaterThanOrEqual(0);
+        expect(shut).toBeGreaterThanOrEqual(0);
+        const t0 = 61000;
+        w.at(t0);
+        net.at(t0);
+        const out = new Float64Array(16), vel = new Float64Array(12);
+        const o = { sphere: -1, nx: 0, ny: 0, nz: 0 };
+        for (const [i, closed] of [[open, false], [shut, true]] as const) {
+            const sh = net.movers[i].shape!;
+            // the trailer's tail (its frame's f), and a spot under it between the landing gear and the axles
+            const rear = Math.min(...sh.boxes.filter((b) => b.frame === 1).map((b) => b.f0)), under = -sh.trailer!.axle / 2;
+            const tp = newPlace(), tp1 = newPlace();
+            net.trailer(i, t0, tp);
+            net.trailer(i, t0 + 1, tp1);
+            const at = (f: number, s: number): [number, number] => [tp.x + f * tp.hx - s * tp.hz, tp.z + f * tp.hz + s * tp.hx];
+            // inside, over the pallets (1.6 m of goods at most) and under the roof: nothing near
+            const [ix, iz] = at(rear / 2, 0);
+            expect(w.contacts(ix, 3.6, iz, 0.1, out, 4, vel), `semi ${i} inside`).toBe(0);
+            // just over the floor inside the doors (behind the pallets): the floor under it, moving with the trailer
+            const [fx, fz] = at(rear + 0.3, 0);
+            const k = w.contacts(fx, 1.27 + 0.05, fz, 0.1, out, 4, vel);
+            expect(k).toBe(1);
+            expect(out[1]).toBeCloseTo(1, 9);
+            expect(Math.hypot(vel[0] - (tp1.x - tp.x) / DT, vel[2] - (tp1.z - tp.z) / DT)).toBeLessThan(0.05);
+            // flown in at the back, 3.6 m up, over the pallets: in through the open doors, or stopped by the shut ones
+            const [ax, az] = at(rear - 3.8, 0), [bx, bz] = at(-2, 0);
+            const tHit = w.sweep(new Float64Array([ax, 3.6, az]), new Float64Array([bx, 3.6, bz]), new Float64Array([0.1]), new Float64Array([0]), 1, o);
+            if (closed) expect(tHit, `semi ${i} shut`).toBeCloseTo((3.8 - 0.1) / (1.8 - rear), 3);
+            else expect(tHit, `semi ${i} open`).toBe(-1);
+            // under the trailer between the landing gear and the axles: room to fly through, 0.5 m up
+            const [ux, uz] = at(under, 0);
+            expect(w.contacts(ux, 0.5, uz, 0.1, out, 4, vel)).toBe(0);
+        }
+    });
+
     it('has the signal poles solid and still', () => {
         const net = new NetTraffic(level, { ...ALL, signals: true });
         const w = new TrafficWorld(mesh, net);
@@ -386,7 +495,8 @@ describe('the traffic world', () => {
 describe('people keeping apart (traffic v8)', () => {
     it('over ten minutes: people seldom touch, none stands inside another, no walker is stuck', () => {
         const t = new NetTraffic(level, { cars: true, people: true, signals: true, train: true });
-        const ppl = t.movers.map((m, i) => (m.kind === 'person' ? i : -1)).filter((i) => i >= 0);
+        // walkers only: the street vendors stand by their carts
+        const ppl = t.movers.map((m, i) => (m.kind === 'person' && !m.vendor ? i : -1)).filter((i) => i >= 0);
         const pl = ppl.map(newPlace);
         const still = ppl.map(() => 0), last = ppl.map(() => [0, 0]);
         let touching = 0, longStill = 0, longTouch = 0;

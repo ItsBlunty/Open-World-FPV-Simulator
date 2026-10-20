@@ -24,7 +24,9 @@ import { pathThrough, placeAt } from './route';
 import { COACH, makeTrains, newTrainPlace } from './train';
 import type { Train } from './train';
 import type { Place, Route } from './route';
-import { CAR, DT } from './model';
+import { DT } from './model';
+import { pickVehicle } from './vehicles';
+import type { VehicleShape } from './vehicles';
 import type { Lamp, Mover, SignalHead, StaticBox, TrafficConfig, TrafficModel } from './model';
 
 /** Sim ticks per traffic step (20 Hz), and the step in seconds */
@@ -136,6 +138,10 @@ const V_CROSS_MIN = 1.5;
  * junction's centre, 4 m past the crossing (half a road + CROSS_ALONG = 11 m on the first map's 19 m roads).
  */
 const CLEAR_S = 4;
+/** the toy car's half length, which CLEAR_S was set for: a car's back is clear at CLEAR_S - CAR_HALF along the link */
+const CAR_HALF = 2;
+/** the stop line is this far along a link from the junction's edge (STOP less half the first map's 18 m road), m */
+const BOX_OUT = 4;
 
 /** A block's corners NW, NE, SE, SW: which way each is from the block's middle. */
 const CORNER_SX = [-1, 1, 1, -1], CORNER_SZ = [-1, -1, 1, 1];
@@ -196,7 +202,8 @@ function draw(st: Uint32Array, i: number): number {
 }
 
 // per-car state slots
-const C_E = 0, C_S = 1, C_V = 2, C_GO = 3, C_NEXT = 4, C_ACC = 5, C_V0 = 6, CN = 7;
+// (traffic v9) the element it was on before this one (-1: none), where a semi's trailer may still be
+const C_E = 0, C_S = 1, C_V = 2, C_GO = 3, C_NEXT = 4, C_ACC = 5, C_V0 = 6, C_PE = 7, CN = 8;
 // per-person state slots: phase (0 to a hub, 1 to a crossing queue, 2 waiting, 3 crossing, 4 to a hub after crossing,
 // 5 along the sidewalk to a door, 6 in through it, 7 inside, 8 out of it; going by train: 9 up the walkway to the
 // platform, 10 along the platform to their waiting spot, 15 waiting, 16 along the platform to their coach door, 11 in
@@ -289,6 +296,15 @@ export class NetTraffic implements TrafficModel {
     private prevPl: Float64Array;
     private curPl: Float64Array;
     private readonly tmp: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
+    /** semis' trailers, as prevPl and curPl (5 per car; zero for a car without one) */
+    private prevTr: Float64Array;
+    private curTr: Float64Array;
+    /** each car's shape (vehicles.ts) */
+    private readonly shapes: VehicleShape[] = [];
+    private readonly tmp2: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
+    private readonly tmp3: Place = { x: 0, y: 0, z: 0, hx: 1, hz: 0 };
+    /** each street vendor's place: x, y, z and the way they face */
+    private readonly vendorAt: number[][] = [];
 
     constructor(level: Level, config: TrafficConfig) {
         this.config = { cars: config.cars, people: config.people, signals: true, train: config.train === true };
@@ -312,16 +328,27 @@ export class NetTraffic implements TrafficModel {
 
         // the starting state: one draw sequence each for cars and people, so either toggle leaves the other as it was
         const carRng = new Uint32Array([0xca75]);
+        // (traffic v9) each car's kind and load: a sequence of their own, so the cars' other draws are as they were
+        const kindRng = new Uint32Array([0x5e3115]);
         const startCars: number[][] = [];
+        const startShapes: VehicleShape[] = [];
         for (let e = 0; e < this.elems.length; e++) {
             const el = this.elems[e];
             if (!el.link) continue;
             const take = draw(carRng, 0) % 100 < 55;
-            const s = 5 + (draw(carRng, 0) % 1000) / 1000 * (el.len - 20);
+            let s = 5 + (draw(carRng, 0) % 1000) / 1000 * (el.len - 20);
             const v0 = 9 + (draw(carRng, 0) % 31) / 10; // 32-43 km/h
             const seed = draw(carRng, 0);
             const look = draw(carRng, 0);
-            if (take && config.cars && !this.dead[e]) startCars.push([e, s, v0, seed, look]);
+            // three draws each: kind, load, and the seed of the vehicle's own draws (a semi's pallets)
+            const own = new Uint32Array([draw(kindRng, 0)]);
+            const shape = pickVehicle(draw(kindRng, 0), draw(kindRng, 0), () => draw(own, 0), true);
+            // a trailer starts on the lane too
+            if (s < shape.back + 0.5) s = shape.back + 0.5;
+            if (take && config.cars && !this.dead[e]) {
+                startCars.push([e, s, v0, seed, look]);
+                startShapes.push(shape);
+            }
         }
         const pRng = new Uint32Array([0x9e0f1e]);
         const startPeople: number[][] = [];
@@ -355,12 +382,15 @@ export class NetTraffic implements TrafficModel {
         this.rngPeople = new Uint32Array(this.nPeople);
         for (const e of this.elems) this.lists.push([]);
         startCars.forEach(([e, s, v0, seed, look], i) => {
-            this.movers.push({ kind: 'car', v: v0, look });
+            const shape = startShapes[i];
+            this.movers.push({ kind: 'car', v: v0, look, shape });
+            this.shapes.push(shape);
             this.rngCar[i] = seed;
             const o = i * CN;
             this.cars[o + C_S] = s;
             this.cars[o + C_V0] = v0;
             this.enter(i, e);
+            this.cars[o + C_PE] = -1;
         });
         startPeople.forEach(([ha, hb, u, vb, seed, look], i) => {
             this.movers.push({ kind: 'person', v: Math.max(vb * 1.15, V_CROSS_MIN), look });
@@ -379,12 +409,22 @@ export class NetTraffic implements TrafficModel {
             this.people[o + P_H] = hb;
             this.people[o + P_PREV] = ha;
         });
+        // (traffic v9) the street vendors, standing behind their carts (maps vendors.ts): after everyone else
+        if (config.people) {
+            (level.vendors ?? []).forEach((v, k) => {
+                this.movers.push({ kind: 'person', v: 0, look: Math.imul(k + 1, 0x9e3779b1) >>> 0, vendor: true });
+                this.vendorAt.push([v.x, v.y, v.z, v.nx, v.nz]);
+            });
+        }
         const n = this.movers.length;
         this.prevPl = new Float64Array(n * 5);
         this.curPl = new Float64Array(n * 5);
+        this.prevTr = new Float64Array(this.nCars * 5);
+        this.curTr = new Float64Array(this.nCars * 5);
         this.save();
         this.placesInto(this.curPl);
         this.prevPl.set(this.curPl);
+        this.prevTr.set(this.curTr);
     }
 
     // ------------------------------------------------------------ layout
@@ -684,6 +724,8 @@ export class NetTraffic implements TrafficModel {
             const o = i * CN, el = this.elems[this.cars[o + C_E]];
             return { link: el.link, j: el.j, group: this.elems[el.link ? this.cars[o + C_NEXT] : this.cars[o + C_E]].group, s: this.cars[o + C_S], v: this.cars[o + C_V], phase: -1 };
         }
+        // a vendor: selling (phase -2)
+        if (i >= this.nCars + this.nPeople) return { link: false, j: -1, group: -1, s: 0, v: 0, phase: -2 };
         const o = (i - this.nCars) * PN;
         const ph = this.people[o + P_PH];
         return { link: false, j: ph >= 1 && ph <= 3 ? this.crossings[this.people[o + P_C]].j : -1, group: -1, s: this.people[o + P_S], v: this.people[o + P_V], phase: ph };
@@ -720,14 +762,14 @@ export class NetTraffic implements TrafficModel {
 
     /** Person mover i is out of sight inside a building or on a train (and not solid then: world.ts). */
     hidden(i: number): boolean {
-        if (i < this.nCars) return false;
+        if (i < this.nCars || i >= this.nCars + this.nPeople) return false;
         const ph = this.people[(i - this.nCars) * PN + P_PH];
         return ph === 7 || ph === 12;
     }
 
     /** The door (Level.doors index) mover i is walking in or out through, else -1. */
     doorUse(i: number): number {
-        if (i < this.nCars) return -1;
+        if (i < this.nCars || i >= this.nCars + this.nPeople) return -1;
         const o = (i - this.nCars) * PN, ph = this.people[o + P_PH];
         return ph === 6 || ph === 8 ? this.people[o + P_DOOR] : -1;
     }
@@ -746,6 +788,9 @@ export class NetTraffic implements TrafficModel {
             const t = this.prevPl;
             this.prevPl = this.curPl;
             this.curPl = t;
+            const tr = this.prevTr;
+            this.prevTr = this.curTr;
+            this.curTr = tr;
             this.step();
             this.cur++;
             if (this.cur % CHECKPOINT_STEPS === 0 && this.checkpoints[this.checkpoints.length - 1].step < this.cur) this.save();
@@ -754,9 +799,18 @@ export class NetTraffic implements TrafficModel {
     }
 
     place(i: number, tick: number, out: Place): Place {
+        return this.lerp(this.prevPl, this.curPl, i, tick, out);
+    }
+
+    trailer(i: number, tick: number, out: Place): Place {
+        return this.lerp(this.prevTr, this.curTr, i, tick, out);
+    }
+
+    /** A place between the step before (a) and this one (b), at `tick`. */
+    private lerp(a: Float64Array, b: Float64Array, i: number, tick: number, out: Place): Place {
         let f = (tick - (this.cur - 1) * STEP_TICKS) / STEP_TICKS;
         f = f < 0 ? 0 : f > 1 ? 1 : f;
-        const a = this.prevPl, b = this.curPl, o = i * 5;
+        const o = i * 5;
         out.x = a[o] + (b[o] - a[o]) * f;
         out.y = a[o + 1] + (b[o + 1] - a[o + 1]) * f;
         out.z = a[o + 2] + (b[o + 2] - a[o + 2]) * f;
@@ -798,17 +852,54 @@ export class NetTraffic implements TrafficModel {
         }
     }
 
+    /** How far car i reaches ahead of its place, and behind it along its path (a semi: its trailer's tail), m. */
+    private front(i: number): number {
+        return this.shapes[i].front;
+    }
+
+    private back(i: number): number {
+        return this.shapes[i].back;
+    }
+
+    /**
+     * Semi i's trailer: its kingpin on the tractor (kp behind its place, along its heading `pl`), its axles on the lane
+     * `axle` behind the kingpin along the path (on the element before when it reaches back that far), so the trailer
+     * follows the lane through a turn as a steered-axle trailer does (a real trailer's axles cut inside a turn; the city's
+     * corners are too tight for that). Into out (x, y, z at the kingpin, the heading from the axles to it).
+     */
+    private trailerPlace(i: number, pl: Place, out: Place): void {
+        const c = this.cars, o = i * CN, t = this.shapes[i].trailer!;
+        const kx = pl.x - pl.hx * t.kp, kz = pl.z - pl.hz * t.kp;
+        let e = c[o + C_E], s = c[o + C_S] - t.kp - t.axle;
+        if (s < 0 && c[o + C_PE] >= 0) {
+            e = c[o + C_PE];
+            s += this.elems[e].len;
+        }
+        const a = placeAt(this.elems[e].route, s, this.tmp2, true);
+        const dx = kx - a.x, dz = kz - a.z, l = Math.sqrt(dx * dx + dz * dz);
+        out.x = kx; out.y = pl.y; out.z = kz;
+        out.hx = l > 1e-9 ? dx / l : pl.hx;
+        out.hz = l > 1e-9 ? dz / l : pl.hz;
+    }
+
     private placesInto(out: Float64Array): void {
         const p = this.tmp;
+        const tr = out === this.curPl ? this.curTr : this.prevTr;
         for (let i = 0; i < this.nCars; i++) {
             const o = i * CN;
             placeAt(this.elems[this.cars[o + C_E]].route, this.cars[o + C_S], p, true);
             out.set([p.x, p.y, p.z, p.hx, p.hz], i * 5);
+            if (this.shapes[i].trailer) {
+                const t = this.tmp3;
+                this.trailerPlace(i, p, t);
+                tr.set([t.x, t.y, t.z, t.hx, t.hz], i * 5);
+            }
         }
         for (let q = 0; q < this.nPeople; q++) {
             this.personPlace(q, p);
             out.set([p.x, p.y, p.z, p.hx, p.hz], (this.nCars + q) * 5);
         }
+        this.vendorAt.forEach((v, k) => out.set(v, (this.nCars + this.nPeople + k) * 5));
     }
 
     // ------------------------------------------------------------ cars
@@ -822,6 +913,7 @@ export class NetTraffic implements TrafficModel {
     /** A car enters element e (at its current distance along it). */
     private enter(i: number, e: number): void {
         const c = this.cars, o = i * CN;
+        c[o + C_PE] = c[o + C_E];
         c[o + C_E] = e;
         const list = this.lists[e];
         let k = list.length;
@@ -848,8 +940,9 @@ export class NetTraffic implements TrafficModel {
         }
     }
 
-    private stopPos(e: number): number {
-        return this.elems[e].len - CAR.bodyHalfL - STOP_MARGIN;
+    /** Where car i's place stops on link e: its front STOP_MARGIN before the stop line. */
+    private stopPos(e: number, i: number): number {
+        return this.elems[e].len - this.front(i) - STOP_MARGIN;
     }
 
     private last(e: number): number {
@@ -857,17 +950,35 @@ export class NetTraffic implements TrafficModel {
         return l.length ? l[l.length - 1] : -1;
     }
 
-    /** Room on link e for one more car at its start, counting the cars in the junction already headed onto it. */
-    private room(e: number): boolean {
+    /**
+     * Room on link e for car `me` at its start, counting the cars in the junction already headed onto it: room for its
+     * front, and for its back but the last BOX_OUT m of it (a semi does not stop with its trailer in the junction).
+     */
+    private room(e: number, me: number): boolean {
         const i = this.last(e);
-        let free = i < 0 ? this.elems[e].len : this.cars[i * CN + C_S];
-        for (const m of this.elems[e].feeders) free -= this.lists[m].length * (2 * CAR.bodyHalfL + IDM_S0);
-        return free >= 2 * CAR.bodyHalfL + IDM_S0 + 1;
+        let free = i < 0 ? this.elems[e].len : this.cars[i * CN + C_S] - this.back(i);
+        for (const m of this.elems[e].feeders) for (const k of this.lists[m]) free -= this.front(k) + this.back(k) + IDM_S0;
+        const back = this.back(me) - BOX_OUT;
+        return free >= this.front(me) + (back > 0 ? back : 0) + IDM_S0 + 1;
     }
 
-    /** No car is in junction j on a movement of another light group (the last phase's cars still clearing the box). */
+    /**
+     * No car is in junction j on a movement of another light group (the last phase's cars still clearing the box), nor
+     * has its tail still on one (a semi's trailer).
+     */
     private boxClear(j: number, group: number): boolean {
         for (const m of this.movesAt[j]) if (this.elems[m].group !== group && this.lists[m].length) return false;
+        for (let k = 0; k < 4; k++) {
+            const e = this.linkOf[j * 4 + k];
+            if (e < 0) continue;
+            const list = this.lists[e];
+            for (let n = list.length - 1; n >= 0; n--) {
+                const i = list[n], o = i * CN;
+                if (this.cars[o + C_S] - this.back(i) >= 0) break;
+                const pe = this.cars[o + C_PE];
+                if (pe >= 0 && this.elems[pe].group !== group) return false;
+            }
+        }
         return true;
     }
 
@@ -887,10 +998,10 @@ export class NetTraffic implements TrafficModel {
             const mv = this.elems[c[o + C_NEXT]], group = mv.group;
             const sig = this.carSignal(el.j, group, tick);
             const v = c[o + C_V];
-            const toStop = this.stopPos(e) - c[o + C_S];
+            const toStop = this.stopPos(e, i) - c[o + C_S];
             const stopDist = (v * v) / (2 * B_YELLOW);
             let go = false;
-            if (sig !== 'red' && this.room(mv.out) && this.boxClear(el.j, group)) {
+            if (sig !== 'red' && this.room(mv.out, i) && this.boxClear(el.j, group)) {
                 if (sig === 'green') go = true;
                 else go = toStop < stopDist && el.len - c[o + C_S] < v * (this.yellowLeft(el.j, group, tick) * 0.001 - STEP);
             }
@@ -905,8 +1016,8 @@ export class NetTraffic implements TrafficModel {
             c[o + C_S] += (v + v1) * 0.5 * STEP;
             c[o + C_V] = v1;
             const e = c[o + C_E];
-            if (this.elems[e].link && c[o + C_GO] === 0 && c[o + C_S] > this.stopPos(e)) {
-                c[o + C_S] = this.stopPos(e);
+            if (this.elems[e].link && c[o + C_GO] === 0 && c[o + C_S] > this.stopPos(e, i)) {
+                c[o + C_S] = this.stopPos(e, i);
                 c[o + C_V] = 0;
             }
         }
@@ -924,7 +1035,8 @@ export class NetTraffic implements TrafficModel {
 
     /**
      * The car nearest ahead of distance s on movement m (other than car `self`): on m itself, or on another
-     * movement from the same lane while the follower or that car has not finished its turn. -1 if none.
+     * movement from the same lane while the follower or that car (its tail: a semi's trailer) has not finished its turn.
+     * -1 if none.
      */
     private ahead(m: number, s: number, self: number): number {
         const c = this.cars, split = this.elems[m].split;
@@ -935,7 +1047,7 @@ export class NetTraffic implements TrafficModel {
             for (let k = list.length - 1; k >= 0; k--) {
                 const l = list[k], sl = c[l * CN + C_S];
                 if (l === self || sl < s) continue;
-                if ((mv === m || s < split || sl < sp) && sl < bs) { best = l; bs = sl; }
+                if ((mv === m || s < split || sl - this.back(l) < sp) && sl < bs) { best = l; bs = sl; }
                 break;
             }
         }
@@ -949,14 +1061,15 @@ export class NetTraffic implements TrafficModel {
         const s = c[o + C_S], v = c[o + C_V];
         const list = this.lists[e];
         const pos = list.indexOf(i);
-        const L = 2 * CAR.bodyHalfL;
+        // the gap from its front to the leader's back
+        const F = this.front(i);
         let gap = 1e9, vl = v;
         if (el.link && pos > 0) {
             const l = list[pos - 1];
-            gap = c[l * CN + C_S] - s - L;
+            gap = c[l * CN + C_S] - this.back(l) - s - F;
             vl = c[l * CN + C_V];
         } else if (el.link && c[o + C_GO] === 0) {
-            gap = this.stopPos(e) - s + IDM_S0;
+            gap = this.stopPos(e, i) - s + IDM_S0;
             vl = 0;
         } else {
             // in or into a junction: the nearest car ahead on this movement or, while either is still turning,
@@ -966,12 +1079,12 @@ export class NetTraffic implements TrafficModel {
             const l = this.ahead(m, sm, i);
             const me = this.elems[m];
             if (l >= 0) {
-                gap = c[l * CN + C_S] - sm - L;
+                gap = c[l * CN + C_S] - this.back(l) - sm - F;
                 vl = c[l * CN + C_V];
             } else {
                 const l2 = this.last(me.out);
                 if (l2 >= 0) {
-                    gap = me.len - sm + c[l2 * CN + C_S] - L;
+                    gap = me.len - sm + c[l2 * CN + C_S] - this.back(l2) - F;
                     vl = c[l2 * CN + C_V];
                 }
             }
@@ -1038,7 +1151,7 @@ export class NetTraffic implements TrafficModel {
         for (let k = 0; k < 4; k++) {
             const e = this.linkOf[j * 4 + k];
             const l = e < 0 ? -1 : this.last(e);
-            if (l >= 0 && this.cars[l * CN + C_S] < CLEAR_S) return true;
+            if (l >= 0 && this.cars[l * CN + C_S] - this.back(l) < CLEAR_S - CAR_HALF) return true;
         }
         return false;
     }

@@ -4,21 +4,17 @@
 // mover is one tick later. A car shoves the quad, and a quad on its roof rides along. The signal poles,
 // arms and heads (network model) are solid and still.
 //
-// Shapes: a car is two boxes turned to its heading (body and cabin), a person a vertical capsule.
-// Determinism: only + - * / and Math.sqrt here.
+// Shapes: a vehicle is its boxes (vehicles.ts) turned to its heading, a semi's trailer's turned to the trailer's own;
+// a person is a vertical capsule. Determinism: only + - * / and Math.sqrt here.
 
 import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
-import { CAR, DT, PERSON } from './model';
+import { DT, PERSON } from './model';
 import type { StaticBox, TrafficModel } from './model';
 import type { Place } from './route';
 
 /** Conservative-advancement steps per sphere and shape in sweep(); a hit is closer than SWEEP_EPS, m [numerical choices] */
 const SWEEP_STEPS = 32;
 const SWEEP_EPS = 1e-4;
-/** How far from its place a mover's shapes reach, m (a car's corner: sqrt(2.25^2 + 0.95^2) = 2.45) */
-const MOVER_REACH = 2.5;
-/** Shapes rise this high above their ground, m (the car's roof) */
-const TOP = CAR.cabY1;
 
 /** A closest-surface answer: signed distance from the point (negative inside) and the outward unit normal. */
 export interface Near {
@@ -60,6 +56,10 @@ export class TrafficWorld implements ContactWorld {
     private readonly stamp1: Float64Array;
     private readonly p0: Place[];
     private readonly p1: Place[];
+    /** semis' trailers: at the current tick and one tick later (the tick each is for) */
+    private readonly t0: Place[];
+    private readonly t1: Place[];
+    private readonly stampT1: Float64Array;
     private readonly near: Near = { d: 0, nx: 0, ny: 0, nz: 0 };
     private readonly hits: number[] = [];
 
@@ -70,7 +70,14 @@ export class TrafficWorld implements ContactWorld {
         this.stamp1 = new Float64Array(n).fill(-1);
         this.p0 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
         this.p1 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
+        this.t0 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
+        this.t1 = Array.from({ length: n }, () => ({ x: 0, y: 0, z: 0, hx: 1, hz: 0 }));
+        this.stampT1 = new Float64Array(n).fill(-1);
+        this.semis = model.movers.map((m, i) => (m.shape?.trailer ? i : -1)).filter((i) => i >= 0);
     }
+
+    /** the movers with a trailer */
+    private readonly semis: number[];
 
     at(tick: number): void {
         this.tick = tick;
@@ -87,6 +94,7 @@ export class TrafficWorld implements ContactWorld {
     private placeAll(): void {
         if (this.placed === this.tick) return;
         for (let i = 0; i < this.p0.length; i++) this.model.place(i, this.tick, this.p0[i]);
+        for (const i of this.semis) this.model.trailer!(i, this.tick, this.t0[i]);
         this.placed = this.tick;
     }
 
@@ -95,22 +103,30 @@ export class TrafficWorld implements ContactWorld {
         this.placeAll();
         const h = this.hits;
         h.length = 0;
-        const p = MOVER_REACH + pad;
+        const movers = this.model.movers;
         for (let i = 0; i < this.p0.length; i++) {
+            const sh = movers[i].shape;
+            const top = sh ? sh.top : PERSON.y1 + PERSON.r;
             const q = this.p0[i];
-            if (x1 < q.x - p || x0 > q.x + p || z1 < q.z - p || z0 > q.z + p) continue;
-            if (y1 < q.y - pad || y0 > q.y + TOP + pad) continue;
-            h.push(i);
+            if (y1 < q.y - pad || y0 > q.y + top + pad) continue;
+            let p = (sh ? sh.reach[0] : PERSON.r) + pad;
+            let near = !(x1 < q.x - p || x0 > q.x + p || z1 < q.z - p || z0 > q.z + p);
+            if (!near && sh?.trailer) {
+                const t = this.t0[i];
+                p = sh.reach[1] + pad;
+                near = !(x1 < t.x - p || x0 > t.x + p || z1 < t.z - p || z0 > t.z + p);
+            }
+            if (near) h.push(i);
         }
         return h;
     }
 
-    /** Part `part` of mover i (car: 0 body, 1 cabin; person: 0) nearest the point, into this.near; false: no such part. */
+    /** Part `part` of mover i (a vehicle: its box `part`; a person: 0) nearest the point, into this.near; false: no such part. */
     private nearest(i: number, part: number, x: number, y: number, z: number): boolean {
         const m = this.model.movers[i];
-        const pl = this.p0[i];
+        let pl = this.p0[i];
         const out = this.near;
-        if (m.kind === 'person') {
+        if (!m.shape) {
             // out of sight in a building or on a train: not there to hit
             if (part > 0 || this.model.hidden?.(i)) return false;
             const ax = x - pl.x, az = z - pl.z;
@@ -122,15 +138,14 @@ export class TrafficWorld implements ContactWorld {
             out.d = l - PERSON.r;
             return true;
         }
-        if (part > 1) return false;
-        // the box in the car's frame: f along the heading, s across it (-hz, hx), y up from the road
-        const cf = part === 0 ? 0 : -CAR.cabBack;
-        const ef = part === 0 ? CAR.bodyHalfL : CAR.cabHalfL;
-        const es = part === 0 ? CAR.bodyHalfW : CAR.cabHalfW;
-        const y0 = part === 0 ? CAR.bodyY0 : CAR.cabY0;
-        const y1 = part === 0 ? CAR.bodyY1 : CAR.cabY1;
+        const boxes = m.shape.boxes;
+        if (part >= boxes.length) return false;
+        // the box in its frame: f along the heading, s across it (-hz, hx), y up from the road
+        const b = boxes[part];
+        if (b.frame === 1) pl = this.t0[i];
+        const cf = (b.f0 + b.f1) / 2, cs = (b.s0 + b.s1) / 2;
         const dx = x - pl.x, dz = z - pl.z;
-        boxNear(dx * pl.hx + dz * pl.hz - cf, y - pl.y - (y0 + y1) / 2, -dx * pl.hz + dz * pl.hx, ef, (y1 - y0) / 2, es, out);
+        boxNear(dx * pl.hx + dz * pl.hz - cf, y - pl.y - (b.y0 + b.y1) / 2, -dx * pl.hz + dz * pl.hx - cs, (b.f1 - b.f0) / 2, (b.y1 - b.y0) / 2, (b.s1 - b.s0) / 2, out);
         const nf = out.nx, ns = out.nz;
         out.nx = nf * pl.hx - ns * pl.hz;
         out.nz = nf * pl.hz + ns * pl.hx;
@@ -141,11 +156,16 @@ export class TrafficWorld implements ContactWorld {
         boxNear(x - (b.x0 + b.x1) / 2, y - (b.y0 + b.y1) / 2, z - (b.z0 + b.z1) / 2, (b.x1 - b.x0) / 2, (b.y1 - b.y0) / 2, (b.z1 - b.z0) / 2, this.near);
     }
 
-    /** Velocity of mover i's point (x, z) (taken as fixed to it), m/s: where that point is one tick later. */
-    private pointVelocity(i: number, x: number, z: number, out: Float64Array, o: number): void {
-        const a = this.p0[i];
-        const b = this.p1[i];
-        if (this.stamp1[i] !== this.tick) {
+    /** Velocity of mover i's point (x, z) (taken as fixed to its frame `frame`), m/s: where that point is one tick later. */
+    private pointVelocity(i: number, frame: number, x: number, z: number, out: Float64Array, o: number): void {
+        const a = frame === 1 ? this.t0[i] : this.p0[i];
+        const b = frame === 1 ? this.t1[i] : this.p1[i];
+        if (frame === 1) {
+            if (this.stampT1[i] !== this.tick) {
+                this.model.trailer!(i, this.tick + 1, b);
+                this.stampT1[i] = this.tick;
+            }
+        } else if (this.stamp1[i] !== this.tick) {
             this.model.place(i, this.tick + 1, b);
             this.stamp1[i] = this.tick;
         }
@@ -193,7 +213,7 @@ export class TrafficWorld implements ContactWorld {
                 const slot = this.put(out, k, max);
                 if (slot < 0) continue;
                 if (slot === k) k++;
-                if (vel) this.pointVelocity(i, x - nx * d, z - nz * d, vel, slot * 3);
+                if (vel) this.pointVelocity(i, this.model.movers[i].shape?.boxes[part].frame ?? 0, x - nx * d, z - nz * d, vel, slot * 3);
             }
         }
         return k;
@@ -253,8 +273,7 @@ export class TrafficWorld implements ContactWorld {
             const ids = this.moversNear(Math.min(ax, ax + ex), Math.min(ay, ay + ey), Math.min(az, az + ez),
                 Math.max(ax, ax + ex), Math.max(ay, ay + ey), Math.max(az, az + ez), R).slice();
             for (const i of ids) {
-                for (let part = 0; part < 2; part++) {
-                    if (!this.nearest(i, part, ax, ay, az)) break;
+                for (let part = 0; this.nearest(i, part, ax, ay, az); part++) {
                     advance((x, y, z) => { this.nearest(i, part, x, y, z); });
                 }
             }

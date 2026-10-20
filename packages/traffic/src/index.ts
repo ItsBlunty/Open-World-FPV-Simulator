@@ -6,3 +6,5 @@ export * from './make';
 export * from './world';
 export * from './train';
 export * from './train-world';
+export { TOY_CAR, pickVehicle } from './vehicles';
+export type { Paint, PickupLoad, TrailerKind, TrailerLoad, VBox, VWheel, VehicleKind, VehicleShape } from './vehicles';

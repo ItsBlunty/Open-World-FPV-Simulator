@@ -7,7 +7,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FACE } from '@owfpv/maps';
-import type { Building, Level } from '@owfpv/maps';
+import type { Level, VendorKind } from '@owfpv/maps';
 import type { Place, TrafficModel } from '@owfpv/traffic';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
@@ -55,8 +55,24 @@ function canvas(w: number, h: number): OffscreenCanvas | HTMLCanvasElement {
     return c;
 }
 
+/** A sign's words and its colours: the building's look picks them, or they are given (a vendor's: background, letters). */
+interface SignText {
+    name: string;
+    look: number;
+    colours?: [string, string];
+}
+
+/** The food vendors' signs: colours by what they sell (maps vendors.ts). */
+const VENDOR_SIGN: Record<VendorKind, [string, string]> = {
+    hotdogs: ['#ffd23f', '#c8231b'], pretzels: ['#1f5fbf', '#ffffff'], icecream: ['#ff8fc0', '#ffffff'], coffee: ['#3b2618', '#f3e2c4'],
+    tacos: ['#ff8a1f', '#1f2a1a']
+};
+/** a vendor's sign on the cart's front: this high, from this far over the body's bottom, m */
+const VENDOR_SIGN_H = 0.4;
+const VENDOR_SIGN_Y = 0.12;
+
 /** Every building's sign painted once into one texture, rows of ROW_PX. */
-function paintSigns(buildings: readonly Building[]): Atlas {
+function paintSigns(buildings: readonly SignText[]): Atlas {
     const font = `600 ${Math.round(ROW_PX * 0.58)}px "Trebuchet MS", "Segoe UI", Helvetica, Arial, sans-serif`;
     const measure = canvas(8, 8).getContext('2d') as CanvasRenderingContext2D;
     measure.font = font;
@@ -80,7 +96,7 @@ function paintSigns(buildings: readonly Building[]): Atlas {
     const rect: number[][] = [];
     buildings.forEach((b, i) => {
         const [px, py] = pos[i], w = widths[i];
-        const [bg, fg] = SIGN_COLOURS[b.look % SIGN_COLOURS.length];
+        const [bg, fg] = b.colours ?? SIGN_COLOURS[b.look % SIGN_COLOURS.length];
         g.fillStyle = bg;
         g.fillRect(px, py, w, ROW_PX);
         g.strokeStyle = fg;
@@ -120,12 +136,13 @@ export class BuildingsView {
         this.users = new Float64Array(level.doors.length);
         // extra and super low spec draw neither (kit.ts): the entrances show their shop-front glass
         if (!kit.details) return;
-        if (level.buildings.length) this.buildSigns();
+        if (level.buildings.length || level.vendors.length) this.buildSigns();
         if (level.doors.length) this.buildDoors();
     }
 
     private buildSigns(): void {
-        const { tex, rect } = paintSigns(this.level.buildings);
+        const vendors = this.level.vendors;
+        const { tex, rect } = paintSigns([...this.level.buildings, ...vendors.map((v) => ({ name: v.name, look: 0, colours: VENDOR_SIGN[v.kind] }))]);
         const pos: number[] = [], nor: number[] = [], uv: number[] = [];
         // a sign: centred at (cx, cz) on the face with outward normal (nx, nz), from y up h, w wide
         const sign = (r: number[], cx: number, cz: number, nx: number, nz: number, y: number, w: number, h: number): void => {
@@ -165,6 +182,12 @@ export class BuildingsView {
                     sign(r, tx, tz, nx, nz, bd.top - 1.75 - ch / 2, cw, ch);
                 }
             }
+        });
+        // each vendor's on the front of their cart, facing the street
+        vendors.forEach((v, k) => {
+            const r = rect[this.level.buildings.length + k], aspect = r[4];
+            const w = Math.min(2 * v.halfL - 0.2, VENDOR_SIGN_H * aspect);
+            sign(r, v.cx + v.nx * v.halfD, v.cz + v.nz * v.halfD, v.nx, v.nz, v.bodyY0 + VENDOR_SIGN_Y, w, w / aspect);
         });
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
