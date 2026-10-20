@@ -95,11 +95,12 @@ interface TrainVoice {
 }
 
 /**
- * How every per-frame change is smoothed: a straight ramp to the new value over one frame (RAMP.s, the frames' mean
- * spacing). A step each frame would be audible as zipper noise; the exponential smoothing this replaced (20 ms time
- * constant) took about 60 ms to arrive, on top of the browser's buffer (docs/notes/sound.md §1n).
+ * Smoothing of every per-frame change, s: setTargetAtTime with a 10 ms time constant (Chrome's own dezippering was
+ * an exponential of about 10 ms). It starts from wherever the parameter is when the audio thread gets to it, so it
+ * never steps; ramps scheduled from currentTime do, because the audio thread has often rendered past that time
+ * already (the crackle of §1n, docs/notes/sound.md §1s). 20 ms was smoother still but slower to arrive.
  */
-const RAMP = { s: 1 / 60 };
+const TAU = 0.01;
 
 export class AudioEngine {
     private ctx: AudioContext | null = null;
@@ -150,7 +151,6 @@ export class AudioEngine {
     private frameDt = 0;
     /** whether this context has the small buffer; the underrun counts of the last seconds; when they were last read */
     private lowNow = false;
-    private lastFrameMs = 0;
     private underruns: number[] = [];
     private crackleAt = 0;
 
@@ -494,11 +494,6 @@ export class AudioEngine {
         const lx = a[A.lx], ly = a[A.ly], lz = a[A.lz];
         const dt = t - this.lastT;
         this.frameDt = dt > 0 && dt < 0.25 ? dt : 0;
-        // the frames' spacing from the page's clock (the sound's clock moves in steps of the sound card's buffer)
-        const nowMs = performance.now();
-        const gap = (nowMs - this.lastFrameMs) / 1000;
-        if (gap > 0 && gap < 0.1) RAMP.s += (Math.min(0.05, Math.max(0.008, gap)) - RAMP.s) * 0.1;
-        this.lastFrameMs = nowMs;
         if (this.lastL && dt > 0 && dt < 0.25) {
             const k = Math.min(1, dt / 0.08);
             for (let i = 0; i < 3; i++) this.lv[i] += (([lx, ly, lz][i] - this.lastL[i]) / dt - this.lv[i]) * k;
@@ -774,14 +769,10 @@ function panner(c: AudioContext, ref: number, max: number): PannerNode {
     return new PannerNode(c, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: ref, maxDistance: max, rolloffFactor: 1 });
 }
 
-/** Moves a parameter to v: over one frame (RAMP), or smoothly with time constant `tau` s. */
-function set(p: AudioParam, v: number, t: number, tau?: number): void {
+/** Moves a parameter smoothly towards v. */
+function set(p: AudioParam, v: number, t: number, tau = TAU): void {
     if (!Number.isFinite(v)) return;
-    if (tau === undefined && p.cancelAndHoldAtTime) {
-        // from wherever the last ramp has got to now, straight to v by the next frame
-        p.cancelAndHoldAtTime(t);
-        p.linearRampToValueAtTime(v, t + RAMP.s);
-    } else p.setTargetAtTime(v, t, tau ?? 0.02);
+    p.setTargetAtTime(v, t, tau);
 }
 
 /** White noise, `s` seconds (the sound's own randomness: nothing of the sim uses it). */

@@ -3,7 +3,7 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## State (2026-10-19)
+## State (2026-10-20)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
@@ -41,7 +41,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Sound fixes: strikes start at the hit, low latency buffer (19 vs 66 ms, falls back if it crackles), harmonics
   re-measured (less tinny), own phase per rotor (no flanger echo), rush quieter and chopped (no static), Ambience slider at 50 %. [sound §1m]
   Latency: Chrome on Windows offers only the device's minimum buffer or its default (Chromium source); the owner's
-  Voicemeeter crackles at the minimum, other outputs lack it; sound changes now ramp over one frame (7 ms lag, was ~20-60). [sound §1n]
+  Voicemeeter crackles at the minimum, other outputs lack it. [sound §1n]
+  Crackle fixed: §1n's one-frame ramps stepped (the audio thread is often past currentTime); back to Chrome's documented
+  way, setTargetAtTime, at 10 ms (was 20 ms): no steps measured. [sound §1s]
   Battery simulation switch (off by default: the pack never drains), a full pack on every pad, THROTTLE DOWN before 3-2-1. [time-trials §1o]
   People keep apart (traffic v8): a kerb spot each when waiting, followers keep 0.75 m back; touching 96 % less. [traffic §1p]
   Flickering faces fixed (map v14: stacked containers, trusses, beams, decks); a test finds coplanar faces. [map §1q]
@@ -105,7 +107,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 17. **Sound:** fly with headphones, FPV and chase (C): still tinny, echoey or static? Ambience at 50 % right? Train
    sounds and whistle (American chime: OK?). Latency: try Chrome playing straight to a wired output instead of
-   Voicemeeter / Bluetooth and say if the lag goes. Want an output-device picker (needs a microphone permission)? [sound §1n]
+   Voicemeeter / Bluetooth and say if the lag goes. Want an output-device picker (needs a microphone permission)?
+   Crackle gone after §1s? Sound still feels late? [sound §1n, §1s]
 18. **Battery and THROTTLE DOWN:** Settings > World > Physics > Battery simulation: off (default) the pack never drains
    but still sags on a punch: right, or no sag either? Race a time trial with the throttle up after accepting: THROTTLE
    DOWN shows until it is under 5 %. [time-trials §1o]
@@ -181,7 +184,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
-| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup, one-frame ramps |
+| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN |
 
 

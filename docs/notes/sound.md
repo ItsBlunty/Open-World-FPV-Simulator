@@ -1,4 +1,4 @@
-# Sound (§1l, §1m, §1n, 2026-10-19)
+# Sound (§1l, §1m, §1n, 2026-10-19; §1s, 2026-10-20)
 
 Owner: "add sounds, make them realistic, use open source sound sources (we're GPL 3)". Owner approved downloading
 ten CC0 files (Freesound previews, Kenney Impact Sounds). Credits: `apps/fly/public/sounds/SOURCES.md` (~1 MB shipped).
@@ -96,7 +96,7 @@ Owner: low latency can't stay on in Chrome on a high-end PC; is there no other w
   (4-9 underruns in 3 s, with nothing else playing); ZEDi-10, Bose and NVIDIA Broadcast only the default (about 52 ms,
   0 underruns). Chrome's figure stops at the device it plays to: Voicemeeter's own buffering and its output (if the Bose,
   Bluetooth adds well over 100 ms, not measured) come on top. That is the larger part of the delay, outside the game.
-- **What the game did:** every per-frame change now ramps straight to its new value over one frame (`RAMP`, the frames'
+- **What the game did (undone in §1s: it crackled):** every per-frame change now ramps straight to its new value over one frame (`RAMP`, the frames'
   mean spacing from `performance.now()`), not a 20 ms exponential (about 60 ms to arrive). Measured in the browser:
   rotor 0's pitch follows the sim's rotor speed with a 7 ms best-fit lag, 0.04 Hz rms error. The low-latency switch
   stays (it works where the device takes it); Settings > Sound says what adds delay outside the game.
@@ -107,3 +107,33 @@ Owner: low latency can't stay on in Chrome on a high-end PC; is there no other w
   onboard 0), Doppler ratio within 0.98-1.01 while the chase camera trails; a train pulling away: 2 chuffs, 1 rail click
   (a whistle counted earlier); the demo's crash: 2 hits, 1 prop strike; race beeps and the prop chime fire (called
   directly). Heard by ear: not by Claude.
+
+## §1s The crackle from the one-frame ramps (2026-10-20)
+
+Owner: "The last sound change made all the audio crackle." (after §1n). Asked for documented research, not only probing.
+
+- **Cause:** §1n's `set()` did `cancelAndHoldAtTime(currentTime)` then `linearRampToValueAtTime(v, +1 frame)` on every
+  parameter each frame. The audio thread has often rendered past `currentTime` by the time it reads the call, so the
+  new ramp restarts from an earlier point than what was already played: a step in every gain, every frame.
+- **What the sources say** (read in full):
+  - Web Audio spec (webaudio.github.io/web-audio-api, §2.6 Rendering an Audio Graph): the page's calls are queued as
+    control messages and only applied at the start of the next render quantum; each system audio callback renders
+    render quanta until its whole buffer is filled (on Windows ~10 ms or more at once). §1.6.2: `cancelAndHoldAtTime`
+    clamps a past time to currentTime and holds "the value that would have happened" there; `setTargetAtTime` starts
+    from the parameter's [[current value]].
+  - Raymond Toy (Chrome Web Audio), public-audio-dev 2016-03: a `setValueAtTime(..., now)` "may already be in the
+    past from the view of the audio thread", so a following linear ramp starts from the last automation value; Chris
+    Wilson heard the clicks (lists.w3.org/Archives/Public/public-audio-dev/2016Mar/0001.html).
+  - Chrome's "Intent to Ship: WebAudio: Remove Dezippering" (blink-dev): Chrome's old built-in smoothing was an
+    exponential with about a 10 ms time constant; developers are told to use `setTargetAtTime` instead.
+- **Measured** (headless Chrome 155, `docs/evidence/2026-10-20-audio-steps/steps.mjs`: a DC level through a gain set
+  each ~16 ms with 0-6 ms of random main-thread work, output recorded by an AudioWorklet, 3 s, 'interactive' 10 ms):
+  | method | jumps > 1e-3 | max jump | frame-rate ripple rms |
+  |---|---|---|---|
+  | cancelAndHold + linear ramp (§1n) | 128 | 0.695 | 2.4e-2 |
+  | setTarget 20 ms (before §1n) | 0 | 1.5e-4 | 3.1e-3 |
+  | setTarget 10 ms (now) | 0 | 2.4e-4 | 5.5e-3 |
+  | setTarget 6 ms | 0 | 3.1e-4 | 7.8e-3 |
+  A smooth curve moves ~2e-4 per sample here, so every setTarget run is click-free.
+- **Fix:** `set()` is `setTargetAtTime(v, t, 10 ms)` again (Chrome's own former constant): about 30 ms to 95 %, half
+  §1m's 20 ms, no steps. The §1n frame-spacing clock is gone. Not heard by Claude; the owner has to listen.
