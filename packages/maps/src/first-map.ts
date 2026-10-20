@@ -38,9 +38,10 @@ export const MAP_ID = 'mixed-1';
  * and on a paved strip in the station garden, its south lawns pulled back for it (owner, 2026-10-20);
  * 17: the Duga radar's two antenna curtains north of the city, past the border trees (owner, 2026-10-20);
  * 18: the Duga remade after photos: separate towers, end masts, reflector wires, dipoles on bent feed pipes (owner, 2026-10-20);
- * 19: the Duga's reflector wires taken out, its dipole rows staggered, its feed pipes shaped and coloured after photos (owner, 2026-10-20)
+ * 19: the Duga's reflector wires taken out, its dipole rows staggered, its feed pipes shaped and coloured after photos (owner, 2026-10-20);
+ * 20: the Duga's dipoles one per bay on each row, in front of each tower then mid-bay, 0.7 of a bay long (owner, 2026-10-20)
  */
-export const MAP_VERSION = 19;
+export const MAP_VERSION = 20;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;

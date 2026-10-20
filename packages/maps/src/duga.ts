@@ -2,6 +2,8 @@
 // version of duga. It should still look like duga but not very high poly"), north of the city past the border trees.
 // Remade in map v18 (owner, 2026-10-20: "the duga array doesn't look right"), after the Wikimedia Commons photos; map
 // v19 (owner, 2026-10-20, with a photo of the face): no wires across between the towers, the dipole rows staggered.
+// v20 (owner, 2026-10-20, with a photo of the face: "spacing is one on every tower, then the next layer is one between
+// every tower, you have twice as many"): one dipole per bay on each row, longer.
 //
 // Real ones (Chernobyl-2, Ukraine): two curtains end to end in one straight line, a low-band one 541 m long and 150 m
 // high and a high-band one 276 m long, each 34 m deep at the foot (OpenStreetMap ways 432924904 and 437725923, heights:
@@ -15,7 +17,8 @@
 // Simplified (sizes not given by any source, read off the photos [estimates]): towers 12 m deep, their rusted legs 8 m
 // apart (high band 6 m) inside a grey frame 14 m wide (10 m), about half a bay; a level every 12.5 m, a wider frame on
 // top; the end masts 8 m in from each end, the first tower 0.8 of a bay further in (low band 15 towers, as counted in
-// the photo from afar; high band 11); two dipoles per bay on every row, a row every 6.25 m; raking struts at the towers' backs out to the
+// the photo from afar; high band 11); a row every 6.25 m, one dipole in front of each tower, then one mid-bay on the
+// next row, each about 0.7 of a bay end to end (owner's photo of the face); raking struts at the towers' backs out to the
 // 34 m footprint.
 // Full size: it is meant to be seen from all over the map.
 //
@@ -36,8 +39,7 @@ interface Curtain {
     /** levels of bracing, and rows of dipoles (photos of the face: rows about 4-6 m apart) */
     levels: number;
     rows: number;
-    /** one cage's length and width, m, and how far in front of the towers the dipoles hang */
-    cage: number;
+    /** one cage's width, m, and how far in front of the towers the dipoles hang */
     cageW: number;
     reach: number;
 }
@@ -75,12 +77,16 @@ const END_GAP = 0.8;
 const PIPE_OUT = 0.6;
 const PIPE_UP = 3;
 const PIPE_END = 1;
+/** a dipole's length end to end, in bays (owner's photo of the face: about 0.7) [estimate] */
+const DIPOLE = 0.7;
+/** the gap between a dipole's two cages, m, each side of its feed point */
+const CAGE_GAP = 0.3;
 
 export const DUGA: readonly Curtain[] = [
     // the low band: 541 m, 150 m high
-    { x0: -408, x1: 133, bays: 14, height: 150, legs: 8, frame: 3, levels: 12, rows: 24, cage: 6, cageW: 1.6, reach: 6 },
+    { x0: -408, x1: 133, bays: 14, height: 150, legs: 8, frame: 3, levels: 12, rows: 24, cageW: 1.6, reach: 6 },
     // the high band: 276 m, 100 m high
-    { x0: 133, x1: 409, bays: 10, height: 100, legs: 6, frame: 2, levels: 8, rows: 16, cage: 4, cageW: 1.2, reach: 4.5 }
+    { x0: 133, x1: 409, bays: 10, height: 100, legs: 6, frame: 2, levels: 8, rows: 16, cageW: 1.2, reach: 4.5 }
 ];
 
 /** Where a curtain's towers stand: the first tower's x and the bay between towers, m. */
@@ -103,22 +109,22 @@ function curtain(b: LevelBuilder, c: Curtain): void {
     for (let t = 0; t <= c.bays; t++) tower(b, c, first + t * bay, zf, zb, t);
     mast(b, c.x0 + MAST_IN, h, c.levels);
     mast(b, c.x1 - MAST_IN, h, c.levels);
-    // the dipoles: two per bay on each row, mid-panel, each fed in the middle from a pipe along the face over its row;
-    // every other row half a dipole along (owner's photo: staggered), so it has one more, in front of the last tower
-    const pitch = h / c.rows;
+    // the dipoles, each fed in the middle from a pipe along the face over its row: even rows one in front of each
+    // tower, odd rows one in the middle of each bay (owner's photo of the face)
+    const pitch = h / c.rows, len = (DIPOLE * bay) / 2 - CAGE_GAP;
     for (let k = 0; k < c.rows; k++) {
         const y = (k + 0.5) * pitch, yp = y + PIPE_UP, zp = zf + PIPE_OUT, z = zf + c.reach;
         for (let t = 0; t < c.bays; t++) b.bar('duga-pipe', [first + t * bay + hw, yp, zp], [first + (t + 1) * bay - hw, yp, zp], PIPE);
         const odd = k % 2 === 1;
-        for (let i = 0; i < 2 * c.bays + (odd ? 1 : 0); i++) {
-            const x = first + (i / 2 + (odd ? 0 : 0.25)) * bay;
+        for (let i = 0; i < c.bays + (odd ? 0 : 1); i++) {
+            const x = first + (i + (odd ? 0.5 : 0)) * bay;
             // out level from the face (through the pipe along it), down 45 deg, level again into the gap between the cages
             const z2 = z - PIPE_END, z1 = z2 - PIPE_UP;
             b.bar('duga-pipe', [x, yp, zf], [x, yp, z1], PIPE);
             b.bar('duga-pipe', [x, yp, z1], [x, y, z2], PIPE);
             b.bar('duga-pipe', [x, y, z2], [x, y, z], PIPE);
-            cage(b, x, y, z, c.cage, c.cageW, -1);
-            cage(b, x, y, z, c.cage, c.cageW, 1);
+            cage(b, x, y, z, len, c.cageW, -1);
+            cage(b, x, y, z, len, c.cageW, 1);
         }
     }
 }
@@ -189,7 +195,7 @@ const S3 = 0.8660254037844386;
  * width and a flat end (photos). 34 triangles.
  */
 function cage(b: LevelBuilder, x: number, y: number, z: number, len: number, w: number, dir: number): void {
-    const gap = 0.3, r = w / 2;
+    const gap = CAGE_GAP, r = w / 2;
     const xt = x + dir * gap, xm = xt + dir * len * 0.25, xn = xt + dir * len * 0.85, xe = xt + dir * len;
     // a hexagon across the cage, a corner at the top
     const ring = (cx: number, s: number): number[][] =>

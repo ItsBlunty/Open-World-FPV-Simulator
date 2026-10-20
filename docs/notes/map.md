@@ -358,3 +358,21 @@ straight through a bay 4 m up; real sizes). Map v19 hash `4bd550ca...`. Screensh
 
 **Left open:** cages solid, not wire; pipes are straight bars with sharp bends; row spacing and top beams are estimates
 from photos.
+
+## 2a. One dipole per bay (owner, 2026-10-20): map v20, built, waiting for the owner to look
+
+Owner, with a photo of the face: "Duga is very close to correct, however, you have made double the white pieces that are
+in the original. You can see here spacing is one on every tower, then the next layer is one between every tower, you
+have twice as many."
+
+**Changed (`packages/maps/src/duga.ts`):** one dipole per bay on each row (v19 had two): even rows one in front of each
+tower (low band 15, high band 11), odd rows one in the middle of each bay (14, 10). In the photo each dipole reaches
+about 0.7 of a bay end to end (the ends of neighbouring rows overlap a little), so the cages now take their length from
+the bay (`DIPOLE` 0.7): about 11.5 m a cage on the low band, 7.5 m on the high (were 6 m and 4 m) [estimate from the
+photo]. Feed pipes and rows as in §1x.
+
+**Cost:** map 595 250 -> 543 666 triangles (the Duga about 159 k -> 108 k). Frame time not re-measured (fewer triangles
+than v19, which cost nothing measurable).
+
+**Evidence:** `pnpm typecheck` clean, `pnpm test`: 63 files, 568 tests pass, including the Duga tests (lane along each
+face, straight through a bay, real sizes). Map v20 hash `b5d0a3a5...`. No screenshots this time.

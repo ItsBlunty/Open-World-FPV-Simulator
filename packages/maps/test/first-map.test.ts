@@ -341,9 +341,9 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '4bd550ca68824288f07093c7a5c2e03b4d5d10afe0ba8bd8dd6e9e35c6cdf212';
+const PINNED = 'b5d0a3a53e1d1290cd1b9311e697364f48f81c36efb6435a80de21f81acf53e2';
 
-describe('the Duga radar (map v19)', () => {
+describe('the Duga radar (map v20)', () => {
     const level = buildFirstMap();
     const world = new MeshContactWorld(level.collision);
     const out = { x: 0, y: 0, z: 0 };
