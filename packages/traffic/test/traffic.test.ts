@@ -21,29 +21,34 @@ const CAR_BALLS: number[][] = [];
 for (const f of [-1.6, -0.8, 0, 0.8, 1.6]) for (const s of [-0.55, 0, 0.55]) CAR_BALLS.push([f, s, 0.56, 0.4]);
 for (const f of [-0.8, -0.27, 0.27, 0.8]) for (const s of [-0.5, 0, 0.5]) CAR_BALLS.push([f - CAR.cabBack, s, 1.28, 0.27]);
 
-/** Checks a car (or a person) at every half metre of a route against the level; the number of places checked. */
-function clearOfLevel(rt: Route, kind: 'car' | 'walk', label: string, open: boolean): number {
+/**
+ * Checks a car (or a person) at every half metre of a route against the level; the number of places checked.
+ * Misses go into `bad` (one plain check per sphere: an expect() each made these tests take 80 s).
+ */
+function clearOfLevel(rt: Route, kind: 'car' | 'walk', label: string, open: boolean, bad: string[]): number {
     const out = { x: 0, y: 0, z: 0 };
     const pl = newPlace();
     let n = 0;
     for (let s = 0; s <= rt.length; s += 0.5) {
         placeAt(rt, s, pl, open);
         n++;
+        let hit = false;
         if (kind === 'car') {
             for (const [f, sd, y, r] of CAR_BALLS) {
                 const x = pl.x + f * pl.hx - sd * pl.hz, z = pl.z + f * pl.hz + sd * pl.hx;
-                expect(mesh.querySphere(x, rt.y + y, z, r, out), `${label} at ${s} m`).toBe(false);
+                if (mesh.querySphere(x, rt.y + y, z, r, out)) hit = true;
             }
             // the body's footprint corners are on the road, not over a kerb
             for (const f of [-CAR.bodyHalfL, CAR.bodyHalfL]) for (const sd of [-CAR.bodyHalfW, CAR.bodyHalfW]) {
                 const x = pl.x + f * pl.hx - sd * pl.hz, z = pl.z + f * pl.hz + sd * pl.hx;
-                for (const b of level.blocks) expect(x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1, `${label} at ${s} m`).toBe(false);
+                for (const b of level.blocks) if (x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1) hit = true;
             }
         } else {
             // the capsule above the ground (its bottom stands on it; the kerb's 15 cm is stepped over)
             const g = Math.max(rt.y, 0.15);
-            for (const y of [0.6, PERSON.y1]) expect(mesh.querySphere(pl.x, g + y, pl.z, PERSON.r, out), `${label} at ${s} m`).toBe(false);
+            for (const y of [0.6, PERSON.y1]) if (mesh.querySphere(pl.x, g + y, pl.z, PERSON.r, out)) hit = true;
         }
+        if (hit) bad.push(`${label} at ${s} m`);
     }
     return n;
 }
@@ -97,11 +102,14 @@ describe('loop traffic (signals off)', () => {
 
     it('never drives or walks through the level, and keeps cars off the sidewalks', () => {
         let n = 0;
+        const bad: string[] = [];
         traffic.routes.forEach((rt, k) => {
             const ids = traffic.byRoute[k];
-            if (ids.length) n += clearOfLevel(rt, traffic.movers[ids[0]].kind === 'car' ? 'car' : 'walk', `route ${k}`, false);
+            if (ids.length) n += clearOfLevel(rt, traffic.movers[ids[0]].kind === 'car' ? 'car' : 'walk', `route ${k}`, false, bad);
         });
         console.log(`loops: ${n} places checked`);
+        expect(n).toBeGreaterThan(50000);
+        expect(bad.slice(0, 10)).toEqual([]);
     });
 
     it('keeps everything on a route apart (one speed per route, spread round it)', () => {
@@ -214,16 +222,19 @@ describe('network traffic (signals on)', () => {
         expect(carIds.length).toBeGreaterThan(100);
         expect(peopleIds.length).toBeGreaterThan(150);
         let places = 0;
-        net.paths().forEach((p, k) => { places += clearOfLevel(p.route, p.kind, `${p.kind} path ${k}`, true); });
+        const bad: string[] = [];
+        net.paths().forEach((p, k) => { places += clearOfLevel(p.route, p.kind, `${p.kind} path ${k}`, true, bad); });
         console.log(`network: ${places} places checked`);
+        expect(places).toBeGreaterThan(100000);
         const out = { x: 0, y: 0, z: 0 };
         for (const b of net.allStatics()) {
             // a small sphere at the box's centre and over its ends, above the sidewalk
             const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
             for (const y of [Math.max(b.y0, 0.4), (b.y0 + b.y1) / 2, b.y1]) {
-                expect(mesh.querySphere(cx, y, cz, 0.08, out), `signal box at ${cx}, ${cz}`).toBe(false);
+                if (mesh.querySphere(cx, y, cz, 0.08, out)) bad.push(`signal box at ${cx}, ${cz}`);
             }
         }
+        expect(bad.slice(0, 10)).toEqual([]);
     });
 
     it('over ten minutes: no cars overlap, none enters a junction on red, no one crosses near a car, all keeps moving', () => {

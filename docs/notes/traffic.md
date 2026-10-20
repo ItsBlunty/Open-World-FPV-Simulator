@@ -247,3 +247,14 @@ and vendor against each of the craft's ~20 contact and sweep asks a tick, so eve
 made an armed quad dearer to simulate. Now the first ask of a tick scans every mover against a box 8 m bigger and the
 tick's later asks inside it test only those, in index order, so the same movers are found and nothing simulated changes
 (every pinned hash and replay test passes unchanged). 20 s armed: 4.9 s -> 1.2 s; the test 52 s -> 13 s, the file 23 s.
+
+## 1y. Test suite trimmed (owner, 2026-10-20)
+
+`pnpm test` took 114 s, 98 s of it in two traffic tests that check every route at each half metre against the level:
+they called `expect()` once per sphere, tens of millions of times. They now collect the places that touch the level and
+assert once (the same checks, the first ten misses named): 98 s -> 2.7 s. Control: sinking the car spheres 0.66 m into
+the road fails both, naming the routes. Also: the self-test no longer flies each flight twice (its pinned hashes already
+prove it is the same every run); `stats-v1-runner.test.ts` removed (FlightStats on the format /1 runner, which the game
+stopped using when the session moved to lives; `stats.test.ts` covers the stats on lives). 63 files / 560 tests in
+114 s -> 62 / 558 in 44 s; the slowest file is now `apps/fly/test/train.test.ts` (~45 s on one worker). The rest of the
+suite was read through: the tests are fast, each pins a behaviour or a control for one, so nothing else was cut.
