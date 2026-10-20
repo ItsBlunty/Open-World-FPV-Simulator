@@ -1,4 +1,4 @@
-# Sound (§1l, §1m, 2026-10-19)
+# Sound (§1l, §1m, §1n, 2026-10-19)
 
 Owner: "add sounds, make them realistic, use open source sound sources (we're GPL 3)". Owner approved downloading
 ten CC0 files (Freesound previews, Kenney Impact Sounds). Credits: `apps/fly/public/sounds/SOURCES.md` (~1 MB shipped).
@@ -77,3 +77,33 @@ Owner: sounds come in too late; the props sound tinny, a bit echoey, with a stat
   before; up to 20 dB of room). The World slider is now Trains.
 - Not checked: trains, hits, strikes, beeps and chase Doppler by ear or counter in the browser (one whistle counted);
   whether the owner's PC holds low latency without crackle; Edge. `pnpm test`: 62 files, 550 tests pass, hashes unchanged.
+
+## §1n Latency: what Chrome allows, where the owner's delay is (2026-10-19)
+
+Owner: low latency can't stay on in Chrome on a high-end PC; is there no other way?
+
+- **Chrome's own rule** (Chromium source, `media/base/audio_latency.cc`, main branch): on Windows a Web Audio
+  context gets "either exactly the minimum buffer size (using IAudioClient3) or multiples of the default buffer size";
+  nothing in between. IAudioClient3 is on by default (`kAllowIAudioClient3`, `media/audio/audio_features.cc`).
+  'interactive' maps to the default size. So a page has two choices: the device's minimum or its default period.
+- **Launch switches tried** (headless Chrome, throwaway profile, silence, `scratchpad/scripts/latency.mjs`):
+  none (min 2.7 + 16 ms, 9 underruns in 4 s idle; default 10 + 56 ms, 0); `--enable-exclusive-audio` (5.3 + 128 ms:
+  worse); `--audio-buffer-size=256` (5.3 + 48 ms, 0: about 10 ms better, a switch on Chrome's shortcut, not the game's
+  to set); `--audio-buffer-size=128` (2.7 + 16 ms, crackles again).
+- **The owner's PC:** the Windows default output is "Voicemeeter Input" (VB-Audio Voicemeeter VAIO, a virtual mixer);
+  also a ZEDi-10 USB mixer, Bose AE2 SoundLink (Bluetooth), NVIDIA Broadcast. Per output (`setSinkId`, latencyHint 0
+  then 'interactive', 3 s each): only the Voicemeeter inputs offer the small buffer, and all of them run dry with it
+  (4-9 underruns in 3 s, with nothing else playing); ZEDi-10, Bose and NVIDIA Broadcast only the default (about 52 ms,
+  0 underruns). Chrome's figure stops at the device it plays to: Voicemeeter's own buffering and its output (if the Bose,
+  Bluetooth adds well over 100 ms, not measured) come on top. That is the larger part of the delay, outside the game.
+- **What the game did:** every per-frame change now ramps straight to its new value over one frame (`RAMP`, the frames'
+  mean spacing from `performance.now()`), not a 20 ms exponential (about 60 ms to arrive). Measured in the browser:
+  rotor 0's pitch follows the sim's rotor speed with a 7 ms best-fit lag, 0.04 Hz rms error. The low-latency switch
+  stays (it works where the device takes it); Settings > Sound says what adds delay outside the game.
+- **Not done:** an output-device picker (Chrome only gives device names after a microphone permission; ask the owner);
+  predicting rotor speed ahead from the motor command (sim-core `motorCmd`, `p.tau` 15 ms) would gain at most the motor
+  lag and expose the PID's command noise.
+- **Browser check of the rest** (?demo&spawn=station, chase camera): the quad goes through the panner (outside 1,
+  onboard 0), Doppler ratio within 0.98-1.01 while the chase camera trails; a train pulling away: 2 chuffs, 1 rail click
+  (a whistle counted earlier); the demo's crash: 2 hits, 1 prop strike; race beeps and the prop chime fire (called
+  directly). Heard by ear: not by Claude.
