@@ -169,12 +169,21 @@ describe('v0.8 presets fly like a race quad, a freestyle quad and a heavy cineli
     const bands: Record<string, [number, number]> = { [RACE]: [0.12, 0.24], [FREE]: [0.18, 0.32], [CINE]: [0.35, 0.55] };
     const inBand = (v: number, [lo, hi]: [number, number]) => v >= lo && v <= hi;
 
-    it('hover throttle: race 12-24 %, freestyle 18-32 %, cinelifter 35-55 % (fresh pack)', () => {
-        for (const id of NEW) expect(inBand(hoverSolve(p(id), 1).throttle, bands[id]), `${id} ${hoverSolve(p(id), 1).throttle}`).toBe(true);
+    // the bands are of the hover rotor speed (a share of full speed, 1 / sqrt(TWR)) put on the throttle scale above idle;
+    // until sim-core/0.8.0 that was also the hover throttle. With the motor model (the freestyle quad) the throttle is lower:
+    // a lightly loaded motor turns faster per volt
+    const speedThrottle = (id: string) => { const h = hoverSolve(p(id), 1); return (h.share - p(id).idle) / (1 - p(id).idle); };
+    it('hover rotor speed as a throttle: race 12-24 %, freestyle 18-32 %, cinelifter 35-55 % (fresh pack)', () => {
+        for (const id of NEW) expect(inBand(speedThrottle(id), bands[id]), `${id} ${speedThrottle(id)}`).toBe(true);
+        const f = hoverSolve(p(FREE), 1);
+        expect(f.motor).toBeLessThan(f.share);
+        // control: without a motor model the command is the speed share
+        const r = hoverSolve(p(RACE), 1);
+        expect(r.motor).toBe(r.share);
     });
 
     it('control: each band refuses the other two drones', () => {
-        for (const id of NEW) for (const other of NEW) if (other !== id) expect(inBand(hoverSolve(p(other), 1).throttle, bands[id]), `${other} in ${id}'s band`).toBe(false);
+        for (const id of NEW) for (const other of NEW) if (other !== id) expect(inBand(speedThrottle(other), bands[id]), `${other} in ${id}'s band`).toBe(false);
     });
 
     it('hover current gives the makers\' hover times on 85 % of the pack: cinelifter 4.5-7 min (iFlight 5.5), freestyle 10-16 min (iFlight 12-13)', () => {
@@ -225,8 +234,9 @@ describe('v0.8 presets fly like a race quad, a freestyle quad and a heavy cineli
         expect(rollStep(p(CINE)).t63).toBeGreaterThan(35);
     });
 
-    it('control: the freestyle quad with the cinelifter\'s 50 ms motors is slower than 20 ms', () => {
-        expect(rollStep(p(FREE, { tauMs: 50 })).t63).toBeGreaterThan(20);
+    it('control: the freestyle quad with three times its rotor inertia (motors about as slow as the cinelifter\'s) is slower than 20 ms', () => {
+        // its motor lag follows from the motor model (sim-core/0.8.0), so tauMs no longer reaches it; the rotor inertia does
+        expect(rollStep(p(FREE, { propInertia: 3 })).t63).toBeGreaterThan(20);
     });
 
     it('the cinelifter\'s own tune rolls cleanly on a thumb-paced stick (80 ms): overshoot <= 12 %, at most one crossing', () => {
