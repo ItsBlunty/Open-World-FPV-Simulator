@@ -8,8 +8,10 @@
 import { S } from '@owfpv/sim-core';
 import type { SimEvent } from '@owfpv/sim-core';
 import type { Block } from '@owfpv/maps';
-import { BEATS_PER_TURN, CHIMNEY, DRIVER_D, newTrainPlace } from '@owfpv/traffic';
-import type { Train, TrainState } from '@owfpv/traffic';
+import { BEATS_PER_TURN, CHIMNEY, DRIVER_D, newAirPlace, newTrainPlace } from '@owfpv/traffic';
+import type { AirTraffic, Train, TrainState } from '@owfpv/traffic';
+import { AIR_SOUNDS } from './air-sound';
+import type { AirSoundKind } from './air-sound';
 
 /** Floats per train in the frame, from A.trains on. */
 export const TF = {
@@ -24,6 +26,18 @@ export const TF = {
 
 /** The most trains the frame carries (packages/traffic TRAINS is 2). */
 export const MAX_TRAINS = 2;
+
+/** Floats per airport mover in the frame, from A.air on. */
+export const AF = {
+    /** where its engines are, m, and its velocity, m/s */
+    x: 0, y: 1, z: 2, vx: 3, vy: 4, vz: 5,
+    /** engine (or rotor) power, 0 stopped to 1 full; its sound (air-sound.ts AIR_SOUNDS index) */
+    e: 6, kind: 7,
+    size: 8
+} as const;
+
+/** The most airport movers the frame carries: ten planes, the helicopter, the tugs (3), room to spare. */
+export const MAX_AIR = 16;
 
 /** The frame's layout. */
 export const A = {
@@ -52,7 +66,10 @@ export const A = {
     /** trains in the frame (0 when they are off) */
     nTrains: 32,
     trains: 33,
-    size: 33 + MAX_TRAINS * TF.size
+    /** the airport's movers with a sound (0 when it is off) */
+    nAir: 33 + MAX_TRAINS * TF.size,
+    air: 34 + MAX_TRAINS * TF.size,
+    size: 34 + MAX_TRAINS * TF.size + MAX_AIR * AF.size
 } as const;
 
 /** The distance a train runs per exhaust beat, m: four beats per turn of the coupled wheels (traffic train.ts). */
@@ -148,4 +165,43 @@ export function putTrains(a: Float32Array, trains: readonly Train[], tick: numbe
         a[o + TF.effort] = st.effort;
         a[o + TF.run] = st.run;
     }
+}
+
+const airAt = newAirPlace(), airNext = newAirPlace();
+/** how far ahead a mover is placed again for its velocity, ticks (20 ms) */
+const AIR_DV = 20;
+
+/**
+ * Writes the airport's part of the frame at (fractional) tick `tick`: each plane, the helicopter and the tugs, in mover
+ * order (a voice keeps its mover by that index). Hidden ones (away, parked out of sight) are silent. A tug's engine runs
+ * while it moves, idling when it waits on a tow [estimate: real tugs idle between moves; ours stop dead].
+ */
+export function putAir(a: Float32Array, air: AirTraffic | null, tick: number): void {
+    let n = 0;
+    if (air) {
+        for (let i = 0; i < air.movers.length && n < MAX_AIR; i++) {
+            const m = air.movers[i];
+            let kind: AirSoundKind;
+            if (m.kind === 'plane' && m.type) kind = m.type.kind;
+            else if (m.kind === 'heli' || m.kind === 'tug') kind = m.kind;
+            else continue;
+            const o = A.air + n * AF.size;
+            n++;
+            const p = air.place(i, tick, airAt);
+            const q = air.place(i, tick + AIR_DV, airNext);
+            let e = p.hidden ? 0 : p.e;
+            if (m.kind === 'tug') e = p.v > 0.02 || q.v > 0.02 ? 0.3 + 0.7 * Math.min(1, Math.max(p.v, q.v) / 3) : 0;
+            // the engines sit about 2 m above the origin (the main gear on the ground) [estimate]
+            a[o + AF.x] = p.x + p.u[0] * 2;
+            a[o + AF.y] = p.y + p.u[1] * 2;
+            a[o + AF.z] = p.z + p.u[2] * 2;
+            const k = q.hidden || p.hidden ? 0 : 1000 / AIR_DV;
+            a[o + AF.vx] = (q.x - p.x) * k;
+            a[o + AF.vy] = (q.y - p.y) * k;
+            a[o + AF.vz] = (q.z - p.z) * k;
+            a[o + AF.e] = e;
+            a[o + AF.kind] = AIR_SOUNDS.indexOf(kind);
+        }
+    }
+    a[A.nAir] = n;
 }

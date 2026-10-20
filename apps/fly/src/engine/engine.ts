@@ -38,7 +38,7 @@ import { TRAFFIC_VERSION, TRAINS, makeAir, makeTraffic, makeTrains } from '@owfp
 import type { AirTraffic, TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import type { EditorMode, EngineMsg, EngineReport, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam, TrialInfo } from './protocol';
 import { RadioLink } from './radio-link';
-import { A, cityWeight, fastestHit, putQuad, putTrains, trainAxles } from '../audio/frame';
+import { A, cityWeight, fastestHit, putAir, putQuad, putTrains, trainAxles } from '../audio/frame';
 
 export async function startEngine(port: Port, canvas: HTMLCanvasElement | OffscreenCanvas, init: InitMsg): Promise<void> {
     const post = (m: EngineMsg): void => port.postMessage(m);
@@ -398,7 +398,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             a[A.crash] = 0;
             for (let i = 0; i < 4; i++) a[A.k0 + i] = 0;
             a[A.toGo] = -1;
-            postAudio(rate !== 0 && rate > 0, r.cam !== 'fpv', r.tick, r.trains);
+            postAudio(rate !== 0 && rate > 0, r.cam !== 'fpv', r.tick, r.trains, r.air);
         }
         draw(r.cam === 'fpv' || r.cam === 'free');
         replayAt.tick = r.tick;
@@ -605,7 +605,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let eventsRead = session.runner.events.length;
     let groundAt = 0, groundFrames = 0;
     /** Fills and posts the sound's frame: the listener (the camera), and the rest set by the caller first. */
-    function postAudio(on: boolean, external: boolean, tick: number, trains: readonly Train[]): void {
+    function postAudio(on: boolean, external: boolean, tick: number, trains: readonly Train[], air: AirTraffic | null): void {
         const a = audioMsg.a, cam = view.camera, p = cam.position, q = cam.quaternion;
         a[A.on] = on ? 1 : 0;
         a[A.external] = external ? 1 : 0;
@@ -620,6 +620,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         }
         a[A.agl] = p.y - groundAt;
         putTrains(a, trains, tick);
+        putAir(a, air, tick);
         post(audioMsg);
     }
 
@@ -715,7 +716,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
         chaseCircle(!freeCam.active && view.mode === 'chase', dt);
-        postAudio(!paused, freeCam.active || view.mode !== 'fpv', session.sim.tick, session.trains);
+        postAudio(!paused, freeCam.active || view.mode !== 'fpv', session.sim.tick, session.trains, session.air);
         draw(freeCam.active || view.mode === 'fpv');
     }
 

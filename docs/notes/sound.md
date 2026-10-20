@@ -137,3 +137,41 @@ Owner: "The last sound change made all the audio crackle." (after §1n). Asked f
   A smooth curve moves ~2e-4 per sample here, so every setTarget run is click-free.
 - **Fix:** `set()` is `setTargetAtTime(v, t, 10 ms)` again (Chrome's own former constant): about 30 ms to 95 %, half
   §1m's 20 ms, no steps. The §1n frame-spacing clock is gone. Not heard by Claude; the owner has to listen.
+
+## §2e The airport's sounds (2026-10-20)
+
+Owner: "Lets get aircraft sounds"; asked whether to download EASA's certified noise tables: "Thats way too overboard for
+the level of sim I want. Just give me some sounds that are close and have acceptable volume." Tugs too (yes).
+
+- **What plays** (`audio/air-sound.ts`, pure, tested in `apps/fly/test/air-sound.test.ts`): each plane, the EC135 and the
+  three tugs is a recipe: one tone at its shaft rate (PeriodicWave), a second tone (a twin's other prop at 1.003-1.004 x,
+  so the two beat slowly as unsynchronised props do; the helicopter's Fenestron at 9.09 x the main rotor), a turbine's
+  whine and a band of noise (the jet's roar). All synthesised: no new files.
+  - Piston props (Cub, 172, SR22, Baron): blade-pass series and the exhaust's beats (cyl / 2 a turn) over a rough bed;
+    fixed-pitch rpm follows the power, constant-speed holds 2700 from 40 % power. Turboprops (Caravan, PC-12, King Air,
+    Twin Otter, ATR): blade-pass series only, 65 % rpm at ground idle, full from 40 % power, plus a whine. The Phenom:
+    roar and fan whine, no tone. EC135: 4-blade main rotor (blade-pass 26 Hz and many harmonics), Fenestron 10 blades
+    with side tones (its blades are unequally spaced), whine; the rotor spins up and down with the power. Tugs: a
+    four-cylinder diesel while they move.
+  - Speeds, blades: the real types' where found (sources on `AIR_RECIPES`; the EC135's rotor data from Kampa et al.,
+    "Aeromechanic aspects in the design of the EC135", ERF, read: main rotor R 5.1 m, 4 blades, 211 m/s; Fenestron 1.0 m,
+    10 blades, 188 m/s). Spectra and the whine/noise levels are estimates.
+  - Levels: dB(A) at 1 m equivalent at full power, set against the quad hovering 1 m away (99.5, from a vendor's
+    88-92 dB at 3 m: weak): 172 124 (its EASA certified take-off 76-78 dB(A), the plane ~220 m up [estimate]), EC135 116
+    (EASA SEL 80-81 dB(A) at 150 m), the rest by power, ATR 130, tug 100. Power e (the legs' engine power) gives
+    e^0.9 of the level. `MIX.air` 2 (+6 dB) on top: the quad's onboard microphone sits among its props.
+- **How** (`audio/frame.ts` `putAir`, `audio/audio.ts`): the engine writes every sounding mover (place 2 m up its frame,
+  velocity from a second place 20 ms on, power, kind; tug power from its speed); hidden ones are silent. Four voices go
+  to the loudest heard (gain / distance, above -50 dB of the quad's hover at 1 m); a voice keeps its mover while it is
+  among them and fades 0.4 s before taking another (`pickVoices`). Each voice: ISO air low-pass, HRTF panner (1/d),
+  Doppler on tones, whine, band and noise rate, on the Trains bus (Settings > Sound > "Trains and airport").
+- **Evidence** (headless Chrome, dev server, `docs/evidence/2026-10-20-air-sound/probe.mjs`: the day shifted to each
+  moment, the free camera beside it, the game's mix after its limiter recorded to .webm, `looks.json` per second):
+  the C172's take-off roll: blade-pass rising 80 -> 94 Hz with its 2nd harmonic at 182-188 Hz leading the spectrum; the
+  ATR on final: 141-146 Hz blade-pass and harmonics, falling to ~110 Hz as it passes (Doppler), the twin beat visible
+  (`atr72-landing-spectrum.png`); the King Air taxiing: 100 and 199 Hz; the EC135 by the hospital 23-26 Hz; voices
+  handed between movers 16 times without errors. Levels: a 172 at full power ~50 m away comes to about the quad's own
+  hover level. `pnpm test`: 68 files, 611 tests pass; hashes unchanged (sound reads the state only).
+- **Not checked / left:** heard by Claude: no (recordings for the owner); ground roll, reverse thrust and brakes make no
+  sound; no prop "buzz-saw" at take-off; one engine place per plane (both props of a twin at the middle); levels and
+  spectra are estimates for the owner to judge by ear.

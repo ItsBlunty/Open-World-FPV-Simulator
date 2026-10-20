@@ -9,23 +9,27 @@
 // - the steam trains: an exhaust beat four times a turn of the coupled wheels, loud with the regulator open (as the
 //   smoke), soft when drifting; wheels knocking on the rail joints; the safety valve's hiss while standing at a
 //   station; the whistle as one pulls away.
+// - the airport: the planes' props and engines, the jet's roar, the helicopter's rotor and Fenestron, the tugs' diesels,
+//   on four voices given to the loudest ones heard (air-sound.ts), placed, fading and Doppler-shifted like the trains.
 // - the places: a city street's traffic among the blocks, a spring park's birds elsewhere, quieter high up.
 // - the game: a time trial's countdown beeps, gates, finish and false start, as a race timer beeps; a chime for a
 //   golden prop.
 //
 // The recordings are CC0 (sounds/SOURCES.md); everything else is made here. Nothing here feeds back into the sim.
 
-import { A, BEAT_M, RAIL_M, TF, MAX_TRAINS } from './frame';
+import { A, AF, BEAT_M, RAIL_M, TF, MAX_TRAINS } from './frame';
 import {
-    airCornerHz, doppler, noiseCornerHz, noiseGain, rotorWave, toneGain, washOf
+    airCornerHz, doppler, noiseCornerHz, noiseGain, rotorSpectrum, rotorWave, toneGain, washOf
 } from './quad-sound';
+import { AIR_RECIPES, AIR_SOUNDS, airGain, pickVoices, rpmAt } from './air-sound';
+import type { AirRecipe } from './air-sound';
 
 /** The volume settings (settings.ts): on or off, then each part 0-100. */
 export interface SoundLevels {
     on: boolean;
     master: number;
     quad: number;
-    /** the trains */
+    /** the trains and the airport */
     world: number;
     /** the city and the park */
     ambience: number;
@@ -73,13 +77,44 @@ const MIX = {
     hit: 0.9, strike: 0.8,
     chuff: 0.9, roll: 0.25, click: 0.25, standing: 0.5, whistle: 0.9,
     park: 0.9, city: 1.0,
-    ui: 0.25
+    ui: 0.25,
+    /**
+     * the airport against the quad (air-sound.ts sets each mover's level from the quad's own in a hover): +6 dB over that
+     * [game mix, estimate], so a plane taxiing 30 m away is not lost under the quad on board, whose camera microphone
+     * sits among its props
+     */
+    air: 2
 };
+
+/** voices for the airport's movers: the loudest few heard at once [a plane, the tug pushing it, one more taxiing, the helicopter] */
+const AIR_VOICES = 4;
+/** quieter than this against the quad hovering 1 m away a mover gets no voice: -50 dB */
+const AIR_FLOOR = 10 ** (-50 / 20);
+/** a voice that lost its mover fades this long before it plays another, s */
+const AIR_FADE = 0.4;
 
 interface Rotor {
     osc: OscillatorNode;
     gain: GainNode;
     wash: GainNode;
+}
+
+interface AirVoice {
+    /** the mover it plays (its index in the frame's airport block), -1 free, -2 fading out */
+    mover: number;
+    freeAt: number;
+    kind: number;
+    tone: OscillatorNode;
+    toneGain: GainNode;
+    second: OscillatorNode;
+    secondGain: GainNode;
+    whine: OscillatorNode;
+    whineGain: GainNode;
+    noise: AudioBufferSourceNode;
+    band: BiquadFilterNode;
+    noiseGain: GainNode;
+    air: BiquadFilterNode;
+    pan: PannerNode;
 }
 
 interface TrainVoice {
@@ -111,7 +146,7 @@ export class AudioEngine {
 
     private master!: GainNode;
     /** how many of each one-off sound have played, for checks from the console (__fly.sound.counts) */
-    readonly counts = { chuff: 0, click: 0, whistle: 0, hit: 0, strike: 0, beep: 0, chime: 0 };
+    readonly counts = { chuff: 0, click: 0, whistle: 0, hit: 0, strike: 0, beep: 0, chime: 0, air: 0 };
     /** what comes out, for checks from the console (__fly.sound.spectrum()) */
     private analyser: AnalyserNode | null = null;
     private quadBus!: GainNode;
@@ -136,6 +171,9 @@ export class AudioEngine {
     private washDepth!: GainNode;
     private windGain!: GainNode;
     private trains: TrainVoice[] = [];
+    private airVoices: AirVoice[] = [];
+    /** each sound's PeriodicWaves (tone, second), made once per context */
+    private airWaves = new Map<string, PeriodicWave>();
     private parkGain!: GainNode;
     private cityGain!: GainNode;
 
@@ -216,6 +254,8 @@ export class AudioEngine {
         this.analyser = null;
         this.rotors = [];
         this.trains = [];
+        this.airVoices = [];
+        this.airWaves.clear();
         this.lastL = null;
         void old.close();
         this.unlock();
@@ -425,6 +465,9 @@ export class AudioEngine {
             this.trains.push({ chimney, middle, air, roll, stand: gainTo(c, air, 0), standSrc: null, lastRun: 0, lastV: 0, seen: false });
         }
 
+        // the airport
+        for (let k = 0; k < AIR_VOICES; k++) this.airVoices.push(this.airVoice(c));
+
         // the places
         this.parkGain = gainTo(c, this.ambBus, 0);
         this.cityGain = gainTo(c, this.ambBus, 0);
@@ -509,6 +552,7 @@ export class AudioEngine {
 
         this.quad(a, on, external, t);
         this.trainsFrame(a, on, t);
+        this.airFrame(a, on, t);
 
         // the places: the city's traffic among the blocks, the park's birds elsewhere, both quieter high up
         const high = 1 / (1 + Math.max(0, a[A.agl]) / 60);
@@ -641,6 +685,155 @@ export class AudioEngine {
             tv.lastRun = run;
             tv.lastV = v;
         }
+    }
+
+    /** One airport voice: its tones, whine and noise into the air's dulling and a panner, silent until given a mover. */
+    private airVoice(c: AudioContext): AirVoice {
+        const pan = panner(c, 1, 10000);
+        pan.connect(this.worldBus);
+        const air = c.createBiquadFilter();
+        air.type = 'lowpass';
+        air.frequency.value = 20000;
+        air.Q.value = 0.5;
+        air.connect(pan);
+        const osc = (): [OscillatorNode, GainNode] => {
+            const o = c.createOscillator();
+            o.frequency.value = 0;
+            const g = gainTo(c, air, 0);
+            o.connect(g);
+            o.start();
+            return [o, g];
+        };
+        const [tone, toneGain] = osc();
+        const [second, secondGain] = osc();
+        const [whine, whineGain] = osc();
+        const noise = c.createBufferSource();
+        noise.buffer = this.noise;
+        noise.loop = true;
+        const band = c.createBiquadFilter();
+        band.type = 'bandpass';
+        band.frequency.value = 800;
+        band.Q.value = 0.5;
+        const noiseGain = gainTo(c, air, 0);
+        noise.connect(band).connect(noiseGain);
+        noise.start(0, Math.random() * 2);
+        return { mover: -1, freeAt: 0, kind: -1, tone, toneGain, second, secondGain, whine, whineGain, noise, band, noiseGain, air, pan };
+    }
+
+    /** A sound's PeriodicWave (made once): its tone's, or with `second` its second tone's; null: it has none. */
+    private airWave(kind: number, second: boolean): PeriodicWave | null {
+        const key = second ? `${kind}s` : `${kind}`;
+        const have = this.airWaves.get(key);
+        if (have) return have;
+        const r = AIR_RECIPES[AIR_SOUNDS[kind]];
+        const amp = second ? r.second?.wave : r.wave;
+        if (!amp || amp.length < 2) return null;
+        // the harmonics' phases: the sound's own randomness, nothing of the sim
+        const real = new Float32Array(amp.length), imag = new Float32Array(amp.length);
+        for (let n = 1; n < amp.length; n++) {
+            const ph = Math.random() * 2 * Math.PI;
+            real[n] = amp[n] * Math.sin(ph);
+            imag[n] = amp[n] * Math.cos(ph);
+        }
+        const w = this.ctx!.createPeriodicWave(real, imag, { disableNormalization: true });
+        this.airWaves.set(key, w);
+        return w;
+    }
+
+    /** The quad's tones in a hover, as heard 1 m away: what the airport's levels are set against (air-sound.ts). */
+    private quadHover(): number {
+        const w = rotorSpectrum(this.opts.blades);
+        let ss = 0;
+        for (let n = 1; n < w.length; n++) ss += w[n] * w[n] / 2;
+        // four rotors add as power
+        return MIX.quad * MIX.rotor * toneGain(this.opts.hoverShare) * Math.sqrt(ss) * 2;
+    }
+
+    /** For checks from the console (__fly.sound.airNow()): what each airport voice plays. */
+    airNow(): { mover: number; kind: string; gain: number; hz: number }[] {
+        return this.airVoices.map((v) => ({
+            mover: v.mover, kind: v.kind >= 0 ? AIR_SOUNDS[v.kind] : '', gain: v.toneGain.gain.value + v.noiseGain.gain.value, hz: v.tone.frequency.value
+        }));
+    }
+
+    private airFrame(a: Float32Array, on: boolean, t: number): void {
+        const n = Math.max(0, Math.min(a[A.nAir], 64));
+        const lx = a[A.lx], ly = a[A.ly], lz = a[A.lz];
+        const loud = new Float32Array(n);
+        for (let i = 0; i < n && on; i++) {
+            const o = A.air + i * AF.size;
+            const r = AIR_RECIPES[AIR_SOUNDS[a[o + AF.kind]]];
+            if (!r) continue;
+            const d = Math.hypot(a[o + AF.x] - lx, a[o + AF.y] - ly, a[o + AF.z] - lz);
+            loud[i] = airGain(r, a[o + AF.e]) / Math.max(1, d);
+        }
+        // a voice done fading is free again
+        for (const v of this.airVoices) if (v.mover === -2 && t >= v.freeAt) v.mover = -1;
+        const now = pickVoices(loud, this.airVoices.map((v) => v.mover), AIR_FLOOR);
+        const ref = this.quadHover() * MIX.air;
+        this.airVoices.forEach((v, k) => {
+            const m = now[k];
+            if (m < 0) {
+                if (v.mover >= 0) {
+                    v.mover = -2;
+                    v.freeAt = t + AIR_FADE;
+                    for (const g of [v.toneGain, v.secondGain, v.whineGain, v.noiseGain]) set(g.gain, 0, t, AIR_FADE / 5);
+                }
+                return;
+            }
+            const o = A.air + m * AF.size;
+            const kind = a[o + AF.kind];
+            const fresh = v.mover !== m;
+            if (fresh) {
+                v.mover = m;
+                this.counts.air++;
+                if (v.kind !== kind) {
+                    v.kind = kind;
+                    const w1 = this.airWave(kind, false), w2 = this.airWave(kind, true);
+                    if (w1) v.tone.setPeriodicWave(w1);
+                    if (w2) v.second.setPeriodicWave(w2);
+                }
+            }
+            this.airMover(v, AIR_RECIPES[AIR_SOUNDS[kind]], a, o, t, ref, fresh);
+        });
+    }
+
+    /** Voice v plays the mover at frame offset o (fresh: just given it, so it jumps there instead of gliding). */
+    private airMover(v: AirVoice, r: AirRecipe, a: Float32Array, o: number, t: number, ref: number, fresh: boolean): void {
+        const x = a[o + AF.x], y = a[o + AF.y], z = a[o + AF.z];
+        const lx = a[A.lx], ly = a[A.ly], lz = a[A.lz];
+        const e = Math.max(0, Math.min(1, a[o + AF.e]));
+        const put = (p: AudioParam, val: number, tau = TAU): void => {
+            if (!Number.isFinite(val)) return;
+            if (fresh) {
+                p.cancelScheduledValues(t);
+                p.setValueAtTime(val, t);
+            } else p.setTargetAtTime(val, t, tau);
+        };
+        put(v.pan.positionX, x); put(v.pan.positionY, y); put(v.pan.positionZ, z);
+        const d = Math.hypot(x - lx, y - ly, z - lz);
+        put(v.air.frequency, airCornerHz(d), 0.1);
+        const dop = doppler(lx, ly, lz, this.lv[0], this.lv[1], this.lv[2], x, y, z, a[o + AF.vx], a[o + AF.vy], a[o + AF.vz]);
+        const shaft = (rpmAt(r, e) / 60) * dop;
+        put(v.tone.frequency, shaft);
+        put(v.second.frequency, shaft * (r.second?.ratio ?? 1));
+        put(v.whine.frequency, r.whine ? (r.whine.hz0 + (r.whine.hz1 - r.whine.hz0) * e) * dop : 0);
+        put(v.band.frequency, (r.noise.hz0 + (r.noise.hz1 - r.noise.hz0) * e) * dop, 0.05);
+        put(v.band.Q, r.noise.q);
+        put(v.noise.playbackRate, dop);
+        // the levels glide in from silence even when fresh (the voice faded to 0 before it was given this mover)
+        const g = ref * airGain(r, e);
+        const twin = r.second !== null && r.second.ratio < 1.1;
+        const tone = r.wave.length > 1 ? g * (twin ? Math.SQRT1_2 : 1) : 0;
+        // a Fenestron about 8 dB under the main rotor [estimate]
+        const second = r.second ? g * (twin ? Math.SQRT1_2 : 10 ** (-8 / 20)) : 0;
+        // a turbine whines on at idle as its compressor keeps turning: relatively louder at low power [estimate]
+        const whine = r.whine && e > 0.005 ? g * 10 ** (r.whine.db / 20) * Math.min(2.5, e ** -0.5) : 0;
+        const noise = g * 10 ** (r.noise.db / 20);
+        set(v.toneGain.gain, tone, t, 0.08);
+        set(v.secondGain.gain, second, t, 0.08);
+        set(v.whineGain.gain, whine, t, 0.08);
+        set(v.noiseGain.gain, noise, t, 0.08);
     }
 
     /**

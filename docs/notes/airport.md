@@ -74,7 +74,7 @@ traffic self-test hashes unchanged. Headless Chrome (WebGPU, dev server, `docs/e
 the ATR over the park, touching down, being pushed in, the tower cab, the medics on the hospital roof, a take-off, an
 overview; 120 fps there (capped), no console errors.
 
-**Left open:** no sound for the planes or the helicopter; props and rotors are not solid (a quad flies through them);
+**Left open:** (sound added: `docs/notes/sound.md` §2e) props and rotors are not solid (a quad flies through them);
 planes don't react to the quad; arrivals appear out of nowhere 4.26 km west (past the fog, but a quad flying out there
 sees them); hangar doors are always open; no runway or apron lights; the medics never come back out; waits for a tug can
 be several minutes on the apron; frame cost not measured on a weak machine; the airport has no golden props.

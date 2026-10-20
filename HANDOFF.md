@@ -67,7 +67,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   three hangars, a tower with open cab windows and controllers, terminal; ten planes (Cub to ATR 72) land, are pushed into
   their hangar by a tug, pulled out and take off again; the EC135 air ambulance flies to "City General Hospital"'s roof pad
   where medics wheel a stretcher in; all solid; Settings > World > Airport traffic. [airport §2d]
-- **Tests:** `pnpm test`: 67 files, 599 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
+  the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
+  Sound > Trains and airport. [sound §2e]
+- **Tests:** `pnpm test`: 68 files, 611 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -151,14 +154,17 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 25. **Airport:** spawn "Airport (apron)": watch a landing (the day repeats every 50 min, an arrival every 5), fly into a
    hangar, into the tower by its foot door and up the shaft or through a cab window; spawn "Hospital roof" (the helicopter
    lands about 9 min and 34 min into a flight). Plane mix, sizes, speeds right? Approach low enough over the park? Taxi and
-   tow speeds? Want plane sounds, solid props, lights? [airport §2d]
+   tow speeds? Want solid props, lights? [airport §2d]
+26. **Aircraft sounds:** spawn "Airport (apron)" with headphones, chase or free camera and FPV: watch a landing, a tug
+   push, a take-off, the helicopter at "Hospital roof". Close enough? Volume OK against the quad (Settings > Sound >
+   Trains and airport)? Recordings: `docs/evidence/2026-10-20-air-sound/*.webm`. [sound §2e]
 
 ## Left open (not started)
 
-- Airport: no aircraft sound; props and rotors not solid; planes ignore the quad; arrivals appear 4.26 km out; medics
+- Airport: props and rotors not solid; planes ignore the quad; arrivals appear 4.26 km out; medics
   never come back out; tug waits can be minutes; no lights; frame cost not measured on a weak machine. [airport §2d]
 - **Sound:** no hit sounds in replays; no car sounds; British whistle wanted?; mix levels, rush chop and loudness
-  exponents are estimates; nothing heard by Claude, only measured. [sound §1n]
+  exponents are estimates; nothing heard by Claude, only measured; aircraft: no rollout, reverse or brake sounds, one engine place per twin. [sound §1n, §2e]
 
 - Freestyle grading: Matty flip, Rubik's cube, yaw spins, orbit not built; challenges (spots, pars, stars, ghost)
   not built and need owner questions first; long carving (> 8 s turning) hides tricks inside it. [freestyle-grading §11]
@@ -226,7 +232,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
-| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes |
+| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes; §2e: the airport's sounds |
 | `airport.md` | §2d: the airport (runway, taxiways, hangars, tower, terminal), the hospital pad, the ten planes, tugs, the air ambulance and medics, the schedule and runway booking, its collision and drawing |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN; §2c: the course creator, course files, race gates, solid layers, adding a course to the game |
 
