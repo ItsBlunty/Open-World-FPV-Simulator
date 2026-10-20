@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CRASHFLIP_MOTOR_DEADBAND, S, Sim, compileParams, crashFlipMix } from '../src/index';
+import type { ParamOverrides } from '../src/index';
 import { PRESET } from './log-kit';
 
 const MIX_R = [-1, -1, 1, 1];
@@ -49,8 +50,8 @@ describe('crash-flip mix (Betaflight 2026.6.2)', () => {
 });
 
 /** A craft on its back in free space (no world), parked until armed. */
-function onItsBack(): Sim {
-    const sim = new Sim(compileParams(PRESET, {}), null);
+function onItsBack(o: ParamOverrides = {}): Sim {
+    const sim = new Sim(compileParams(PRESET, o), null);
     sim.setChannels([0, 0, -1, 0, -1, -1, 0, 0]);
     sim.reset(0, 10, 0, 0);
     sim.s[S.qw] = 0;
@@ -120,5 +121,42 @@ describe('turtle-mode arming (Betaflight 2026.6.2 core.c, crashflip_auto_rearm o
         sim.setChannels(chans({ arm: true, turtle: true }));
         sim.step();
         expect(sim.s[S.flip]).toBe(1);
+    });
+});
+
+/** A craft tilted `deg` about its roll axis in free space, parked until armed. */
+function tilted(deg: number, o: ParamOverrides): Sim {
+    const sim = new Sim(compileParams(PRESET, o), null);
+    sim.setChannels([0, 0, -1, 0, -1, -1, 0, 0]);
+    sim.reset(0, 10, 0, 0);
+    const h = (deg * Math.PI) / 360;
+    sim.s[S.qw] = Math.cos(h);
+    sim.s[S.qz] = Math.sin(h);
+    sim.step();
+    return sim;
+}
+const armsAt = (deg: number, o: ParamOverrides): boolean => {
+    const sim = tilted(deg, o);
+    sim.setChannels(chans({ arm: true, turtle: false }));
+    sim.step();
+    return sim.armed;
+};
+
+describe('arming angle (ParamOverrides.smallAngleDeg, Betaflight small_angle)', () => {
+    it('absent: 25 deg, as before the setting; another angle moves the limit; 180 arms on its back, motors forward', () => {
+        expect(compileParams(PRESET, {}).smallAngleDeg).toBe(25);
+        expect(armsAt(24, {})).toBe(true);
+        expect(armsAt(26, {})).toBe(false);
+        expect(armsAt(59, { smallAngleDeg: 60 })).toBe(true);
+        expect(armsAt(61, { smallAngleDeg: 60 })).toBe(false);
+        expect(armsAt(0, { smallAngleDeg: 0 })).toBe(false); // Betaflight 0: never level enough
+        expect(armsAt(120, { smallAngleDeg: 180 })).toBe(true);
+        const sim = onItsBack({ smallAngleDeg: 180 });
+        sim.setChannels(chans({ arm: true, turtle: false }));
+        sim.step();
+        expect(sim.armed).toBe(true);
+        expect(sim.s[S.flip]).toBe(0);
+        // out of range clamps to Betaflight's 0-180
+        expect(compileParams(PRESET, { smallAngleDeg: 999 }).smallAngleDeg).toBe(180);
     });
 });

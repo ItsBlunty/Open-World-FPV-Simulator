@@ -461,7 +461,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let lastHud = -Infinity;
     const hudMsg: EngineMsg & { type: 'hud' } = {
         type: 'hud',
-        hud: { s: new Float64Array(session.sim.s.length), ch: new Float32Array(8), p: { cells: 0, crashOn: false }, respawnIn: null, fps: 0, mode: 'fpv', freeCam: false, trial: session.trials.status() }
+        hud: { s: new Float64Array(session.sim.s.length), ch: new Float32Array(8), p: { cells: 0, crashOn: false, smallAngleDeg: 25 }, respawnIn: null, fps: 0, mode: 'fpv', freeCam: false, trial: session.trials.status() }
     };
     /** the sound's frame (audio/frame.ts), refilled and posted every frame; sim events read up to here */
     const audioMsg: EngineMsg & { type: 'audio' } = { type: 'audio', a: new Float32Array(A.size) };
@@ -548,6 +548,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             h.ch.set(sim.ch);
             h.p.cells = sim.p.cells;
             h.p.crashOn = sim.p.crashOn;
+            h.p.smallAngleDeg = sim.p.smallAngleDeg;
             h.respawnIn = pend ? pend.atTick - sim.tick : null;
             h.fps = fps;
             h.mode = view.mode;

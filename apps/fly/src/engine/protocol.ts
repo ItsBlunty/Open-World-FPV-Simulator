@@ -110,7 +110,7 @@ export interface HudSnapshot {
     /** sim-core's state vector and channels, copied */
     s: Float64Array;
     ch: Float32Array;
-    p: { cells: number; crashOn: boolean };
+    p: { cells: number; crashOn: boolean; smallAngleDeg: number };
     respawnIn: number | null;
     fps: number;
     mode: 'fpv' | 'chase';

@@ -73,6 +73,8 @@ function overrides(): ParamOverrides {
     if (settings.classicPhysics) o.classicPhysics = true;
     // battery simulation off (the default, owner 2026-10-19): the pack stays full
     if (!settings.battery) o.batteryDrain = false;
+    // arming angle (Betaflight small_angle): 180 by default (owner 2026-10-20), any tilt arms; 25 is sim-core's default
+    if (settings.armAngle !== 25) o.smallAngleDeg = settings.armAngle;
     return o;
 }
 

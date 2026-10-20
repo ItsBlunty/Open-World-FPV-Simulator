@@ -118,3 +118,20 @@ the physics in the air.
   bounces off and crashes on its second hit. With the throttle held after a hit, acro holds the attitude the hit left
   and can fly the quad back into the wall, as a real one would.
 - **Not built:** the sideways kick of a striking prop; props that break; an ESC restart delay (no data found).
+
+## 2b. Arming angle setting (owner, 2026-10-20)
+
+The owner asked for Betaflight's small_angle check (arming needs the quad within 25 deg of level) to be off, with a
+setting to bring it back.
+
+- sim-core: `ParamOverrides.smallAngleDeg` (0-180 whole degrees, clamped; absent = 25, as every flight before it).
+  `Sim` keeps the exact cos(25 deg) constant for 25, uses `dcos` for other angles, and lets any tilt arm at 180
+  (Betaflight's small_angle = 180; the BetaFPV dumps in `test/fixtures/betafpv` all ship with 180). The override is in
+  the life's overrides, so saved flights replay with the angle they were flown with. No trace change: pinned hashes
+  unchanged, `SIM_CORE_VERSION` stays 0.7.0.
+- Game: `settings.armAngle`, default 180; Settings > World > Physics > Arming angle slider; letting go of it restarts at
+  the spawn point. The HUD shows the TILTED turtle hint only when the quad is past the angle (never at 180).
+- At 180 a quad on its back arms with the turtle switch off and its motors spin forward (pushing it into the ground),
+  as Betaflight does; the turtle switch still arms turtle mode as before.
+- Test: `packages/sim-core/test/crashflip.test.ts` "arming angle": 24 / 26 deg at the default, 59 / 61 at 60, 0 never
+  arms, 120 and on its back arm at 180, out of range clamps. Suite: 569 pass.

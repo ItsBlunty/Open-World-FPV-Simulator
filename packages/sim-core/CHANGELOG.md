@@ -4,6 +4,11 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- `ParamOverrides.smallAngleDeg` (`SimParams.smallAngleDeg`): Betaflight's small_angle, 0-180 deg (clamped). Arming
+  needs the craft within it of level unless the turtle switch is on; 180 arms at any tilt. Absent: 25, the exact
+  constant as before (hashes unchanged). The game's "Arming angle" setting (default 180, owner 2026-10-20). Test:
+  `test/crashflip.test.ts` "arming angle".
+
 - `ContactWorld.movingNear?(x, y, z, r)`: is a moving surface (car, person, train) within r of the point at this tick.
   The respawn director keeps respawns clear of them (owner, 2026-10-20): a rewind skips kept spots with one there now and
   goes further back (`StateHistory.pickBefore` takes an optional `free` test); a start with one on it is raised in

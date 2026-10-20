@@ -10,7 +10,7 @@ import { h } from './dom';
 export interface HudSim {
     s: ArrayLike<number>;
     ch: ArrayLike<number>;
-    p: { cells: number; crashOn: boolean };
+    p: { cells: number; crashOn: boolean; smallAngleDeg: number };
 }
 
 export interface HudExtra {
@@ -72,8 +72,9 @@ export class Hud {
         const low = v / cells < 3.5;
         const armed = s[S.armed] > 0;
         const turtle = armed && s[S.flip] > 0;
-        // body up along world up: arming needs within 25 deg of level (sim-core arming(), Betaflight small_angle)
+        // body up along world up: arming needs it within the arming angle of level (sim-core arming(), Betaflight small_angle)
         const upY = 1 - 2 * (s[S.qx] * s[S.qx] + s[S.qz] * s[S.qz]);
+        const tooTilted = sim.p.smallAngleDeg < 180 && upY <= Math.cos((sim.p.smallAngleDeg * Math.PI) / 180);
         const mode = modeFromChannel(sim.ch[5]).toUpperCase();
         const health = Math.ceil(s[S.health] * 100);
         this.tl.innerHTML = '';
@@ -92,7 +93,7 @@ export class Hud {
         let msg = '';
         if (!x.hasRadio) msg = x.noRadioHint;
         else if (s[S.crashed] > 0) msg = x.respawnIn !== null ? `CRASHED — respawn in ${(x.respawnIn / 1000).toFixed(1)} s` : 'CRASHED';
-        else if (!armed) msg = upY < 0.9063 ? x.turtleHint : x.armHint;
+        else if (!armed) msg = tooTilted ? x.turtleHint : x.armHint;
         else if (turtle) msg = 'TURTLE — push a stick to flip over, then turtle switch off';
         this.mid.textContent = msg;
         this.bottom.textContent = x.footer;

@@ -58,7 +58,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
   Quad trapped inside a car fixed (traffic v10): a vehicle's boxes are one solid, a quad inside is pushed out the shortest way out of the whole car. [traffic §1z]
   Respawns avoid cars (owner): a rewind skips spots a car, person or train is on now; R with one on the spawn goes above it. [traffic §1z]
-- **Tests:** `pnpm test`: 63 files, 568 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Arming angle setting (owner): Settings > World > Physics, 0-180 deg, default 180 (any tilt arms; Betaflight's is 25). [contacts §2b]
+- **Tests:** `pnpm test`: 63 files, 569 tests pass in 28 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -133,6 +134,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    then mid-bay): count and length (0.7 of a bay, read off your photo) right? Row spacing and pipe shape right? Faces the city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w, §1x, §2a]
 22. **Respawns and cars:** crash over a city street with cars and let it rewind: it should never put you in or on a car.
    A quad that still ends up inside one is pushed out the shortest way (low in the body: under the car). [traffic §1z]
+23. **Arming angle:** arm tilted and on its back (turtle switch off: motors spin forward), then set Settings > World >
+   Physics > Arming angle to 25 and check it refuses past 25 and the TILTED hint shows. [contacts §2b]
 
 ## Left open (not started)
 
@@ -191,7 +194,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | Note | Covers |
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
-| `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
+| `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes; §2b: arming angle setting |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes; §2a: one dipole per bay |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |

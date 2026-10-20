@@ -282,6 +282,8 @@ export class SettingsUi {
                 h('p', { class: 'note' }, 'Off: each prop feels the air through it, so thrust fades as you climb fast and grows as you fly forward, as measured on real 5-inch quads.'),
                 this.check('Battery simulation (the pack drains as you fly and the quad gets weaker; off: always a full pack). Changing it restarts at the spawn point.', s.battery, (v) => { s.battery = v; host.save(); host.onFlight(); }),
                 h('p', { class: 'note' }, 'With it on, the pack is full again whenever you go back to the start point or onto a time trial pad.'),
+                this.slider('Arming angle', 0, 180, s.armAngle, '°', (v) => { s.armAngle = v; }, () => { host.save(); host.onFlight(); }),
+                h('p', { class: 'note' }, "Arming needs the quad within this tilt of level (Betaflight's small_angle). 180° (the default here) arms at any tilt; 25° is Betaflight's own default. Changing it restarts at the spawn point."),
                 h('h2', {}, 'Crashes and damage'),
                 this.check('Damage and crashes (off: every hit is a bounce and you keep flying). Changing it restarts at the spawn point.', s.damage, (v) => { s.damage = v; host.save(); host.onFlight(); }),
             ],

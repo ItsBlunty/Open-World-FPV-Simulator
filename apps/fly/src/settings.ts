@@ -48,6 +48,11 @@ export interface Settings {
      * the pack stays full (sim-core's batteryDrain false; it still sags under load as a fresh pack does).
      */
     battery: boolean;
+    /**
+     * arming angle, degrees: arming needs the quad within this tilt of level (Betaflight's small_angle, sim-core's
+     * smallAngleDeg). 180 by default (owner, 2026-10-20): arms at any tilt; 25 is Betaflight's default.
+     */
+    armAngle: number;
     /** solid cars on the city roads (owner, 2026-10-17: a toggle in the graphics and performance settings) */
     cars: boolean;
     /** solid people on the sidewalks */
@@ -95,6 +100,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     damage: false,
     classicPhysics: false,
     battery: false,
+    armAngle: 180,
     cars: true,
     people: true,
     signals: true,
@@ -148,6 +154,7 @@ export function loadSettings(): Settings {
     if (typeof s.damage === 'boolean') out.damage = s.damage;
     if (typeof s.classicPhysics === 'boolean') out.classicPhysics = s.classicPhysics;
     if (typeof s.battery === 'boolean') out.battery = s.battery;
+    if (typeof s.armAngle === 'number' && s.armAngle >= 0 && s.armAngle <= 180) out.armAngle = Math.round(s.armAngle);
     if (typeof s.cars === 'boolean') out.cars = s.cars;
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;

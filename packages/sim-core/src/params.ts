@@ -74,6 +74,11 @@ export interface SimParams {
     crashOn: boolean;
     /** false: the pack never drains (its state of charge stays where the life set it); its sag under load stays */
     batteryDrain: boolean;
+    /**
+     * arming needs the craft within this many degrees of level (Betaflight's small_angle, default 25); 180 arms at any
+     * tilt, as Betaflight does with small_angle = 180 (src/main/flight/imu.c)
+     */
+    smallAngleDeg: number;
     /** rotor and duct momentum drag at hover rotor speed, 1/s (H.2 item 1) */
     ductDrag: number;
     /** rotor + prop inertia about the motor axis, kg m^2 (H.2 item 3) */
@@ -194,6 +199,19 @@ export interface ParamOverrides {
      * before this flag). The game's "Battery simulation" switch (owner, 2026-10-19).
      */
     batteryDrain?: boolean;
+    /**
+     * Betaflight's small_angle, degrees, 0-180: arming needs the craft within it of level unless the turtle switch is on.
+     * Absent: 25 (Betaflight's default, every version before this field). 180: arms at any tilt. The game's
+     * "Arming angle" setting (owner, 2026-10-20).
+     */
+    smallAngleDeg?: number;
+}
+
+/** small_angle in Betaflight's range, 0-180 whole degrees (its CLI setting); absent: 25, its default */
+function smallAngleOf(deg: number | undefined): number {
+    if (deg === undefined) return 25;
+    if (!Number.isFinite(deg)) throw new RangeError(`smallAngleDeg ${deg}`);
+    return Math.min(180, Math.max(0, Math.round(deg)));
 }
 
 function num(p: PresetJson, key: string): number {
@@ -406,6 +424,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         levelOutputHz: 50,
         crashOn: o.crashOn ?? true,
         batteryDrain: o.batteryDrain ?? true,
+        smallAngleDeg: smallAngleOf(o.smallAngleDeg),
         ductDrag: o.ductDrag ?? num(p, 'rotor_drag_per_s'),
         rotorInertia: num(p, 'rotor_inertia_kgm2') * (o.propInertia ?? 1),
         itermWindup: 0.85,

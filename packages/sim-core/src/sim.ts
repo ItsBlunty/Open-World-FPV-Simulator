@@ -236,7 +236,7 @@ const E_WALL = 0.526;
 const V_WALL = 1.85;
 /**
  * Arming needs the craft within Betaflight's small_angle (default 25 deg, src/main/flight/imu.c) of level, unless the
- * turtle switch is on (src/main/fc/core.c updateArmingStatus): cos(25 deg).
+ * turtle switch is on (src/main/fc/core.c updateArmingStatus): cos(25 deg). Other angles: SimParams.smallAngleDeg.
  */
 const SMALL_ANGLE_COS = 0.9063077870366499;
 /**
@@ -341,6 +341,9 @@ export class Sim {
      */
     washNow = 0;
 
+    /** cos of the arming tilt limit (p.smallAngleDeg); below -1 when any tilt arms */
+    private readonly smallAngleCos: number;
+
     constructor(p: SimParams, world: ContactWorld | null) {
         this.p = p;
         this.world = world;
@@ -370,6 +373,8 @@ export class Sim {
         // auto-throttle hover from the params alone, so a replay needs nothing from the page (D-g);
         // v0.2 defaulted to 0.4 and relied on the page setting hoverSolve().motor
         this.hoverThr = hoverThrOf(p);
+        // 25 keeps the exact constant every flight before the setting used; 180 lets any tilt arm (upY >= -1 always)
+        this.smallAngleCos = p.smallAngleDeg === 25 ? SMALL_ANGLE_COS : p.smallAngleDeg >= 180 ? -2 : dcos(p.smallAngleDeg * DEG2RAD);
         this.air = compileWind(p.wind);
         this.s[S.soc] = 1; // a new model starts with a fresh pack; reset keeps the battery
         this.reset(0, 0, 0, 0);
@@ -524,7 +529,7 @@ export class Sim {
         if (sw === 1 && s[S.armSw] === 0 && s[S.armed] === 0) {
             // body up along world up (r11)
             const upY = 1 - 2 * (s[S.qx] * s[S.qx] + s[S.qz] * s[S.qz]);
-            if (thrStick <= 0.05 && s[S.crashed] === 0 && (upY > SMALL_ANGLE_COS || flipSw === 1)) {
+            if (thrStick <= 0.05 && s[S.crashed] === 0 && (upY > this.smallAngleCos || flipSw === 1)) {
                 s[S.armed] = 1;
                 s[S.flip] = flipSw;
                 s[S.iR] = s[S.iP] = s[S.iY] = 0;
