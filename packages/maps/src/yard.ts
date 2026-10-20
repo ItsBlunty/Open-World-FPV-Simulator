@@ -111,9 +111,13 @@ function stackField(b: LevelBuilder, r: Rng): void {
                 const m = r.pick(CONTAINER_MATS);
                 // set down a little off the one below (no twistlocks in this yard), the top one now and then well off
                 const top = t === h[k][s] - 1;
-                const dx = t === 0 ? 0 : top && r.chance(1, 6) ? r.int(-30, 30) / 10 : r.int(-4, 4) / 10;
-                const x = x0 + s * SLOT + dx, y = t * CH, z = rowZ(k);
                 const freeW = !has(k, s - 1, t), freeE = !has(k, s + 1, t);
+                let dx = t === 0 ? 0 : top && r.chance(1, 6) ? r.int(-30, 30) / 10 : r.int(-4, 4) / 10;
+                // (map v14) never into the next slot's box at this height: the slots are 0.6 m apart, so at most 0.25 m
+                // towards a neighbour (before, a box set well off stood inside its neighbour, their faces flickering)
+                if (!freeW && dx < -0.25) dx = -0.25;
+                if (!freeE && dx > 0.25) dx = 0.25;
+                const x = x0 + s * SLOT + dx, y = t * CH, z = rowZ(k);
                 const sidesFree = !has(k - 1, s, t) && !has(k + 1, s, t);
                 const u = r.int(0, 99);
                 if (pair) {
@@ -200,8 +204,8 @@ function warehouse(b: LevelBuilder, x0: number, z0: number, sx: number, sz: numb
         if ((x - x0) % 36 === 24) continue; // skylight gap
         b.box('rust', x, h, z0, x + w, h + 0.3, z0 + sz);
     }
-    // roof trusses visible through the gaps
-    for (let x = x0 + 6; x < x0 + sx; x += 12) b.box('rust', x - 0.2, h - 1, z0, x + 0.2, h, z0 + sz);
+    // roof trusses visible through the gaps, wall to wall (map v14: they ended flush with the walls' outsides, and flickered there)
+    for (let x = x0 + 6; x < x0 + sx; x += 12) b.box('rust', x - 0.2, h - 1, z0 + t, x + 0.2, h, z0 + sz - t);
 }
 
 /**
@@ -307,7 +311,8 @@ function oldWorkshop(b: LevelBuilder, r: Rng): void {
         bay((a, e, ya, yb) => b.box('brick', x0, ya, a, x0 + T, yb, e), z, c);
         bay((a, e, ya, yb) => b.box('brick', x1 - T, ya, a, x1, yb, e), z, c);
     }
-    for (const x of [x0 + 7.5, x0 + 15, x0 + 22.5]) b.box('rust', x - 0.15, H - 0.45, z0, x + 0.15, H, z1);
+    // the roof beams, wall to wall (map v14: they ended flush with the walls' outsides and tops, and flickered there)
+    for (const x of [x0 + 7.5, x0 + 15, x0 + 22.5]) b.box('rust', x - 0.15, H - 0.45, z0 + T, x + 0.15, H, z1 - T);
     for (let k = 0; k < 25; k++) {
         const s = 0.4 + r.int(0, 12) / 10;
         b.block('rubble', x0 + 2 + r.int(0, 260) / 10, z0 + 2 + r.int(0, 160) / 10, s, s * (0.6 + r.int(0, 8) / 10), 0, 0.3 + r.int(0, 10) / 10);

@@ -6,6 +6,9 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 - `Sim.bladeBrake(i)`: reads how hard a surface brakes each prop this tick (the game's prop-strike sound). Traces and
   hashes are unchanged, so `SIM_CORE_VERSION` stays 0.7.0.
+- `ParamOverrides.batteryDrain` (`SimParams.batteryDrain`): `false` keeps the pack's state of charge where the life set
+  it (the voltage still sags under load); absent or `true` drains it as before, bit for bit (self-test hashes
+  unchanged). The game's "Battery simulation" switch. Test: `test/model-physics.test.ts` "battery drain switch".
 
 ## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
 

@@ -286,3 +286,19 @@ describe('auto-throttle gravity mode: centre stick hovers', () => {
         expect(centreStick((p) => p.idle + (1 - p.idle) * hoverSolve(p, 1).motor)).toBeGreaterThan(0.3);
     });
 });
+
+describe('battery drain switch (ParamOverrides.batteryDrain)', () => {
+    const nazgul = (o: ParamOverrides = {}) => params('nazgulf5v3-6s', o);
+    it('drains the pack by default and keeps it where the life set it with batteryDrain false', () => {
+        const on = hovering(nazgul(), 'angle', 5000).sim;
+        const off = hovering(nazgul({ batteryDrain: false }), 'angle', 5000).sim;
+        expect(on.s[S.soc]).toBeLessThan(0.999);
+        expect(off.s[S.soc]).toBe(1);
+        // the pack still sags under load (a fresh pack's): the voltage is under the resting one, and the current flows
+        expect(off.s[S.amps]).toBeGreaterThan(1);
+        expect(off.s[S.volt]).toBeLessThan(off.p.cells * 4.2);
+        // and the flag in the params says so (absent: on, as before the flag)
+        expect(nazgul().batteryDrain).toBe(true);
+        expect(nazgul({ batteryDrain: false }).batteryDrain).toBe(false);
+    });
+});

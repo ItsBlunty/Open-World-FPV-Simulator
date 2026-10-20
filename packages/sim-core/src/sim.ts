@@ -758,9 +758,12 @@ export class Sim {
 
         // ---- battery ----
         const amps = volt > 0.1 ? power / (p.eta * volt) : 0;
-        let soc = s[S.soc] - (amps * DT) / p.capacityAs;
-        if (soc < 0) soc = 0;
-        s[S.soc] = soc;
+        let soc = s[S.soc];
+        if (p.batteryDrain) {
+            soc -= (amps * DT) / p.capacityAs;
+            if (soc < 0) soc = 0;
+            s[S.soc] = soc;
+        }
         s[S.amps] = amps;
         s[S.volt] = p.cells * cellVoc(soc) - amps * p.rPack;
 

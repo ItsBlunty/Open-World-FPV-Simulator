@@ -26,6 +26,11 @@ const PAD_SPEED = 0.5;
 /** Leaving the pad before GO: the centre this far from where it was set down, sideways or up, m. */
 const FALSE_START_SIDE = 0.6;
 const FALSE_START_UP = 0.35;
+/**
+ * Throttle down before the countdown (owner, 2026-10-19): the sim-core throttle channel (-1 to 1) at or under this, which
+ * is 1050 us, Betaflight's default min_check, under which its arming checks count the throttle as down.
+ */
+export const THROTTLE_DOWN = -0.9;
 /** A move longer than this in one tick is a respawn, not flight (50 m per 1 ms): it passes no gate. */
 const JUMP_M = 1;
 
@@ -51,8 +56,10 @@ export interface TrialStatus {
     course: number;
     /** free: how far through the 3 s on the pad (0-1) */
     hold: number;
-    /** countdown: ticks to GO (null while being set down) */
+    /** countdown: ticks to GO (null while being set down, or while the throttle is up) */
     toGo: number | null;
+    /** countdown: on the pad, waiting for the throttle to come down before 3-2-1 */
+    throttleUp: boolean;
     /** racing: ms since GO */
     ms: number;
     /** racing: the next gate (0 up) and how many there are */
@@ -73,6 +80,8 @@ export class TrialRunner {
     private leaveFirst = -1;
     /** countdown: waiting for the quad to be set down; then the tick it was */
     private placing = false;
+    /** countdown: on the pad, but the throttle is not down yet, so the 3-2-1 has not started */
+    private waitThrottle = false;
     private readyTick = 0;
     private goTick = 0;
     private next = 0;
@@ -97,12 +106,15 @@ export class TrialRunner {
         return [p.x, p.y + this.bodyBottom + 0.01, p.z, p.yawDeg];
     }
 
-    /** After every sim step: the quad's state vector at tick `tick`. */
-    step(s: ArrayLike<number>, tick: number): void {
+    /**
+     * After every sim step: the quad's state vector at tick `tick`, and the throttle channel the sim applied on it (-1
+     * to 1; the stick the pilot holds, or -1 while the sticks are held for the offer).
+     */
+    step(s: ArrayLike<number>, tick: number, throttle = -1): void {
         this.tick = tick;
         const x = s[S.px], y = s[S.py], z = s[S.pz];
         if (this.phase === 'free') this.rest(s, x, y, z);
-        else if (this.phase === 'countdown') this.countdown(x, y, z, tick);
+        else if (this.phase === 'countdown') this.countdown(x, y, z, tick, throttle);
         else if (this.phase === 'racing') this.race(x, y, z, tick);
         this.prev[0] = x;
         this.prev[1] = y;
@@ -132,13 +144,24 @@ export class TrialRunner {
         this.fresh.push({ type: 'ask', course: on });
     }
 
-    private countdown(x: number, y: number, z: number, tick: number): void {
+    private countdown(x: number, y: number, z: number, tick: number, throttle: number): void {
         const [px, py, pz] = this.pose;
         const off = Math.hypot(x - px, z - pz) > FALSE_START_SIDE || y - py > FALSE_START_UP;
         if (this.placing) {
             // the respawn lands at the end of the step the page's answer reached: from then the quad is on the pad
             if (off) return;
             this.placing = false;
+            this.waitThrottle = true;
+        }
+        if (this.waitThrottle) {
+            // the 3-2-1 starts once the throttle is down (and the sticks are the pilot's again, not held for the offer)
+            if (throttle > THROTTLE_DOWN || this.holdSticks) return;
+            // flown off the pad meanwhile (the countdown had not started: no false start): back onto it first
+            if (off) {
+                this.setDown();
+                return;
+            }
+            this.waitThrottle = false;
             this.readyTick = tick;
             this.fresh.push({ type: 'ready', course: this.course });
             return;
@@ -169,6 +192,7 @@ export class TrialRunner {
 
     private setDown(): void {
         this.placing = true;
+        this.waitThrottle = false;
         this.pose = this.padPose(this.course);
         this.place(this.pose);
     }
@@ -228,7 +252,8 @@ export class TrialRunner {
             phase: this.phase,
             course: this.course,
             hold: this.phase === 'free' && this.course >= 0 ? Math.min(1, this.holdTicks / PAD_HOLD_TICKS) : this.phase === 'asking' ? 1 : 0,
-            toGo: this.phase === 'countdown' && !this.placing ? Math.max(0, COUNTDOWN_TICKS - (this.tick - this.readyTick)) : null,
+            toGo: this.phase === 'countdown' && !this.placing && !this.waitThrottle ? Math.max(0, COUNTDOWN_TICKS - (this.tick - this.readyTick)) : null,
+            throttleUp: this.phase === 'countdown' && this.waitThrottle,
             ms: racing ? this.tick - this.goTick : 0,
             gate: racing ? this.next : 0,
             gates: this.course >= 0 ? this.courses[this.course].gates.length : 0

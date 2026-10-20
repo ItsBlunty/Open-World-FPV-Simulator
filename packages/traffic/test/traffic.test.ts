@@ -382,3 +382,49 @@ describe('the traffic world', () => {
         expect([vel[0], vel[1], vel[2]]).toEqual([0, 0, 0]);
     });
 });
+
+describe('people keeping apart (traffic v8)', () => {
+    it('over ten minutes: people seldom touch, none stands inside another, no walker is stuck', () => {
+        const t = new NetTraffic(level, { cars: true, people: true, signals: true, train: true });
+        const ppl = t.movers.map((m, i) => (m.kind === 'person' ? i : -1)).filter((i) => i >= 0);
+        const pl = ppl.map(newPlace);
+        const still = ppl.map(() => 0), last = ppl.map(() => [0, 0]);
+        let touching = 0, longStill = 0, longTouch = 0;
+        const touch = new Map<string, number>();
+        // every half second, as a viewer would see them
+        for (let tick = 0; tick < 600000; tick += 500) {
+            t.at(tick);
+            ppl.forEach((i, k) => t.place(i, tick, pl[k]));
+            const now = new Set<string>();
+            for (let a = 0; a < ppl.length; a++) {
+                const ph = t.inspect(ppl[a]).phase;
+                const walking = !(ph === 2 || ph === 7 || ph === 12 || ph === 15);
+                const moved = Math.hypot(pl[a].x - last[a][0], pl[a].z - last[a][1]) > 0.01;
+                still[a] = walking && !moved ? still[a] + 1 : 0;
+                longStill = Math.max(longStill, still[a]);
+                last[a] = [pl[a].x, pl[a].z];
+                if (t.hidden(ppl[a])) continue;
+                for (let b = a + 1; b < ppl.length; b++) {
+                    if (t.hidden(ppl[b])) continue;
+                    // two capsules of PERSON.r = 0.3 m, closer than 0.55 m: clearly into each other
+                    if (Math.hypot(pl[a].x - pl[b].x, pl[a].z - pl[b].z) < 0.55 && Math.abs(pl[a].y - pl[b].y) < 1) {
+                        touching++;
+                        const key = `${a}-${b}`;
+                        now.add(key);
+                        const n = (touch.get(key) ?? 0) + 1;
+                        touch.set(key, n);
+                        longTouch = Math.max(longTouch, n);
+                    }
+                }
+            }
+            for (const k of touch.keys()) if (!now.has(k)) touch.delete(k);
+        }
+        console.log(`people apart, 10 min: ${ppl.length} people, ${touching} touching pair-samples (half-second samples), ` +
+            `longest touch ${longTouch / 2} s, longest a walker stood still ${longStill / 2} s`);
+        // Measured 215 (traffic v7: 4880, mostly people waiting on one spot and crossing inside each other); what is
+        // left is a brief pass at a corner.
+        expect(touching).toBeLessThan(400);
+        expect(longTouch / 2).toBeLessThanOrEqual(3);
+        expect(longStill / 2).toBeLessThan(10);
+    });
+});

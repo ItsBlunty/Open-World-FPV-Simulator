@@ -43,6 +43,11 @@ export interface Settings {
      * of sim-core/0.6.0, to go back and compare (owner, 2026-10-18). Off by default.
      */
     classicPhysics: boolean;
+    /**
+     * battery simulation: the pack drains as you fly and its voltage falls with it. Off by default (owner, 2026-10-19):
+     * the pack stays full (sim-core's batteryDrain false; it still sags under load as a fresh pack does).
+     */
+    battery: boolean;
     /** solid cars on the city roads (owner, 2026-10-17: a toggle in the graphics and performance settings) */
     cars: boolean;
     /** solid people on the sidewalks */
@@ -89,6 +94,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     lastDevice: null,
     damage: false,
     classicPhysics: false,
+    battery: false,
     cars: true,
     people: true,
     signals: true,
@@ -141,6 +147,7 @@ export function loadSettings(): Settings {
     if (typeof s.lastDevice === 'string') out.lastDevice = s.lastDevice;
     if (typeof s.damage === 'boolean') out.damage = s.damage;
     if (typeof s.classicPhysics === 'boolean') out.classicPhysics = s.classicPhysics;
+    if (typeof s.battery === 'boolean') out.battery = s.battery;
     if (typeof s.cars === 'boolean') out.cars = s.cars;
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;

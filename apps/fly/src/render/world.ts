@@ -288,8 +288,10 @@ export class Sun {
         const cam = l.shadow.camera;
         cam.near = 1;
         cam.far = 1200; // from 600 m up-sun to well below the ground under the camera
-        l.shadow.bias = -0.0002;
-        l.shadow.normalBias = 0.04;
+        // The bias is in the shadow camera's depth, which spans its whole 1199 m range: -0.0002 moved every shadow about
+        // 24 cm towards the sun, so a lit ring showed round the foot of anything standing on the ground before its shadow
+        // began (owner, 2026-10-19). -0.00001 is 1.2 cm; the normal bias (setReach, scaled to the texel) keeps off acne.
+        l.shadow.bias = -0.00001;
         scene.add(l, l.target);
         this.light = l;
         this.setReach(SHADOW_REACHES.near);
@@ -305,6 +307,9 @@ export class Sun {
     setReach(r: { half: number; map: number }): void {
         const l = this.light, cam = l.shadow.camera;
         l.shadow.mapSize.set(r.map, r.map);
+        // the sampling point moved off the surface by most of a shadow texel (6 cm near and far, 12 cm farthest), enough to
+        // keep sloped faces free of acne and little enough that a shadow still starts where its object stands
+        l.shadow.normalBias = 0.7 * (2 * r.half) / r.map;
         cam.left = -r.half;
         cam.right = r.half;
         cam.top = r.half;

@@ -254,3 +254,20 @@ half 250 / map 8192 after picking far in the menu, and the choice was saved. 58 
 **Left open:** frame time at far and farthest not measured (the pane's fps is not reliable). Cascaded shadow maps
 (sharp near, far reach, less memory) would be the better fix but the fisheye lens draws up to five cameras a frame, and
 Three.js's cascades fit one camera.
+
+## 1r. The light ring before a shadow starts (owner, 2026-10-19): built, waiting for the owner to look
+
+Cause: the sun's shadow bias (`render/world.ts` Sun) is in the shadow camera's depth, which spans its whole 1199 m
+(near 1, far 1200): -0.0002 moved every shadow about 24 cm towards the sun, so the bottom ~19 cm of anything (the sun is
+54 deg up) cast no shadow, and a lit strip showed between an object's foot and its shadow. Three.js adds the bias to
+the shadow coordinate's z after the divide (three 0.186.1 `src/nodes/lighting/ShadowNode.js`, setupShadowCoord), so it
+is a share of that range.
+
+Fix: bias -0.00001 (1.2 cm); the normal bias now follows the texel, 0.7 x texel (`setReach`): 4.1 cm near, 4.3 cm far,
+8.5 cm farthest (was 4 cm at every reach).
+
+**Evidence (`docs/evidence/2026-10-19-shadow-ring/`, `probe.mjs`: headless Chrome on WebGPU against the dev server):**
+`pole-old.png` (the power-line pole at x -25: a lit gap between its foot and its shadow) and `pole-new.png` (the shadow
+starts at the foot). An extreme bias (-0.004) moved the shadow metres off, so the runtime value does reach the shader.
+At the farthest reach no acne was seen on facades, roads or the bando's floors (screenshots not kept). Not checked:
+the low spec renderer (it has no shadows), Firefox.

@@ -128,3 +128,30 @@ load, after each finish and after Reset times. New block letters: N, D, H, O, S.
 **Evidence:** `pnpm test` 60 files, 533 tests (the course tests pass with the bigger pads); typecheck and build clean.
 Seen in the built-in browser with a time saved for the bando only: the park pad with the arrow and LAND HERE TO START,
 the bando pad with TIME TRIAL alone. Re-pinned: map v13 `a47b6abe…` (433 278 triangles).
+
+## 1o. Battery simulation switch, a full pack and throttle down before 3-2-1 (owner, 2026-10-19): built, waiting for the owner
+
+**Battery simulation (Settings > World > Physics, off by default).** sim-core gained `ParamOverrides.batteryDrain`
+(`params.ts`, the battery step in `sim.ts`): `false` keeps the pack's state of charge where the life set it; the
+voltage still sags under load as a fresh pack's does (the motors' punch is unchanged, the pack just never empties).
+Absent or `true` is the old behaviour, bit for bit: the self-test hashes did not change, so `SIM_CORE_VERSION` stays
+0.7.0 (CHANGELOG, "Unreleased"). The game sends `batteryDrain: false` unless the switch is on, so the default flight's
+overrides (and config hash) are new; saved flights carry their overrides, so old ones still replay. Changing it
+restarts at the spawn point, as the other physics switches do. Choice made without the owner, to confirm: off = no
+drain but the sag kept (a real fresh pack still sags under a punch).
+
+**A full pack on a time trial.** Already true before this change, now tested: being set down on the pad is a respawn
+to the start, and the game's respawn policy (`QUICK_RESPAWN`, refill `'start'`) gives every such respawn a fresh pack
+(soc 1). That covers accepting the race, a false start and R. Test: `apps/fly/test/trials.test.ts` "the pack on a
+time trial" (a half-drained pack, 0.5, is 1 at READY).
+
+**Throttle down before the countdown (`trials.ts`).** Once the quad is on the pad, the 3-2-1 waits until the throttle
+channel the sim applied is at or under `THROTTLE_DOWN` = -0.9 (1050 us, Betaflight's default `min_check`, under which
+its arming checks count the throttle as down) and the sticks are the pilot's again (not still held for the offer). The
+HUD shows THROTTLE DOWN meanwhile, and the race beeps wait (`toGo` is null). Flying off the pad while waiting is no
+false start: the quad is set back on the pad once the throttle comes down. Once the countdown runs, raising the
+throttle is allowed; leaving the pad is the usual false start. `TrialRunner.step` takes the throttle (`session.ts`
+passes `sim.ch[2]`). Test: "waits for the throttle to come down (and the sticks to be let go) before 3-2-1".
+
+**Evidence:** `pnpm test` 63 files, 555 tests; `pnpm typecheck` clean. Not flown (needs the owner): the THROTTLE DOWN
+prompt and how the battery switch feels.

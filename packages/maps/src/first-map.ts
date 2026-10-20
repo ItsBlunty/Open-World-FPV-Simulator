@@ -28,9 +28,11 @@ export const MAP_ID = 'mixed-1';
  * a level crossing, the fields station's forecourt and lane, the park's paths carried on, the power line's wires strung
  * on crossarms square to the line, from a substation to a riser pole (owner, 2026-10-19);
  * 12: time trials: a start arch, landing pad and checkered flag for each of three courses (owner, 2026-10-19);
- * 13: the time trial pads 4.6 m square, filling their arches (owner, 2026-10-19)
+ * 13: the time trial pads 4.6 m square, filling their arches (owner, 2026-10-19);
+ * 14: no faces flickering in each other (owner, 2026-10-19): stacked containers kept out of their neighbours, the
+ * warehouse trusses and workshop beams end inside the walls, the site's plank decks 1 cm up, the driveway's slabs 5 mm up
  */
-export const MAP_VERSION = 13;
+export const MAP_VERSION = 14;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -561,8 +563,8 @@ function construction(b: LevelBuilder, x0: number, z0: number): void {
         if (k === 0) continue;
         for (let i = 0; i <= 5; i++) b.box('rust', x0 + 6 + i * 10 - 0.2, y - 0.5, z0 + 6, x0 + 6 + i * 10 + 0.2, y, z0 + 56);
         for (let j = 0; j <= 5; j++) b.box('rust', x0 + 6, y - 0.5, z0 + 6 + j * 10 - 0.2, x0 + 56, y, z0 + 6 + j * 10 + 0.2);
-        // a few decks of planks
-        if (k % 2 === 0) b.box('wood', x0 + 6, y, z0 + 6, x0 + 26, y + 0.1, z0 + 26);
+        // a few decks of planks, on the beams (map v14: 1 cm up, so the columns' feet do not flicker in their underside)
+        if (k % 2 === 0) b.box('wood', x0 + 6, y + 0.01, z0 + 6, x0 + 26, y + 0.11, z0 + 26);
     }
     towerCrane(b, x0 + 31, z0 + 31);
 }

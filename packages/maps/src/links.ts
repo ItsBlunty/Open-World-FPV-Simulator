@@ -147,7 +147,8 @@ function bandoDriveway(b: LevelBuilder, r: Rng): void {
     const slab = (x0: number, z0: number, x1: number, z1: number): void => {
         for (let x = x0; x < x1 - 0.01; x += 4) for (let z = z0; z < z1 - 0.01; z += 4) {
             const gone = r.chance(1, 9);
-            if (!gone) b.decal('concrete-dark', x + 0.08, z + 0.08, Math.min(x + 4, x1) - 0.08, Math.min(z + 4, z1) - 0.08);
+            // (map v14) 5 mm over the worn path's paint where it meets them, so the two do not flicker
+            if (!gone) b.decal('concrete-dark', x + 0.08, z + 0.08, Math.min(x + 4, x1) - 0.08, Math.min(z + 4, z1) - 0.08, 0.005);
         }
     };
     slab(YARD_ROAD.x + YARD_ROAD.hw, 27, -282, 33);

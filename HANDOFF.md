@@ -42,12 +42,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   re-measured (less tinny), own phase per rotor (no flanger echo), rush quieter and chopped (no static), Ambience slider at 50 %. [sound §1m]
   Latency: Chrome on Windows offers only the device's minimum buffer or its default (Chromium source); the owner's
   Voicemeeter crackles at the minimum, other outputs lack it; sound changes now ramp over one frame (7 ms lag, was ~20-60). [sound §1n]
-- **Tests:** `pnpm test`: 62 files, 550 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Battery simulation switch (off by default: the pack never drains), a full pack on every pad, THROTTLE DOWN before 3-2-1. [time-trials §1o]
+  People keep apart (traffic v8): a kerb spot each when waiting, followers keep 0.75 m back; touching 96 % less. [traffic §1p]
+  Flickering faces fixed (map v14: stacked containers, trusses, beams, decks); a test finds coplanar faces. [map §1q]
+  Shadow ring fixed: the shadow bias was 24 cm (a lit strip at every object's foot), now 1.2 cm. [browsers-input-performance §1r]
+- **Tests:** `pnpm test`: 63 files, 555 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
-  - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
-  - map v13 `a47b6abe…` (433 278 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 13, `TRAFFIC_VERSION` 7, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - traffic self-test `8afde0e9…` (traffic v8, people keeping apart, and the trains v3)
+  - map v14 `6923dfa1…` (433 278 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 14, `TRAFFIC_VERSION` 8, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -102,6 +106,12 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 17. **Sound:** fly with headphones, FPV and chase (C): still tinny, echoey or static? Ambience at 50 % right? Train
    sounds and whistle (American chime: OK?). Latency: try Chrome playing straight to a wired output instead of
    Voicemeeter / Bluetooth and say if the lag goes. Want an output-device picker (needs a microphone permission)? [sound §1n]
+18. **Battery and THROTTLE DOWN:** Settings > World > Physics > Battery simulation: off (default) the pack never drains
+   but still sags on a punch: right, or no sag either? Race a time trial with the throttle up after accepting: THROTTLE
+   DOWN shows until it is under 5 %. [time-trials §1o]
+19. **Shadows, people, flicker:** look at shadow feet (poles, trees, the quad on the ground), people at the city's
+   crossings and on the sidewalks, the yard's container stacks, the warehouse and the bando driveway. Ring gone? Still
+   people inside each other (they still pass through people standing)? Any flicker left, and where? [§1r, §1p, §1q]
 
 ## Left open (not started)
 
@@ -128,7 +138,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
-- Traffic: mean car speed 1.89 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
+- People: walk through people standing (waiting, platform) and briefly through each other at corners; no sidestep. [traffic §1p]
+- Traffic: mean car speed 1.81 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
   traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
 - Map v11: no cars on the roads out; level-crossing lights and barriers don't react to the train; no lights at the yard
   road's T. [map §1g]
@@ -158,10 +169,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
-| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line) |
-| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows |
+| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test |
+| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
-| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance |
+| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
@@ -171,7 +182,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 | `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup, one-frame ramps |
-| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START |
+| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN |
 
 
 

@@ -68,9 +68,11 @@ const demo = params.has('demo');
 
 function overrides(): ParamOverrides {
     // crashOn always set: off means every hit is a bounce, no damage, no crash (the owner's default for now);
-    // classicPhysics only when chosen, so the default flight's overrides stay as they were
+    // classicPhysics only when chosen
     const o: ParamOverrides = settings.rates ? { rates: settings.rates, crashOn: settings.damage } : { crashOn: settings.damage };
     if (settings.classicPhysics) o.classicPhysics = true;
+    // battery simulation off (the default, owner 2026-10-19): the pack stays full
+    if (!settings.battery) o.batteryDrain = false;
     return o;
 }
 
@@ -517,7 +519,7 @@ function raceHud(x: HudSnapshot): Pick<HudExtra, 'race' | 'count' | 'padHint'> {
     if (st.phase === 'countdown') {
         return {
             race: { clock: formatTime(0), line: t.name, next: `First: ${t.gates[0]}` },
-            count: falseStart ?? (st.toGo === null ? null : { text: String(Math.max(1, Math.ceil(st.toGo / 1000))), kind: '' }),
+            count: falseStart ?? (st.throttleUp ? { text: 'THROTTLE DOWN', kind: 'small' } : st.toGo === null ? null : { text: String(Math.max(1, Math.ceil(st.toGo / 1000))), kind: '' }),
             padHint: ''
         };
     }

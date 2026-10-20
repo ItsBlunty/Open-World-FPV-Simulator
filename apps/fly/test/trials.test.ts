@@ -8,7 +8,7 @@ import type { Gate, Level, TimeTrial } from '@owfpv/maps';
 import { S } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { COUNTDOWN_TICKS, PAD_HOLD_TICKS, TrialRunner, crosses } from '../src/trials';
+import { COUNTDOWN_TICKS, PAD_HOLD_TICKS, THROTTLE_DOWN, TrialRunner, crosses } from '../src/trials';
 import type { Pose, TrialEvent } from '../src/trials';
 import { FlightSession } from '../src/session';
 import { selftestSticks } from '../src/selftest';
@@ -56,11 +56,13 @@ describe('trial runner', () => {
         pads.length = 0;
         return new TrialRunner([course(gates)], (p) => pads.push(p), 0.03);
     };
-    /** n ticks at this state, from tick t; the events */
-    const hold = (r: TrialRunner, s: Float64Array, t: number, n: number): TrialEvent[] => {
+    /** the pilot lets the sticks go after answering (the page's filter hands them back) */
+    const letGo = (r: TrialRunner): void => void r.filter(new Float32Array([0, 0, -1, 0, 1, -1, 0, 0]), new Float32Array(8));
+    /** n ticks at this state (and throttle channel), from tick t; the events */
+    const hold = (r: TrialRunner, s: Float64Array, t: number, n: number, thr = -1): TrialEvent[] => {
         const e: TrialEvent[] = [];
         for (let k = 0; k < n; k++) {
-            r.step(s, t + k);
+            r.step(s, t + k, thr);
             e.push(...r.drain());
         }
         return e;
@@ -86,6 +88,7 @@ describe('trial runner', () => {
         const r = mk([gate(0, 2, -10, 0, 0, 1), gate(0, 2, -20, 0, 0, 1, 1, 1, 'finish')]);
         hold(r, at(0, 0.05, 0), 0, PAD_HOLD_TICKS + 1);
         r.answer(true);
+        letGo(r);
         expect(pads).toEqual([[0, 0.04, 0, 0]]);
         // the respawn has not landed yet: the quad is still where it was (off the pose by under the limits)
         let t = 4000;
@@ -116,11 +119,34 @@ describe('trial runner', () => {
         expect(pads[pads.length - 1]).toBeNull();
     });
 
+    it('waits for the throttle to come down (and the sticks to be let go) before 3-2-1', () => {
+        const r = mk([gate(0, 2, -10, 0, 0, 1)]);
+        hold(r, at(0, 0.05, 0), 0, PAD_HOLD_TICKS + 1);
+        r.answer(true);
+        // set down, throttle held for the offer: not yet the pilot's sticks
+        expect(hold(r, at(0, 0.04, 0), 4000, 500)).toEqual([]);
+        letGo(r);
+        // throttle up (just over Betaflight's min_check): no countdown, THROTTLE DOWN on the HUD
+        expect(hold(r, at(0, 0.04, 0), 4500, 2000, THROTTLE_DOWN + 0.01)).toEqual([]);
+        expect(r.status()).toMatchObject({ phase: 'countdown', toGo: null, throttleUp: true });
+        // flown off the pad meanwhile: no false start, and back on the pad once the throttle is down
+        expect(hold(r, at(0, 3, 0), 6500, 10, 0.5)).toEqual([]);
+        expect(pads.length).toBe(1);
+        expect(hold(r, at(0, 3, 0), 6510, 1, -1)).toEqual([]);
+        expect(pads.length).toBe(2);
+        expect(hold(r, at(0, 0.04, 0), 6600, 1, -1)).toEqual([{ type: 'ready', course: 0 }]);
+        expect(r.status()).toMatchObject({ toGo: COUNTDOWN_TICKS, throttleUp: false });
+        // once counting, the throttle may come up: only leaving the pad is a false start
+        expect(hold(r, at(0, 0.04, 0), 6601, COUNTDOWN_TICKS - 1, -0.5)).toEqual([]);
+        expect(hold(r, at(0, 0.04, 0), 6600 + COUNTDOWN_TICKS, 1, -0.5)).toEqual([{ type: 'go', course: 0 }]);
+    });
+
     it('starts the countdown again on R, and leaves the race on quit', () => {
         const r = mk([gate(0, 2, -10, 0, 0, 1)]);
         hold(r, at(0, 0.05, 0), 0, PAD_HOLD_TICKS + 1);
         expect(r.restart()).toBe(false);
         r.answer(true);
+        letGo(r);
         hold(r, at(0, 0.04, 0), 4000, COUNTDOWN_TICKS + 1);
         expect(r.phase).toBe('racing');
         expect(r.restart()).toBe(true);
@@ -240,6 +266,34 @@ describe('a time trial in the real sim', () => {
         expect(go - readyAgain).toBe(COUNTDOWN_TICKS);
         const check = checkFlight(captureFlight(c.session, 1, []), c.session.level);
         expect(check.ok).toBe(true);
+    });
+});
+
+describe('the pack on a time trial', () => {
+    it('is full when the quad is set down on the pad, with battery simulation on', () => {
+        const session = new FlightSession({ preset, level: level([gate(150, 50, 150, 0, 0, 1)]) });
+        const r = session.runner, tr = session.trials;
+        const ch = new Float32Array(8), held = new Float32Array(8);
+        // a half-flown pack (as after a flight), resting on the pad: rest, accept
+        r.sim.s[S.soc] = 0.5;
+        let socBefore = -1, socOnPad = -1;
+        for (let t = 0; t < 10000 && socOnPad < 0; t++) {
+            ch.fill(0);
+            ch[2] = -1;
+            ch[4] = -1;
+            ch[5] = -1;
+            if (t % 4 === 0) r.enqueue({ tUs: (t + 1) * 1000, ch: tr.filter(ch, held) as Float32Array });
+            r.stepOnce();
+            for (const e of tr.drain()) {
+                if (e.type === 'ask') {
+                    socBefore = r.sim.s[S.soc];
+                    tr.answer(true);
+                }
+                if (e.type === 'ready') socOnPad = r.sim.s[S.soc];
+            }
+        }
+        expect(socBefore).toBe(0.5);
+        expect(socOnPad).toBe(1);
     });
 });
 

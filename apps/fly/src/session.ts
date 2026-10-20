@@ -107,7 +107,7 @@ export class FlightSession {
         const c = this.collector, t = this.trials, k = this.strikes;
         this.runner.onStep = (s) => {
             c.check(s.s[S.px], s.s[S.py], s.s[S.pz], s.tick);
-            t.step(s.s, s.tick);
+            t.step(s.s, s.tick, s.ch[2]);
             // the hardest blade strike on each prop since the sound last asked (audio/frame.ts): brake x rotor speed
             for (let i = 0; i < 4; i++) {
                 const b = s.bladeBrake(i);

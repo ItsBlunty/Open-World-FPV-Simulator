@@ -610,7 +610,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);
         // a gate outline, its see-through copy and the next one shown, so their materials are built now too
-        trialsView.update({ phase: 'racing', course: 0, hold: 1, toGo: null, ms: 0, gate: 0, gates: 0 }, 0);
+        trialsView.update({ phase: 'racing', course: 0, hold: 1, toGo: null, throttleUp: false, ms: 0, gate: 0, gates: 0 }, 0);
         sun.follow(p);
         for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
             // looking straight up or down, the camera's up must not be along the view

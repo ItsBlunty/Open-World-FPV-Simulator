@@ -72,6 +72,8 @@ export interface SimParams {
     levelOutputHz: number;
     /** false: an impact above vCrash is a bounce, not a crash (C.7) */
     crashOn: boolean;
+    /** false: the pack never drains (its state of charge stays where the life set it); its sag under load stays */
+    batteryDrain: boolean;
     /** rotor and duct momentum drag at hover rotor speed, 1/s (H.2 item 1) */
     ductDrag: number;
     /** rotor + prop inertia about the motor axis, kg m^2 (H.2 item 3) */
@@ -186,6 +188,12 @@ export interface ParamOverrides {
      * alone, the preset's cda_vertical_cm2), for comparing the two (owner, 2026-10-18). Absent or false: the preset's.
      */
     classicPhysics?: boolean;
+    /**
+     * false: the pack never drains, so every life flies on the charge it started with (a fresh pack after a respawn to
+     * the start); the voltage still sags under load as a fresh pack's does. Absent or true: it drains (every version
+     * before this flag). The game's "Battery simulation" switch (owner, 2026-10-19).
+     */
+    batteryDrain?: boolean;
 }
 
 function num(p: PresetJson, key: string): number {
@@ -397,6 +405,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         },
         levelOutputHz: 50,
         crashOn: o.crashOn ?? true,
+        batteryDrain: o.batteryDrain ?? true,
         ductDrag: o.ductDrag ?? num(p, 'rotor_drag_per_s'),
         rotorInertia: num(p, 'rotor_inertia_kgm2') * (o.propInertia ?? 1),
         itermWindup: 0.85,

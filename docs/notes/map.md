@@ -233,3 +233,25 @@ the level crossing, a pole with its wires, the city's corner and the substation,
 **Left open:** no cars on the roads out (traffic stays on the grid); the level crossing's lights and barriers don't
 work with the train; the yard road's T at the ring road has no lights; wires are 3.5 cm (real 1-2 cm) and may shimmer
 far off; the lane and the forest track just run on to the ground's edge at 2 km.
+
+## 1q. Flickering faces (owner, 2026-10-19): map v14, built, waiting for the owner to look
+
+The owner saw "objects clipping and flashing both models back and forth": z-fighting, two faces of different materials
+in one plane, facing the same way and overlapping, so the depth test picks either one from pixel to pixel. A new test
+(`packages/maps/test/z-fight.test.ts`) finds them in the drawn triangles: same normal (to 0.01), same plane (to 4 mm),
+the overlap clipped in the plane; bottoms resting on the ground are left out (never seen). Map v13: 135 m² in 16 pairs
+of materials.
+
+**Fixed:**
+- *Stacked containers (`yard.ts` stackField):* the top box of a stack was now and then set up to 3 m off, the others
+  up to 0.4 m, with slots 0.6 m apart, so a box stood inside its neighbour at the same height. Now at most 0.25 m
+  towards a neighbour that has a box at that height (no new random draws: the rest of the yard is as it was).
+- *Warehouse roof trusses and the old workshop's roof beams:* ran the full depth, so their ends sat flush in the walls'
+  outsides (and the beams' tops in the walls' tops). Now wall to wall, inside.
+- *The construction site's plank decks:* their undersides lay on the columns' feet; now 1 cm up.
+- *The bando driveway's painted slabs* and the worn path's paint met at one height; the slabs 5 mm up (paint only).
+
+**Left (4.2 m²; the test allows under 5, and no container at all):** out of sight (the fountain's water on its basin,
+inside the hopper bins' legs), slopes of 1-4 deg the test reads as flat (ramps and rails, not coplanar), a few cm² at
+the fields station. Map hash re-pinned `6923dfa1…` (433 278 triangles, count unchanged). The fixed spots were not
+screenshotted in the game.

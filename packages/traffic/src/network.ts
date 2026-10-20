@@ -77,11 +77,32 @@ const PED_W = 64000, PED_F = 70000, PED_R = 82000;
 
 /** People: corner hub in from both kerbs, crossing ends in from the kerb, sidewalk lane offset, queue spacing, m */
 const HUB_IN = 1.3;
-const CROSS_IN = 0.6;
+/** traffic v8: 0.4 (was 0.6), so people waiting at the kerb stand clear of those walking past behind them (WALK_OFF) */
+const CROSS_IN = 0.4;
 const CROSS_ALONG = 1.5;
 const WALK_OFF = 0.3;
 const QUEUE = 0.7;
 const CROSS_OFF = 0.35;
+/**
+ * Waiting to cross (traffic v8, owner 2026-10-19: people stood inside each other): each person waiting has a spot of
+ * their own along the kerb, QUEUE_COL apart, the first CROSS_OFF to the right of the crossing's middle: QUEUE_COLS of
+ * them (the street lamp 4 m from the corner comes next), or QUEUE_COLS_CORNER where the right is towards the block's
+ * corner (the kerb round it is nearer). A spot within SPACE of anyone else's (the other crossing at the corner has its
+ * own) is not free. When none is, the person walks on along the block instead. A person PERSON.r = 0.3 m round needs
+ * 0.6 m between centres.
+ */
+const QUEUE_COL = 0.6;
+const QUEUE_COLS = 3;
+const QUEUE_COLS_CORNER = 2;
+const SPACE = 0.6;
+/**
+ * Keeping apart (traffic v8, owner 2026-10-19: walkers walked into each other) [estimates]. A walker looks LOOK m ahead
+ * along their way at anyone within SPACE of their line. Someone going the same way: they keep FOLLOW m behind (slowing
+ * to their pace, or waiting). Someone crossing their way close ahead: the one with the higher index waits for them; the
+ * same when each is ahead of the other (paths that meet), so two never wait for each other.
+ */
+const LOOK = 1.8;
+const FOLLOW = 0.75;
 /**
  * Going into buildings [design choices]: a person walking a block's side goes in at one of its doors one time in
  * four (ENTER_PCT), walks INSIDE m in past the glass (out of sight in the building), stays DWELL_MIN to DWELL_MAX s,
@@ -115,6 +136,9 @@ const V_CROSS_MIN = 1.5;
  * junction's centre, 4 m past the crossing (half a road + CROSS_ALONG = 11 m on the first map's 19 m roads).
  */
 const CLEAR_S = 4;
+
+/** A block's corners NW, NE, SE, SW: which way each is from the block's middle. */
+const CORNER_SX = [-1, 1, 1, -1], CORNER_SZ = [-1, -1, 1, 1];
 
 /** Headings: 0 east (+x), 1 south (+z), 2 west (-x), 3 north (-z); right of heading k is heading k + 1. */
 const DX = [1, 0, -1, 0];
@@ -182,7 +206,14 @@ const C_E = 0, C_S = 1, C_V = 2, C_GO = 3, C_NEXT = 4, C_ACC = 5, C_V0 = 6, CN =
 // eases in at (1 start, 2 end), door (a building's, or a coach door by number), tick to come out at (or to get off
 // after), the walkway path (by the garden corner it starts or ends at)
 const P_PH = 0, P_AX = 1, P_AZ = 2, P_BX = 3, P_BZ = 4, P_LEN = 5, P_S = 6, P_V = 7, P_VB = 8, P_H = 9, P_PREV = 10;
-const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, P_EASE = 16, P_DOOR = 17, P_OUT = 18, P_PATH = 19, PN = 20;
+const P_C = 11, P_SIDE = 12, P_ROW = 13, P_KERB = 14, P_OFF = 15, P_EASE = 16, P_DOOR = 17, P_OUT = 18, P_PATH = 19;
+// traffic v8: the waiting spot's column at a crossing (P_ROW its row)
+const P_COL = 20, PN = 21;
+
+/** Phases a person stands still in (waiting to cross, inside, waiting on the platform, on board): they never move along. */
+function standing(ph: number): boolean {
+    return ph === 2 || ph === 7 || ph === 12 || ph === 15;
+}
 
 interface Checkpoint {
     step: number;
@@ -245,6 +276,10 @@ export class NetTraffic implements TrafficModel {
     private readonly nPeople: number;
     private cars: Float64Array;
     private people: Float64Array;
+    /** keeping apart: everyone's x, y, z, heading x, z and phase at the start of the step, and who is in each 2 m square (snapPeople) */
+    private pplAt = new Float64Array(0);
+    private readonly pplGrid = new Map<number, number[]>();
+    private readonly pplTmp: Place = { x: 0, y: 0, z: 0, hx: 0, hz: 0 };
     private rngCar: Uint32Array;
     private rngPeople: Uint32Array;
     private lists: number[][] = [];
@@ -315,6 +350,7 @@ export class NetTraffic implements TrafficModel {
         this.nPeople = startPeople.length;
         this.cars = new Float64Array(this.nCars * CN);
         this.people = new Float64Array(this.nPeople * PN);
+        this.pplAt = new Float64Array(this.nPeople * 6);
         this.rngCar = new Uint32Array(this.nCars);
         this.rngPeople = new Uint32Array(this.nPeople);
         for (const e of this.elems) this.lists.push([]);
@@ -562,7 +598,7 @@ export class NetTraffic implements TrafficModel {
     private buildWalks(level: Level): void {
         // hubs: one per block corner (NW, NE, SE, SW), in from both kerbs
         const corner = new Map<string, number>();
-        const SX = [-1, 1, 1, -1], SZ = [-1, -1, 1, 1];
+        const SX = CORNER_SX, SZ = CORNER_SZ;
         level.blocks.forEach((b, bi) => {
             for (let c = 0; c < 4; c++) {
                 const kx = SX[c] < 0 ? b.x0 : b.x1, kz = SZ[c] < 0 ? b.z0 : b.z1;
@@ -672,9 +708,9 @@ export class NetTraffic implements TrafficModel {
             }
         }
         this.crossings.forEach((x, cid) => {
-            for (const side of [0, 1]) for (const row of [0, 1]) {
+            for (const side of [0, 1]) for (const row of [0]) for (let col = 0; col < this.cols(cid, side); col++) {
                 const h = side ? x.hB : x.hA;
-                const a = this.slot(cid, side, row, false), b = this.slot(cid, side, row, true);
+                const a = this.slot(cid, side, row, false, col), b = this.slot(cid, side, row, true, col);
                 walk([this.hubX[h], this.hubZ[h]], a, this.walkY);
                 walk(a, b, 0.0);
             }
@@ -972,15 +1008,25 @@ export class NetTraffic implements TrafficModel {
         return [fx - (tz - fz) / l * WALK_OFF, fz + (tx - fx) / l * WALK_OFF];
     }
 
-    /** Where person q waits (row 0 at the crossing end, row 1 behind) to cross crossing cid from `side`. */
-    private slot(cid: number, side: number, row: number, far: boolean): [number, number] {
+    /** Where person q waits (row 0 at the crossing end, row 1 behind; column 0, then along the kerb to its right) to cross crossing cid from `side`. */
+    private slot(cid: number, side: number, row: number, far: boolean, col = 0): [number, number] {
         const x = this.crossings[cid];
         const dx = side ? -x.dx : x.dx, dz = side ? -x.dz : x.dz;
         const fromA = (side === 0) !== far;
         const ex = fromA ? x.ax : x.bx, ez = fromA ? x.az : x.bz;
         // back from the kerb (into the sidewalk) and to the walker's right, so the two sides pass
         const back = far ? 1 : -1;
-        return [ex + dx * back * QUEUE * row - dz * CROSS_OFF, ez + dz * back * QUEUE * row + dx * CROSS_OFF];
+        const off = CROSS_OFF + QUEUE_COL * col;
+        return [ex + dx * back * QUEUE * row - dz * off, ez + dz * back * QUEUE * row + dx * off];
+    }
+
+    /** How many waiting spots side `side` of crossing cid has in a row: fewer where they run towards the block's corner. */
+    private cols(cid: number, side: number): number {
+        const x = this.crossings[cid], h = side ? x.hB : x.hA;
+        const c = h % 4;
+        const cx = this.hubX[h] + CORNER_SX[c] * HUB_IN, cz = this.hubZ[h] + CORNER_SZ[c] * HUB_IN;
+        const [ax, az] = this.slot(cid, side, 0, false, 0), [bx, bz] = this.slot(cid, side, 0, false, 1);
+        return (bx - ax) * (cx - ax) + (bz - az) * (cz - az) > 0 ? QUEUE_COLS_CORNER : QUEUE_COLS;
     }
 
     /**
@@ -999,6 +1045,7 @@ export class NetTraffic implements TrafficModel {
 
     private stepPeople(tick: number): void {
         const p = this.people;
+        this.snapPeople();
         for (let q = 0; q < this.nPeople; q++) {
             const o = q * PN;
             const ph = p[o + P_PH];
@@ -1032,13 +1079,13 @@ export class NetTraffic implements TrafficModel {
                 const cid = p[o + P_C];
                 const j = this.crossings[cid].j;
                 if (this.walkSignal(j, tick) !== 'walk' || this.junctionBusy(j)) continue;
-                const side = p[o + P_SIDE], row = p[o + P_ROW];
-                const a = this.slot(cid, side, row, false), b = this.slot(cid, side, row, true);
+                const side = p[o + P_SIDE], row = p[o + P_ROW], col = p[o + P_COL];
+                const a = this.slot(cid, side, row, false, col), b = this.slot(cid, side, row, true, col);
                 this.walkEdge(q, 3, a[0], a[1], b[0], b[1], Math.max(V_CROSS_MIN, p[o + P_VB] * 1.15), 0);
                 p[o + P_KERB] = CROSS_IN + QUEUE * row;
                 continue;
             }
-            p[o + P_S] += p[o + P_V] * STEP;
+            p[o + P_S] += this.keepApart(q);
             if (p[o + P_S] < p[o + P_LEN]) continue;
             p[o + P_S] = p[o + P_LEN];
             if (ph === 1) {
@@ -1097,6 +1144,76 @@ export class NetTraffic implements TrafficModel {
         }
     }
 
+    /** The first free waiting spot (its column) along the kerb on side `side` of crossing cid, or -1 when all are taken. */
+    private freeSpot(cid: number, side: number): number {
+        const p = this.people, n = this.cols(cid, side);
+        for (let col = 0; col < n; col++) {
+            const [sx, sz] = this.slot(cid, side, 0, false, col);
+            let free = true;
+            for (let r = 0; r < this.nPeople && free; r++) {
+                const ro = r * PN;
+                if (p[ro + P_PH] !== 1 && p[ro + P_PH] !== 2) continue;
+                const ddx = p[ro + P_BX] - sx, ddz = p[ro + P_BZ] - sz;
+                if (ddx * ddx + ddz * ddz < SPACE * SPACE) free = false;
+            }
+            if (free) return col;
+        }
+        return -1;
+    }
+
+    /** Everyone's place and heading at the start of this step (keepApart reads them), and a 2 m grid of who is where. */
+    private snapPeople(): void {
+        const at = this.pplAt, pl = this.pplTmp, grid = this.pplGrid;
+        grid.clear();
+        for (let q = 0; q < this.nPeople; q++) {
+            const ph = this.people[q * PN + P_PH];
+            if (ph === 7 || ph === 12) continue; // out of sight: in a building, on a train
+            this.personPlace(q, pl);
+            const o = q * 6;
+            at[o] = pl.x; at[o + 1] = pl.y; at[o + 2] = pl.z;
+            // the way they walk (a waiting person faces across the road, but goes nowhere)
+            at[o + 3] = standing(ph) ? 0 : pl.hx; at[o + 4] = standing(ph) ? 0 : pl.hz;
+            at[o + 5] = ph;
+            const key = Math.floor(pl.x / 2) * 100003 + Math.floor(pl.z / 2);
+            const cell = grid.get(key);
+            if (cell) cell.push(q); else grid.set(key, [q]);
+        }
+    }
+
+    /**
+     * How far walking person q goes along their way this step, keeping apart (LOOK, FOLLOW): their pace, less behind
+     * someone going the same way, or nothing while someone crosses close in front of them.
+     */
+    private keepApart(q: number): number {
+        const at = this.pplAt, o = q * 6;
+        let go = this.people[q * PN + P_V] * STEP;
+        const qx = at[o], qy = at[o + 1], qz = at[o + 2], hx = at[o + 3], hz = at[o + 4];
+        const cx = Math.floor(qx / 2), cz = Math.floor(qz / 2);
+        for (let gx = cx - 1; gx <= cx + 1; gx++) for (let gz = cz - 1; gz <= cz + 1; gz++) {
+            const cell = this.pplGrid.get(gx * 100003 + gz);
+            if (!cell) continue;
+            for (const r of cell) {
+                if (r === q) continue;
+                const ro = r * 6;
+                const dx = at[ro] - qx, dz = at[ro + 2] - qz, dy = at[ro + 1] - qy;
+                if (dy > 1 || dy < -1) continue;
+                const along = dx * hx + dz * hz;
+                if (along <= 0 || along > LOOK) continue;
+                const side = dz * hx - dx * hz;
+                if (side >= SPACE || side <= -SPACE) continue;
+                const rhx = at[ro + 3], rhz = at[ro + 4];
+                const dot = rhx * hx + rhz * hz;
+                // each ahead of the other (ways that meet): only the higher index waits, so they never both stand
+                const back = -(dx * rhx + dz * rhz), rside = dx * rhz - dz * rhx;
+                if (back > 0 && back <= LOOK && rside < SPACE && rside > -SPACE && q < r) continue;
+                // going the same way: FOLLOW behind them; crossing their way close in front: the higher index waits
+                if (dot > 0.5) go = Math.min(go, Math.max(0, along - FOLLOW));
+                else if (dot > -0.5 && !standing(at[ro + 5]) && along < FOLLOW && q > r) go = 0;
+            }
+        }
+        return go;
+    }
+
     /** Person q is at hub P_H: on along the block, or to a crossing's queue; never straight back. */
     private choose(q: number): void {
         const p = this.people, o = q * PN;
@@ -1116,8 +1233,11 @@ export class NetTraffic implements TrafficModel {
             p[o + P_DOOR] = draw(this.rngPeople, q) % this.coachDoors.length;
             return;
         }
-        const pick = opts[draw(this.rngPeople, q) % opts.length];
+        let pick = opts[draw(this.rngPeople, q) % opts.length];
         const hx = this.hubX[h], hz = this.hubZ[h];
+        // a crossing whose waiting spots are all taken: on along the block instead (opts starts with the sides)
+        const spot = pick < 0 ? this.freeSpot(-1 - pick, this.crossings[-1 - pick].hA === h ? 0 : 1) : -1;
+        if (pick < 0 && spot < 0 && opts[0] >= 0) pick = opts[0];
         if (pick >= 0) {
             p[o + P_H] = pick;
             p[o + P_PREV] = h;
@@ -1137,17 +1257,14 @@ export class NetTraffic implements TrafficModel {
         }
         const cid = -1 - pick;
         const side = this.crossings[cid].hA === h ? 0 : 1;
-        let queued = 0;
-        for (let r = 0; r < this.nPeople; r++) {
-            const ro = r * PN;
-            if ((p[ro + P_PH] === 1 || p[ro + P_PH] === 2) && p[ro + P_C] === cid && p[ro + P_SIDE] === side) queued++;
-        }
-        const row = queued % 2;
-        const s = this.slot(cid, side, row, false);
+        // the first free spot along the kerb (free: checked above; when none was and there was no other way, the first)
+        const row = 0, col = Math.max(0, spot);
+        const s = this.slot(cid, side, row, false, col);
         this.walkEdge(q, 1, hx, hz, s[0], s[1], p[o + P_VB], 0);
         p[o + P_C] = cid;
         p[o + P_SIDE] = side;
         p[o + P_ROW] = row;
+        p[o + P_COL] = col;
     }
 
     /** The garden block's index in Level.blocks (-1: none). */

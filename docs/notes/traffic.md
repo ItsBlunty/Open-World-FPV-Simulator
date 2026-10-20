@@ -110,3 +110,33 @@ predates the lane move (heads now sit over the 2.5 m lane); left-turn pockets or
 if the owner wants faster traffic; cars do not react to the quad; the chase camera still has no collision (§5).
 
 
+
+## 1p. People keeping apart (owner, 2026-10-19): traffic v8, built, waiting for the owner to look
+
+The owner saw walkers walk into each other. Measured first (10 min of traffic on the first map, positions every 0.5 s,
+two people closer than 0.55 m with PERSON.r = 0.3): 4880 touching pair-samples among 280 people. Most were people
+waiting to cross on one spot (`row = queued % 2` put every third person on the first one's spot), people crossing
+inside each other, and faster walkers walking through slower ones.
+
+**What changed (`network.ts`).**
+- *Waiting spots:* one row along the kerb, `CROSS_IN` 0.4 m in (was 0.6, so people walking past behind them stay
+  clear), 3 spots 0.6 m apart to the right of the crossing's middle (2 where the right runs towards the block's corner;
+  the street lamp 4 m from the corner comes after the third). A spot within 0.6 m of anyone else's (the other crossing
+  at the same corner too) is taken. When all are, the person walks on along the block instead of queueing (more spots
+  along the kerb ran into the lamps; a second row stood on the walking line).
+- *Keeping apart (`keepApart`):* each step a walker looks 1.8 m ahead along their way at anyone within 0.6 m of their
+  line. Same way: they keep 0.75 m behind (slow to their pace, or wait). Crossing their way close ahead: the higher
+  index waits. When each is ahead of the other (paths that meet), only the higher index waits, so two never wait for
+  each other (a first version deadlocked two people for good). People standing (waiting, inside, on the platform) are
+  not walked round: tried, a 0.4 m sidestep made it worse (962 touching samples against 641 without) and put people
+  into walls.
+- State: a new slot per person (`P_COL`, the waiting spot's column); everyone's place snapped into a 2 m grid at the
+  start of each step.
+
+**Result:** 215 touching pair-samples (from 4880), longest touch 1.5 s, no walker stands still more than 1 s, nobody
+inside the level at any sample. What is left is a brief pass at a corner, and walking past people waiting. Crossings
+in 10 min 1229 (were 1311); cars unchanged (mean 1.81 m/s, 0 overlaps, 0 red runs). Test:
+`packages/traffic/test/traffic.test.ts` "people keeping apart". Traffic self-test re-pinned `8afde0e9…`.
+
+**Left open:** walkers still pass through people standing (waiting at a crossing or on the platform) and briefly
+through each other at corners; no sidestepping; the platform's waiting spots unchanged.
