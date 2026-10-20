@@ -49,13 +49,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Flickering faces fixed (map v14: stacked containers, trusses, beams, decks); a test finds coplanar faces. [map §1q]
   Shadow ring fixed: the shadow bias was 24 cm (a lit strip at every object's foot), now 1.2 cm. [browsers-input-performance §1r]
   Vehicle variety (traffic v9): toy cars, saloons, SUVs, vans, pickups with loads, semis (53 ft vans shut or open with
-  pallets, pups, flatbeds), all solid to their boxes; 11 street vendors' carts (map v15). [traffic §1t]
+  pallets, pups, flatbeds), all solid to their boxes; 24 street vendors' carts: sidewalks, tree plazas, the station
+  garden, the park (map v16; a cart inside a building fixed). [traffic §1t]
 - **Tests:** `pnpm test`: 63 files, 557 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
-  - traffic self-test `9fba44b4…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
-  - map v15 `bb94691a…` (434 582 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 15, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
+  - map v16 `27e377ab…` (436 110 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 16, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -118,7 +119,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    crossings and on the sidewalks, the yard's container stacks, the warehouse and the bando driveway. Ring gone? Still
    people inside each other (they still pass through people standing)? Any flicker left, and where? [§1r, §1p, §1q]
 20. **Vehicles and vendors:** spawn "City street": look at the mix, fly into an open trailer and under one, land on a
-   pickup's load, find the carts (park: by the fountain). Mix right? Trailers follow the lane through turns (real ones
+   pickup's load, find the carts (park by the fountain, tree plazas, the station garden's cross path). Mix right? Trailers follow the lane through turns (real ones
    cut inside; the corners are too tight): OK? Semis accelerate like cars: slower? People buying at the carts? [traffic §1t]
 
 ## Left open (not started)

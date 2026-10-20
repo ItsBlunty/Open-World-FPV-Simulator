@@ -222,3 +222,18 @@ low spec on this PC (2 % of a 60 fps frame); a weak laptop pays more per draw. N
 
 **Left open:** the vehicles' cost on a weak laptop (each vehicle kind still draws its own body, glass and inside);
 trailers don't off-track; no semis in the loops model; vendors serve nobody (walkers pass by).
+
+**Cart fixes and more carts (owner, 2026-10-20, map v16).** The owner found a cart clipping into a building ("sidewalk
+spacing is not the same across the whole city"). Cause: the placement took every face of a building, also the inner
+faces that look onto the gap between two buildings of one block, not a street; such a face seemed 30 m back from the
+kerb, so a cart went on the kerb strip in front of the *other* building, inside it (found again by the new test:
+hot dogs at 171.4, -210 inside Kingsley Library). The vendor test missed it: a sphere wholly inside a wall touches no
+surface. Fixed: only faces onto a street, and every spot is checked against every building's footprint (the cart's
+counter, the vendor behind it, the umbrella). Asked for and added: carts in the tree plazas (up to two each, on the
+edge 2.45 m in from the kerb like the sidewalk carts, facing the street, the umbrella 4.5 m or more from a planter's
+tree; 8 in the 4 plazas), and three in the station garden (hot dogs, coffee, pretzels) on a paved strip made by
+pulling its two south lawns back 3.3 m from the cross path (the way people walk to the stair), facing the path, between
+the benches. 24 carts now. Test: no cart, vendor or umbrella over a building footprint (it fails with the old
+placement), nothing in a ring just outside each umbrella's rim (trees, walls), three carts in the garden. Map v16
+`27e377ab…` (436 110 triangles), traffic self-test `d31e59ea…`; `pnpm test` 63 files, 557 tests pass. Looked at in the
+browser: the garden's three stalls, a hot dog cart on a plaza's edge.

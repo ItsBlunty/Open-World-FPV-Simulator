@@ -341,7 +341,7 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'bb94691a5ea8dacadbaed42e8a36685c904ccf60f4b357fc5ae5ea859061370b';
+const PINNED = '27e377ab33f97994d98fa44f7543083611573d874ea99b067a859402af765040';
 
 describe('street vendors (map v15)', () => {
     const level = buildFirstMap();
@@ -351,7 +351,9 @@ describe('street vendors (map v15)', () => {
     it('stand behind their carts, clear of the level, with room to walk past in front', () => {
         const kinds = new Set(level.vendors.map((v) => v.kind));
         console.log(`vendors: ${level.vendors.length} (${level.vendors.map((v) => `${v.name} at ${v.cx.toFixed(1)}, ${v.cz.toFixed(1)}`).join('; ')})`);
-        expect(level.vendors.length).toBeGreaterThanOrEqual(9);
+        expect(level.vendors.length).toBeGreaterThanOrEqual(14);
+        // three in the station garden (the lot by the city station), facing its cross path
+        expect(level.vendors.filter((v) => v.cx > 9 && v.cx < 71 && v.cz > -241 && v.cz < -179).length).toBe(3);
         expect(kinds.size).toBe(5);
         for (const v of level.vendors) {
             // the vendor: a person's capsule (0.3 m round, 1.75 m tall, traffic PERSON) stands clear
@@ -361,6 +363,24 @@ describe('street vendors (map v15)', () => {
             // in front of the cart, where customers stand and people walk past: clear from the ground to over a head
             const fx = v.cx + v.nx * (v.halfD + 0.45), fz = v.cz + v.nz * (v.halfD + 0.45);
             for (const y of [0.4, 1.0, 1.7]) expect(world.querySphere(fx, v.y + y, fz, 0.3, out), `in front of ${v.name}'s cart`).toBe(false);
+        }
+        // (map v16: one stood in front of a building's inner face, inside the next building, which spheres on surfaces
+        // cannot see) no cart, vendor or umbrella over a building's footprint
+        for (const v of level.vendors) {
+            // its outline: the counter's front edge, back to the vendor (0.9 m, 0.3 m round) and the umbrella (1.2 m round),
+            // and across to the umbrella's side (0.33 m off the cart's middle)
+            const front = v.halfD + 0.07, back = 1.2, side = 1.53;
+            const xs = [v.cx + v.nx * front - v.nz * side, v.cx - v.nx * back + v.nz * side];
+            const zs = [v.cz + v.nz * front + v.nx * side, v.cz - v.nz * back - v.nx * side];
+            const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+            const bd = level.buildings.find((b) => x1 > b.x0 && x0 < b.x1 && z1 > b.z0 && z0 < b.z1);
+            expect(bd?.name, `${v.name} at ${v.cx}, ${v.cz}`).toBeUndefined();
+            // nothing (a tree's crown, a wall) in the ring just outside the umbrella's rim
+            const ux = v.cx - v.nz * 0.325, uz = v.cz + v.nx * 0.325;
+            for (let k = 0; k < 16; k++) {
+                const a = (k / 16) * 2 * Math.PI;
+                expect(world.querySphere(ux + 1.4 * Math.cos(a), v.y + 2.3, uz + 1.4 * Math.sin(a), 0.12, out), `over ${v.name}'s umbrella at ${v.cx}, ${v.cz}`).toBe(false);
+            }
         }
         // the sidewalk carts stand off the walking line (people fill the first 1.9 m from the kerb)
         for (const v of level.vendors) {

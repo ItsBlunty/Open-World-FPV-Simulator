@@ -32,9 +32,11 @@ export const MAP_ID = 'mixed-1';
  * 13: the time trial pads 4.6 m square, filling their arches (owner, 2026-10-19);
  * 14: no faces flickering in each other (owner, 2026-10-19): stacked containers kept out of their neighbours, the
  * warehouse trusses and workshop beams end inside the walls, the site's plank decks 1 cm up, the driveway's slabs 5 mm up;
- * 15: street vendors' carts on the sidewalks and in the park (owner, 2026-10-20)
+ * 15: street vendors' carts on the sidewalks and in the park (owner, 2026-10-20);
+ * 16: no cart in front of a building's inner face (one stood inside the building next to it), carts in the tree plazas
+ * and on a paved strip in the station garden, its south lawns pulled back for it (owner, 2026-10-20)
  */
-export const MAP_VERSION = 15;
+export const MAP_VERSION = 16;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -46,7 +48,8 @@ export function buildFirstMap(): Level {
     ground(b);
     park(b, new Rng(1));
     bando(b, new Rng(2));
-    city(b, new Rng(3), roofClutter);
+    const plazas: Plaza[] = [], stalls: [number, number][] = [];
+    city(b, new Rng(3), roofClutter, plazas, stalls);
     const yardSpots = industrial(b, new Rng(4), (x, z) => nearTrack(x, z, 4));
     const woodSpots = southEast(b, new Rng(5));
     border(b, new Rng(6));
@@ -62,7 +65,7 @@ export function buildFirstMap(): Level {
     // (map v12) no random choices: the rest of the map is drawn as before
     b.trials.push(...timeTrials(b));
     // (map v15) last, from their own Rng: the rest of the map is drawn as before
-    b.vendors.push(...vendors(b, new Rng(12), hideouts.shelters));
+    b.vendors.push(...vendors(b, new Rng(12), hideouts.shelters, plazas, stalls));
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
@@ -529,11 +532,16 @@ function buildingName(r: Rng, used: Set<string>, floors: number): string {
  * sidewalks"): four lawns raised 15 cm behind a kerb, with trees, and paved paths between them: one across the block
  * from the west sidewalk to the east one, one from the station's stair (railway.ts, its foot at x 36.2) south to the
  * south sidewalk, and benches along the cross path. The lawns keep 1.3 m clear of the kerbs, where people walk.
+ * (map v16; owner, 2026-10-20: food carts "to the lot where we load and unload from the train") the south lawns start
+ * STALLS m south of the cross path, leaving a paved strip where three food carts face the path (vendors.ts). Returns
+ * where the carts go: their middles, facing north.
  */
-function stationGarden(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number): void {
+const STALLS = 5;
+
+function stationGarden(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: number, z1: number): [number, number][] {
     const px = 36.2, pz = -205, hw = 1.5;
     const xs = [[x0 + 2.6, px - hw - 0.5], [px + hw + 0.5, x1 - 2.6]];
-    const zs = [[z0 + 2.6, pz - hw - 0.2], [pz + hw + 0.2, z1 - 2.6]];
+    const zs = [[z0 + 2.6, pz - hw - 0.2], [pz + STALLS, z1 - 2.6]];
     for (const [xa, xb] of xs) for (const [za, zb] of zs) {
         b.box('concrete', xa - 0.15, 0.15, za - 0.15, xb + 0.15, 0.3, zb + 0.15, FACE.bottom); // the kerb round the lawn
         b.box('grass', xa, 0.3, za, xb, 0.32, zb, FACE.bottom);
@@ -554,6 +562,16 @@ function stationGarden(b: LevelBuilder, r: Rng, x0: number, z0: number, x1: numb
         b.box('wood', bx - 1, 0.6, bz - 0.25, bx + 1, 0.7, bz + 0.25);
         for (const dx of [-0.9, 0.9]) b.box('metal', bx + dx - 0.05, 0.15, bz - 0.2, bx + dx + 0.05, 0.6, bz + 0.2);
     }
+    // the food carts on the paved strip, between the benches and clear of the path to the south sidewalk, their fronts
+    // 1.05 m off the cross path's edge, their vendors 0.65 m clear of the lawns' kerb
+    const cz = pz + hw + 1.05 + 0.45;
+    return [[21, cz], [31, cz], [41.5, cz]];
+}
+
+/** A plaza block (planters with trees), for the food carts: its index in Level.blocks and its planters' middles. */
+export interface Plaza {
+    block: number;
+    planters: [number, number][];
 }
 
 /** A steel frame under construction: columns and beams, no walls, a crane. */
@@ -745,7 +763,7 @@ function roadMarkings(b: LevelBuilder): void {
     }
 }
 
-function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
+function city(b: LevelBuilder, r: Rng, clutter: Rect[], plazas: Plaza[], stalls: [number, number][]): void {
     const BLOCK = PITCH - ROAD;
     const names = new Rng(7);
     const used = new Set<string>();
@@ -776,16 +794,19 @@ function city(b: LevelBuilder, r: Rng, clutter: Rect[]): void {
             const u = r.int(0, 99);
             // (map v9) the lot by the city station becomes its garden; its old random draws still happen, drawn nowhere
             const lot = a === 6 && c === 1;
-            if (lot) stationGarden(b, new Rng(9), x0, z0, x1, z1);
+            if (lot) stalls.push(...stationGarden(b, new Rng(9), x0, z0, x1, z1));
             const g = lot ? new LevelBuilder() : b;
             if (u < 10) {
                 // plaza: planters with trees
+                const planters: [number, number][] = [];
                 for (let k = 0; k < 6; k++) {
                     const tx = x0 + 8 + r.int(0, BLOCK - 16);
                     const tz = z0 + 8 + r.int(0, BLOCK - 16);
                     g.block('concrete', tx, tz, 3, 3, 0.15, 0.6);
                     tree(g, r, tx, tz, 0.8);
+                    planters.push([tx, tz]);
                 }
+                if (!lot) plazas.push({ block: blk.index, planters });
                 continue;
             }
             if (u < 18) {

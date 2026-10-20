@@ -67,28 +67,56 @@ const DOOR_ROOM = 5;
 const SHELTER_ROOM = 8;
 const SPREAD = 70;
 const STREET_CARTS = 8;
+/** in a tree plaza: up to this many carts, this far apart, the umbrella's middle this far from a planter's tree (umbrella 1.2 m round, a canopy up to 2.8 m) */
+const PLAZA_CARTS = 2;
+const PLAZA_SPREAD = 25;
+const TREE_ROOM = 4.5;
+/** a building's faces in windowedBlock's order (FACE.nz, pz, nx, px): only a face onto a street has a sidewalk in front */
+const FACE_BIT = [4, 8, 16, 32];
+
+/** A plaza block (planters with trees: first-map.ts city), its index in Level.blocks and its planters' middles. */
+interface PlazaSpots {
+    block: number;
+    planters: readonly [number, number][];
+}
 
 /**
- * The carts: up to STREET_CARTS on the sidewalks in front of buildings set back far enough, spread over the city, and
- * three in the park, along the east-west path either side of the fountain and by the path from the city. `shelters` are
- * the bus shelters (kept clear of).
+ * The carts: up to STREET_CARTS on the sidewalks in front of buildings set back far enough, spread over the city; up to
+ * PLAZA_CARTS on the edge of each tree plaza, clear of its trees; the station garden's three (`stalls`, facing its
+ * cross path); and three in the park, along the east-west path either side of the fountain and by the path from the
+ * city. `shelters` are the bus shelters (kept clear of). No cart, umbrella or vendor stands in a building (map v16:
+ * one stood in front of a building's inner face, in the building next to it).
  */
-export function vendors(b: LevelBuilder, r: Rng, shelters: readonly Spot[]): Vendor[] {
-    const cand: { x: number; z: number; y: number; nx: number; nz: number; ax: number; az: number }[] = [];
+export function vendors(b: LevelBuilder, r: Rng, shelters: readonly Spot[], plazas: readonly PlazaSpots[], stalls: readonly [number, number][]): Vendor[] {
+    type Cand = { y: number; nx: number; nz: number; ax: number; az: number };
+    const cand: Cand[] = [];
     const NX = [0, 0, -1, 1], NZ = [-1, 1, 0, 0];
+    // a spot is free when the cart, its umbrella and its vendor keep out of every building (5 cm to spare)
+    const free = (ax: number, az: number, nx: number, nz: number): boolean => {
+        const back = VENDOR_IN - CART_IN + 0.3, side = CANOPY_R + 0.33;
+        const xs = [ax + nx * (HALF_D + 0.07) - nz * side, ax - nx * Math.max(back, CANOPY_R) + nz * side];
+        const zs = [az + nz * (HALF_D + 0.07) + nx * side, az - nz * Math.max(back, CANOPY_R) - nx * side];
+        const x0 = Math.min(...xs) - 0.05, x1 = Math.max(...xs) + 0.05, z0 = Math.min(...zs) - 0.05, z1 = Math.max(...zs) + 0.05;
+        return !b.buildings.some((bd) => bd.x0 < x1 && x0 < bd.x1 && bd.z0 < z1 && z0 < bd.z1);
+    };
+    // a spot on side k of a block, u along its kerb: the cart's middle CART_IN in from the kerb, facing the street
+    const onSide = (blk: { x0: number; z0: number; x1: number; z1: number; y: number }, k: number, u: number): Cand => {
+        const kerb = k === 0 ? blk.z0 : k === 1 ? blk.z1 : k === 2 ? blk.x0 : blk.x1;
+        const d = kerb + (k === 0 || k === 2 ? 1 : -1) * CART_IN;
+        return k < 2 ? { y: blk.y, nx: NX[k], nz: NZ[k], ax: u, az: d } : { y: blk.y, nx: NX[k], nz: NZ[k], ax: d, az: u };
+    };
     b.buildings.forEach((bd) => {
         const door = b.doors[bd.door];
         const blk = b.blocks[door.block];
         for (let k = 0; k < 4; k++) {
+            if (!(bd.street & FACE_BIT[k])) continue;
             const set = k === 0 ? bd.z0 - blk.z0 : k === 1 ? blk.z1 - bd.z1 : k === 2 ? bd.x0 - blk.x0 : blk.x1 - bd.x1;
             if (set < FACE_MIN) continue;
-            // along the kerb (x for the north and south sides, z for the others); the kerb's line and the way into the block
+            // along the kerb (x for the north and south sides, z for the others)
             const fa = k < 2 ? bd.x0 : bd.z0, fc = k < 2 ? bd.x1 : bd.z1;
             const ua = k < 2 ? blk.x0 : blk.z0, uc = k < 2 ? blk.x1 : blk.z1;
             const lo = Math.max(fa + 1 + HALF_L, ua + CORNER_ROOM), hi = Math.min(fc - 1 - HALF_L, uc - CORNER_ROOM);
             if (hi < lo) continue;
-            const kerb = k === 0 ? blk.z0 : k === 1 ? blk.z1 : k === 2 ? blk.x0 : blk.x1;
-            const into = k === 0 || k === 2 ? 1 : -1;
             const onDoor = door.nx === NX[k] && door.nz === NZ[k];
             const du = k < 2 ? door.x : door.z;
             // the middle of the face, or the nearest place to it clear of the door
@@ -96,10 +124,9 @@ export function vendors(b: LevelBuilder, r: Rng, shelters: readonly Spot[]): Ven
                 const u = Math.round((lo + hi) / 2) + off;
                 if (u < lo || u > hi) continue;
                 if (onDoor && Math.abs(u - du) < DOOR_ROOM + HALF_L) continue;
-                const at = (d: number): [number, number] => (k < 2 ? [u, kerb + into * d] : [kerb + into * d, u]);
-                const [x, z] = at(VENDOR_IN), [ax, az] = at(CART_IN);
-                if (shelters.some((s) => Math.hypot(s.x - ax, s.z - az) < SHELTER_ROOM)) continue;
-                cand.push({ x, z, y: blk.y, nx: NX[k], nz: NZ[k], ax, az });
+                const c = onSide(blk, k, u);
+                if (shelters.some((s) => Math.hypot(s.x - c.ax, s.z - c.az) < SHELTER_ROOM) || !free(c.ax, c.az, c.nx, c.nz)) continue;
+                cand.push(c);
                 break;
             }
         }
@@ -109,13 +136,31 @@ export function vendors(b: LevelBuilder, r: Rng, shelters: readonly Spot[]): Ven
         const j = r.int(0, i);
         [cand[i], cand[j]] = [cand[j], cand[i]];
     }
-    const picked: typeof cand = [];
+    const picked: Cand[] = [];
     for (const c of cand) {
         if (picked.length >= STREET_CARTS) break;
         if (picked.every((p) => Math.hypot(p.ax - c.ax, p.az - c.az) >= SPREAD)) picked.push(c);
     }
+    // (map v16) the tree plazas: on the edge, where the sidewalk would be, facing the street, every 4 m along each side
+    // (14 m from the corners), clear of the planters' trees; the first free spots in turn round the sides
+    for (const pz of plazas) {
+        const blk = b.blocks[pz.block];
+        const mine: Cand[] = [];
+        for (let u = 14; u <= blk.x1 - blk.x0 - 14 && mine.length < PLAZA_CARTS; u += 4) for (let k = 0; k < 4 && mine.length < PLAZA_CARTS; k++) {
+            const c = onSide(blk, k, (k < 2 ? blk.x0 : blk.z0) + u);
+            const ux = c.ax - c.nz * 0.325, uz = c.az + c.nx * 0.325; // the umbrella's pole (cart())
+            if (pz.planters.some(([tx, tz]) => Math.hypot(tx - ux, tz - uz) < TREE_ROOM)) continue;
+            if (shelters.some((s) => Math.hypot(s.x - c.ax, s.z - c.az) < SHELTER_ROOM) || !free(c.ax, c.az, c.nx, c.nz)) continue;
+            if (mine.some((p) => Math.hypot(p.ax - c.ax, p.az - c.az) < PLAZA_SPREAD)) continue;
+            mine.push(c);
+        }
+        picked.push(...mine);
+    }
     const out: Vendor[] = [];
     picked.forEach((p, i) => out.push(cart(b, STREET_KINDS[i % STREET_KINDS.length], p.ax, p.az, p.y, p.nx, p.nz)));
+    // (map v16) the station garden's paved strip, facing its cross path (north)
+    const GARDEN: VendorKind[] = ['hotdogs', 'coffee', 'pretzels'];
+    stalls.forEach(([x, z], k) => out.push(cart(b, GARDEN[k % GARDEN.length], x, z, 0.15, 0, -1)));
     // the park: either side of the fountain on the north edge of the east-west path (z 77-83), facing it, and one by
     // the path up from the city (x -3 to 3), facing it, south of the spawn pad's power line
     out.push(cart(b, 'icecream', -20, 75.4, 0, 0, 1));
