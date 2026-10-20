@@ -26,8 +26,8 @@ export const MATERIALS = [
     'container-d', 'container-e', 'foliage-dark', 'foliage-light',
     // map v15: street vendors' carts (stainless steel) and their umbrellas' colours
     'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green',
-    // map v17: the Duga radar's rusted legs, its grey bracing and arms, its pale cages; map v18: its reflector wires
-    'duga-rust', 'duga-grey', 'duga-cage', 'duga-wire'
+    // map v17: the Duga radar's rusted legs, its grey bracing and arms, its pale cages; map v19: its feed pipes
+    'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 

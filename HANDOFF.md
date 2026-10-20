@@ -52,15 +52,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   pallets, pups, flatbeds), all solid to their boxes; 24 street vendors' carts: sidewalks, tree plazas, the station
   garden, the park (map v16; a cart inside a building fixed). [traffic §1t]
   Duga radar built (map v17): both curtains at real size (541 x 150 m, 276 x 100 m) north of the city; spawn "Duga radar". [map §1u]
-  Duga remade (map v18, owner): separate wide towers, end masts, solid reflector wires, dipoles on bent feed pipes, after
-  the photos (no open model found); 98 k triangles, no measurable frame cost. [map §1w]
+  Duga remade (map v18-19, owner): separate wide towers, end masts, staggered dipole rows every 6.25 m on ochre feed
+  pipes bent as in the owner's photos, no wires across (no open model found); 159 k triangles, no measurable frame cost. [map §1w, §1x]
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
 - **Tests:** `pnpm test`: 63 files, 560 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
-  - map v18 `6cae9210…` (534 026 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 18, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - map v19 `4bd550ca…` (595 250 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 19, `TRAFFIC_VERSION` 9, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -125,9 +125,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 20. **Vehicles and vendors:** spawn "City street": look at the mix, fly into an open trailer and under one, land on a
    pickup's load, find the carts (park by the fountain, tree plazas, the station garden's cross path). Mix right? Trailers follow the lane through turns (real ones
    cut inside; the corners are too tight): OK? Semis accelerate like cars: slower? People buying at the carts? [traffic §1t]
-21. **Duga radar (remade, map v18):** spawn "Duga radar", look at it from the city, fly along its face between the cages
-   and the wires, thread the wires (1.5 m apart, solid), round the towers and end masts. Looks like Duga now? Faces the
-   city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w]
+21. **Duga radar (map v19):** spawn "Duga radar", look at it from the city and close in front, fly between the rows of
+   dipoles and along the face under the pipes, round the towers and end masts. Stagger, row spacing and pipe shape right
+   now? Faces the city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w, §1x]
 
 ## Left open (not started)
 
@@ -186,7 +186,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 |---|---|
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
-| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade |
+| `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |

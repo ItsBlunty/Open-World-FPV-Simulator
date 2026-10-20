@@ -333,3 +333,28 @@ Screenshots in `docs/evidence/2026-10-20-duga-v18/` (from the city, along the fa
 cages solid, not wire; no walkways or ladders in the towers; tower panels are 12.5 m (the photo shows closer rungs);
 the facing and the rest of §1u's open points still stand.
 
+## 1x. The Duga's dipoles and pipes (owner, 2026-10-20): map v19, built, waiting for the owner to fly it
+
+Owner, with a photo of the face: "I dont think the real duga has all those straight wires going across between the
+towers. Also the white section should alternate the spot they come from", then three photos of the feed pipes ("shape
+references of the rails") and one from below the face ("placement of this offset sections").
+
+**Changed (`packages/maps/src/duga.ts`):** the reflector wires taken out (and the `duga-wire` material; some photos from
+below do show thin level wires, the owner's call: left out). Dipole rows staggered: even rows at a quarter and three
+quarters of each bay, odd rows half a dipole along, in front of each tower and mid-bay (the owner's photos). Rows every
+6.25 m (24 low band, 16 high band; were 12 and 8 on the 12.5 m panels): the owner's face photo shows rows about 4 m
+apart, the photo from afar about the same [estimate]. Feed pipes after the owner's photos: 0.45 m, rusted ochre (new
+material `duga-pipe`), each straight out from the face, down 45 deg over 3 m, level the last metre into the gap between
+its two cages; the pipe along the face over each row kept (photos: flanged pipes along it). A beam from the top of each
+tower's back legs out 3 m past the dipoles, rising 4 m (photo from below).
+
+**Cost:** 159 140 triangles (v18: 97 916; map 534 026 -> 595 250). Frame time measured as in §1w (Chrome WebGPU, 1024 x
+768, median of 40, three rounds shown / hidden, shadows redrawn every frame): from the city 4.0-4.1 / 4.0-4.1 ms, in front
+of the face 4.0 / 3.6-4.0, from behind 4.0-4.4 / 4.0-4.1, over the park 4.0 / 4.0. At most 0.3 ms, within the noise. Low
+spec renders (screenshot). Not tried on a weak GPU.
+
+**Evidence:** `pnpm test`: the Duga tests (lane along each curtain's face 1.5 m out and 4 m up, under the lowest pipes;
+straight through a bay 4 m up; real sizes). Map v19 hash `4bd550ca...`. Screenshots in `docs/evidence/2026-10-20-duga-v19/`.
+
+**Left open:** cages solid, not wire; pipes are straight bars with sharp bends; row spacing and top beams are estimates
+from photos.

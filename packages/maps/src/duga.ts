@@ -1,19 +1,22 @@
 // The Duga radar's receiving antennas (map v17; owner, 2026-10-20: "add the duga radar array ... a simplified poly
 // version of duga. It should still look like duga but not very high poly"), north of the city past the border trees.
-// Remade in map v18 (owner, 2026-10-20: "the duga array doesn't look right"), after the Wikimedia Commons photos.
+// Remade in map v18 (owner, 2026-10-20: "the duga array doesn't look right"), after the Wikimedia Commons photos; map
+// v19 (owner, 2026-10-20, with a photo of the face): no wires across between the towers, the dipole rows staggered.
 //
 // Real ones (Chernobyl-2, Ukraine): two curtains end to end in one straight line, a low-band one 541 m long and 150 m
 // high and a high-band one 276 m long, each 34 m deep at the foot (OpenStreetMap ways 432924904 and 437725923, heights:
 // the first way's `height`, and chernobylx.com: "a high-frequency antenna with a height of 100 meters"). Each is a row of
-// separate lattice towers (only wires and feed pipes between them) with a free-standing tapered mast at each end; a
-// screen of level reflector wires runs from end mast to end mast; the dipoles, each a pair of cages (a cone at the fed
-// end, a cylinder, a taper at the outer end), hang in front on feed pipes that run out from the face and bend down to
-// them (Wikipedia, Duga radar; Commons photos: from afar, from below, along the face, the end masts).
+// separate lattice towers (only feed pipes between them) with a free-standing tapered mast at each end; the dipoles,
+// each a pair of cages (a cone at the fed end, a cylinder, a taper at the outer end), hang in front on feed pipes that
+// run out from the face and bend down to them, each row half a dipole along from the rows over and under it (Wikipedia,
+// Duga radar; Commons photos: from afar, from below, along the face, the end masts; the owner's photo of the face).
+// Left out: the thin reflector wires some photos show from below (owner: not the straight wires across).
 //
 // Simplified (sizes not given by any source, read off the photos [estimates]): towers 12 m deep, their rusted legs 8 m
-// apart (high band 6 m) inside a grey frame 14 m wide (10 m), about half a bay; a level every 12.5 m, a wider frame on top; the end masts 8 m in from each end, the first tower
-// 0.8 of a bay further in (low band 15 towers, as counted in the photo from afar; high band 11); two dipoles per bay on
-// every level; reflector wires every 1.5 m (4 cm thick); raking struts at the towers' backs out to the 34 m footprint.
+// apart (high band 6 m) inside a grey frame 14 m wide (10 m), about half a bay; a level every 12.5 m, a wider frame on
+// top; the end masts 8 m in from each end, the first tower 0.8 of a bay further in (low band 15 towers, as counted in
+// the photo from afar; high band 11); two dipoles per bay on every row, a row every 6.25 m; raking struts at the towers' backs out to the
+// 34 m footprint.
 // Full size: it is meant to be seen from all over the map.
 //
 // Metres, north is -z, east +x, y up. No random choices, so the rest of the map is drawn as before it.
@@ -30,8 +33,9 @@ interface Curtain {
     /** each tower's rusted legs apart along the line, and its grey frame out past them on each side, m */
     legs: number;
     frame: number;
-    /** levels of bracing and rows of dipoles */
+    /** levels of bracing, and rows of dipoles (photos of the face: rows about 4-6 m apart) */
     levels: number;
+    rows: number;
     /** one cage's length and width, m, and how far in front of the towers the dipoles hang */
     cage: number;
     cageW: number;
@@ -42,15 +46,18 @@ interface Curtain {
 export const DUGA_FRONT = -600;
 /** each tower's depth back from the front face, m [estimate from photos] */
 const TOWER_D = 12;
-/** the main legs (rusted, as they are now), the bracing, arms and feed pipes (grey paint), m across [estimates] */
+/** the main legs (rusted, as they are now), the bracing and arms (grey paint), the feed pipes (rusted ochre), m across [estimates] */
 const LEG = 1.0;
 const BRACE = 0.4;
 const OUTRIGGER = 0.5;
-const PIPE = 0.35;
+const PIPE = 0.45;
 /** the top frame: out past the grey frame, its tips turned up this much, and the rod on top, m */
 const TOP_OUT = 1.5;
 const TOP_TIP = 1.5;
 const ROD = 6;
+/** the beams on top of each tower, out past the dipoles this far and up this much at their tips [estimates from a photo] */
+const TOP_BEAM_OUT = 3;
+const TOP_BEAM_UP = 4;
 /** the struts behind each tower: from this high on its back legs down to the ground this far behind them */
 const STRUT_Y = 30;
 const STRUT_OUT = 20;
@@ -60,18 +67,20 @@ const MAST_FOOT = 5;
 const MAST_TOP = 1.5;
 /** from the end mast to the first tower, in bays */
 const END_GAP = 0.8;
-/** the reflector: a wire every WIRE_STEP m up, WIRE thick */
-const WIRE_STEP = 1.5;
-const WIRE = 0.04;
-/** the feed pipes run along the face this far in front of it and this high over their row of dipoles */
+/**
+ * The feed pipes: one along the face over each row, this far in front of it and this high over the row; each dipole's
+ * pipe runs straight out level, bends down 45 deg over PIPE_UP, and runs level again the last PIPE_END m into the middle
+ * of the dipole (owner's photos of the pipes, 2026-10-20).
+ */
 const PIPE_OUT = 0.6;
 const PIPE_UP = 3;
+const PIPE_END = 1;
 
 export const DUGA: readonly Curtain[] = [
     // the low band: 541 m, 150 m high
-    { x0: -408, x1: 133, bays: 14, height: 150, legs: 8, frame: 3, levels: 12, cage: 6, cageW: 1.6, reach: 6 },
+    { x0: -408, x1: 133, bays: 14, height: 150, legs: 8, frame: 3, levels: 12, rows: 24, cage: 6, cageW: 1.6, reach: 6 },
     // the high band: 276 m, 100 m high
-    { x0: 133, x1: 409, bays: 10, height: 100, legs: 6, frame: 2, levels: 8, cage: 4, cageW: 1.2, reach: 4.5 }
+    { x0: 133, x1: 409, bays: 10, height: 100, legs: 6, frame: 2, levels: 8, rows: 16, cage: 4, cageW: 1.2, reach: 4.5 }
 ];
 
 /** Where a curtain's towers stand: the first tower's x and the bay between towers, m. */
@@ -79,12 +88,6 @@ export function dugaTowers(c: Curtain): { first: number; bay: number } {
     const span = c.x1 - c.x0 - 2 * MAST_IN;
     const bay = span / (c.bays + 2 * END_GAP);
     return { first: c.x0 + MAST_IN + END_GAP * bay, bay };
-}
-
-/** The reflector screen of a curtain: from end mast to end mast, its lowest and highest wire (for the renderer's veil). */
-export function dugaScreen(c: Curtain): { x0: number; x1: number; y0: number; y1: number; z: number } {
-    const n = Math.floor(c.height / WIRE_STEP);
-    return { x0: c.x0 + MAST_IN, x1: c.x1 - MAST_IN, y0: WIRE_STEP, y1: n * WIRE_STEP, z: DUGA_FRONT };
 }
 
 export function duga(b: LevelBuilder): void {
@@ -96,28 +99,26 @@ export function duga(b: LevelBuilder): void {
 function curtain(b: LevelBuilder, c: Curtain): void {
     const zf = DUGA_FRONT, zb = DUGA_FRONT - TOWER_D, h = c.height;
     const { first, bay } = dugaTowers(c);
-    const step = h / c.levels, hw = c.legs / 2 + c.frame;
+    const hw = c.legs / 2 + c.frame;
     for (let t = 0; t <= c.bays; t++) tower(b, c, first + t * bay, zf, zb, t);
     mast(b, c.x0 + MAST_IN, h, c.levels);
     mast(b, c.x1 - MAST_IN, h, c.levels);
-    // the reflector wires, end mast to end mast, through the towers' front face
-    const s = dugaScreen(c);
-    for (let j = 1; j * WIRE_STEP <= s.y1; j++) b.bar('duga-wire', [s.x0, j * WIRE_STEP, zf], [s.x1, j * WIRE_STEP, zf], WIRE);
-    // the dipoles: two per bay on each row, mid-panel, each fed in the middle from a pipe along the face over its row
-    for (let k = 0; k < c.levels; k++) {
-        const y = (k + 0.5) * step, yp = y + PIPE_UP, zp = zf + PIPE_OUT, z = zf + c.reach;
-        for (let t = 0; t < c.bays; t++) {
-            const xa = first + t * bay;
-            b.bar('duga-grey', [xa + hw, yp, zp], [xa + bay - hw, yp, zp], PIPE);
-            for (const f of [0.25, 0.75]) {
-                const x = xa + f * bay;
-                // out from the pipe, then bent down to the top of the feed point (photos: one bend, about 45 deg)
-                const zk = z - (PIPE_UP - c.cageW / 2);
-                b.bar('duga-grey', [x, yp, zp], [x, yp, zk], PIPE);
-                b.bar('duga-grey', [x, yp, zk], [x, y + c.cageW / 2, z], PIPE);
-                cage(b, x, y, z, c.cage, c.cageW, -1);
-                cage(b, x, y, z, c.cage, c.cageW, 1);
-            }
+    // the dipoles: two per bay on each row, mid-panel, each fed in the middle from a pipe along the face over its row;
+    // every other row half a dipole along (owner's photo: staggered), so it has one more, in front of the last tower
+    const pitch = h / c.rows;
+    for (let k = 0; k < c.rows; k++) {
+        const y = (k + 0.5) * pitch, yp = y + PIPE_UP, zp = zf + PIPE_OUT, z = zf + c.reach;
+        for (let t = 0; t < c.bays; t++) b.bar('duga-pipe', [first + t * bay + hw, yp, zp], [first + (t + 1) * bay - hw, yp, zp], PIPE);
+        const odd = k % 2 === 1;
+        for (let i = 0; i < 2 * c.bays + (odd ? 1 : 0); i++) {
+            const x = first + (i / 2 + (odd ? 0 : 0.25)) * bay;
+            // out level from the face (through the pipe along it), down 45 deg, level again into the gap between the cages
+            const z2 = z - PIPE_END, z1 = z2 - PIPE_UP;
+            b.bar('duga-pipe', [x, yp, zf], [x, yp, z1], PIPE);
+            b.bar('duga-pipe', [x, yp, z1], [x, y, z2], PIPE);
+            b.bar('duga-pipe', [x, y, z2], [x, y, z], PIPE);
+            cage(b, x, y, z, c.cage, c.cageW, -1);
+            cage(b, x, y, z, c.cage, c.cageW, 1);
         }
     }
 }
@@ -154,6 +155,8 @@ function tower(b: LevelBuilder, c: Curtain, x: number, zf: number, zb: number, t
         b.bar('duga-grey', [x + tw, h, lz], [x + tw + TOP_TIP, h + TOP_TIP, lz], BRACE);
     }
     b.bar('duga-grey', [x, h + 0.25, zf], [x, h + ROD, zf], BRACE);
+    // a beam from the top of each back leg out over the dipoles, rising a little (owner's photo from below the face)
+    for (const lx of [x - hw, x + hw]) b.bar('duga-grey', [lx, h, zb], [lx, h + TOP_BEAM_UP, zf + c.reach + TOP_BEAM_OUT], OUTRIGGER);
     // raking struts from the back legs down to the ground behind
     for (const lx of [x - hw, x + hw]) b.bar('duga-rust', [lx, STRUT_Y, zb], [lx, 0, zb - STRUT_OUT], LEG * 0.7);
 }

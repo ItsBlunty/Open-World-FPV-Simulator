@@ -71,8 +71,8 @@ const COLOURS: Record<Material, number> = {
     'duga-rust': 0x7a4a33,
     'duga-grey': 0x9a9e9f,
     'duga-cage': 0xd0d3d0,
-    // map v18: the reflector wires (dark steel)
-    'duga-wire': 0x4a4d4f
+    // map v19: its feed pipes (owner's photos: rusted to an ochre brown)
+    'duga-pipe': 0x9a6a42
 };
 
 /**
@@ -88,7 +88,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper', 'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green', 'duga-rust', 'duga-grey', 'duga-cage', 'duga-wire']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper', 'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green', 'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {
