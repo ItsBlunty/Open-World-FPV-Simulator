@@ -3,6 +3,27 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
+## Active: throttle-chop bobble (owner, 2026-10-20) — start here [physics §2g, physics-review F9, F10]
+
+- **Issue:** in real flights a quad chopped to zero throttle at speed holds its attitude and its motors stay near idle.
+  In every model here (0.7.0, 0.8.0, 0.8.0 + NACA refit) it bobbles and motors ramp up (PID fights, I-term winds up,
+  1-2 s). Classic physics does not. Owner flew the refit: still wrong. Find the gap; no bandaids (owner).
+- **Where the work is:** branch `main-bng8wu` (not merged; sim-core/0.8.0; 2 selftest hash tests fail on purpose):
+  motor/ESC model, prop torque, Betaflight anti-gravity and throttle boost, NACA windmill curves. Owner's chop flight and
+  replay harness in `docs/evidence/2026-10-20-windmill/`.
+- **Learned:** the model's mechanism is the windmill-brake band (more rpm, more drag), so the PID acts backwards. NACA
+  464 / ARR 4H26 measured that band on full-size props; the old 0.8.0 range was 7x too steep (now refit). No 5-inch data
+  past zero thrust exists (UIUC stops there). BEM and blade-element fail there (Goyal 2024). AOS-RC (Chris Rosser)
+  static data for the real Nazgul F5 prop: thrust 4 % above the model, Q/T 12.5 vs 13.6 mm, CT falls at low rpm.
+- **Gaps to check, each with evidence:** (1) 5-inch props at low Re may lack the band; (2) crossflow dropped past the
+  edge (asymmetric loading, H-force, hub moments); (3) steady curves used for fast rpm changes (no dynamic inflow /
+  unsteady aero); (4) motor spool too fast (inertia, R, no ESC current limit or latency); (5) ESC braking at low duty
+  assumed; (6) FC emulation (1 kHz ideal gyro, airmode mix floor, windup) never checked against real Betaflight (SITL);
+  (7) no frame aerodynamic moments or damping; (8) drag levels (5 N per prop braking, frame CdA, unloaded-prop rpm);
+  (9) inertia (G3); (10) static calibration from other props; (11) no gusts, the owner's yaw input at the chop.
+- **Evidence routes:** Betaflight SITL on the same sticks; a blackbox log with RPM telemetry (owner: not now); a
+  5-inch prop on a stand in airflow; small-prop negative-thrust literature.
+
 ## State (2026-10-20)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
@@ -216,7 +237,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   stays the same.
 - Traffic positions come from the sim tick alone (replays). Rule for cars: they only follow their lights, with no
   give-way logic, and they take natural paths, never diagonals (owner). [traffic]
-- `docs/physics-review.md` holds the physics findings (G1-G8, F1-F7). Add new ones there.
+- `docs/physics-review.md` holds the physics findings (G1-G8, F1-F10). Add new ones there.
+- Replaying a saved flight on another sim-core version: `docs/evidence/2026-10-20-windmill/replay/` (sticks only, no world).
 - Upstream provenance: `packages/sim-core/UPSTREAM.md`, `packages/input/UPSTREAM.md`, `apps/fly/UPSTREAM.md`. Commit
   `cbf6a4a` is sim-core exactly as upstream had it.
 - Console: `__fly.engine`, `__fly.ask(code)` runs code in the engine (`fly.renderer`, `fly.session`, `fly.sun`, ...).
@@ -231,7 +253,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
-| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
+| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound; §2g: the throttle-chop bobble, motor model, NACA windmill refit, open gaps |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |

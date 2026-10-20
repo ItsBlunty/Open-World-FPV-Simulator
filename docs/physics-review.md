@@ -344,3 +344,22 @@ level of 20 % of top speed, so none of it was heard; fixed in the sound (`docs/n
 whether a real quad holds its motors higher through a sustained zero-throttle roll (a blackbox log would tell).
 Dynamic idle was added then (Betaflight's, off by default); it cannot show its real purpose here because rotor speed
 does not respond to the airflow through the prop (the inflow gap above).
+
+### F9. Throttle chop at speed: the quad bobbles and motors fire up (found 2026-10-20, owner; OPEN)
+
+Owner: after a throttle cut in fast forward flight the quad "cant maintain steady and shakes out of line" and a motor
+is heard firing up; a real quad does not do this (its PID holds attitude, motors stay near idle). Seen in 0.7.0 as
+flown, in the 0.8.0 motor model and after the NACA refit (F10); not with classic physics (no airflow on the props).
+Mechanism in the model, traced on the owner's 8 s flight (`docs/evidence/2026-10-20-windmill/owner-chop-8s.owfpv.json`,
+chop at 4.15 s from 40 m/s, 74 deg nose down, 38-40 m/s through the discs): at idle the props sit where more rpm gives
+more drag (the windmill-brake band), so the PID's correction acts backwards, a pair of motors runs up to 14-23 k rpm,
+the I-term winds up (to 200 of 400) and holds them for 1-2 s. Detail and the list of unchecked assumptions:
+`docs/notes/physics.md` §2g.
+
+### F10. The prop past zero thrust was a 7x-too-steep cliff; refit to NACA's measured windmilling curves (2026-10-20, sim-core/0.8.0 WIP)
+
+The 0.8.0 blade-element range (flat-plate stall at 15-25 deg) made a stopped prop's drag flat, then a cliff to 2.5x it
+over a narrow rpm band. NACA Report 464 (Hartman 1933) measured thrust and torque from a locked prop to zero thrust:
+a smooth rise to about 2.1x the locked drag near 0.6 of the zero-thrust speed (12 deg blade, zero thrust at J 0.68 as
+ours at 0.70); ARR 4H26 (1944) agrees (1.4-2.7x by pitch). Now `WINDMILL_TC/QC` are used with the air from in front,
+scaled to the closed form where they join. The reversed band remains (it is measured), so F9 is not fixed by it.

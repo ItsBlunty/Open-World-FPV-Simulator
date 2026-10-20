@@ -114,3 +114,63 @@ after airmode is active; 618 tests pass, pinned hashes unchanged.
 case dynamic idle exists for on real quads (props unloading or windmilling in a dive, desyncs) is not in the model;
 here it raises and holds the idle floor. Betaflight's I-term reset at low throttle before airmode activates is not
 modelled (the sim's mixer always runs airmode).
+
+## 2g. Throttle-chop bobble: what was learned, what is built, what is still unknown (owner, 2026-10-20; OPEN)
+
+**The issue (owner).** In real flights a quad cut to zero throttle at speed keeps its attitude and its motors stay
+near idle. In every model here (0.7.0, 0.8.0, the NACA refit) it bobbles and motors ramp up. Classic physics does not do
+it. Physics-review F9, F10. Owner flew the refit (branch `main-bng8wu`): still wrong. Next: find the gap.
+
+**Built (branch `main-bng8wu`, commits bdf7042, 7f51317; sim-core/0.8.0, not merged, 2 hash tests fail on purpose):**
+motor/ESC torque-balance model (Ke = 1/Kv, R from rpm_loaded_fraction, complementary-PWM braking), prop torque
+(Gill and D'Andrea eq. 37-38, kappa 0.0136 and pitch factor 1.025 from UIUC 5-inch data), Betaflight 4.5 anti-gravity
+and throttle boost, and the NACA windmill curves past along-axis ratio 0.3 with the air from in front (air from behind
+still blade-element). Evidence: `docs/evidence/2026-10-20-motor-model/`, `docs/evidence/2026-10-20-windmill/` (sources,
+digitised curves, replay harness, the owner's chop flight).
+
+**On the owner's chop flight** (sticks replayed with no world; 4.15-7 s):
+
+| model | max roll rate | max pitch rate | pitch drift | motor > 15 % |
+|---|---|---|---|---|
+| 0.7.0 as flown | 49 deg/s | 88 | 9.8 deg | 2.1 s |
+| 0.8.0 | 68 | 131 | 3.1 | 1.7 s |
+| 0.8.0 + NACA refit | 139 | 26 | 3.9 | 1.5 s |
+
+Anti-gravity and throttle boost off: the kick stays (not their cause). The owner moved yaw (-0.11) at the chop.
+
+**Learned (sources read in full):** NACA Report 464 and ARR 4H26: a windmilling prop's drag rises with rpm from locked
+to a peak (1.2-2.7 x locked, lower pitch higher), so the reversed band is real for full-size props (Re ~1e6). UIUC
+(Brandt and Selig 2011, Deters et al. 2014) stop every sweep at the windmill state: no 5-inch data past zero thrust.
+Goyal et al. 2024: BEM and lifting-line fail past the maximum-power point (blade separation). Sinnige 2019 / 2024:
+negative-thrust CFD and tests at J/J0 up to 1.8. Neither blade-element with stall nor wind-turbine BEM reproduces NACA's
+rise from a locked prop (`fit.py`, `bem.py`). Chris Rosser's AOS-RC static stand sweeps (owner's spreadsheet, not
+committed: third-party data) give the Nazgul F5 prop: 15.1 N at 28 728 rpm (model 14.4), Q/T 12.3-12.7 mm (model
+13.6), CT rising 0.15 -> 0.19 from 8.6 k to 28.7 k rpm (model constant).
+
+**Gaps and assumptions to test next** (none ruled out; each needs evidence, not a fit to the symptom):
+1. *Small props in the windmill band:* 5-inch at Re 3-6e4 may not share the full-size reversed band, or not its size.
+   No data found. A thrust stand in airflow, or a published small-prop windmill test, would settle it.
+2. *Crossflow ignored past the edge:* the windmill range and blade-element range drop in-plane flow (mu up to 0.4 at
+   idle in the chop). Asymmetric blade loading, H-force and hub moments may add damping or moments.
+3. *Steady curves used for fast changes:* NACA is steady state; no dynamic inflow or unsteady blade aerodynamics. The
+   short-term effect of an rpm step (blade angle of attack changes at once, the wake later) may have the normal sign.
+4. *Motor spool:* rotor inertia 6e-6 kg m^2, R 0.114 ohm and the spool-up (5 k -> 15 k rpm in 15 ms in the trace) are
+   estimates; no ESC current limit, no DShot/ESC latency. Faster-than-real motors feed the PID's runaway.
+5. *ESC at low duty with a windmilling prop:* complementary-PWM braking to duty x V / Ke assumed for all ESCs; regen
+   current limits, BLHeli/AM32/Bluejay specifics, and what "idle" holds (duty, not rpm) are not checked.
+6. *Flight controller emulation:* 1 kHz loop on an ideal gyro (real 4-8 kHz with filters, RPM filter); airmode mix at
+   the bottom of the range, iterm_windup, I-term relax, anti-gravity (new) and throttle boost read from Betaflight 4.5
+   formulas but never compared against a real Betaflight trace (SITL would).
+7. *Frame aerodynamics:* drag acts at the centre of mass, no aerodynamic moments or damping from the frame, camera and
+   pack; at 40 m/s a real frame may weathervane and damp pitch/yaw.
+8. *Drag and thrust levels:* the chop makes up to ~5 N drag per prop (3 g braking); frame CdA (cda_horizontal 200 cm^2,
+   vertical 150) and the 0.8.0 unloaded-prop speed at full throttle (34 k rpm at 40 m/s vs 28.7 k static) unchecked.
+9. *Inertia:* G3 may be 20-50 % off (physics-review G3).
+10. *Static calibration:* thrust and torque coefficients from other props' data; AOS-RC has the real prop (and CT falls
+   at low rpm, which the model ignores).
+11. *Air model and inputs:* no wind/gusts in the trace; the owner's yaw input at the chop; whether the instability
+   needs a disturbance the real quad never gets.
+
+Ways to get evidence: a Betaflight SITL run of the same sticks (separates controller from physics, SPEC R1); a
+blackbox log with RPM telemetry of a chop at speed (owner: not now); a 5-inch prop on a stand in airflow; small-prop
+negative-thrust papers not yet found.

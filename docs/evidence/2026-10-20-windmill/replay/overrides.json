@@ -1,0 +1,1 @@
+{"batteryDrain": false, "crashOn": false, "dynIdle": {"d": 50, "i": 50, "maxIncrease": 255, "minRpm": 34, "p": 50, "startIncrease": 50}, "rates": {"pitch": {"expo": 0, "rate": 70, "rcRate": 80}, "rateLimit": 1998, "roll": {"expo": 0, "rate": 70, "rcRate": 80}, "type": "BETAFLIGHT", "yaw": {"expo": 0, "rate": 70, "rcRate": 80}}, "smallAngleDeg": 180}
