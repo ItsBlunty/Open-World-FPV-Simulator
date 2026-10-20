@@ -1,0 +1,140 @@
+// The airport's day (air.ts): it builds, it repeats, every mover is where the tick says (replays), no two movers ever
+// touch, the planes stay clear of the level's geometry, and a quad gets hit and pushed by a taxiing plane.
+
+import { describe, expect, it } from 'vitest';
+import { buildFirstMap } from '@owfpv/maps';
+import { MeshContactWorld } from '@owfpv/world-mesh';
+import { AIR_DAY, AirTraffic, AirWorld, newAirPlace } from '../src/index';
+import type { AirMover, AirPlace } from '../src/index';
+
+const level = buildFirstMap();
+
+/** A mover's footprint: an oriented rectangle on the ground (centre, half sizes along its level heading and across) and its height range. */
+interface Foot { cx: number; cz: number; hx: number; hz: number; ef: number; es: number; y0: number; y1: number }
+
+function foot(m: AirMover, p: AirPlace): Foot {
+    const sh = m.shape;
+    const l = Math.hypot(p.f[0], p.f[2]) || 1;
+    const hx = p.f[0] / l, hz = p.f[2] / l;
+    const mid = (sh.nose + sh.tail) / 2;
+    return { cx: p.x + hx * mid, cz: p.z + hz * mid, hx, hz, ef: (sh.nose - sh.tail) / 2, es: sh.half, y0: p.y - 1, y1: p.y + sh.reach };
+}
+
+/** Do two footprints overlap (grown by `pad` m)? Separating axis test in 2D, then the heights. */
+function overlap(a: Foot, b: Foot, pad: number): boolean {
+    if (a.y1 < b.y0 || b.y1 < a.y0) return false;
+    const axes = [[a.hx, a.hz], [-a.hz, a.hx], [b.hx, b.hz], [-b.hz, b.hx]];
+    const dx = b.cx - a.cx, dz = b.cz - a.cz;
+    for (const [ux, uz] of axes) {
+        const ra = a.ef * Math.abs(a.hx * ux + a.hz * uz) + a.es * Math.abs(-a.hz * ux + a.hx * uz);
+        const rb = b.ef * Math.abs(b.hx * ux + b.hz * uz) + b.es * Math.abs(-b.hz * ux + b.hx * uz);
+        if (Math.abs(dx * ux + dz * uz) > ra + rb + pad) return false;
+    }
+    return true;
+}
+
+/** Pairs that are meant to be close: the medics with each other and with the helicopter they get out of; the controllers. */
+function ignored(a: AirMover, b: AirMover): boolean {
+    const medic = (m: AirMover): boolean => m.kind === 'walker' || m.kind === 'stretcher';
+    if (a.kind === 'sitter' || b.kind === 'sitter') return true;
+    if (medic(a) && medic(b)) return true;
+    return (medic(a) && b.kind === 'heli') || (medic(b) && a.kind === 'heli');
+}
+
+describe('the airport', () => {
+    const air = new AirTraffic(level);
+
+    it('builds a day of ten planes, three tugs, the helicopter, its medics and the controllers', () => {
+        const count = (k: string): number => air.movers.filter((m) => m.kind === k).length;
+        expect(count('plane')).toBe(10);
+        expect(count('tug')).toBe(3);
+        expect(count('heli')).toBe(1);
+        expect(count('walker') + count('stretcher')).toBe(3);
+        expect(count('sitter')).toBe(4);
+        for (const e of air.events) expect(e.liftoff).toBeGreaterThan(e.touchdown);
+    });
+
+    it('never puts two movers in each other over the whole day', () => {
+        const ps = air.movers.map(newAirPlace);
+        const clashes = new Map<string, number>();
+        for (let t = 0; t < AIR_DAY; t += 0.5) {
+            const tick = Math.round(t * 1000);
+            air.movers.forEach((_, i) => air.place(i, tick, ps[i]));
+            for (let i = 0; i < ps.length; i++) {
+                if (ps[i].hidden) continue;
+                const fa = foot(air.movers[i], ps[i]);
+                for (let j = i + 1; j < ps.length; j++) {
+                    if (ps[j].hidden || ignored(air.movers[i], air.movers[j])) continue;
+                    if (!overlap(fa, foot(air.movers[j], ps[j]), 0.5)) continue;
+                    const k = `${air.movers[i].type?.kind ?? air.movers[i].kind}/${air.movers[j].type?.kind ?? air.movers[j].kind}`;
+                    if (!clashes.has(k)) clashes.set(k, t);
+                }
+            }
+        }
+        expect([...clashes.entries()].map(([k, t]) => `${k} at ${t} s`)).toEqual([]);
+    });
+
+    it('keeps the planes, the tugs and the helicopter clear of the buildings, the trees and the ground', () => {
+        const mesh = new MeshContactWorld(level.collision);
+        const ps = newAirPlace();
+        const out = new Float64Array(8 * 4);
+        const hits = new Map<string, string>();
+        air.movers.forEach((m, i) => {
+            if (m.kind === 'walker' || m.kind === 'stretcher' || m.kind === 'sitter') return;
+            for (let t = 0; t < AIR_DAY; t += 1) {
+                air.place(i, Math.round(t * 1000), ps);
+                if (ps.hidden || ps.y > 200) continue;
+                for (const pt of m.shape.parts) {
+                    if (pt.role === 'gear' || pt.role === 'skid') continue;
+                    // a capsule's ends, a box's middle
+                    const at = pt.kind === 'cap' ? [pt.a, pt.b] : [pt.c];
+                    for (const q of at) {
+                        const x = ps.x + q[0] * ps.f[0] + q[1] * ps.u[0] + q[2] * ps.s[0];
+                        const y = ps.y + q[0] * ps.f[1] + q[1] * ps.u[1] + q[2] * ps.s[1];
+                        const z = ps.z + q[0] * ps.f[2] + q[1] * ps.u[2] + q[2] * ps.s[2];
+                        const r = pt.kind === 'cap' ? pt.r : Math.min(...pt.e);
+                        if (mesh.contacts(x, y, z, r * 0.9, out, 8) > 0) {
+                            const k = m.type?.kind ?? m.kind;
+                            if (!hits.has(k)) hits.set(k, `${pt.role} at ${t} s (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`);
+                        }
+                    }
+                }
+            }
+        });
+        expect([...hits.entries()].map(([k, v]) => `${k}: ${v}`)).toEqual([]);
+    });
+
+    it('puts every mover at the same place for the same tick, built again', () => {
+        const a = newAirPlace(), b = newAirPlace();
+        const again = new AirTraffic(level);
+        for (const t of [123456, 987654, 1500000, 4567890]) {
+            air.movers.forEach((_, i) => {
+                air.place(i, t, a);
+                again.place(i, t, b);
+                expect([b.x, b.y, b.z, ...b.f, ...b.u]).toEqual([a.x, a.y, a.z, ...a.f, ...a.u]);
+            });
+        }
+    });
+
+    it('is solid: a point in a taxiing plane is pushed out, and moves with it', () => {
+        const world = new AirWorld(new MeshContactWorld(level.collision), air);
+        const i = air.planes[0];
+        const p = newAirPlace();
+        // find the ATR rolling on the ground, faster than 3 m/s
+        let tick = 0;
+        for (let t = 0; t < AIR_DAY; t += 1) {
+            air.place(i, t * 1000, p);
+            if (!p.hidden && p.y < 1 && p.v > 3) { tick = t * 1000; break; }
+        }
+        world.at(tick);
+        const q = world.placeOf(i);
+        // a point 1 m up the fuselage's side from its centre line, near the wing
+        const x = q.x + q.u[0] * 2.15 + q.s[0] * 1.0, y = q.y + q.u[1] * 2.15 + q.s[1] * 1.0, z = q.z + q.u[2] * 2.15 + q.s[2] * 1.0;
+        const o = { x: 0, y: 0, z: 0 };
+        expect(world.pushOut(x, y, z, 0.05, o)).toBe(true);
+        const out = new Float64Array(8 * 4), vel = new Float64Array(8 * 3);
+        const n = world.contacts(x, y, z, 0.05, out, 8, vel);
+        expect(n).toBeGreaterThan(0);
+        expect(Math.hypot(vel[0], vel[1], vel[2])).toBeGreaterThan(2);
+    });
+});

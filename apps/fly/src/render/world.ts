@@ -72,7 +72,12 @@ const COLOURS: Record<Material, number> = {
     'duga-grey': 0x9a9e9f,
     'duga-cage': 0xd0d3d0,
     // map v19: its feed pipes (owner's photos: rusted to an ochre brown)
-    'duga-pipe': 0x9a6a42
+    'duga-pipe': 0x9a6a42,
+    // map v21: the airport's taxiway yellow, the hospital pad's red H, hangar cladding (pale grey-blue), the windsock's orange-red
+    'marking-yellow': 0xe8b923,
+    'marking-red': 0xc8202a,
+    hangar: 0xb9c0c6,
+    windsock: 0xff5a1f
 };
 
 /**
@@ -88,7 +93,7 @@ const MULLION_BAY = 1.5;
 const MULLION_W = 0.08;
 
 /** No grid on these: it would read as tiles on a tree or on water, or as frames on glass. */
-const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper', 'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green', 'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe']);
+const PLAIN: ReadonlySet<Material> = new Set<Material>(['foliage', 'foliage-dark', 'foliage-light', 'trunk', 'water', 'window', 'window-ribbon', 'crane', 'frosted', 'dumpster', 'billboard', 'rail', 'sleeper', 'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green', 'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe', 'marking-yellow', 'marking-red', 'windsock']);
 
 /** Anti-aliased lines every `spacing` m along one world axis coordinate; fades out where they get too dense to see. */
 function lines(c: FloatNode, spacing: number): FloatNode {
@@ -273,7 +278,7 @@ export function levelGroup(level: Level, kit: Kit = FULL_KIT): THREE.Group {
         geo.computeBoundingSphere();
         const mesh = new THREE.Mesh(geo, gridMaterial(m));
         mesh.name = m;
-        mesh.castShadow = m !== 'marking' && m !== 'water' && m !== 'frosted';
+        mesh.castShadow = m !== 'marking' && m !== 'marking-yellow' && m !== 'marking-red' && m !== 'water' && m !== 'frosted';
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         g.add(mesh);

@@ -18,6 +18,7 @@ import { industrial } from './yard';
 import { timeTrials } from './trials';
 import { vendors } from './vendors';
 import { duga } from './duga';
+import { HOSPITAL, PAVE, airport } from './airport';
 
 export const MAP_ID = 'mixed-1';
 /**
@@ -39,12 +40,17 @@ export const MAP_ID = 'mixed-1';
  * 17: the Duga radar's two antenna curtains north of the city, past the border trees (owner, 2026-10-20);
  * 18: the Duga remade after photos: separate towers, end masts, reflector wires, dipoles on bent feed pipes (owner, 2026-10-20);
  * 19: the Duga's reflector wires taken out, its dipole rows staggered, its feed pipes shaped and coloured after photos (owner, 2026-10-20);
- * 20: the Duga's dipoles one per bay on each row, in front of each tower then mid-bay, 0.7 of a bay long (owner, 2026-10-20)
+ * 20: the Duga's dipoles one per bay on each row, in front of each tower then mid-bay, 0.7 of a bay long (owner, 2026-10-20);
+ * 21: the airport east of the railway (runway, taxiways, apron, three hangars, the tower, terminal, heliport), the grass
+ * carried 600 m further east under its far end, the border trees cleared from its approach, and the hospital's rooftop
+ * helipad on the building that was the Cobalt Hotel (owner, 2026-10-20)
  */
-export const MAP_VERSION = 20;
+export const MAP_VERSION = 21;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
+/** (map v21) how far the grass reaches east, past the runway's far end at x 2060 */
+const GROUND_EAST = 2600;
 
 export function buildFirstMap(): Level {
     const b = new LevelBuilder();
@@ -73,6 +79,8 @@ export function buildFirstMap(): Level {
     b.vendors.push(...vendors(b, new Rng(12), hideouts.shelters, plazas, stalls));
     // (map v17) no random choices: the rest of the map is drawn as before
     duga(b);
+    // (map v21) no random choices: the rest of the map is drawn as before
+    b.airport = airport(b, hospital(b), (g, m, x0, z0, x1, z1, n) => windowedBlock(g, m, x0, z0, x1, z1, PAVE, n, SHOP, RIBBON));
     b.spawn({ id: 'park', name: 'Park', x: 0, z: 40, yawDeg: 0 });
     b.spawn({ id: 'bando', name: 'Bando (front)', x: -250, z: 30, yawDeg: 0 });
     b.spawn({ id: 'bando-roof', name: 'Bando roof', x: -277, z: -9, yawDeg: 90 });
@@ -83,6 +91,8 @@ export function buildFirstMap(): Level {
     b.spawn({ id: 'tunnel', name: 'Railway tunnel', x: 30, z: 335, yawDeg: 0 });
     b.spawn({ id: 'forest', name: 'Forest track', x: 196, z: 318, yawDeg: 150 });
     b.spawn({ id: 'duga', name: 'Duga radar', x: 0, z: -585, yawDeg: 0 });
+    b.spawn({ id: 'airport', name: 'Airport (apron)', x: 742, z: 178, yawDeg: 0 });
+    b.spawn({ id: 'hospital', name: 'Hospital roof', x: 368, z: -205, yawDeg: 270 });
     return b.build(MAP_ID, MAP_VERSION, 'Park, bando and city', HALF);
 }
 
@@ -108,6 +118,15 @@ function ground(b: LevelBuilder): void {
     b.floor('grass', -G, 120, -460, 420);
     b.floor('grass', -200, 120, G, 420);
     b.floor('grass', -G, 420, G, G);
+    b.floor('grass', G, -G, GROUND_EAST, G);
+}
+
+/** (map v21) The city building that becomes the hospital: renamed, and its roof's height for the helipad. */
+function hospital(b: LevelBuilder): number {
+    const h = b.buildings.find((u) => u.x0 < HOSPITAL.x && u.x1 > HOSPITAL.x && u.z0 < HOSPITAL.z && u.z1 > HOSPITAL.z);
+    if (!h) throw new Error('no building where the hospital should be');
+    h.name = HOSPITAL.name;
+    return h.top;
 }
 
 // ---------------------------------------------------------------- park

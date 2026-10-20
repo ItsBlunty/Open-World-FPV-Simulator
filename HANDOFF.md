@@ -63,12 +63,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   unchanged); make, change, fly, save as file, open, propose for the game (GitHub new-file link) from the title card, pause
   menu or Time Trials; free-camera editor with a flown line; race gates solid only during their race (sim-core log
   format /4 solid layers). [time-trials §2c]
-- **Tests:** `pnpm test`: 66 files, 591 tests pass in 28 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Airport built (map v21, air v1, owner): east of the railway, runway 09/27 (1.4 km, landings over the park), taxiway,
+  three hangars, a tower with open cab windows and controllers, terminal; ten planes (Cub to ATR 72) land, are pushed into
+  their hangar by a tug, pulled out and take off again; the EC135 air ambulance flies to "City General Hospital"'s roof pad
+  where medics wheel a stretcher in; all solid; Settings > World > Airport traffic. [airport §2d]
+- **Tests:** `pnpm test`: 67 files, 599 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
-  - map v20 `b5d0a3a5…` (543 666 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 20, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+  - map v21 `2c689a96…` (544 196 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `AIR_VERSION` 1, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -144,9 +148,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    white frame), fly a line first with Tab, Save and race it. Race gates should be solid only in the race. Is it simple
    enough? Keys right? Then Propose for the game, signed in to GitHub: does the new-file page open filled in (not checked
    signed in)? Send me a course file and I'll add it to the game. [time-trials §2c]
+25. **Airport:** spawn "Airport (apron)": watch a landing (the day repeats every 50 min, an arrival every 5), fly into a
+   hangar, into the tower by its foot door and up the shaft or through a cab window; spawn "Hospital roof" (the helicopter
+   lands about 9 min and 34 min into a flight). Plane mix, sizes, speeds right? Approach low enough over the park? Taxi and
+   tow speeds? Want plane sounds, solid props, lights? [airport §2d]
 
 ## Left open (not started)
 
+- Airport: no aircraft sound; props and rotors not solid; planes ignore the quad; arrivals appear 4.26 km out; medics
+  never come back out; tug waits can be minutes; no lights; frame cost not measured on a weak machine. [airport §2d]
 - **Sound:** no hit sounds in replays; no car sounds; British whistle wanted?; mix levels, rush chop and loudness
   exponents are estimates; nothing heard by Claude, only measured. [sound §1n]
 
@@ -217,6 +227,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 | `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes |
+| `airport.md` | §2d: the airport (runway, taxiways, hangars, tower, terminal), the hospital pad, the ten planes, tugs, the air ambulance and medics, the schedule and runway booking, its collision and drawing |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN; §2c: the course creator, course files, race gates, solid layers, adding a course to the game |
 
 

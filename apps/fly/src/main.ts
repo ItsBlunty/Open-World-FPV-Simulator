@@ -84,9 +84,10 @@ function overrides(): ParamOverrides {
 
 function trafficConfig(): TrafficConfig {
     // extra and super low spec: no traffic, whatever the switches say (they keep the pilot's choice for the other levels)
-    // the train is cheap to draw (eight draws), so it runs at every graphics level unless its own switch is off
-    if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false, train: settings.train };
-    return { cars: settings.cars, people: settings.people, signals: settings.signals, train: settings.train };
+    // the train is cheap to draw (eight draws), so it runs at every graphics level unless its own switch is off; so is the
+    // airport's traffic (some twenty movers, a handful of meshes each)
+    if (!trafficAllowed(graphicsNow)) return { cars: false, people: false, signals: false, train: settings.train, air: settings.air };
+    return { cars: settings.cars, people: settings.people, signals: settings.signals, train: settings.train, air: settings.air };
 }
 
 function soundLevels(): SoundLevels {

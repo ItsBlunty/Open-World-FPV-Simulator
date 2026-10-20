@@ -74,7 +74,7 @@ export function detailsBlock(page: PageReport | null, engine: EngineReport | nul
     }
     if (engine) {
         const speed = Math.hypot(...engine.vel) * 3.6;
-        const traffic = [engine.traffic.cars && 'cars', engine.traffic.people && 'people', engine.traffic.signals && 'signals', engine.traffic.train && 'train'].filter(Boolean).join(', ') || 'off';
+        const traffic = [engine.traffic.cars && 'cars', engine.traffic.people && 'people', engine.traffic.signals && 'signals', engine.traffic.train && 'train', engine.traffic.air && 'airport'].filter(Boolean).join(', ') || 'off';
         rows.push(
             ['Renderer', `${engine.renderer}${page ? `, ${page.engineWhere}` : ''}${page?.fps != null ? `, ${Math.round(page.fps)} fps` : ''}, ${engine.drawCalls} draws, ${engine.triangles} triangles`],
             ['Map', `${engine.mapId} v${engine.mapVersion}, spawn ${engine.spawn}, traffic ${traffic} (traffic v${engine.trafficVersion}${engine.traffic.train ? `, train v${TRAIN_VERSION}` : ''})`],

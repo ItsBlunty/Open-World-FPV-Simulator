@@ -11,7 +11,7 @@ import type { ContactWorld, Life, LifeHeader, LifeSnapshot, PresetJson, ReplayDe
 import { courseFromFile, levelSha256 } from '@owfpv/maps';
 import type { CourseFile, Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
+import { makeAir, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { FlightSession } from './session';
 import { worldWith } from './session';
@@ -120,7 +120,7 @@ export function asLife(s: SavedLife): Life {
 
 /** Every combination of the traffic toggles, to find the one a header's collision hash was made with. */
 const TRAFFIC_CONFIGS: TrafficConfig[] = [];
-for (const train of [false, true]) for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals, train });
+for (const air of [false, true]) for (const train of [false, true]) for (const cars of [false, true]) for (const people of [false, true]) for (const signals of [false, true]) TRAFFIC_CONFIGS.push({ cars, people, signals, train, air });
 
 /** What a life's collision hash names: the traffic toggles and the custom courses (none: []). */
 export interface LifeCollision {
@@ -163,7 +163,7 @@ export function trafficConfigFor(h: LifeHeader, levelSha: string, level: Level, 
 export function lifeDeps(flight: Flight, s: SavedLife, level: Level, levelSha: string, mesh: MeshContactWorld): ReplayDeps {
     if (!LOG_FORMATS.includes(s.header.format)) throw new Error(`log format ${s.header.format} is not one this sim-core reads`);
     const c = collisionFor(s.header, levelSha, level, flight);
-    const inner = worldWith(mesh, makeTraffic(level, c.traffic), makeTrains(level, c.traffic.train));
+    const inner = worldWith(mesh, makeTraffic(level, c.traffic), makeTrains(level, c.traffic.train), makeAir(level, c.traffic.air));
     // one world per solid layer (a course's race gates), as the life's world records and header ask
     const byLayer = new Map<number, ContactWorld>();
     const at = (layer: number): ContactWorld => {

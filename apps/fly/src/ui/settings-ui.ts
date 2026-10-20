@@ -276,6 +276,7 @@ export class SettingsUi {
                     ]
                     : [h('p', { class: 'note' }, `No cars, people or traffic lights in ${graphicsName(host.graphicsNow)} mode.`)]),
                 this.check('Steam trains (two, solid: round the whole map, stopping at the fields and city stations; people ride them)', s.train, (v) => { s.train = v; host.save(); host.onTraffic(); }),
+                this.check('Airport traffic (ten planes landing, taxiing, towed into the hangars and taking off; the air ambulance to the hospital roof; all solid)', s.air, (v) => { s.air = v; host.save(); host.onTraffic(); }),
                 h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
                 h('h2', {}, 'Physics'),
                 this.check('Classic physics (the flight model before the airflow update, to compare). Changing it restarts at the spawn point.', s.classicPhysics, (v) => { s.classicPhysics = v; host.save(); host.onFlight(); }),

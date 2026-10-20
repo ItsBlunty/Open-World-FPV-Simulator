@@ -6,3 +6,4 @@ export * from './links';
 export * from './trials';
 export * from './vendors';
 export * from './duga';
+export * from './airport';

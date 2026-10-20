@@ -17,6 +17,7 @@ import { dcos, dsin } from '@owfpv/sim-core';
 import { LevelBuilder } from './builder';
 import type { Material, Rng } from './builder';
 import { onWayOut } from './links';
+import { underApproach } from './airport';
 import { nearTrack, underHill } from './railway';
 
 const DEG = Math.PI / 180;
@@ -419,8 +420,9 @@ export function borderBelt(b: LevelBuilder, r: Rng, e: number): void {
                 const s = 1 + r.int(0, 35) / 100;
                 const kind: TreeKind = u < 65 ? 'spruce' : u < 80 ? 'broadleaf' : 'pine';
                 if (!clearOfRailway(x, z, crownReach(kind, s, true))) continue;
-                // (map v11) one on a road or track out of the map is grown where nobody sees it, the rest stay as they were
-                const g = onWayOut(x, z, crownReach(kind, s, true)) ? new LevelBuilder() : b;
+                // (map v11) one on a road or track out of the map is grown where nobody sees it, the rest stay as they were;
+                // (map v21) so is one under the airport's approach
+                const g = onWayOut(x, z, crownReach(kind, s, true)) || underApproach(x, z, crownReach(kind, s, true)) ? new LevelBuilder() : b;
                 if (kind === 'broadleaf') broadleaf(g, r, x, z, s, true);
                 else if (kind === 'spruce') spruce(g, r, x, z, s);
                 else pine(g, r, x, z, s);

@@ -25,6 +25,8 @@ export interface TrafficConfig {
     signals: boolean;
     /** the steam train on the railway loop (train.ts; owner, 2026-10-19: its own toggle). Absent: no train */
     train?: boolean;
+    /** the airport's planes, tugs, helicopter and people (air.ts; owner, 2026-10-20). Absent: none */
+    air?: boolean;
 }
 
 /** The toy car's body and cabin (vehicles.ts has every kind of vehicle). */

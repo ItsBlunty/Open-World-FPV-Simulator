@@ -12,8 +12,8 @@ import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } fro
 import { courseFromFile, levelSha256, spawnPose } from '@owfpv/maps';
 import type { CourseFile, Level, SpawnPoint, TimeTrial } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { TrafficWorld, TrainWorld, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
-import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
+import { AirWorld, TrafficWorld, TrainWorld, makeAir, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
+import type { AirTraffic, TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 import { Collector } from './collect';
 import { TrialRunner } from './trials';
@@ -63,10 +63,11 @@ export interface SessionOptions {
 
 const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
 
-/** The collision the sim flies in: the level's mesh, with the cars and people (or null) and the trains moving in it. */
-export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, trains: readonly Train[]): ContactWorld {
+/** The collision the sim flies in: the level's mesh, with the cars and people (or null), the trains and the airport's traffic (or null) moving in it. */
+export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, trains: readonly Train[], air: AirTraffic | null = null): ContactWorld {
     let w = traffic ? new TrafficWorld(mesh, traffic) : mesh;
     for (const t of trains) w = new TrainWorld(w, t);
+    if (air) w = new AirWorld(w, air);
     return w;
 }
 
@@ -90,6 +91,7 @@ export class FlightSession {
     /** the cars and people of the current life (null: none), and the collision the sim flies in */
     private trafficNow: TrafficModel | null = null;
     private trainsNow: Train[] = [];
+    private airNow: AirTraffic | null = null;
     private contactWorld: ContactWorld;
     /** the collision without the courses' own solids (map, traffic, trains), and those solids */
     private innerWorld!: ContactWorld;
@@ -206,7 +208,7 @@ export class FlightSession {
         this.solids = buildCourseSolids(this.allCourses);
         this.noteCourses();
         this.layer = 0;
-        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow);
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow);
         this.contactWorld = courseWorld(this.innerWorld, this.solids, 0);
         this.trials = this.newTrials();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
@@ -223,6 +225,11 @@ export class FlightSession {
         return this.trainsNow;
     }
 
+    /** The airport's planes, helicopter, tugs and people in the current life (null when off). */
+    get air(): AirTraffic | null {
+        return this.airNow;
+    }
+
     /** The first train, null when they are off. */
     get train(): Train | null {
         return this.trainsNow[0] ?? null;
@@ -237,7 +244,8 @@ export class FlightSession {
         const c = this.trafficCfg;
         this.trafficNow = makeTraffic(this.level, c);
         this.trainsNow = makeTrains(this.level, c.train);
-        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow);
+        this.airNow = makeAir(this.level, c.air);
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow);
         this.layer = 0;
         return courseWorld(this.innerWorld, this.solids, 0);
     }
@@ -321,9 +329,9 @@ export class FlightSession {
      */
     setTraffic(c: TrafficConfig): void {
         const o = this.trafficCfg;
-        if (c.cars === o.cars && c.people === o.people && c.signals === o.signals && !c.train === !o.train) return;
+        if (c.cars === o.cars && c.people === o.people && c.signals === o.signals && !c.train === !o.train && !c.air === !o.air) return;
         this.trials.quit();
-        this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals, train: c.train === true };
+        this.trafficCfg = { cars: c.cars, people: c.people, signals: c.signals, train: c.train === true, air: c.air === true };
 
         this.contactWorld = this.buildWorld();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);

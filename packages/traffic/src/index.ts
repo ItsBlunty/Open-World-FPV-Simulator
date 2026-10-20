@@ -8,3 +8,7 @@ export * from './train';
 export * from './train-world';
 export { TOY_CAR, pickVehicle } from './vehicles';
 export type { Paint, PickupLoad, TrailerKind, TrailerLoad, VBox, VWheel, VehicleKind, VehicleShape } from './vehicles';
+export * from './air-path';
+export * from './air-shapes';
+export * from './air';
+export * from './air-world';

@@ -341,7 +341,7 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'b5d0a3a53e1d1290cd1b9311e697364f48f81c36efb6435a80de21f81acf53e2';
+const PINNED = '2c689a96d17848119a9d047a167572fb056142dc1daeb48b0e24642cdcbb0067';
 
 describe('the Duga radar (map v20)', () => {
     const level = buildFirstMap();
@@ -427,5 +427,40 @@ describe('street vendors (map v15)', () => {
             const kerb = Math.min(v.cx - blk.x0, blk.x1 - v.cx, v.cz - blk.z0, blk.z1 - v.cz);
             expect(kerb - v.halfD - 0.07, `${v.name} at ${v.cx}, ${v.cz}`).toBeGreaterThanOrEqual(1.9);
         }
+    });
+});
+
+describe('the airport (map v21)', () => {
+    const level = buildFirstMap();
+    const world = new MeshContactWorld(level.collision);
+    const out = { x: 0, y: 0, z: 0 };
+    const ap = level.airport!;
+
+    it('has its tower with open windows a quad flies through, and a door and shaft up into the cab', () => {
+        const seat = ap.seats[0];
+        // the cab's middle at window height is open, and so is a line out through each side's middle opening
+        const cx = 722, cz = 222, y = 22 + 2.2;
+        expect(world.querySphere(cx, y, cz - 2.5, 0.3, out)).toBe(false);
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            for (let d = 0; d <= 8; d += 0.25) expect(world.querySphere(cx + dx * d, y, cz + dz * d, 0.25, out), `${dx},${dz} at ${d}`).toBe(false);
+        }
+        // in through the shaft's door (east side), and up the shaft into the cab
+        for (let d = 0; d <= 5; d += 0.25) expect(world.querySphere(cx + 5 - d, 1.3, cz, 0.25, out)).toBe(false);
+        for (let yy = 1.3; yy <= 23; yy += 0.5) expect(world.querySphere(cx, yy, cz, 0.25, out), `shaft at ${yy}`).toBe(false);
+        expect(seat.y).toBeGreaterThan(22);
+    });
+
+    it('has every hangar bay open to the apron, deep enough for its plane', () => {
+        for (const b of ap.bays) {
+            for (let d = -5; d < b.depth - 1; d += 1) expect(world.querySphere(b.x, 3, ap.doorZ + d, 0.5, out), `${b.kind} ${d}`).toBe(false);
+        }
+    });
+
+    it('names the hospital and puts its pad on the roof', () => {
+        const h = level.buildings.find((b) => b.name === 'City General Hospital');
+        expect(h).toBeDefined();
+        expect(ap.hospitalPad.y).toBeCloseTo(h!.top + 0.3, 6);
+        expect(world.queryRay(ap.hospitalPad.x, 100, ap.hospitalPad.z, 0, -1, 0, 200)!.y).toBeCloseTo(ap.hospitalPad.y, 3);
+        expect(level.buildings.some((b) => b.name === 'Cobalt Hotel')).toBe(false);
     });
 });

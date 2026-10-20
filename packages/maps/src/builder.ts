@@ -8,6 +8,7 @@
 import { sha256Hex } from '@owfpv/sim-core';
 import type { TimeTrial } from './trials';
 import type { Vendor } from './vendors';
+import type { Airport } from './airport';
 
 export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
@@ -27,7 +28,9 @@ export const MATERIALS = [
     // map v15: street vendors' carts (stainless steel) and their umbrellas' colours
     'cart', 'awning-red', 'awning-yellow', 'awning-blue', 'awning-green',
     // map v17: the Duga radar's rusted legs, its grey bracing and arms, its pale cages; map v19: its feed pipes
-    'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe'
+    'duga-rust', 'duga-grey', 'duga-cage', 'duga-pipe',
+    // map v21: the airport's yellow taxiway paint, the hospital helipad's red H, hangar cladding, the windsock
+    'marking-yellow', 'marking-red', 'hangar', 'windsock'
 ] as const;
 export type Material = (typeof MATERIALS)[number];
 
@@ -141,6 +144,8 @@ export interface Level {
     trials: TimeTrial[];
     /** street vendors (map v15; who sells and their signs are not part of the collision, nor of its hash: the carts are) */
     vendors: Vendor[];
+    /** the airport and the hospital helipad (map v21; where the planes and the helicopter go: not part of the collision), or null */
+    airport: Airport | null;
 }
 
 /**
@@ -212,6 +217,7 @@ export class LevelBuilder {
     railway: Railway | null = null;
     readonly trials: TimeTrial[] = [];
     readonly vendors: Vendor[] = [];
+    airport: Airport | null = null;
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -238,6 +244,14 @@ export class LevelBuilder {
         let p = this.paint.get(m);
         if (!p) this.paint.set(m, (p = []));
         for (const v of [a, b, c, a, c, d]) p.push(v[0], v[1], v[2]);
+        return this;
+    }
+
+    /** Paint triangle a-b-c (counter-clockwise seen from the side it faces): drawn, left out of the collision, as decal(). */
+    paintTri(m: Material, a: number[], b: number[], c: number[]): this {
+        let p = this.paint.get(m);
+        if (!p) this.paint.set(m, (p = []));
+        for (const v of [a, b, c]) p.push(v[0], v[1], v[2]);
         return this;
     }
 
@@ -425,7 +439,7 @@ export class LevelBuilder {
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
             buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway,
-            trials: this.trials.slice(), vendors: this.vendors.slice() };
+            trials: this.trials.slice(), vendors: this.vendors.slice(), airport: this.airport };
     }
 }
 

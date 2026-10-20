@@ -6,6 +6,7 @@ import { LoopTraffic } from './loops';
 import { NetTraffic } from './network';
 import { TRAFFIC_VERSION } from './model';
 import { TRAIN_VERSION } from './train';
+import { AIR_VERSION } from './air';
 import type { TrafficConfig, TrafficModel } from './model';
 
 /** The traffic a config asks for: the network model with signals, the loops without; null when nothing moves. */
@@ -17,13 +18,14 @@ export function makeTraffic(level: Level, config: TrafficConfig): TrafficModel |
 /**
  * The hash a life header records for the collision (its collisionSha256): the level's own when nothing
  * moves in it, else one over the level's hash, the traffic version and what is on (the train, when it
- * runs, with its own version: without it the text is as it was before the train, so older flights keep their hash).
+ * runs, with its own version: without it the text is as it was before the train, so older flights keep their hash; the
+ * airport's traffic the same way).
  */
 export function worldSha256(levelSha: string, config: TrafficConfig): string {
-    if (!config.cars && !config.people && !config.train) return levelSha;
+    if (!config.cars && !config.people && !config.train && !config.air) return levelSha;
     const on = (b: boolean): number => (b ? 1 : 0);
     const text = `${levelSha}|traffic/${TRAFFIC_VERSION}|cars=${on(config.cars)}|people=${on(config.people)}|signals=${on(config.signals)}`
-        + (config.train ? `|train/${TRAIN_VERSION}` : '');
+        + (config.train ? `|train/${TRAIN_VERSION}` : '') + (config.air ? `|air/${AIR_VERSION}` : '');
     // the text is ASCII: one byte per character
     const bytes = new Uint8Array(text.length);
     for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);

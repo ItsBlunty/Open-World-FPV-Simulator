@@ -61,6 +61,8 @@ export interface Settings {
     signals: boolean;
     /** the steam train on the railway (owner, 2026-10-19: its own toggle); solid, like the cars */
     train: boolean;
+    /** the airport's planes, tugs, air ambulance and people (owner, 2026-10-20); solid, like the trains */
+    air: boolean;
     /** the sun's shadows (switching them takes a reload: toggling them live crashed Three.js) */
     shadows: boolean;
     /** how far the sun's shadows reach (render/shadow-follow.ts SHADOW_REACHES; owner, 2026-10-19). Applies live. */
@@ -105,6 +107,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     people: true,
     signals: true,
     train: true,
+    air: true,
     shadows: true,
     shadowReach: 'near',
     renderScale: 1,
@@ -159,6 +162,7 @@ export function loadSettings(): Settings {
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;
     if (typeof s.train === 'boolean') out.train = s.train;
+    if (typeof s.air === 'boolean') out.air = s.air;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (isShadowReach(s.shadowReach)) out.shadowReach = s.shadowReach;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
