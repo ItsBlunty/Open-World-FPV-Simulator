@@ -315,3 +315,23 @@ to 0.09 (hover 0.30) and it slides down the wall. With the throttle held after a
 left (often thrust towards the wall) and the quad flies back into it; that is the controller doing its job, as on a
 real quad. Free flight is untouched: the brake is exactly 0 and restitution is not used without a contact.
 Still open: the sideways kick of a striking prop; a prop that breaks; restitution above 2 m/s measured nowhere.
+
+### F7. "Flat on a car roof, lopsided motors, does not tip" was a quad inside the car (looked into 2026-10-20; not a physics fault)
+
+Seen in the old traffic run-hash flight (traffic.md §1y): armed, angle mode, motor commands up to 0.98 / 0.06, the
+quad stayed exactly level (up-vector y 1.000000) and fixed to an SUV for 4 s. Probed in Node:
+1. **The resting contacts do not hold a flat craft level.** On a mesh floor with the controller bypassed, commands
+   0.36 / 0.06 / 0.98 / 0.51 tip the Nazgul past 60 deg in 0.1 s (0.98 / 0.06 pairs: upside down in 0.1 s); in angle
+   mode at 90 % of hover throttle with roll 0.3 / pitch 0.2 it pivots onto its edge at 7.5 deg and sits there; on a
+   moving SUV's roof the same, 8.1 deg in 0.3 s (then the ride's airspeed lifts it a few cm: translational lift, G1).
+2. **The flight's quad was never on the roof.** It was respawned at road + 0.8 m where the SUV already was (inside its
+   body box, 0.25-1.1 m); the push-out moved it up to 1.1 m, which is inside the glass box above (1.1-1.75 m). Every
+   sphere then had two contacts in the same plane: the body's top (normal up, gap 0) and the glass box's bottom from
+   inside (normal down, 9 cm deep). Contacts in both directions at all five spheres allow no vertical motion of any
+   point, so no tilt and no climb; the push-out flipped the quad 9 cm between the two boxes each tick, each box pushing
+   it into the other. Its gyro read 0.05 rad/s about yaw only.
+
+So the solver is right and tipping on any surface is now tested (`contact-solver.test.ts`, `traffic.test.ts`). The
+trap is a fault of the traffic's shapes: each of a vehicle's boxes is solid on its own, so a point inside one is pushed
+out through a face another box covers. Open (traffic, not sim-core): a quad caught inside a vehicle stays there; game
+respawns (crash rewind, R) do not check for traffic, so a respawn into a passing car could do it (not seen in play).

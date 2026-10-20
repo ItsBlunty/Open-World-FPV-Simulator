@@ -253,6 +253,18 @@ describe('the contact solver on mesh surfaces (Nazgul)', () => {
         }
     });
 
+    // 2026-10-20 (docs/physics-review.md F7): a quad seen "flat on a car roof" that would not tip was inside the car. On a
+    // real surface the resting contacts do not hold a craft level against uneven thrust: it pivots on its low side.
+    it('flat on the floor, armed in angle mode under hover throttle, roll and pitch stick: it tips onto its edge', () => {
+        const sim = craft([0, R, 0], true);
+        const thr = hoverSolve(sim.p, 1).stick * 0.9 * 2 - 1;
+        run(sim, 1000, 1, () => [0.3, 0.2, thr, 0, 1, 1, 0, 0]);
+        const upY = 1 - 2 * (sim.s[S.qx] ** 2 + sim.s[S.qz] ** 2);
+        console.log(`tipped: body up-vector y ${upY.toFixed(5)} (${(Math.acos(upY) * 57.29578).toFixed(1)} deg), centre ${(sim.s[S.py] * 1000).toFixed(1)} mm up`);
+        expect(upY).toBeLessThan(0.995);
+        expect(sim.s[S.py]).toBeLessThan(0.1);
+    });
+
     it('sitting upright on the floor, armed: full throttle takes off as before (the floor under the props is no strike)', () => {
         const sim = craft([0, R, 0], true);
         run(sim, 500, 1, () => [0, 0, 1, 0, 1, -1, 0, 0]);

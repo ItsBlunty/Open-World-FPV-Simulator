@@ -267,5 +267,21 @@ flight does touch the train (2 contacts, shoved 20 m). The traffic run-hash flig
 only answers between its last two steps, so "the car's place 0.5 s ahead" was where it already was, and the quad
 landed on a slow car's roof and rode it for 4 s. It now scouts a copy of the traffic for a car doing 5 m in 0.6 s, starts
 the session there and hovers the quad in its lane: the SUV hits it (asserted), it flies off at 10 m/s. Suite: 26 s.
-Seen on that roof: armed, sticks asking for roll, motor commands 0.98 / 0.06, yet it stayed exactly level for 4 s (not
-looked into; see HANDOFF open list).
+Seen on that roof: armed, sticks asking for roll, motor commands 0.98 / 0.06, yet it stayed exactly level for 4 s:
+looked into in §1z.
+
+## 1z. The quad that would not tip was inside the SUV (2026-10-20)
+
+Not a physics fault (docs/physics-review.md F7). The old run-hash quad was respawned at road + 0.8 m where the SUV
+already was: inside its body box (0.25-1.1 m). The push-out lifted it to the body's top, 1.1 m, which is inside the
+glass box (1.1-1.75 m); each sphere then touched the body's top from above and the glass box's bottom from inside, so it
+could neither tilt nor climb, and the push-out swapped it 9 cm between the two boxes every tick. Probe numbers: rel.
+height 1.145 / 1.055 m alternating, up-vector y 1.000000, commands 0.37 / 0.06 / 0.98 / 0.50, gyro 0.05 rad/s (yaw).
+On a real roof it tips: new test in `traffic.test.ts` (SUV at 8.6 m/s, angle mode, 90 % hover, roll 0.3 / pitch 0.2:
+8.1 deg in 0.3 s) and on a floor in `world-mesh/test/contact-solver.test.ts` (7.5 deg).
+
+Open: `TrafficWorld.pushOut` / `contacts` treat each of a vehicle's boxes as its own solid, so a point inside the
+vehicle is pushed through a face another box covers and stays trapped (fix: only exits that leave the whole vehicle).
+Game respawns do not check for traffic. Also: `onRoof` in `traffic.test.ts` puts the quad at `CAR.cabY1` (1.55 m, the
+saloon) but car 0 is an SUV (roof 1.75 m): it starts 20 cm inside the glass and the push-out lifts it onto the roof in
+the first tick (both roof tests still measure what they say).

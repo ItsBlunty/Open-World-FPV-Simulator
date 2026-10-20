@@ -55,7 +55,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Duga remade (map v18-19, owner): separate wide towers, end masts, staggered dipole rows every 6.25 m on ochre feed
   pipes bent as in the owner's photos, no wires across (no open model found); 159 k triangles, no measurable frame cost. [map §1w, §1x]
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
-- **Tests:** `pnpm test`: 62 files, 558 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 62 files, 560 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -150,7 +150,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
-- Physics: a quad resting flat on a car roof, armed with lopsided motors (0.98 / 0.06), stayed exactly level for 4 s instead of tipping; not looked into. [traffic §1y]
+- Traffic: a quad caught inside a vehicle stays trapped (each box pushes it into the next; it was the "won't tip on a roof" case, not a physics fault); respawns don't check for traffic. [traffic §1z, physics F7]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
@@ -176,7 +176,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   stays the same.
 - Traffic positions come from the sim tick alone (replays). Rule for cars: they only follow their lights, with no
   give-way logic, and they take natural paths, never diagonals (owner). [traffic]
-- `docs/physics-review.md` holds the physics findings (G1-G8, F1-F5). Add new ones there.
+- `docs/physics-review.md` holds the physics findings (G1-G8, F1-F7). Add new ones there.
 - Upstream provenance: `packages/sim-core/UPSTREAM.md`, `packages/input/UPSTREAM.md`, `apps/fly/UPSTREAM.md`. Commit
   `cbf6a4a` is sim-core exactly as upstream had it.
 - Console: `__fly.engine`, `__fly.ask(code)` runs code in the engine (`fly.renderer`, `fly.session`, `fly.sun`, ...).
@@ -188,7 +188,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `foundation.md` | sim-core's origin and why it was picked, what M0 and M1 built, Betaflight SITL plan, rejected options |
 | `contacts.md` | §0a-0c: contact solver, damage (shelved), prop strikes, turtle mode, camera near plane; §1b: wall bounces, blade strikes |
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes |
-| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed |
+| `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |

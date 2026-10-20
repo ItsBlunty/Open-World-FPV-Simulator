@@ -164,6 +164,45 @@ describe('solid traffic in a session', () => {
         expect(a).toBeLessThan(1.05 * MU * G);
     });
 
+    // 2026-10-20 (docs/physics-review.md F7): the old run-hash flight's quad stayed exactly level with motors at 0.98 / 0.06;
+    // it was inside an SUV (between its body and glass boxes), not on the roof. On the roof it tips as on any floor.
+    it('armed on a moving car\'s roof in angle mode, under hover throttle with roll and pitch stick: it tips onto its edge', () => {
+        const s = new FlightSession({ preset, level, traffic: LOOPS, overrides: GAME });
+        const r = s.runner;
+        const car = 0;
+        const v = s.traffic!.movers[car].v;
+        const t0 = onStraight(s, car, 2000, 2000);
+        const ch = new Float32Array([0, 0, -1, 0, -1, MODE_CHANNEL.angle, 0, 0]);
+        r.enqueue({ tUs: 1000, ch });
+        for (let i = 0; i < 100; i++) r.stepOnce();
+        ch[4] = 1;
+        r.enqueue({ tUs: r.tUs + 1000, ch });
+        stepTo(s, t0 - 1);
+        expect(s.sim.armed).toBe(true);
+        const pl = newPlace();
+        s.traffic!.place(car, t0, pl);
+        // car 0 is an SUV: its roof is its shape's top (CAR is the saloon's), over the middle of its glass box
+        const top = s.traffic!.movers[car].shape!.top, f = -0.6;
+        r.respawn(pl.x + pl.hx * f, pl.y + top + s.sim.p.bodyBottom + 0.0005, pl.z + pl.hz * f, 0, { platform: false, keepArmed: true }, 'manual-start');
+        s.sim.s[S.vx] = pl.hx * v;
+        s.sim.s[S.vz] = pl.hz * v;
+        ch[0] = 0.3; ch[1] = 0.2; ch[2] = hoverStickOf(s.sim.p) * 0.9 * 2 - 1;
+        r.enqueue({ tUs: r.tUs + 1000, ch });
+        // 0.3 s: later it slides back along the roof (riding at the car's speed through still air the rotors
+        // get translational lift, so 90 % of hover thrust hops it a few cm)
+        for (let t = 0; t < 300; t++) r.stepOnce();
+        const st = s.sim.s;
+        const upY = 1 - 2 * (st[S.qx] ** 2 + st[S.qz] ** 2);
+        const at = newPlace();
+        s.traffic!.place(car, s.sim.tick, at);
+        const above = st[S.py] - at.y - top;
+        console.log(`roof tip: body up-vector y ${upY.toFixed(5)} (${(Math.acos(upY) * 57.29578).toFixed(1)} deg), centre ${(above * 1000).toFixed(1)} mm over the roof`);
+        expect(s.sim.armed).toBe(true);
+        expect(upY).toBeLessThan(0.995);
+        expect(above).toBeGreaterThan(0);
+        expect(above).toBeLessThan(0.1);
+    });
+
     it('is the same flight among the signalled traffic twice (run hash), a car hitting the quad in it', () => {
         // a copy of the traffic (a function of the tick alone) finds a car driving at least 5 m in 0.6 s on a straight;
         // network traffic places movers only at the tick it was brought to (at), so a session cannot look ahead
