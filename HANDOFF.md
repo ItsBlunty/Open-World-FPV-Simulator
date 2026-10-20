@@ -70,7 +70,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
   the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
   Sound > Trains and airport. [sound §2e]
-- **Tests:** `pnpm test`: 68 files, 611 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
+  rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
+  World and physics > Motor idle. [physics §2f]
+- **Tests:** `pnpm test`: 69 files, 618 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -158,6 +161,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 26. **Aircraft sounds:** spawn "Airport (apron)" with headphones, chase or free camera and FPV: watch a landing, a tug
    push, a take-off, the helicopter at "Hospital roof". Close enough? Volume OK against the quad (Settings > Sound >
    Trains and airport)? Recordings: `docs/evidence/2026-10-20-air-sound/*.webm`. [sound §2e]
+27. **Motor idle:** stick down, roll and flip: the props should now be heard revving. Then Settings > World and physics >
+   Motor idle: try the idle slider, then Dynamic idle on (3400 rpm): drops, dives, zero-throttle flips, hang time
+   inverted. Feels like your quad? Want your own values instead? [physics §2f]
 
 ## Left open (not started)
 
@@ -181,7 +187,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
   trigger it. [camera §0x]
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
-  speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
+  speed not rising as props unload, so dynamic idle never sees a dive's rpm drop, no inflow lag, no vortex-ring
+  model); sound between idle and hover not measured; "(to read)" claims in the review are not
   yet checked against their sources. [physics]
 - Traffic: saved flights with traffic from v9 no longer open; the crash toast's "back N s" doesn't know a car will push the rewind further back; train vehicles not checked for the inside-a-car trap. [traffic §1z]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
@@ -224,7 +231,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
-| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check |
+| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |

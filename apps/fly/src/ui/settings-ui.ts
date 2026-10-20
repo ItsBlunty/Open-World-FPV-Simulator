@@ -27,6 +27,8 @@ export interface SettingsHost {
     settings: Settings;
     /** the preset's own rates, for "Preset default" */
     presetRates: RatesConfig;
+    /** dynamic idle's minimum the game picks for this quad (x 100 rpm, Betaflight's dyn_idle_min_rpm); null: not available */
+    dynIdleMinRpm: number | null;
     /** camera settings changed: apply at once */
     onCamera(): void;
     /** rates or mode changed: the flight model needs a new life */
@@ -127,12 +129,45 @@ export class SettingsUi {
     }
 
     /** `done` runs when the drag ends (rebuilding the screen while dragging would drop the slider) */
-    private slider(label: string, min: number, max: number, value: number, unit: string, set: (v: number) => void, done?: () => void): HTMLElement {
-        const out = h('span', {}, `${value}${unit}`);
+    /** `show` writes the value for the label (default: the value and its unit) */
+    private slider(label: string, min: number, max: number, value: number, unit: string, set: (v: number) => void, done?: () => void, show = (v: number) => `${v}${unit}`): HTMLElement {
+        const out = h('span', {}, show(value));
         return h('div', { class: 'row' },
             h('span', { style: 'width:150px' }, label),
-            h('input', { type: 'range', min, max, step: 1, value, oninput: (e: Event) => { const v = Number((e.target as HTMLInputElement).value); out.textContent = `${v}${unit}`; set(v); }, onchange: () => done?.() }),
+            h('input', { type: 'range', min, max, step: 1, value, oninput: (e: Event) => { const v = Number((e.target as HTMLInputElement).value); out.textContent = show(v); set(v); }, onchange: () => done?.() }),
             out);
+    }
+
+    /** Settings > World > Motor idle: Betaflight's static idle, or its dynamic idle with the minimum rpm picked by the game. */
+    private idle(host: SettingsHost, s: Settings): HTMLElement[] {
+        const apply = (): void => { host.save(); host.onFlight(); };
+        const tenths = (v: number): string => `${(v / 10).toFixed(1)} %`;
+        const min = host.dynIdleMinRpm;
+        const out: HTMLElement[] = [
+            h('h2', {}, 'Motor idle'),
+            this.check('Dynamic idle (Betaflight: keeps the slowest motor above a minimum rpm instead of a fixed idle). Changing it restarts at the spawn point.', s.dynIdle && min !== null, (v) => { s.dynIdle = v; apply(); this.build(); })
+        ];
+        if (min === null) {
+            out.push(h('p', { class: 'note' }, 'This quad has no prop size, so the game cannot pick its minimum rpm: dynamic idle is not available.'));
+        }
+        if (s.dynIdle && min !== null) {
+            out.push(
+                h('p', { class: 'note' }, `Minimum: ${min * 100} rpm (Betaflight's dyn_idle_min_rpm ${min}), picked by the game from this quad's props. On a real quad you find it by testing for desyncs, which the simulator does not have. The fixed idle is not used while dynamic idle is on, as in Betaflight 4.3 and later.`),
+                this.slider('Max increase', 10, 255, s.dynIdleMaxIncrease, '', (v) => { s.dynIdleMaxIncrease = v; }, apply, tenths),
+                this.slider('Start increase', 10, 255, s.dynIdleStartIncrease, '', (v) => { s.dynIdleStartIncrease = v; }, apply, tenths),
+                h('p', { class: 'note' }, "How far dynamic idle may raise the motors' floor in flight (dyn_idle_max_increase, default 15 %) and before airmode is active, until the throttle first passes 25 % after arming (dyn_idle_start_increase, default 5 %)."),
+                this.slider('P gain', 1, 250, s.dynIdleP, '', (v) => { s.dynIdleP = v; }, apply),
+                this.slider('I gain', 1, 250, s.dynIdleI, '', (v) => { s.dynIdleI = v; }, apply),
+                this.slider('D gain', 0, 250, s.dynIdleD, '', (v) => { s.dynIdleD = v; }, apply),
+                h('p', { class: 'note' }, "How hard it corrects the rpm (dyn_idle_p_gain, _i_gain, _d_gain, Betaflight's default 50 each). Betaflight's notes: strong 6S quads may want less P (about 40); if the rpm wobbles, lower P.")
+            );
+        } else {
+            out.push(
+                this.slider('Motor idle', 0, 200, s.motorIdle, '', (v) => { s.motorIdle = v; }, apply, tenths),
+                h('p', { class: 'note' }, "The motors' lowest output while armed (Betaflight's dshot_idle_value, motor_idle in 2025.12): 5.5 % is Betaflight's default and this quad's. Changing it restarts at the spawn point.")
+            );
+        }
+        return out;
     }
 
     private check(label: string, value: boolean, set: (v: boolean) => void): HTMLElement {
@@ -285,6 +320,7 @@ export class SettingsUi {
                 h('p', { class: 'note' }, 'With it on, the pack is full again whenever you go back to the start point or onto a time trial pad.'),
                 this.slider('Arming angle', 0, 180, s.armAngle, '°', (v) => { s.armAngle = v; }, () => { host.save(); host.onFlight(); }),
                 h('p', { class: 'note' }, "Arming needs the quad within this tilt of level (Betaflight's small_angle). 180° (the default here) arms at any tilt; 25° is Betaflight's own default. Changing it restarts at the spawn point."),
+                ...this.idle(host, s),
                 h('h2', {}, 'Crashes and damage'),
                 this.check('Damage and crashes (off: every hit is a bounce and you keep flying). Changing it restarts at the spawn point.', s.damage, (v) => { s.damage = v; host.save(); host.onFlight(); }),
             ],

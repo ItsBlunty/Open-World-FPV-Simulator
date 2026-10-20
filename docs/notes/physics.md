@@ -70,3 +70,47 @@ no front/rear rotor interaction; no inflow lag; Johnson's descent model (the vor
 (`processed_data.zip`) lives only in the session scratchpad: download it again to re-run the scripts.
 
 
+
+## 2f. Motor idle: zero-throttle rolls checked, dynamic idle built (owner, 2026-10-20)
+
+Owner: "if I drop throttle, and then roll ... I can't hear any propeller noise. This is either a sound bug or a control
+loop bug", and "it sounds/seems like we have no idle at all": add Betaflight's idle and a dynamic idle option, the
+minimum rpm set by the game, its other settings as options.
+
+**The control loop was right.** The airmode mixer (sim.ts, Betaflight's) lifts the motors on one side at zero
+throttle. Nazgul, armed, stick down, full roll: all four at 1940 rpm (5.5 % idle), 50 ms into the roll two at
+6850-7160 rpm, then 2200-3000 rpm while the roll holds at 675 deg/s, 6200 rpm for 50 ms on the stop; hover 17 900 rpm.
+Whether a real quad holds its motors higher through a long zero-throttle roll is not checked (needs a blackbox log).
+
+**The sound hid it.** `IDLE_FLOOR` (0.012) was a flat floor, and 0.012 is speed^2.75 at 20 % of top speed: every motor
+speed from idle up to about 7000 rpm sounded the same. Now the whirr rises from the floor at 5.5 % as speed^0.40 and
+meets the speed^2.75 law at 25 % (`WHIRR_TO`), under every preset's hover (28-55 %), so the idle and hover levels are as
+before and a rev to 20 % is 4.5 dB over idle [estimate: no recording between idle and hover]. Test: `sound.test.ts`.
+
+**Dynamic idle (sim-core `ParamOverrides.dynIdle`, no trace change when off).** Betaflight 4.5's code, read in full
+for these parts: `flight/mixer.c` calculateThrottleAndCurrentMotorEndpoints (the PID on the slowest motor's rps: I rises
+fast and falls at most 0.1 rps of error per loop, D on the PT1-smoothed rps), `mixer_init.c` (gains: P x 0.00015, I x
+0.01 x dt, D x 3e-7 x loop Hz, increases x 0.001, rps PT1 800 x dt / 20; with dynamic idle on the static idle is
+dropped, motorOutputLow = 0), `pid.c` defaults (50/50/50, max 150, start 50), `cli/settings.c` ranges, `fc/core.c`
+(airmode latches when the throttle reaches 25 %, pg/rx.c, cleared on disarm), mixTable (1 % throttle at zero stick;
+the endpoints run every loop, armed or not, before the crash-flip return). The sim runs it each 1 ms tick on the motors'
+speed state (a real FC reads ESC telemetry). Its three state slots sit after `S.size` (`S_DYN`) and exist only with it
+on, so hashes of every flight without it are unchanged. Tests: `packages/sim-core/test/dyn-idle.test.ts`.
+
+**The minimum the game picks:** `autoDynIdleMinRpm(prop mm)` = 175 / diameter in inches (x 100 rpm): 35 on a 5-inch, 34
+on the Nazgul's 5.1-inch (3400 rpm). Betaflight's 4.3 tuning notes: 30-40 (3000-4000 rpm) typically, 4000 for most
+freestyle and racing; Oscar Liang by size: 7" 14-28, 5" 20-40, 3" 33-66, which scale as 1 / diameter [estimate between
+the two]. The whoop presets have no prop size, so dynamic idle is unavailable on them (the game flies the Nazgul).
+
+**Game:** Settings > World and physics > Motor idle: Dynamic idle (off, as Betaflight), then Max increase, Start
+increase, P, I, D gains in Betaflight's units; off: a Motor idle slider 0-20 % (default 5.5 %). Each restarts the flight.
+
+**Evidence** (`docs/evidence/2026-10-20-dyn-idle/`, headless Chrome, ?demo=tricks, whose lowest stick is 5 %): static
+idle 72 state slots, slowest motor 2736-9772 rpm with the stick under 10 %; dynamic idle 75 slots, minRps 56.7, slowest
+motor 3116-5313 rpm; screenshots of both settings layouts; no console errors. Node: idle held within 2 % of 3400 rpm
+after airmode is active; 618 tests pass, pinned hashes unchanged.
+
+**Limits:** rotor speed in the sim does not change with the airflow through the prop (physics-review open gap), so the
+case dynamic idle exists for on real quads (props unloading or windmilling in a dive, desyncs) is not in the model;
+here it raises and holds the idle floor. Betaflight's I-term reset at low throttle before airmode activates is not
+modelled (the sim's mixer always runs airmode).

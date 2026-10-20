@@ -1,0 +1,32 @@
+{
+ "static": {
+  "samples": 600,
+  "lowestThrottleStick": -0.9,
+  "throttleDown": 55,
+  "slowestRpmThrottleDown": [
+   2736,
+   9772
+  ],
+  "idleLevelDb": -57.1,
+  "idleSamples": 41,
+  "revvingLevelDb": null,
+  "revSamples": 0,
+  "revRpm": null,
+  "hoverishLevelDb": -38.9
+ },
+ "dynamic": {
+  "samples": 600,
+  "lowestThrottleStick": -0.9,
+  "throttleDown": 57,
+  "slowestRpmThrottleDown": [
+   3116,
+   5313
+  ],
+  "idleLevelDb": -58.6,
+  "idleSamples": 45,
+  "revvingLevelDb": -55.6,
+  "revSamples": 2,
+  "revRpm": 18579,
+  "hoverishLevelDb": -40
+ }
+}

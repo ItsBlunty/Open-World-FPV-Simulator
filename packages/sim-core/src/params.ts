@@ -43,6 +43,8 @@ export interface SimParams {
     tau: number; // s
     kappa: number; // m
     idle: number;
+    /** Betaflight's dynamic idle (dyn_idle_*), compiled for the 1 ms tick; null = off (the static idle above) */
+    dynIdle: DynIdleParams | null;
     motorPos: Float64Array; // 4 x (x, y, z) body frame, m
     motorYaw: Float64Array; // +1 = CW prop (reaction yaw left, +y torque), -1 = CCW
     cda: [number, number, number]; // m^2 along body x, y, z
@@ -205,6 +207,74 @@ export interface ParamOverrides {
      * "Arming angle" setting (owner, 2026-10-20).
      */
     smallAngleDeg?: number;
+    /**
+     * Betaflight's dynamic idle, in its CLI units. Absent, or minRpm 0: off, the static `idle` as before (bit for bit).
+     * On: the static idle no longer applies (Betaflight 4.3+), the floor of the motor range follows a PID on the slowest
+     * motor's rpm instead. The game's "Dynamic idle" setting (owner, 2026-10-20).
+     */
+    dynIdle?: DynIdleConfig;
+}
+
+/** Betaflight's dyn_idle_* settings (src/main/flight/pid.c, 4.5), CLI units; missing fields take Betaflight's defaults. */
+export interface DynIdleConfig {
+    /** dyn_idle_min_rpm: the slowest motor is held above this x 100 rpm; 0-200, 0 = off */
+    minRpm: number;
+    /** dyn_idle_p_gain, dyn_idle_i_gain (1-250), dyn_idle_d_gain (0-250), default 50 each (cli/settings.c) */
+    p?: number;
+    i?: number;
+    d?: number;
+    /** dyn_idle_max_increase: the most the floor rises once airmode is active, 0.1 % steps (150 = 15 %), 10-255 */
+    maxIncrease?: number;
+    /** dyn_idle_start_increase: the most it rises before airmode is active (on the ground), 0.1 % steps (50 = 5 %), 10-255 */
+    startIncrease?: number;
+}
+
+/** Dynamic idle compiled as Betaflight's mixerInitProfile() does (src/main/flight/mixer_init.c, 4.5), for a 1 kHz loop. */
+export interface DynIdleParams {
+    /** dyn_idle_min_rpm x 100 / 60: target rotations per second of the slowest motor */
+    minRps: number;
+    pGain: number;
+    iGain: number;
+    dGain: number;
+    maxIncrease: number;
+    startIncrease: number;
+    /** PT1 gain on the measured rps: 800 x dt / 20 */
+    delayK: number;
+}
+
+/** Betaflight's defaults (pid.c resetPidProfile, 4.5) */
+export const DYN_IDLE_DEFAULTS = { p: 50, i: 50, d: 50, maxIncrease: 150, startIncrease: 50 } as const;
+
+function dynIdleOf(c: DynIdleConfig | undefined): DynIdleParams | null {
+    if (c === undefined) return null;
+    const whole = (v: number, lo: number, hi: number, name: string): number => {
+        if (!Number.isFinite(v)) throw new RangeError(`dynIdle.${name} ${v}`);
+        return Math.min(hi, Math.max(lo, Math.round(v)));
+    };
+    const minRpm = whole(c.minRpm, 0, 200, 'minRpm');
+    if (minRpm === 0) return null;
+    // the controller runs every 1 ms tick: Betaflight's pidGetDT() = 0.001, pidGetPidFrequency() = 1000
+    const dt = 0.001;
+    return {
+        minRps: (minRpm * 100) / 60,
+        pGain: whole(c.p ?? DYN_IDLE_DEFAULTS.p, 1, 250, 'p') * 0.00015,
+        iGain: whole(c.i ?? DYN_IDLE_DEFAULTS.i, 1, 250, 'i') * 0.01 * dt,
+        dGain: whole(c.d ?? DYN_IDLE_DEFAULTS.d, 0, 250, 'd') * 0.0000003 * (1 / dt),
+        maxIncrease: whole(c.maxIncrease ?? DYN_IDLE_DEFAULTS.maxIncrease, 10, 255, 'maxIncrease') * 0.001,
+        startIncrease: whole(c.startIncrease ?? DYN_IDLE_DEFAULTS.startIncrease, 10, 255, 'startIncrease') * 0.001,
+        delayK: (800 * dt) / 20
+    };
+}
+
+/**
+ * The game's automatic dyn_idle_min_rpm (x 100 rpm) for a prop diameter: 175 / diameter in inches, so 35 (3500 rpm) on a
+ * 5-inch. Betaflight's 4.3 tuning notes: 30-40 (3000-4000 rpm) for typical quads, and the minimum is otherwise found by
+ * testing for desyncs, which the simulator does not have. Oscar Liang's ranges by size (7": 14-28, 5": 20-40, 3": 33-66)
+ * scale as 1 / diameter; 175 / D falls inside each [estimate between the two sources].
+ */
+export function autoDynIdleMinRpm(propDiameterMm: number): number {
+    const inches = propDiameterMm / 25.4;
+    return Math.min(200, Math.max(1, Math.round(175 / inches)));
 }
 
 /** small_angle in Betaflight's range, 0-180 whole degrees (its CLI setting); absent: 25, its default */
@@ -386,6 +456,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         tau: (o.tauMs ?? num(p, 'motor_tau_ms')) / 1000,
         kappa,
         idle: o.idle ?? num(p, 'motor_idle'),
+        dynIdle: dynIdleOf(o.dynIdle),
         motorPos,
         motorYaw,
         cda: [cdaH, cdaV, cdaH],

@@ -4,6 +4,13 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- `ParamOverrides.dynIdle` (`SimParams.dynIdle`, `DynIdleConfig`, `DYN_IDLE_DEFAULTS`, `S_DYN`, `autoDynIdleMinRpm`):
+  Betaflight 4.5's dynamic idle (mixer.c, mixer_init.c), in its CLI units and ranges. On, the static idle is dropped and
+  a PID on the slowest motor's rps raises the floor of the motor range up to dyn_idle_max_increase (start_increase before
+  airmode latches at 25 % throttle), with a 1 % throttle at zero stick. Its state is three slots after `S.size`, present
+  only with it on: absent or minRpm 0 keeps every flight and hash bit for bit. The game's Settings > Motor idle (owner,
+  2026-10-20). Test: `test/dyn-idle.test.ts`.
+
 - **Log format /4** (`LOG_FORMAT_V4`, written now; /2 and /3 still read): a solid layer the world switches on and off,
   `WorldEvent.layer` (a whole number from 1; 0 or absent = none) in world records (ch[7], flag `WORLD_FLAG_LAYER` = 2 in
   ch[6]) and `scene.layer` in the next life's header, like the ceiling. The world numbers its layers itself; the game's

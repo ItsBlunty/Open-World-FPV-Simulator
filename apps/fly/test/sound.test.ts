@@ -12,7 +12,7 @@ import { makeTrains } from '@owfpv/traffic';
 import { A, BEAT_M, TF, cityWeight, fastestHit, putQuad, putTrains, trainAxles } from '../src/audio/frame';
 import {
     BPF_DB, HARMONICS, MOTOR_DB, SHAFT_DB, airAbsorptionDbPerM, airCornerHz, bladesOf, doppler, noiseCornerHz, noiseGain,
-    rotorSpectrum, rotorWave, toneGain, washOf
+    IDLE_FLOOR, TONE_EXP, rotorSpectrum, rotorWave, toneGain, washOf
 } from '../src/audio/quad-sound';
 import { FlightSession } from '../src/session';
 import { selftestSticks } from '../src/selftest';
@@ -74,7 +74,12 @@ describe('loudness', () => {
         // hover (1 / sqrt(8) of top speed) to full throttle: about 25 dB, sound power ~ speed^5.5
         expect(db(toneGain(1) / toneGain(1 / Math.sqrt(8)))).toBeCloseTo(24.8, 0);
         for (let s = 0.25; s < 1; s += 0.1) expect(toneGain(s + 0.05)).toBeGreaterThan(toneGain(s));
-        for (let s = 0.01; s < 0.5; s += 0.01) expect(toneGain(s + 0.01)).toBeGreaterThanOrEqual(toneGain(s));
+        for (let s = 0.01; s < 0.5; s += 0.01) expect(toneGain(s + 0.01)).toBeGreaterThan(toneGain(s));
+        // a zero-throttle roll revs a 5-inch's motors from idle (5.5 %) to about 20 %: it must be heard (owner, 2026-10-20)
+        expect(toneGain(0.055)).toBeCloseTo(IDLE_FLOOR, 6);
+        expect(db(toneGain(0.2) / toneGain(0.055))).toBeGreaterThan(4);
+        // a hover keeps its calibrated level: the speed^TONE_EXP law
+        expect(toneGain(0.53)).toBe(0.53 ** TONE_EXP);
     });
 
     it('lets the rush catch up with the tones as the props speed up', () => {

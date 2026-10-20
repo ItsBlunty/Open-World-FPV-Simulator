@@ -13,7 +13,7 @@
 // craft's height above the scan's ground; without it the airspeed is the velocity (still air).
 
 import { dcos, dsin, datan2, RAD2DEG, DEG2RAD } from './dmath';
-import type { RotorInflow, SimParams } from './params';
+import type { DynIdleParams, RotorInflow, SimParams } from './params';
 import { cellVoc, hoverSolve, INFLOW_DELTA, INFLOW_RATIO_MAX } from './params';
 import { setpointRate, throttleCurve } from './rates';
 import { modeFromChannel } from './contracts';
@@ -110,6 +110,13 @@ export const S = {
     flip: 71,
     size: 72
 } as const;
+
+/**
+ * Dynamic idle's state (SimParams.dynIdle), in slots after S.size: a sim without it keeps S.size slots, so its state and
+ * hashes stay what they were. dynI: the controller's I term; dynPrev: the smoothed slowest-motor rps; airAct: Betaflight's
+ * airmode-activated latch (set once the throttle reaches 25 %, cleared on disarm).
+ */
+export const S_DYN = { dynI: 72, dynPrev: 73, airAct: 74, size: 75 } as const;
 
 const PT1 = (fc: number) => {
     const rc = 1 / (2 * Math.PI * fc);
@@ -270,7 +277,7 @@ function pt3(s: Float64Array, k: number, x: number, g: number): number {
 
 export class Sim {
     readonly p: SimParams;
-    readonly s = new Float64Array(S.size);
+    readonly s: Float64Array;
     readonly ch = new Float64Array(8);
     tick = 0;
     world: ContactWorld | null;
@@ -346,6 +353,7 @@ export class Sim {
 
     constructor(p: SimParams, world: ContactWorld | null) {
         this.p = p;
+        this.s = new Float64Array(p.dynIdle ? S_DYN.size : S.size);
         this.world = world;
         this.nS = p.spheres.length / 4;
         this.c0 = new Float64Array(this.nS * 3);
@@ -619,6 +627,15 @@ export class Sim {
         const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1);
         const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1);
 
+        // ---- motor range floor: the static idle, or dynamic idle ----
+        let lo = p.idle;
+        const di = p.dynIdle;
+        if (di) {
+            lo = this.dynIdle(di, thrStick);
+            // Betaflight (mixer.c mixTable): a 1 % throttle offset at zero stick while dynamic idle is on
+            if (thr < 0.01) thr = 0.01;
+        }
+
         // ---- mixer with airmode ----
         const out = this.motorCmd;
         if (armed) {
@@ -641,7 +658,7 @@ export class Sim {
             for (let i = 0; i < 4; i++) {
                 let v = out[i] + t;
                 v = v < 0 ? 0 : v > 1 ? 1 : v;
-                out[i] = p.idle + (1 - p.idle) * v;
+                out[i] = lo + (1 - lo) * v;
             }
         } else {
             for (let i = 0; i < 4; i++) out[i] = 0;
@@ -652,12 +669,53 @@ export class Sim {
         if (armed && s[S.flip] > 0) {
             crashFlipMix(ch[0], ch[1], ch[3], MIX_R, MIX_P, MIX_Y, out);
             for (let i = 0; i < 4; i++) {
-                if (out[i] > 0) out[i] = p.idle + (1 - p.idle) * out[i];
+                if (out[i] > 0) out[i] = lo + (1 - lo) * out[i];
                 dir[i] = -1;
             }
         } else {
             dir[0] = dir[1] = dir[2] = dir[3] = 1;
         }
+    }
+
+    /**
+     * Betaflight's dynamic idle (4.5 src/main/flight/mixer.c calculateThrottleAndCurrentMotorEndpoints, re-implemented from
+     * its formulas): a PID on the slowest motor's rotations per second raises the floor of the motor range, from 0 (the
+     * static idle no longer applies, mixer_init.c) up to dyn_idle_max_increase once airmode is active, or
+     * dyn_idle_start_increase before. Betaflight runs it every loop, armed or not, and reads the rpm from the ESCs'
+     * telemetry; here it reads the motors' speed state. Returns the floor as a share of full output.
+     */
+    private dynIdle(di: DynIdleParams, thrStick: number): number {
+        const s = this.s;
+        // fc/core.c processRx: airmode latches active once the throttle reaches airmode_start_throttle_percent (25, pg/rx.c)
+        // while armed, and clears when disarmed. Percent = (rc - min_check 1050) x 100 / 950, so rc 1287.5: stick 0.2875
+        // (Betaflight's whole-number rc and integer division put it at 1288; the difference is under one rc step)
+        if (s[S.armed] > 0 && s[S.crashed] === 0) {
+            if (thrStick >= 0.2875) s[S_DYN.airAct] = 1;
+        } else {
+            s[S_DYN.airAct] = 0;
+        }
+        const maxInc = s[S_DYN.airAct] > 0 ? di.maxIncrease : di.startIncrease;
+        // the slowest motor, rotations per second (a turtle-mode motor turning backwards counts by its speed)
+        const toRps = (this.p.omegaMaxPerVolt * s[S.volt]) / (2 * Math.PI);
+        let minRps = Infinity;
+        for (let i = 0; i < 4; i++) {
+            const m = s[S.m0 + i];
+            const r = (m < 0 ? -m : m) * toRps;
+            if (r < minRps) minRps = r;
+        }
+        let err = di.minRps - minRps;
+        const prev = s[S_DYN.dynPrev];
+        minRps = prev + di.delayK * (minRps - prev);
+        const dTerm = (prev - minRps) * di.dGain;
+        s[S_DYN.dynPrev] = minRps;
+        const pTerm = err * di.pGain;
+        // I rises fast, falls slowly
+        if (err < -0.1) err = -0.1;
+        let iTerm = s[S_DYN.dynI] + err * di.iGain;
+        iTerm = iTerm < 0 ? 0 : iTerm > maxInc ? maxInc : iTerm;
+        s[S_DYN.dynI] = iTerm;
+        const inc = pTerm + iTerm + dTerm;
+        return inc < 0 ? 0 : inc > maxInc ? maxInc : inc;
     }
 
     /**

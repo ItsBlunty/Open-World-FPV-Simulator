@@ -92,15 +92,26 @@ export const TONE_EXP = 2.75;
  */
 export const NOISE_EXP = 4.65;
 export const NOISE_AT_FULL = 4.8;
-/** an armed quad's idle whirr stays audible [estimate]: the tones never go under this share of full while turning */
+/** an armed quad's idle whirr stays audible [estimate]: the tones' level at IDLE_SHARE of top speed */
 export const IDLE_FLOOR = 0.012;
+/**
+ * The speed share IDLE_FLOOR was set at: Betaflight's default 5.5 % idle. From there the whirr rises as speed^WHIRR_EXP
+ * and meets the speed^TONE_EXP law at WHIRR_TO of top speed, under any hover (28-55 % of top speed on the presets), so the idle and
+ * hover levels stay where they were [estimate: no recording of a 5-inch between idle and hover yet]. Until 2026-10-20 the
+ * floor was flat, as loud as 20 % of top speed, so a motor revving from idle to 7000 rpm on a 5-inch (a zero-throttle
+ * roll) sounded no different from idle.
+ */
+export const IDLE_SHARE = 0.055;
+export const WHIRR_TO = 0.25;
+export const WHIRR_EXP = Math.log(WHIRR_TO ** TONE_EXP / IDLE_FLOOR) / Math.log(WHIRR_TO / IDLE_SHARE);
 
 /** A rotor's tone amplitude (0-1) at `share` of its top speed (|rad/s| / top rad/s). */
 export function toneGain(share: number): number {
     const s = share < 0 ? -share : share;
     if (s < 0.005) return 0;
     const g = s > 1 ? 1 : s ** TONE_EXP;
-    return g < IDLE_FLOOR ? IDLE_FLOOR * Math.min(1, s / 0.03) : g;
+    const whirr = IDLE_FLOOR * (s / IDLE_SHARE) ** WHIRR_EXP;
+    return g < whirr ? whirr : g;
 }
 
 /** The broadband rush (0-1) of four rotors at these shares of top speed. */

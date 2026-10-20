@@ -335,3 +335,12 @@ So the solver is right and tipping on any surface is now tested (`contact-solver
 trap was a fault of the traffic's shapes: each of a vehicle's boxes was solid on its own, so a point inside one was
 pushed out through a face another box covers. Fixed in traffic v10 (traffic.md §1z): a vehicle's boxes are one solid
 and a quad inside is pushed out of the whole vehicle. Game respawns (crash rewind, R) still do not check for traffic.
+
+### F8. "No prop sound when rolling at zero throttle" was the sound, not the mixer (looked into 2026-10-20, owner)
+
+The airmode mixer revs one side at zero throttle as Betaflight's does (Nazgul: 1940 rpm idle, 6850-7160 rpm for about
+50 ms at the start and stop of a full roll, 2200-3000 rpm while it holds). The sound's flat idle floor equalled the
+level of 20 % of top speed, so none of it was heard; fixed in the sound (`docs/notes/physics.md` §2f). Not checked:
+whether a real quad holds its motors higher through a sustained zero-throttle roll (a blackbox log would tell).
+Dynamic idle was added then (Betaflight's, off by default); it cannot show its real purpose here because rotor speed
+does not respond to the airflow through the prop (the inflow gap above).

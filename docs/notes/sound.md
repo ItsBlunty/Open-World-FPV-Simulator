@@ -10,7 +10,8 @@ ten CC0 files (Freesound previews, Kenney Impact Sounds). Credits: `apps/fly/pub
 - `audio/quad-sound.ts`: the quad model, pure functions, tested in `apps/fly/test/sound.test.ts`.
   - Each rotor = one oscillator at the shaft rate playing a PeriodicWave: blade-pass harmonics (3-blade) at
     0, -2, -2, -4, -6, -9, -12, -15 dB, shaft tones -11/-17 dB, motor whine at 7 and 14 x shaft (XING2 2207 is 12N14P).
-  - Tone amplitude ~ speed^2.75 (estimate: power ~ tip speed^5.5), idle floor 0.012. Broadband rush: high-pass at
+  - Tone amplitude ~ speed^2.75 (estimate: power ~ tip speed^5.5), idle floor 0.012 (since 2026-10-20 a whirr rising
+    from it to meet the law at 25 % of top speed: `docs/notes/physics.md` §2f). Broadband rush: high-pass at
     2 x BPF, low-pass 11 kHz, amplitude 4.8 x speed^4.65 (from the recordings: ~10 dB under tones near hover, level
     with them at 55 % speed).
   - Prop wash: descending at 0.25-2.2 x v_h (7.5 m/s at hover) the rotor gains are modulated by 14 Hz noise.

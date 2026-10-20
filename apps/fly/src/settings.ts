@@ -5,7 +5,7 @@
 
 import { profileProblem } from '@owfpv/input';
 import type { RadioProfile, StickMode } from '@owfpv/input';
-import { copyRates } from '@owfpv/sim-core';
+import { DYN_IDLE_DEFAULTS, copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
 import { isGraphicsLevel } from './graphics';
@@ -53,6 +53,23 @@ export interface Settings {
      * smallAngleDeg). 180 by default (owner, 2026-10-20): arms at any tilt; 25 is Betaflight's default.
      */
     armAngle: number;
+    /**
+     * motor idle, tenths of a percent of full output (Betaflight's dshot_idle_value / 10, motor_idle / 10): 55 = 5.5 %,
+     * Betaflight's default and the Nazgul's. Not used while dynamic idle is on (Betaflight 4.3+ ignores it then).
+     */
+    motorIdle: number;
+    /**
+     * Betaflight's dynamic idle (off by default, as in Betaflight). On: the slowest motor is held above a minimum rpm the
+     * game picks from the quad's props (sim-core autoDynIdleMinRpm); the rest are Betaflight's dyn_idle_* in its units.
+     */
+    dynIdle: boolean;
+    /** dyn_idle_max_increase (0.1 % steps, 10-255, default 150) and dyn_idle_start_increase (10-255, default 50) */
+    dynIdleMaxIncrease: number;
+    dynIdleStartIncrease: number;
+    /** dyn_idle_p_gain, dyn_idle_i_gain (1-250), dyn_idle_d_gain (0-250), default 50 each */
+    dynIdleP: number;
+    dynIdleI: number;
+    dynIdleD: number;
     /** solid cars on the city roads (owner, 2026-10-17: a toggle in the graphics and performance settings) */
     cars: boolean;
     /** solid people on the sidewalks */
@@ -103,6 +120,13 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     classicPhysics: false,
     battery: false,
     armAngle: 180,
+    motorIdle: 55,
+    dynIdle: false,
+    dynIdleMaxIncrease: DYN_IDLE_DEFAULTS.maxIncrease,
+    dynIdleStartIncrease: DYN_IDLE_DEFAULTS.startIncrease,
+    dynIdleP: DYN_IDLE_DEFAULTS.p,
+    dynIdleI: DYN_IDLE_DEFAULTS.i,
+    dynIdleD: DYN_IDLE_DEFAULTS.d,
     cars: true,
     people: true,
     signals: true,
@@ -158,6 +182,15 @@ export function loadSettings(): Settings {
     if (typeof s.classicPhysics === 'boolean') out.classicPhysics = s.classicPhysics;
     if (typeof s.battery === 'boolean') out.battery = s.battery;
     if (typeof s.armAngle === 'number' && s.armAngle >= 0 && s.armAngle <= 180) out.armAngle = Math.round(s.armAngle);
+    // Betaflight's ranges (cli/settings.c): idle 0-2000 (here tenths of a percent, 0-200), dyn_idle_* as noted above
+    const whole = (v: unknown, lo: number, hi: number): number | null => (typeof v === 'number' && v >= lo && v <= hi ? Math.round(v) : null);
+    out.motorIdle = whole(s.motorIdle, 0, 200) ?? out.motorIdle;
+    if (typeof s.dynIdle === 'boolean') out.dynIdle = s.dynIdle;
+    out.dynIdleMaxIncrease = whole(s.dynIdleMaxIncrease, 10, 255) ?? out.dynIdleMaxIncrease;
+    out.dynIdleStartIncrease = whole(s.dynIdleStartIncrease, 10, 255) ?? out.dynIdleStartIncrease;
+    out.dynIdleP = whole(s.dynIdleP, 1, 250) ?? out.dynIdleP;
+    out.dynIdleI = whole(s.dynIdleI, 1, 250) ?? out.dynIdleI;
+    out.dynIdleD = whole(s.dynIdleD, 0, 250) ?? out.dynIdleD;
     if (typeof s.cars === 'boolean') out.cars = s.cars;
     if (typeof s.people === 'boolean') out.people = s.people;
     if (typeof s.signals === 'boolean') out.signals = s.signals;

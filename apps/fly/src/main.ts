@@ -7,7 +7,7 @@
 // what they cost), ?lowspec turns low spec mode on for this visit (?lowspec=0 off), ?render=worker runs the engine in a worker.
 
 import './style.css';
-import { S, compileParams } from '@owfpv/sim-core';
+import { S, autoDynIdleMinRpm, compileParams } from '@owfpv/sim-core';
 import type { ParamOverrides, PresetJson } from '@owfpv/sim-core';
 import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
@@ -68,6 +68,10 @@ const params = new URLSearchParams(location.search);
 const preset = nazgul as unknown as PresetJson;
 const settings = loadSettings();
 const presetRates = compileParams(preset).rates;
+const presetIdle = compileParams(preset).idle;
+/** dynamic idle's minimum (x 100 rpm) the game picks for this quad from its props; null: the preset has no prop size */
+const presetProp = (preset as unknown as { fields: Record<string, { value: unknown }> }).fields.prop_diameter_mm?.value;
+const dynIdleMinRpm = typeof presetProp === 'number' ? autoDynIdleMinRpm(presetProp) : null;
 const demo = params.has('demo');
 
 function overrides(): ParamOverrides {
@@ -79,6 +83,13 @@ function overrides(): ParamOverrides {
     if (!settings.battery) o.batteryDrain = false;
     // arming angle (Betaflight small_angle): 180 by default (owner 2026-10-20), any tilt arms; 25 is sim-core's default
     if (settings.armAngle !== 25) o.smallAngleDeg = settings.armAngle;
+    // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own
+    if (settings.dynIdle && dynIdleMinRpm !== null) {
+        o.dynIdle = {
+            minRpm: dynIdleMinRpm, p: settings.dynIdleP, i: settings.dynIdleI, d: settings.dynIdleD,
+            maxIncrease: settings.dynIdleMaxIncrease, startIncrease: settings.dynIdleStartIncrease
+        };
+    } else if (settings.motorIdle / 1000 !== presetIdle) o.idle = settings.motorIdle / 1000;
     return o;
 }
 
@@ -447,6 +458,7 @@ function openSettings(): void {
     settingsUi.show({
         settings,
         presetRates,
+        dynIdleMinRpm,
         onCamera: () => send({ type: 'settings', what: 'camera', settings: engineSettings() }),
         onFlight: () => send({ type: 'settings', what: 'flight', settings: engineSettings() }),
         onTraffic: () => send({ type: 'settings', what: 'traffic', settings: engineSettings() }),
