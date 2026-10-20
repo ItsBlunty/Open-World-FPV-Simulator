@@ -59,12 +59,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Quad trapped inside a car fixed (traffic v10): a vehicle's boxes are one solid, a quad inside is pushed out the shortest way out of the whole car. [traffic §1z]
   Respawns avoid cars (owner): a rewind skips spots a car, person or train is on now; R with one on the spawn goes above it. [traffic §1z]
   Arming angle setting (owner): Settings > World > Physics, 0-180 deg, default 180 (any tilt arms; Betaflight's is 25). [contacts §2b]
-- **Tests:** `pnpm test`: 63 files, 569 tests pass in 28 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Course creator built (owner): courses are `owfpv-course/1` JSON (the 3 built-in ones in `packages/maps/courses/`, map
+  unchanged); make, change, fly, save as file, open, propose for the game (GitHub new-file link) from the title card, pause
+  menu or Time Trials; free-camera editor with a flown line; race gates solid only during their race (sim-core log
+  format /4 solid layers). [time-trials §2c]
+- **Tests:** `pnpm test`: 66 files, 591 tests pass in 28 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
   - map v20 `b5d0a3a5…` (543 666 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0, `MAP_VERSION` 20, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 20, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -136,6 +140,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    A quad that still ends up inside one is pushed out the shortest way (low in the body: under the car). [traffic §1z]
 23. **Arming angle:** arm tilted and on its back (turtle switch off: motors spin forward), then set Settings > World >
    Physics > Arming angle to 25 and check it refuses past 25 and the TILTED hint shows. [contacts §2b]
+24. **Course creator:** Esc > Course creator > New course: P for the pad, G openings, B race gates (mouse wheel moves the
+   white frame), fly a line first with Tab, Save and race it. Race gates should be solid only in the race. Is it simple
+   enough? Keys right? Then Propose for the game, signed in to GitHub: does the new-file page open filled in (not checked
+   signed in)? Send me a course file and I'll add it to the game. [time-trials §2c]
 
 ## Left open (not started)
 
@@ -150,7 +158,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
   cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
 - Time trials: saved flights keep no race results (the replay viewer shows no gates or splits); no per-gate splits; no
-  ghost; no arrow or map to the pads. [time-trials §1h]
+  ghost; no arrow or map to the pads. Creator: no undo, no clicking gates in the scene, pads not checked against
+  buildings, the draft's arch has no checks. [time-trials §1h, §2c]
 - Railway: the hill reads flat from above; people on the platform don't queue (they can overlap at a door); no stair on the north platform; the yard's wagons never move; a puff can
   pass through the hill at a portal; the train ignores the quad; look-around doesn't run the sim (the train stands). [railway]
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
@@ -208,7 +217,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 | `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes |
-| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN |
+| `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN; §2c: the course creator, course files, race gates, solid layers, adding a course to the game |
 
 
 

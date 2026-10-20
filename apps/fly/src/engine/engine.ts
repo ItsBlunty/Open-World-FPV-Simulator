@@ -6,7 +6,8 @@ import * as THREE from 'three/webgpu';
 import { SRGBColorSpace, WebGLRenderTarget, WebGLRenderer } from 'three';
 import { S, SIM_CORE_VERSION } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
-import { buildFirstMap } from '@owfpv/maps';
+import { buildFirstMap, courseProblem, customArches } from '@owfpv/maps';
+import type { CourseFile, Gate } from '@owfpv/maps';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from '../session';
 import { demoTrickSticks, selftestSticks } from '../selftest';
@@ -29,9 +30,12 @@ import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
 import type { Track } from '../replay';
 import { PathLine, Spotter } from '../render/replay-view';
+import { EditorView, FlownLine } from '../render/course-editor';
+import { CourseEditor } from '../course-editor';
+import type { EditorCam } from '../course-editor';
 import { TRAFFIC_VERSION, TRAINS, makeTraffic, makeTrains } from '@owfpv/traffic';
 import type { TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
-import type { EngineMsg, EngineReport, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam } from './protocol';
+import type { EditorMode, EngineMsg, EngineReport, EngineSettings, InitMsg, PageMsg, PathMode, Port, ReplayCam, TrialInfo } from './protocol';
 import { RadioLink } from './radio-link';
 import { A, cityWeight, fastestHit, putQuad, putTrains, trainAxles } from '../audio/frame';
 
@@ -47,11 +51,15 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const demo = params.has('demo');
     const demoSticks = params.get('demo') === 'tricks' ? demoTrickSticks : selftestSticks;
 
+    // the creator's courses for this map (a course the page kept that no longer checks out is left out)
+    const builtIn = level.trials.map((t) => t.id);
+    const usable = (list: readonly unknown[]) => list.filter((c) => courseProblem(c, level.id) === null && !builtIn.includes((c as { id: string }).id)) as CourseFile[];
     const session = new FlightSession({
         preset,
         overrides: cfg.overrides,
         level,
         traffic: cfg.traffic,
+        courses: usable(init.courses[level.id] ?? []),
         // per-life state hashes, so a saved flight can be checked by replaying it (flights.ts)
         traceHash: true,
         spawn: level.spawns.find((s) => s.id === (params.get('spawn') ?? cfg.spawn)) ?? level.spawns[0]
@@ -101,8 +109,88 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const collectView = new CollectiblesView(level.collectibles, kit);
     collectView.setTaken((n) => session.collector.isTaken(n));
     scene.add(collectView.group);
-    const trialsView = new TrialsView(level.trials, kit);
+    let trialsView = new TrialsView(session.courses, kit);
     scene.add(trialsView.group);
+    /** the custom courses' pads, arches and flags (the map's own are part of the map) */
+    let archGroup = levelGroup(customArches(session.courses), kit);
+    scene.add(archGroup);
+    let flown: boolean[] = [];
+    /** The courses changed: their views built again. */
+    function showCourses(): void {
+        scene.remove(trialsView.group, archGroup);
+        trialsView.dispose();
+        archGroup.traverse((o) => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+        trialsView = new TrialsView(session.courses, kit);
+        trialsView.setFlown(flown);
+        archGroup = levelGroup(customArches(session.courses), kit);
+        scene.add(trialsView.group, archGroup);
+    }
+    const trialInfos = (): TrialInfo[] => session.courses.map((t) => ({
+        id: t.id, name: t.name, area: t.area, version: t.version, gates: t.gates.map((g) => g.name),
+        at: t.gates.map((g): [number, number, number] => [g.x, g.y, g.z]), custom: t.custom === true
+    }));
+
+    /** the time trial creator (owner, 2026-10-20): the course being made, its view and the flown line; null when closed */
+    interface Editing {
+        ed: CourseEditor;
+        mode: EditorMode;
+        view: EditorView;
+        line: FlownLine;
+    }
+    let editing: Editing | null = null;
+    const camEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    function editorCam(): EditorCam {
+        const c = view.camera;
+        camEuler.setFromQuaternion(c.quaternion, 'YXZ');
+        return { x: c.position.x, y: c.position.y, z: c.position.z, yaw: camEuler.y, pitch: camEuler.x };
+    }
+    /** the first surface straight down from a point (the map; the creator puts pads and race gate legs on it) */
+    const groundRay = (x: number, y: number, z: number): number | null => session.world.queryRay(x, y, z, 0, -1, 0, 2000)?.y ?? null;
+    function postEditor(): void {
+        const e = editing;
+        if (!e) return;
+        post({ type: 'editor', state: { course: e.ed.course, hasPad: e.ed.hasPad, selected: e.ed.selected, mode: e.mode, reach: e.ed.reach, problem: e.ed.problem(), line: e.line.segments } });
+    }
+    function editorMode(mode: EditorMode): void {
+        const e = editing;
+        if (!e) return;
+        e.mode = mode;
+        if (mode === 'camera' && !freeCam.active) freeCam.enter(view.camera);
+        else if (mode === 'fly' && freeCam.active && radio.hasRadio) {
+            freeCam.exit();
+            view.updateFov();
+        }
+        postEditor();
+    }
+    function closeEditor(): void {
+        const e = editing;
+        if (!e) return;
+        scene.remove(e.view.group, e.line.line);
+        e.view.dispose();
+        e.line.line.geometry.dispose();
+        editing = null;
+        if (freeCam.active && radio.hasRadio) {
+            freeCam.exit();
+            view.updateFov();
+        }
+    }
+    /** Where the quad's centre is now, with its heading (deg, as a spawn's): a respawn there sets it down where it is. */
+    function quadPose(): [number, number, number, number] {
+        const s = session.sim.s;
+        camEuler.setFromQuaternion(new THREE.Quaternion(s[S.qx], s[S.qy], s[S.qz], s[S.qw]), 'YXZ');
+        return [s[S.px], s[S.py], s[S.pz], (-camEuler.y * 180) / Math.PI];
+    }
+    /** Where a gate placed now would go (an open gate's size), at the crosshair point. */
+    function previewGate(e: Editing): Gate {
+        const cam = editorCam();
+        const t = e.ed.target(cam);
+        const flat = e.ed.flatNow(cam);
+        const l = Math.hypot(t.fx, t.fz) || 1;
+        return { x: t.x, y: t.y, z: t.z, nx: flat ? 0 : t.fx / l, ny: flat ? 1 : 0, nz: flat ? 0 : t.fz / l, hw: 1.5, hh: 1.0, name: 'next' };
+    }
+    /** the quad's last place on the flown line (a jump longer than this between samples is a respawn: no segment) */
+    const LINE_JUMP_M = 4;
+    let lineLast: [number, number, number] | null = null;
     const view = new CraftView(kit);
     view.uptiltDeg = cfg.uptiltDeg;
     view.fovDeg = cfg.fovDeg;
@@ -166,7 +254,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let replayTrains: Train[] | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, buildingsView, collectView, trialsView, freeCam, radio, fisheye, seeThrough, get replay() { return replay; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -324,7 +412,42 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 session.resetToSpawn();
                 break;
             case 'trial-flown':
+                flown = m.flown;
                 trialsView.setFlown(m.flown);
+                break;
+            case 'courses': {
+                // set down on the named course's pad (its index in the new list), or where the quad is
+                const files = usable(m.files);
+                const pad = [...level.trials.map((t) => t.pad), ...files.map((c) => c.pad)][[...builtIn, ...files.map((c) => c.id)].indexOf(m.pad ?? '')];
+                // on its top as TrialRunner.padPose puts it, facing the race's heading
+                session.setCourses(files, pad ? [pad.x, pad.y + session.sim.p.bodyBottom + 0.01, pad.z, pad.yawDeg] : quadPose());
+                showCourses();
+                post({ type: 'courses', trials: trialInfos() });
+                break;
+            }
+            case 'editor-open':
+                closeEditor();
+                session.trials.quit();
+                editing = { ed: new CourseEditor(m.course, m.hasPad, groundRay), mode: 'camera', view: new EditorView(kit), line: new FlownLine(kit) };
+                lineLast = null;
+                scene.add(editing.view.group, editing.line.line);
+                editorMode('camera');
+                break;
+            case 'editor-close':
+                closeEditor();
+                break;
+            case 'editor-mode':
+                editorMode(m.mode);
+                break;
+            case 'editor-op':
+                if (!editing) break;
+                editing.ed.apply(m.op, editorCam());
+                postEditor();
+                break;
+            case 'editor-clear-line':
+                editing?.line.clear();
+                lineLast = null;
+                postEditor();
                 break;
             case 'trial':
 
@@ -495,8 +618,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             session.pause(true, now);
             return replayFrame(now, dt);
         }
-        session.pause(paused, now);
-        if (!paused) {
+        // the creator's camera: the sim waits while the course is laid out
+        const still = paused || editing?.mode === 'camera';
+        session.pause(still, now);
+        if (!still) {
             if (demo) session.input(demoSticks(session.sim.tick, ch), now);
             else radio.checkStale(session, now);
             session.advance(now);
@@ -509,6 +634,15 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                 post({ type: 'collect', n: got });
             }
             for (const e of session.trials.drain()) post({ type: 'trial', e });
+            if (editing) {
+                // the flown line: where the quad went, so gates can be put on it (a jump is a respawn: no segment)
+                const s = session.sim.s, x = s[S.px], y = s[S.py], z = s[S.pz];
+                const jump = lineLast !== null && Math.hypot(x - lineLast[0], y - lineLast[1], z - lineLast[2]) > LINE_JUMP_M;
+                const before = editing.line.segments;
+                editing.line.add(x, y, z, Math.hypot(s[S.vx], s[S.vy], s[S.vz]), now, jump);
+                if (editing.line.segments !== before || lineLast === null || jump) lineLast = [x, y, z];
+                if (editing.line.segments % 100 === 0 && editing.line.segments !== before) postEditor();
+            }
         }
         {
             const a = audioMsg.a, ev = session.runner.events;
@@ -524,7 +658,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         collectView.update(now / 1000);
         trialsView.update(session.trials.status(), now / 1000, view.camera.position);
         view.update(session.sim.s, dt);
-        const lookAround = !radio.hasRadio && !demo;
+        const lookAround = (!radio.hasRadio && !demo) || editing?.mode === 'camera';
         if (lookAround && !freeCam.active) freeCam.enter(view.camera);
         else if (!lookAround && freeCam.active) {
             freeCam.exit();
@@ -534,6 +668,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         if (freeCam.active) {
             freeCam.look(lookDx, lookDy);
             freeCam.apply(view.camera, dt, paused);
+        }
+        if (editing) {
+            editing.view.update(editing.ed.course, editing.ed.hasPad, editing.ed.selected, editing.ed.rev, editing.mode === 'camera' ? previewGate(editing) : null, view.camera.position);
+        }
+        if (freeCam.active) {
             view.craft.visible = true;
         }
         lookDx = lookDy = 0;
@@ -587,7 +726,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     post({
         type: 'ready', backend, spawns: level.spawns.map((s) => ({ id: s.id, name: s.name })), spawn: session.spawn.id, mapId: level.id,
         props: level.collectibles.map((c) => ({ n: c.n, area: c.area, spot: c.spot })),
-        trials: level.trials.map((t) => ({ id: t.id, name: t.name, area: t.area, version: t.version, gates: t.gates.map((g) => g.name), at: t.gates.map((g): [number, number, number] => [g.x, g.y, g.z]) })),
+        trials: trialInfos(),
         axles: level.railway ? trainAxles(session.train ?? makeTrains(level, true)[0]) : []
     });
 

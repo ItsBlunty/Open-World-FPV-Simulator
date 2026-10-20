@@ -12,6 +12,8 @@ export interface TrialsHost {
     times(t: TrialInfo): CourseTimes | null;
     /** forget every time (asked twice first) */
     reset(): void;
+    /** the course creator */
+    creator(): void;
     close(): void;
 }
 
@@ -56,7 +58,7 @@ export class TrialsUi {
                 return h('div', { class: `trial ${c ? 'got' : ''}` },
                     h('div', { class: 'trial-head' },
                         h('strong', {}, t.name),
-                        h('span', { class: 'muted' }, ` · ${t.area} · ${t.gates.length} gates`),
+                        h('span', { class: 'muted' }, ` · ${t.area} · ${t.gates.length} gates${t.custom ? ' · yours' : ''}`),
                         h('span', { class: 'spacer' }),
                         h('span', { class: 'best' }, c ? formatTime(c.best) : 'not flown')),
                     c ? h('div', { class: 'note' },
@@ -67,6 +69,7 @@ export class TrialsUi {
             h('div', { class: 'row footer' },
                 h('span', { class: 'note' }, 'Your times are kept in this browser.'),
                 h('span', { class: 'spacer' }),
+                h('button', { onclick: () => host.creator() }, 'Course creator'),
                 flown === 0 ? null : h('button', {
                     class: this.confirmReset ? 'danger' : '',
                     onclick: () => {

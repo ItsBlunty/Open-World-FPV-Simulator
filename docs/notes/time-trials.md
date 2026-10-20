@@ -155,3 +155,80 @@ passes `sim.ch[2]`). Test: "waits for the throttle to come down (and the sticks 
 
 **Evidence:** `pnpm test` 63 files, 555 tests; `pnpm typecheck` clean. Not flown (needs the owner): the THROTTLE DOWN
 prompt and how the battery switch feels.
+
+## 2c. The course creator (owner, 2026-10-20): built, waiting for the owner
+
+**Asked:** "a time trial creator, so that people by hand OR you, have a simplified system to create time trials", with
+menu options and an editor mode. Answers (decisions.md): courses as files and in the browser, export and import, and an
+in-game way to propose one as a pull request; gates placed mainly with the free camera, a flown line drawn like the
+replay's path to place them on; per gate an opening (invisible frame) or a visible race gate; the made course solid,
+its gates solid only while its time trial runs.
+
+**Course files (`owfpv-course/1`, `packages/maps/src/trials.ts` CourseFile).** id (letters, digits, - _), name, area,
+version, map (`mixed-1`), pad {x, z, y = ground + 0.2, yawDeg 0/90/180/270}, gates [{name, x, y, z, nx, ny, nz (a unit
+vector, standing ny 0 or flat ny 1), hw, hh (half sizes, 0.05-30 m), kind 'open' | 'gate', foot (a race gate's legs
+reach down to it)}], optional author and notes. The start arch is not listed: it follows from the pad and is always the
+last gate. `courseProblem` checks a file (limits: 60 gates, coordinates within 5 km). The game's own three courses are
+now such files, `packages/maps/courses/01-park.json`, `02-bando.json`, `03-yard.json` (their placement notes moved into
+`notes`); built in the same order, so the map is unchanged (hash `b5d0a3a5…`, the first-map test).
+
+**Adding a course to the game (Claude, or a proposed file):** put the file in `packages/maps/courses/`, import it in
+`trials.ts` and add it to the end of `COURSE_FILES`. Its arch, pad and flag become map geometry, so bump `MAP_VERSION`
+and re-pin the map hash. `packages/maps/test/trials.test.ts` then checks it like the others: the pad rests on the
+ground with room under the arch, every opening is clear for a 0.18 m sphere, and a grid search finds a way from the
+pad through each gate and back. (Its "windows are framed openings" check names the bando's gates only.)
+
+**Race gates (kind 'gate').** A frame of 10 x 5 cm bars round the opening and, standing, two 6 cm legs down to `foot`
+[MultiGP's standard chapter gate is a 5 x 5 ft opening of PVC pipe with vinyl panels (multigp.com course obstacles;
+MultiGP shop, start-finish gate 5'x5'); the bar sizes are estimates]; a new one is 1.52 m square. Drawn orange on every
+course all the time (`render/trials.ts`). Solid only while their own course is raced, from accepting the race (the
+countdown) to the finish or leaving it: `TrialRunner` calls back, `FlightSession.raceLayer` logs a sim-core world record
+with `layer` = course index + 1 (log format /4, sim-core CHANGELOG), and the collision becomes `courseWorld(inner,
+solids, layer)` (`apps/fly/src/course-world.ts`: the map, traffic and trains, plus the custom pads and arches, plus that
+course's race gates). A respawn carries the layer into the next life's header, so each life replays alone.
+
+**Custom courses in the collision.** Their pads, arches and flags are solid always (`courseSolids`). Courses that add
+anything solid change the collision hash (`withCourses`: the old hash when there is nothing, so old flights still open
+and the pinned hashes stand). A saved flight carries every set of custom courses its lives flew with (`Flight.courses`,
+by that hash part); a replay finds the set and the traffic toggles that give each header's hash. Saving, opening or
+deleting a course is `FlightSession.setCourses`: a new life on the new collision, set down where the quad was or on the
+course's pad.
+
+**The creator (page: `ui/creator-ui.ts`, `ui/editor-panel.ts`; editing: `course-editor.ts`, no DOM; drawing:
+`render/course-editor.ts`).** Title card, pause menu and the Time Trials screen have "Course creator": your courses on
+this map (Change, Fly it, Save as file, Propose for the game, Delete twice), New course, Open a course file, and the
+keys. Editing happens in the world beside a panel: the camera mode pauses the sim and flies the free camera (also with
+a radio connected); a white frame `reach` m ahead (4 m to start, mouse wheel 1-40 m) shows where things go. G adds an
+opening (3 x 2 m), B a race gate, P puts the pad on the ground under the frame with its arch across the heading (nearest
+quarter turn); looking more than 50 deg up or down adds a flat gate. F moves the selected gate there; [ ] select;
+arrows and Page Up / Down nudge 0.1 m (Shift 1 m) along the camera's heading; , . turn 15 deg (the pad a quarter);
+- = size; Delete. The panel also sets name, area, a gate's name, kind, width, height and flat, and orders gates. Each
+gate is numbered in 3D (new digit strokes in the block letters), the selected one yellow with a pane, a cyan line runs
+pad, gates, arch; all faint through walls. Tab (or "Fly the quad") flies the quad with the radio: the flown line, by
+speed as the replay's path (a sample every 50 ms, up to 40 min; a jump over 4 m is a respawn and starts a new piece).
+Save (or Save and race it: set down on its pad) needs a pad and a gate; the layout changing raises the course's version
+so old times are kept apart. Esc's pause menu adds "Save course and leave the creator". Courses are kept in this browser
+(`owfpv.courses` by map id; Clear all data removes them, Default settings keeps them).
+
+**Propose for the game.** Opens `https://github.com/ItsBlunty/Open-World-FPV-Simulator/new/main?filename=packages/maps/
+courses/<id>.json&value=<the file>`: GitHub's new-file page, which offers anyone without write access a fork and a pull
+request. Not confirmed with a signed-in account: logged out, GitHub sends the link to its sign-in page and keeps the whole
+link (both fields) as where to go back to (seen in the built-in browser, 2026-10-20). The folder is put in `filename`
+rather than the path, because an old report says GitHub dropped the path's last folder when `filename` was given
+(github.com/isaacs/github issue 1527). A course longer than 7500 characters of link gets the page without the text,
+and the text is copied to the clipboard to paste.
+
+**Evidence:** `pnpm test` 66 files, 591 tests (new: `packages/sim-core/test/log-v4.test.ts`, the layer in records and
+headers, a wall that comes and goes replaying exactly at every frame split; `packages/maps/test/courses.test.ts`, the
+files, their checks, the race gate's opening and legs; `apps/fly/test/course-creator.test.ts`, placing, turning,
+sizing, the store, files, the propose link; `apps/fly/test/trials.test.ts`, a race gate hit in a real-sim race with the
+saved flight replaying exactly, not solid once the race is left, custom pads solid and in the hash, setCourses and a
+flight carrying its courses). Typecheck clean. Headless Chrome against the dev server
+(`docs/evidence/2026-10-20-course-creator/probe.mjs`, `probe-line.mjs`): a course laid out in the park and saved (store,
+session, a format /4 life header with the new hash), the Time Trials list ("yours"), the creator list, Fly it on the pad,
+the flown line with the demo sticks; screenshots 1-5 there.
+
+**Left open:** the owner to try it (making a course, a race with race gates, the propose link signed in). The draft's arch
+has no checks (the saved one has). The saved version of a course being changed stays drawn while it is edited. No
+undo. A gate can't be picked by clicking it in the scene (the panel's list or [ ]). Pads are not checked for overlapping
+buildings or each other. Race gates in a replay are drawn but the viewer doesn't show when they were solid.

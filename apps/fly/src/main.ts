@@ -13,7 +13,11 @@ import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
-import { clearStoredSettings, defaultSettings, loadCollection, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
+import { clearStoredSettings, defaultSettings, loadCollection, loadCoursesRaw, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveCoursesRaw, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
+import { blankCourse, courseFileName, courseText, newCourseId, parseCourses, proposeLink, putCourse, readCourseText, removeCourse } from './course-store';
+import type { CourseFile } from '@owfpv/maps';
+import { CreatorUi } from './ui/creator-ui';
+import { EditorPanel } from './ui/editor-panel';
 import { courseKey, formatDelta, formatTime, parseTrialTimes, recordRun } from './trial-times';
 import type { CourseTimes } from './trial-times';
 import type { TrialEvent } from './trials';
@@ -39,7 +43,7 @@ import type { CheckReply } from './check-worker';
 import { h, clear } from './ui/dom';
 import type { Child } from './ui/dom';
 import { localPorts } from './engine/protocol';
-import type { EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo, TrialInfo } from './engine/protocol';
+import type { EditorState, EngineMsg, EngineReport, EngineSettings, HudSnapshot, InitMsg, PageMsg, Port, PropInfo, TrialInfo } from './engine/protocol';
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
@@ -156,6 +160,12 @@ const found = (): number[] => collection[mapId] ?? [];
 let trials: TrialInfo[] = [];
 const trialTimes = parseTrialTimes(loadTrialTimesRaw());
 const timesOf = (t: TrialInfo): CourseTimes | null => trialTimes[mapId]?.[courseKey(t.id, t.version)] ?? null;
+/** the courses made in the time trial creator, by map id (kept in this browser: course-store.ts) */
+const courseStore = parseCourses(loadCoursesRaw());
+const myCourses = (): CourseFile[] => courseStore[mapId] ?? [];
+/** the creator's state while a course is being laid out (null: not in the creator) */
+let editorState: EditorState | null = null;
+let editorOpen = false;
 /** page times (ms) until which the HUD shows GO! and FALSE START */
 let goUntil = 0;
 let falseStartUntil = 0;
@@ -172,7 +182,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, graphics: graphicsNow, settings: engineSettings(), collection, flightId
+        search: location.search, shadows: shadowsOn, graphics: graphicsNow, settings: engineSettings(), collection, flightId, courses: courseStore
     };
 }
 
@@ -230,6 +240,14 @@ function onEngine(e: MessageEvent<EngineMsg>): void {
         renderMenu();
     } else if (m.type === 'trial') {
         onTrial(m.e);
+    } else if (m.type === 'courses') {
+        trials = m.trials;
+        sendFlown();
+        trialsUi.refresh();
+        creatorUi.refresh();
+    } else if (m.type === 'editor') {
+        editorState = m.state;
+        if (editorOpen) editorPanel.update(m.state);
     } else if (m.type === 'flight') {
         void putFlight(m.flight).then((ok) => {
             if (!ok) console.warn('This browser did not keep the flight (storage blocked or full).');
@@ -385,6 +403,8 @@ const trialPrompt = new TrialPrompt();
 const flightsUi = new FlightsUi();
 const reportUi = new ReportUi();
 const replayUi = new ReplayUi();
+const creatorUi = new CreatorUi();
+const editorPanel = new EditorPanel();
 const radioReplay = new RadioReplayControl();
 let sentShuttle = 0;
 const menuBody = h('div');
@@ -392,12 +412,12 @@ const menuPanel = h('div', { class: 'panel' }, menuBody);
 const menu = h('div', { class: 'overlay' }, menuPanel);
 /** the pilot has left the title card (Start flying): from then on Esc opens the pause menu */
 let started = demo;
-document.body.append(hud.el, trialPrompt.el, menu, setup.el, settingsUi.el, collectionUi.el, trialsUi.el, flightsUi.el, reportUi.el, replayUi.el);
+document.body.append(hud.el, trialPrompt.el, editorPanel.el, menu, setup.el, settingsUi.el, collectionUi.el, trialsUi.el, flightsUi.el, reportUi.el, replayUi.el, creatorUi.el);
 let menuMsg = '';
 
 /** a screen is open: the sim pauses (the replay viewer too: it plays a track, the sim stays where it was) */
 function anyOverlay(): boolean {
-    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || trialsUi.open || flightsUi.open || reportUi.open || replayUi.open;
+    return !menu.classList.contains('hidden') || setup.open || settingsUi.open || collectionUi.open || trialsUi.open || flightsUi.open || reportUi.open || replayUi.open || creatorUi.open;
 }
 
 function showMenu(on: boolean): void {
@@ -464,9 +484,150 @@ function openTrials(): void {
             saveTrialTimesRaw(trialTimes);
             sendFlown();
         },
+        creator: () => { trialsUi.hide(); openCreator(); },
         close: () => { trialsUi.hide(); showMenu(true); }
     });
 }
+
+// ---------------------------------------------------------------- the time trial creator (owner, 2026-10-20)
+
+/** Keep the store and tell the engine (the collision changes: the quad is set down where it is, or on course `pad`'s pad). */
+function storeCourses(pad: string | null = null): boolean {
+    const ok = saveCoursesRaw(courseStore);
+    send({ type: 'courses', files: myCourses(), pad });
+    return ok;
+}
+
+function openCreator(msg = ''): void {
+    showMenu(false);
+    creatorUi.show({
+        courses: myCourses,
+        create: () => {
+            const ids = [...trials.map((t) => t.id), ...myCourses().map((c) => c.id)];
+            const n = myCourses().length + 1;
+            startEditor(blankCourse(newCourseId(Date.now(), ids), mapId, `My course ${n}`, 'Custom'), false);
+        },
+        edit: (c) => startEditor(c, true),
+        fly: (c) => {
+            creatorUi.hide();
+            storeCourses(c.id);
+            started = true;
+            hud.toast(c.name.toUpperCase(), 'On the pad: stay 3 s to be offered the race');
+        },
+        download: (c) => {
+            const url = URL.createObjectURL(new Blob([courseText(c)], { type: 'application/json' }));
+            const a = h('a', { href: url, download: courseFileName(c) });
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        },
+        propose: (c) => ({ ...proposeLink(REPO, c), text: courseText(c) }),
+        remove: (c) => {
+            removeCourse(courseStore, mapId, c.id);
+            storeCourses();
+        },
+        open: async (file) => {
+            const r = readCourseText(await file.text(), mapId, trials.filter((t) => !t.custom).map((t) => t.id));
+            if ('error' in r) return r.error;
+            putCourse(courseStore, r.course);
+            return storeCourses() ? null : 'this browser would not keep it (private window, or storage full?)';
+        },
+        close: () => { creatorUi.hide(); showMenu(true); }
+    }, msg);
+}
+
+/** Lay a course out in the world: the creator's panel, the free camera, the sim waiting (course-editor.ts). */
+function startEditor(c: CourseFile, hasPad: boolean): void {
+    creatorUi.hide();
+    showMenu(false);
+    started = true;
+    editorOpen = true;
+    editorState = null;
+    held.clear();
+    send({ type: 'trial', act: 'quit' });
+    // the panel first: the engine (on this page) answers the open at once
+    editorPanel.show({
+        op: (o) => send({ type: 'editor-op', op: o }),
+        mode: (m) => {
+            if (m === 'fly' && !profile) return editorPanel.say('Connect a radio to fly a line (Settings > Radio and controls).');
+            if (m === 'fly' && mouseCaptured()) document.exitPointerLock();
+            held.clear();
+            camDirty = true;
+            send({ type: 'editor-mode', mode: m });
+        },
+        clearLine: () => send({ type: 'editor-clear-line' }),
+        canFly: () => profile !== null,
+        save: saveEditor,
+        discard: () => closeEditor()
+    });
+    send({ type: 'editor-open', course: c, hasPad });
+}
+
+function closeEditor(msg = ''): void {
+    editorOpen = false;
+    editorState = null;
+    editorPanel.hide();
+    held.clear();
+    camDirty = true;
+    send({ type: 'editor-close' });
+    if (msg) hud.toast('COURSE SAVED', msg);
+}
+
+function saveEditor(race: boolean): void {
+    const st = editorState;
+    if (!st) return;
+    if (st.problem) return editorPanel.say(st.problem);
+    const saved = putCourse(courseStore, st.course);
+    closeEditor(`${saved.name}: ${saved.gates.length} gates${race ? ' · on its pad: stay 3 s to race' : ''}`);
+    if (!storeCourses(race ? saved.id : null)) hud.toast('NOT KEPT', 'This browser would not store the course (private window, or storage full?)');
+}
+
+/** Keys in the creator's camera (course-editor.ts EditorOp); true when the key was one of them. */
+function editorKey(e: KeyboardEvent): boolean {
+    const st = editorState;
+    if (!editorOpen || !st) return false;
+    if (e.code === 'Tab') {
+        editorPanel.update(st);
+        if (st.mode === 'camera' && !profile) editorPanel.say('Connect a radio to fly a line (Settings > Radio and controls).');
+        else {
+            held.clear();
+            camDirty = true;
+            send({ type: 'editor-mode', mode: st.mode === 'camera' ? 'fly' : 'camera' });
+        }
+        return true;
+    }
+    if (st.mode !== 'camera') return false;
+    const step = e.shiftKey ? 1 : 0.1;
+    const ops: Record<string, () => void> = {
+        KeyG: () => send({ type: 'editor-op', op: { op: 'add', kind: 'open' } }),
+        KeyB: () => send({ type: 'editor-op', op: { op: 'add', kind: 'gate' } }),
+        KeyP: () => send({ type: 'editor-op', op: { op: 'pad' } }),
+        KeyF: () => send({ type: 'editor-op', op: { op: 'here' } }),
+        Delete: () => send({ type: 'editor-op', op: { op: 'delete' } }),
+        Backspace: () => send({ type: 'editor-op', op: { op: 'delete' } }),
+        BracketLeft: () => send({ type: 'editor-op', op: { op: 'select', i: st.selected - 1 } }),
+        BracketRight: () => send({ type: 'editor-op', op: { op: 'select', i: st.selected + 1 } }),
+        ArrowUp: () => send({ type: 'editor-op', op: { op: 'nudge', f: step, r: 0, u: 0 } }),
+        ArrowDown: () => send({ type: 'editor-op', op: { op: 'nudge', f: -step, r: 0, u: 0 } }),
+        ArrowRight: () => send({ type: 'editor-op', op: { op: 'nudge', f: 0, r: step, u: 0 } }),
+        ArrowLeft: () => send({ type: 'editor-op', op: { op: 'nudge', f: 0, r: -step, u: 0 } }),
+        PageUp: () => send({ type: 'editor-op', op: { op: 'nudge', f: 0, r: 0, u: step } }),
+        PageDown: () => send({ type: 'editor-op', op: { op: 'nudge', f: 0, r: 0, u: -step } }),
+        Comma: () => send({ type: 'editor-op', op: { op: 'turn', deg: e.shiftKey ? -90 : -15 } }),
+        Period: () => send({ type: 'editor-op', op: { op: 'turn', deg: e.shiftKey ? 90 : 15 } }),
+        Minus: () => send({ type: 'editor-op', op: { op: 'size', dw: -0.2, dh: -0.2 } }),
+        Equal: () => send({ type: 'editor-op', op: { op: 'size', dw: 0.2, dh: 0.2 } })
+    };
+    const f = ops[e.code];
+    if (!f) return false;
+    f();
+    return true;
+}
+
+addEventListener('wheel', (e) => {
+    const st = editorState;
+    if (!editorOpen || !st || st.mode !== 'camera' || anyOverlay() || editorPanel.el.contains(e.target as Node)) return;
+    send({ type: 'editor-op', op: { op: 'reach', m: st.reach * (e.deltaY > 0 ? 1 / 1.15 : 1.15) } });
+}, { passive: true });
 
 /** Which courses the pilot has a time on, to the engine: their pads keep only the TIME TRIAL sign. */
 function sendFlown(): void {
@@ -786,7 +947,7 @@ function dataSection(): Child[] {
         }, confirmData === what ? sure : label);
     return [
         h('h2', {}, 'Your data'),
-        h('p', { class: 'note' }, 'Default settings puts every setting back as it was at first (your radio setup stays). Clear all data also forgets your radio setup, golden props, time trial times and saved flights. Both reload the game.'),
+        h('p', { class: 'note' }, 'Default settings puts every setting back as it was at first (your radio setup stays). Clear all data also forgets your radio setup, golden props, time trial times, the courses you made and saved flights. Both reload the game.'),
         h('div', { class: 'row' },
             button('defaults', 'Default settings', 'Click again to reset every setting', () => saveSettings(defaultSettings(settings))),
             button('all', 'Clear all data', 'Click again to erase everything', async () => {
@@ -835,15 +996,16 @@ function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
 }
 
 /** The menu's big buttons: the title card's and the pause menu's. */
-function menuButtons(first: HTMLElement | null, last: HTMLElement | null = null): HTMLElement {
+function menuButtons(first: HTMLElement | null, ...last: (HTMLElement | null)[]): HTMLElement {
     const n = found().length;
     return h('div', { class: 'menu-buttons' },
         first,
         h('button', { onclick: openSettings }, 'Settings'),
         h('button', { onclick: openCollection, disabled: props.length === 0 }, props.length ? `Collection  ${n} / ${props.length}` : 'Collection'),
         h('button', { onclick: openTrials, disabled: trials.length === 0 }, 'Time trials'),
+        h('button', { onclick: () => (editorOpen ? showMenu(false) : openCreator()), disabled: !engineReady }, editorOpen ? 'Back to the course creator' : 'Course creator'),
         h('button', { onclick: openFlights }, 'Flight replay'),
-        last);
+        ...last);
 }
 
 /**
@@ -869,12 +1031,14 @@ function renderMenu(): void {
     clear(menuBody,
         h('div', { class: 'title' }, h('h1', {}, 'Paused'), closeButton(() => showMenu(false))),
         menuButtons(racing ? h('button', { onclick: () => { send({ type: 'trial', act: 'quit' }); showMenu(false); } }, 'Leave time trial') : null,
+            editorOpen ? h('button', { onclick: () => { showMenu(false); saveEditor(false); } }, 'Save course and leave the creator') : null,
             h('button', { onclick: backToTitle }, 'Back to main menu')),
         h('p', { class: 'note' }, 'Esc goes back to flying.'));
 }
 
 /** Pause > Back to main menu (owner, 2026-10-19): any time trial ends, the quad goes back to the start point, the title card shows. */
 function backToTitle(): void {
+    if (editorOpen) closeEditor();
     send({ type: 'trial', act: 'quit' });
     send({ type: 'reset' });
     started = false;
@@ -894,7 +1058,12 @@ function lookAround(): boolean {
 
 /** the mouse and keys fly a camera: looking around without a radio, or the replay viewer's free camera */
 function freeLook(): boolean {
-    return replayUi.open ? replayUi.cam === 'free' : lookAround();
+    return replayUi.open ? replayUi.cam === 'free' : lookAround() || (editorOpen && editorState?.mode === 'camera');
+}
+
+/** the creator's camera: the mouse and keys fly the free camera (with a radio connected too) */
+function editorCamera(): boolean {
+    return editorOpen && editorState?.mode === 'camera';
 }
 
 function mouseCaptured(): boolean {
@@ -936,7 +1105,7 @@ addEventListener('keydown', (e) => {
             openSettings();
             return;
         }
-        for (const ui of [flightsUi, collectionUi, trialsUi, settingsUi]) {
+        for (const ui of [flightsUi, collectionUi, trialsUi, settingsUi, creatorUi]) {
             if (!ui.open) continue;
             ui.hide();
             showMenu(true);
@@ -946,7 +1115,15 @@ addEventListener('keydown', (e) => {
         // the title card stays until Start flying; after that Esc opens and closes the pause menu
         if (started) showMenu(menu.classList.contains('hidden'));
     } else if (anyOverlay()) return;
-    else if (e.code === 'KeyR' && lookAround()) send({ type: 'freecam', keys: [...held], dx: 0, dy: 0, enter: true });
+    // typing a course or gate name in the creator's panel
+    else if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    else if (editorKey(e)) e.preventDefault();
+    else if (editorCamera() && ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight'].includes(e.code)) {
+        held.add(e.code);
+        camDirty = true;
+        e.preventDefault();
+    }
+    else if (e.code === 'KeyR' && (lookAround() || editorCamera())) send({ type: 'freecam', keys: [...held], dx: 0, dy: 0, enter: true });
     else if (e.code === 'KeyR') send({ type: 'reset' });
     else if (e.code === 'KeyM') {
         settings.sound = !settings.sound;

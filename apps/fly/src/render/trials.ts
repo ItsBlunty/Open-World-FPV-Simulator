@@ -3,12 +3,13 @@
 // on the course, LAND HERE TO START under it and a floating arrow under the arch pointing at the pad. While
 // a race runs, the gates: the next one in a thick pulsing frame with a tinted pane and a floating arrow over it (the
 // arrow and a faint frame seen through walls, so it can be found from anywhere), the one after it in a thin dim frame
-// (owner, 2026-10-19: the gates must be much more obvious). Drawn only: none of it is solid (the arch, pad and flag are
-// the level's own geometry), and drawing never feeds back into the sim.
+// (owner, 2026-10-19: the gates must be much more obvious). Race gates (kind 'gate', owner 2026-10-20) are drawn on
+// every course all the time. Drawn only: the collision has its own copy of the arches and race gates (the map's,
+// course-world.ts), and drawing never feeds back into the sim.
 
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ARCH, CHECKER_SLAB, checkerFaces, gateAxes } from '@owfpv/maps';
+import { ARCH, CHECKER_SLAB, checkerFaces, gateAxes, raceGateBoxes } from '@owfpv/maps';
 import type { Gate, TimeTrial } from '@owfpv/maps';
 import type { TrialStatus } from '../trials';
 import { FULL_KIT } from './kit';
@@ -83,7 +84,7 @@ function checkerTexture(): THREE.Texture {
 }
 
 /** A gate's frame: four bars `bar` m thick round its opening, in the gate's plane. */
-function frameGeometry(g: Gate, bar: number): THREE.BufferGeometry {
+export function frameGeometry(g: Gate, bar: number): THREE.BufferGeometry {
     const { u, v } = gateAxes(g);
     const W = g.hw + OUT + bar / 2, H = g.hh + OUT + bar / 2;
     const parts: THREE.BufferGeometry[] = [];
@@ -98,7 +99,7 @@ function frameGeometry(g: Gate, bar: number): THREE.BufferGeometry {
 }
 
 /** The gate's opening as a pane (drawn from both sides), for a light tint over it. */
-function paneGeometry(g: Gate): THREE.BufferGeometry {
+export function paneGeometry(g: Gate): THREE.BufferGeometry {
     const { u, v } = gateAxes(g);
     return clean([inGate(g, u, v, new THREE.PlaneGeometry(2 * g.hw, 2 * g.hh), 0, 0)]);
 }
@@ -111,7 +112,7 @@ function inGate(g: Gate, u: number[], v: number[], geo: THREE.BufferGeometry, cu
 }
 
 /** Pieces merged into one geometry with positions and normals only. */
-function clean(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+export function clean(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
     const out = mergeGeometries(parts.map((p) => {
         const n = p.index ? p.toNonIndexed() : p;
         const g = new THREE.BufferGeometry();
@@ -124,7 +125,7 @@ function clean(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
 }
 
 /** A 3D arrow pointing down, its tip at the origin: 1.8 m tall, 1.2 m across its head, 0.3 m thick. */
-function arrowGeometry(): THREE.BufferGeometry {
+export function arrowGeometry(): THREE.BufferGeometry {
     const s = new THREE.Shape();
     s.moveTo(0, 0);
     s.lineTo(0.6, 0.8);
@@ -155,8 +156,38 @@ const STROKES: Record<string, number[][]> = {
     D: [[0, 0, 0, 6], [0, 6, 3, 6], [3, 6, 4, 5], [4, 5, 4, 1], [4, 1, 3, 0], [3, 0, 0, 0]],
     H: [[0, 0, 0, 6], [4, 0, 4, 6], [0, 3, 4, 3]],
     O: [[0, 0, 0, 6], [0, 6, 4, 6], [4, 6, 4, 0], [4, 0, 0, 0]],
-    S: [[4, 6, 0, 6], [0, 6, 0, 3], [0, 3, 4, 3], [4, 3, 4, 0], [4, 0, 0, 0]]
+    S: [[4, 6, 0, 6], [0, 6, 0, 3], [0, 3, 4, 3], [4, 3, 4, 0], [4, 0, 0, 0]],
+    // digits, for the creator's gate numbers (owner, 2026-10-20)
+    '0': [[0, 0, 0, 6], [0, 6, 4, 6], [4, 6, 4, 0], [4, 0, 0, 0]],
+    '1': [[2, 0, 2, 6], [2, 6, 1, 5], [1, 0, 3, 0]],
+    '2': [[0, 6, 4, 6], [4, 6, 4, 3], [4, 3, 0, 3], [0, 3, 0, 0], [0, 0, 4, 0]],
+    '3': [[0, 6, 4, 6], [4, 6, 4, 0], [4, 0, 0, 0], [1, 3, 4, 3]],
+    '4': [[0, 6, 0, 3], [0, 3, 4, 3], [4, 6, 4, 0]],
+    '5': [[4, 6, 0, 6], [0, 6, 0, 3], [0, 3, 4, 3], [4, 3, 4, 0], [4, 0, 0, 0]],
+    '6': [[4, 6, 0, 6], [0, 6, 0, 0], [0, 0, 4, 0], [4, 0, 4, 3], [4, 3, 0, 3]],
+    '7': [[0, 6, 4, 6], [4, 6, 1, 0]],
+    '8': [[0, 0, 0, 6], [0, 6, 4, 6], [4, 6, 4, 0], [4, 0, 0, 0], [0, 3, 4, 3]],
+    '9': [[4, 0, 4, 6], [4, 6, 0, 6], [0, 6, 0, 3], [0, 3, 4, 3], [0, 0, 4, 0]],
+    P: [[0, 0, 0, 6], [0, 6, 4, 6], [4, 6, 4, 3], [4, 3, 0, 3]]
 };
+
+/** Race gates' bars and legs as one geometry (the boxes the collision has: maps raceGateBoxes). */
+export function raceGateGeometry(gates: readonly Gate[]): THREE.BufferGeometry | null {
+    const parts: THREE.BufferGeometry[] = [];
+    for (const g of gates) {
+        if (g.kind !== 'gate') continue;
+        for (const b of raceGateBoxes(g)) {
+            const geo = new THREE.BoxGeometry(2 * b.h[0], 2 * b.h[1], 2 * b.h[2]);
+            const m = new THREE.Matrix4().makeBasis(new THREE.Vector3(...b.u), new THREE.Vector3(...b.v), new THREE.Vector3(...b.n));
+            m.setPosition(b.c[0], b.c[1], b.c[2]);
+            parts.push(geo.applyMatrix4(m));
+        }
+    }
+    return parts.length ? clean(parts) : null;
+}
+
+/** Race gates' colour: the orange of a race gate's panels [chosen; MultiGP's come in several colours]. */
+export const RACE_GATE_COLOR = 0xff6a13;
 
 /** `text` in 3D block letters `h` m tall, centred on the origin in the x-y plane, facing +z. */
 export function textGeometry(text: string, h: number): THREE.BufferGeometry {
@@ -254,6 +285,15 @@ export class TrialsView {
             this.group.add(a);
             this.pads.push({ mat, sign, land, arrow: a });
         }
+        // race gates stand on their courses all the time (solid only while their course is raced)
+        const race = raceGateGeometry(trials.flatMap((t) => t.gates));
+        if (race) {
+            const m = new THREE.Mesh(race, kit.lit({ color: RACE_GATE_COLOR, roughness: 0.7 }));
+            m.name = 'race-gates';
+            m.castShadow = true;
+            m.receiveShadow = true;
+            this.group.add(m);
+        }
         this.frames = trials.map((t) => t.gates.map((g) => frameGeometry(g, BAR_NEXT)));
         this.panes = trials.map((t) => t.gates.map(paneGeometry));
         this.thin = trials.map((t) => t.gates.map((g) => frameGeometry(g, BAR_AFTER)));
@@ -284,6 +324,14 @@ export class TrialsView {
         this.after = mk(kit.flat({ color: AFTER }));
         this.beacon = mk(through(kit.flat({ color: ARROW }), 0.85), 11);
         this.beacon.geometry = arrow;
+    }
+
+    /** Frees the GPU buffers (the courses changed: a new view replaces this one). */
+    dispose(): void {
+        this.group.traverse((o) => {
+            if (o instanceof THREE.Mesh) o.geometry.dispose();
+        });
+        for (const set of [this.frames, this.panes, this.thin]) for (const c of set) for (const g of c) g.dispose();
     }
 
     /** The courses the pilot has a time on (by index): their pads lose the arrow and LAND HERE TO START. */

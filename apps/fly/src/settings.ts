@@ -228,6 +228,23 @@ export function saveTrialTimesRaw(t: unknown): void {
     write(TRIAL_TIMES, t);
 }
 
+/** The courses made in the time trial creator (owner, 2026-10-20), as course-store.ts keeps them: by map id. */
+const COURSES = 'owfpv.courses';
+
+export function loadCoursesRaw(): unknown {
+    return read(COURSES);
+}
+
+/** false: the browser would not keep them (storage blocked or full) */
+export function saveCoursesRaw(c: unknown): boolean {
+    try {
+        localStorage.setItem(COURSES, JSON.stringify(c));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 
 function allProfiles(): Record<string, RadioProfile> {
     const p = read(PROFILES);

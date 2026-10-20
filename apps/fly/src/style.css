@@ -212,3 +212,19 @@ textarea { font: inherit; color: var(--text); background: #0f1217; border: 1px s
 .start-point { margin: 14px 0 0; }
 .start-point .row { justify-content: center; margin: 0; }
 .start-point .note { margin: 4px 0 0; }
+
+/* the time trial creator's panel (owner, 2026-10-20): beside the scene, the scene still takes the mouse */
+.editor-panel { position: fixed; top: 12px; left: 12px; bottom: 12px; width: min(360px, calc(100vw - 24px)); overflow-y: auto; z-index: 8;
+    background: rgba(17, 20, 26, 0.92); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
+.editor-panel h1 { font-size: 18px; margin: 0 0 6px; }
+.editor-panel button { padding: 4px 8px; font-size: 13px; }
+.ed-field { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; font-size: 12px; color: var(--muted); }
+.ed-field input, .ed-field select { font-size: 14px; }
+.row .ed-field { flex: 1; margin: 0; }
+.row .ed-field input { width: 100%; box-sizing: border-box; }
+.ed-list { list-style: none; padding: 0; margin: 8px 0; max-height: 30vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; }
+.ed-list li { padding: 4px 8px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.ed-list li:last-child { border-bottom: none; }
+.ed-list li.sel { background: rgba(255, 224, 102, 0.15); color: #ffe066; }
+.ed-list li strong { display: inline-block; min-width: 1.6em; }
+.ed-sel { border-left: 3px solid #ffe066; padding-left: 8px; margin: 6px 0; }

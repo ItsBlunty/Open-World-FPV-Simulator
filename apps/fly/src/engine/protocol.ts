@@ -8,6 +8,8 @@
 // the engine shifts them by `pageToEngineMs` before the sim clock sees them.
 
 import type { ParamOverrides } from '@owfpv/sim-core';
+import type { CourseFile } from '@owfpv/maps';
+import type { EditorOp } from '../course-editor';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
 import type { GraphicsLevel } from '../graphics';
@@ -51,6 +53,8 @@ export interface InitMsg {
     collection: Record<string, number[]>;
     /** this visit's saved flight: its id (the page's start time, ms) */
     flightId: number;
+    /** the courses made in the time trial creator, by map id (the page keeps them: course-store.ts) */
+    courses: Record<string, CourseFile[]>;
 }
 
 /** A golden prop as the page lists it (maps Collectible, without its position). */
@@ -70,7 +74,8 @@ export interface TrialInfo {
     gates: string[];
     /** its gates' centres, m, in the same order (the HUD's distance to the next one) */
     at: [number, number, number][];
-
+    /** made in the creator (kept in this browser), not one of the map's own */
+    custom: boolean;
 }
 
 export type PageMsg =
@@ -91,6 +96,18 @@ export type PageMsg =
     /** which courses (by index) the pilot has a time on: their pads lose the arrow and LAND HERE TO START */
     | { type: 'trial-flown'; flown: boolean[] }
 
+    /**
+     * the custom courses changed (saved, opened, deleted): the quad is set down where it is now, or on course `pad`'s pad
+     * (its id), for a new life on the new collision
+     */
+    | { type: 'courses'; files: CourseFile[]; pad: string | null }
+    /** the time trial creator: open a course to make or change (hasPad: its pad is placed), or close, or an edit */
+    | { type: 'editor-open'; course: CourseFile; hasPad: boolean }
+    | { type: 'editor-close' }
+    /** the creator's camera: the free camera with the sim paused, or flying the quad (the flown line grows) */
+    | { type: 'editor-mode'; mode: EditorMode }
+    | { type: 'editor-op'; op: EditorOp }
+    | { type: 'editor-clear-line' }
     /** free-fly camera: held keys, mouse movement since the last message, back to the quad */
     | { type: 'freecam'; keys: string[]; dx: number; dy: number; enter: boolean }
     /** debugging from the page's console: `code` runs in the engine with `fly` (session, view, ...) in scope */
@@ -105,6 +122,21 @@ export type PageMsg =
      */
     | { type: 'replay-ctl'; playing?: boolean; speed?: number; seek?: number; cam?: ReplayCam; path?: PathMode; shuttle?: number }
     | { type: 'replay-exit' };
+
+export type EditorMode = 'camera' | 'fly';
+
+/** The creator's state, sent after each change. */
+export interface EditorState {
+    course: CourseFile;
+    hasPad: boolean;
+    selected: number;
+    mode: EditorMode;
+    reach: number;
+    /** what keeps it from being saved (null: it can be) */
+    problem: string | null;
+    /** points in the flown line */
+    line: number;
+}
 
 export interface HudSnapshot {
     /** sim-core's state vector and channels, copied */
@@ -155,6 +187,9 @@ export type EngineMsg =
     | { type: 'ready'; backend: string; spawns: { id: string; name: string }[]; spawn: string; mapId: string; props: PropInfo[]; trials: TrialInfo[]; axles: number[] }
     /** what the sound needs this frame (audio/frame.ts A), every frame */
     | { type: 'audio'; a: Float32Array }
+    /** the courses the engine has now (after a 'courses' message) */
+    | { type: 'courses'; trials: TrialInfo[] }
+    | { type: 'editor'; state: EditorState }
     /** something happened in a time trial (trials.ts TrialEvent) */
     | { type: 'trial'; e: TrialEvent }
 
