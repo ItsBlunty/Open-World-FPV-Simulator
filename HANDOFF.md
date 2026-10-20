@@ -56,7 +56,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   pipes bent as in the owner's photos, no wires across (no open model found); 159 k triangles, no measurable frame cost. [map §1w, §1x]
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
   Quad trapped inside a car fixed (traffic v10): a vehicle's boxes are one solid, a quad inside is pushed out the shortest way out of the whole car. [traffic §1z]
-- **Tests:** `pnpm test`: 62 files, 563 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Respawns avoid cars (owner): a rewind skips spots a car, person or train is on now; R with one on the spawn goes above it. [traffic §1z]
+- **Tests:** `pnpm test`: 63 files, 568 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -129,8 +130,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 21. **Duga radar (map v19):** spawn "Duga radar", look at it from the city and close in front, fly between the rows of
    dipoles and along the face under the pipes, round the towers and end masts. Stagger, row spacing and pipe shape right
    now? Faces the city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w, §1x]
-22. **Respawn into a car (traffic v10):** a quad that lands inside a car is now pushed out the shortest way (from low in
-   the body that is down, under the car; high up, onto the roof). Should respawns (crash rewind, R) also avoid cars? [traffic §1z]
+22. **Respawns and cars:** crash over a city street with cars and let it rewind: it should never put you in or on a car.
+   A quad that still ends up inside one is pushed out the shortest way (low in the body: under the car). [traffic §1z]
 
 ## Left open (not started)
 
@@ -153,7 +154,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
-- Traffic: respawns don't check for traffic (a quad inside a car is pushed out, not trapped, since v10); saved flights with traffic from v9 no longer open. [traffic §1z]
+- Traffic: saved flights with traffic from v9 no longer open; the crash toast's "back N s" doesn't know a car will push the rewind further back; train vehicles not checked for the inside-a-car trap. [traffic §1z]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;

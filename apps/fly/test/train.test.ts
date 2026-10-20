@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { MODE_CHANNEL, S, hoverStickOf } from '@owfpv/sim-core';
 import type { PresetJson, Sim } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
-import { COACH, DWELL_S, NetTraffic, TRAIN_VCURVE, TRAIN_VMAX, Train, makeTrains, newTrainPlace, worldSha256 } from '@owfpv/traffic';
+import { COACH, DWELL_S, NetTraffic, TRAIN_VCURVE, TRAIN_VMAX, Train, TrainWorld, makeTrains, newTrainPlace, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig, TrainState } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from '../src/session';
@@ -329,5 +329,16 @@ describe('the steam train', () => {
             return r.traceHash();
         };
         expect(hash()).toBe(hash());
+    });
+});
+
+describe('the train for respawns (movingNear)', () => {
+    it('is near a point in its engine, not one 50 m to the side of it', () => {
+        const still = { sweep: () => -1, pushOut: () => false, contacts: () => 0 };
+        const w = new TrainWorld(still, TRAIN0);
+        w.at(60000);
+        const pl = w.placeOf(0);
+        expect(w.movingNear(pl.x, pl.y + 1.5, pl.z, 0.5)).toBe(true);
+        expect(w.movingNear(pl.x - pl.hz * 50, pl.y + 1.5, pl.z + pl.hx * 50, 0.5)).toBe(false);
     });
 });

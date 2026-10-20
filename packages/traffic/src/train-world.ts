@@ -179,6 +179,15 @@ export class TrainWorld implements ContactWorld {
         return best > 0;
     }
 
+    /** Is a vehicle of the train (or something moving in the inner world) within r of the point at this tick? */
+    movingNear(x: number, y: number, z: number, r: number): boolean {
+        if (this.inner.movingNear?.(x, y, z, r)) return true;
+        for (const i of this.near3(x, y, z, x, y, z, r)) {
+            for (let b = 0; this.nearest(i, b, x, y, z, r); b++) if (this.near.d < r) return true;
+        }
+        return false;
+    }
+
     /** The scene's sweep, then each sphere against the train where it is at this tick (conservative advancement, as world.ts). */
     sweep(c0: Float64Array, c1: Float64Array, rr: Float64Array, pad: Float64Array, n: number, out: ContactOut): number {
         let best = this.inner.sweep(c0, c1, rr, pad, n, out);

@@ -104,6 +104,13 @@ const FLIPPED_W = 1;
 const WEDGED_V = 0.1;
 const WEDGED_ABOVE_HOVER = 0.15;
 const TOUCH_MARGIN = 0.02;
+/**
+ * A start spot with a car (person, train) on it: tried this much higher at a time, up to START_RAISE_MAX, until neither
+ * a mover nor the scene is within the history's margin (owner, 2026-10-20: respawns avoid cars) [numerical choices:
+ * the highest vehicle is a 4.5 m train coach, plus the margin]
+ */
+const START_RAISE_STEP = 0.25;
+const START_RAISE_MAX = 8;
 const POSES = STILL_WINDOW_TICKS / TOUCH_EVERY_TICKS + 1;
 const WINDOW_S = STILL_WINDOW_TICKS / 1000;
 
@@ -212,7 +219,7 @@ export class RespawnDirector {
             const k = this.manual;
             this.manual = null;
             // Y after a crash goes back from the crash, not from the key press
-            return k === 'start' ? this.toStart(t, 'manual-start', t) : this.rewind(t, this.crashedAt >= 0 ? this.crashedAt : t, 'manual-rewind');
+            return k === 'start' ? this.toStart(sim, 'manual-start', t) : this.rewind(sim, this.crashedAt >= 0 ? this.crashedAt : t, 'manual-rewind');
         }
         if (this.crashTick >= 0) {
             if (!P.auto) this.crashTick = -1;
@@ -223,7 +230,7 @@ export class RespawnDirector {
                     this.onSceneIntent(t);
                     return null;
                 }
-                return P.target === 'start' ? this.toStart(t, 'crash', c) : this.rewind(t, c, 'crash');
+                return P.target === 'start' ? this.toStart(sim, 'crash', c) : this.rewind(sim, c, 'crash');
             }
             return null;
         }
@@ -238,7 +245,7 @@ export class RespawnDirector {
                 if (!still) this.flipSince = -1;
                 else if (this.flipSince < 0) this.flipSince = t - STILL_WINDOW_TICKS;
             }
-            if (this.flipSince >= 0 && t - this.flipSince >= FLIPPED_TICKS) return this.rewind(t, this.flipSince, 'stuck-flipped');
+            if (this.flipSince >= 0 && t - this.flipSince >= FLIPPED_TICKS) return this.rewind(sim, this.flipSince, 'stuck-flipped');
         } else this.flipSince = -1;
 
         const stick = (sim.ch[2] + 1) * 0.5;
@@ -248,7 +255,7 @@ export class RespawnDirector {
                 if (!still) this.wedgeSince = -1;
                 else if (this.wedgeSince < 0) this.wedgeSince = t - STILL_WINDOW_TICKS;
             }
-            if (this.wedgeSince >= 0 && t - this.wedgeSince >= WEDGED_TICKS) return this.rewind(t, this.wedgeSince, 'stuck-wedged');
+            if (this.wedgeSince >= 0 && t - this.wedgeSince >= WEDGED_TICKS) return this.rewind(sim, this.wedgeSince, 'stuck-wedged');
         } else this.wedgeSince = -1;
         return null;
     }
@@ -330,12 +337,23 @@ export class RespawnDirector {
         return w !== null && w.pushOut(s[S.px], s[S.py], s[S.pz], this.boundRadiusNow + TOUCH_MARGIN, this.push);
     }
 
-    private rewind(t: number, incident: number, reason: RespawnReason): RespawnRequest {
+    /**
+     * No moving surface (car, person, train) within the body's radius plus the history's margin of (x, y, z) at this
+     * tick (owner, 2026-10-20: respawns avoid cars). A world where nothing moves has no such surface.
+     */
+    private clearOfMovers(sim: Sim, x: number, y: number, z: number): boolean {
+        const w = sim.world;
+        return !w || !w.movingNear || !w.movingNear(x, y, z, sim.p.boundRadius + this.history.margin);
+    }
+
+    private rewind(sim: Sim, incident: number, reason: RespawnReason): RespawnRequest {
         const P = this.policy;
+        const t = sim.tick;
         this.backoff = incident - this.lastRewind < BACKOFF_WINDOW_TICKS ? this.backoff + 1 : 1;
         const age = this.backoff * P.rewindTicks;
-        const smp = age <= this.history.depthTicks ? this.history.pickBefore(incident, age) : null;
-        if (!smp) return this.toStart(t, reason, incident);
+        // the newest safe spot old enough with nothing moving on it now: a car on the first one goes further back
+        const smp = age <= this.history.depthTicks ? this.history.pickBefore(incident, age, (x, y, z) => this.clearOfMovers(sim, x, y, z)) : null;
+        if (!smp) return this.toStart(sim, reason, incident);
         this.lastRewind = t;
         this.resetStuck();
         this.edit = { rewindTo: smp.tick };
@@ -343,9 +361,23 @@ export class RespawnDirector {
         return { x: smp.x, y: smp.y, z: smp.z, yawDeg: smp.yawDeg, opts: this.opts(P.refill === 'respawn'), reason, rewind: true };
     }
 
-    private toStart(t: number, reason: RespawnReason, incident: number): RespawnRequest {
+    private toStart(sim: Sim, reason: RespawnReason, incident: number): RespawnRequest {
         const P = this.policy;
-        const [x, y, z, yawDeg] = this.spawn();
+        const t = sim.tick;
+        const [x, y0, z, yawDeg] = this.spawn();
+        // the start has one place: with a car (person, train) on it, the craft goes above it, clear of it and of the
+        // scene; if no height up to START_RAISE_MAX is clear, the start as it is
+        let y = y0;
+        if (!this.clearOfMovers(sim, x, y0, z)) {
+            const w = sim.world!;
+            const r = sim.p.boundRadius + this.history.margin;
+            for (let k = 1; k * START_RAISE_STEP <= START_RAISE_MAX; k++) {
+                const yk = y0 + k * START_RAISE_STEP;
+                if (w.pushOut(x, yk, z, r, this.push) || !this.clearOfMovers(sim, x, yk, z)) continue;
+                y = yk;
+                break;
+            }
+        }
         this.backoff = 0;
         this.lastRewind = -Infinity;
         this.resetStuck();

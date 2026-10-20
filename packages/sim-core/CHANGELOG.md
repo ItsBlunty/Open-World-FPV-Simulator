@@ -4,6 +4,12 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- `ContactWorld.movingNear?(x, y, z, r)`: is a moving surface (car, person, train) within r of the point at this tick.
+  The respawn director keeps respawns clear of them (owner, 2026-10-20): a rewind skips kept spots with one there now and
+  goes further back (`StateHistory.pickBefore` takes an optional `free` test); a start with one on it is raised in
+  0.25 m steps, up to 8 m, until clear of it and of the scene. Respawns are log records, so replays and traces are
+  unchanged; a world without movingNear behaves as before. Test: `test/respawn-movers.test.ts`.
+
 - `Sim.bladeBrake(i)`: reads how hard a surface brakes each prop this tick (the game's prop-strike sound). Traces and
   hashes are unchanged, so `SIM_CORE_VERSION` stays 0.7.0.
 - `ParamOverrides.batteryDrain` (`SimParams.batteryDrain`): `false` keeps the pack's state of charge where the life set

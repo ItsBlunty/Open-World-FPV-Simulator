@@ -312,6 +312,15 @@ export class TrafficWorld implements ContactWorld {
         return best > 0;
     }
 
+    /** Is a mover (a car, a person, or something moving in the inner world) within r of the point at this tick? */
+    movingNear(x: number, y: number, z: number, r: number): boolean {
+        if (this.inner.movingNear?.(x, y, z, r)) return true;
+        for (const i of this.moversNear(x, y, z, x, y, z, r)) {
+            for (let part = 0; this.nearest(i, part, x, y, z); part++) if (this.near.d < r) return true;
+        }
+        return false;
+    }
+
     /**
      * The scene's sweep, then each sphere against the traffic where it is at this tick, by conservative
      * advancement (the distance to a convex shape never shrinks faster than the sphere moves). A mover's own

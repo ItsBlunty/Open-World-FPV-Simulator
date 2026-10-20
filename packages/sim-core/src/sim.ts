@@ -63,6 +63,11 @@ export interface ContactWorld {
      * start of every step (parked or not), before any query; the surfaces must be a function of the tick alone (replays).
      */
     at?(tick: number): void;
+    /**
+     * Is a moving surface (a car, a person, a train) within r of the point, where they are at the last at() tick?
+     * Optional: a world where nothing moves leaves it out. The respawn director keeps respawns clear of them.
+     */
+    movingNear?(x: number, y: number, z: number, r: number): boolean;
 }
 
 export type SimEvent =

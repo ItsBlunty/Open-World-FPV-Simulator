@@ -292,7 +292,21 @@ fix it stayed 90 mm inside from tick 5 on. Now it is clear of everything from ti
 the car on the road, and tips 7.5 deg with the stick. Every pinned hash unchanged (the traffic hash pins mover places;
 no pinned flight goes inside a car); `TRAFFIC_VERSION` 9 -> 10 because the solid changed, so saved flights with traffic
 from v9 no longer open (as after a map change). The shortest way out can be down under the car: a teleport of up to
-about 1 m in one tick, with no speed added. Game respawns still do not check for traffic (owner asked whether they
-should, HANDOFF waiting list). Also: `onRoof` in `traffic.test.ts` puts the quad at `CAR.cabY1` (1.55 m, the
+about 1 m in one tick, with no speed added. Respawns now avoid cars too (below). Also: `onRoof` in `traffic.test.ts` puts the quad at `CAR.cabY1` (1.55 m, the
 saloon) but car 0 is an SUV (roof 1.75 m): it starts 20 cm inside the glass and the push-out lifts it onto the roof in
 the first tick (both roof tests still measure what they say).
+
+Respawns avoid cars (owner, 2026-10-20: "Make respawns (crash rewind and R) avoid cars: pick a spot with no car there").
+sim-core's `ContactWorld` has an optional `movingNear(x, y, z, r)`: `TrafficWorld` answers for cars and people (and asks
+its inner world), `TrainWorld` for the train; the level's mesh has none (nothing moves). The respawn director
+(`packages/sim-core/src/director.ts`) asks it at the respawn tick with the body's radius plus the history's margin (0.5 m
+in the game, so 0.69 m for the Nazgul): a rewind takes the newest kept spot old enough with nothing moving near it,
+going further back past spots a car is on (to the start if none is left); the start (R, a crash with target start, a time
+trial's pad) has one place, so with a mover on it the quad goes straight up in 0.25 m steps, up to 8 m, until clear of
+movers and the scene, onto its platform. Measured: over 10 min of all traffic and both trains, no spawn point is ever
+reached by a mover, so in this map it is the rewinds that matter. Tests: `packages/sim-core/test/respawn-movers.test.ts`
+(rewind 2 s back would land on the stretch a car covers at x 5.31 m; it goes 2.5 s back to x 3.76 m, clear; a start
+under a 1.5 m car goes to 1.75 m; with nothing moving the start is the spawn as before), `movingNear` in the traffic and
+train tests. The crash toast's "back N s" (`preview()`) does not know where the cars will be at the respawn, so it can
+say less than the rewind goes. Not checked: whether the train's vehicles have stacked boxes that could trap a quad as the
+SUV did.

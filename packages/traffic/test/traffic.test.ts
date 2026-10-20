@@ -432,6 +432,23 @@ describe('the traffic world', () => {
         expect(world.contacts(0, 50, 40, 0.05, out, 4, vel)).toBe(0);
     });
 
+    it('movingNear: a car beside the point within r, not the road under it nor the car farther than r (respawns)', () => {
+        world.at(tick);
+        const pl = world.placeOf(car);
+        const sx = -pl.hz, sz = pl.hx;
+        const y = (CAR.bodyY0 + CAR.bodyY1) / 2;
+        // 0.3 m beside the body's side
+        const x = pl.x + sx * (CAR.bodyHalfW + 0.3), z = pl.z + sz * (CAR.bodyHalfW + 0.3);
+        expect(world.movingNear(x, y, z, 0.31)).toBe(true);
+        expect(world.movingNear(x, y, z, 0.29)).toBe(false);
+        // over the road far from every car: the road is not moving
+        expect(world.movingNear(0, 50, 40, 0.5)).toBe(false);
+        // on the road beside the car: the road is solid there, but it does not move
+        const push = { x: 0, y: 0, z: 0 };
+        expect(world.pushOut(x, pl.y + 0.03, z, 0.05, push)).toBe(true);
+        expect(world.movingNear(x, pl.y + 0.03, z, 0.05)).toBe(false);
+    });
+
     it('stops a sweep into a car at its side, and pushes a sphere inside it out', () => {
         world.at(tick);
         const pl = world.placeOf(car);

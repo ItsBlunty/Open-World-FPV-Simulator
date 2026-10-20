@@ -146,13 +146,15 @@ export class StateHistory {
 
     /**
      * The newest safe sample at least minAgeTicks along the path before `tick` (a tick of the
-     * current life), else older safe ones; null = none (use the spawn).
+     * current life), else older safe ones; null = none (use the spawn). `free`, when given, must
+     * also accept the sample's place now (the director: no car there).
      */
-    pickBefore(tick: number, minAgeTicks: number): HistorySample | null {
+    pickBefore(tick: number, minAgeTicks: number, free?: (x: number, y: number, z: number) => boolean): HistorySample | null {
         const limit = tick + this.off - minAgeTicks;
         for (let k = 0; k < this.count; k++) {
             const i = (this.head - 1 - k + this.capacity) % this.capacity;
             if (this.path[i] > limit || this.safeF[i] === 0) continue;
+            if (free && !free(this.pos[i * 3], this.pos[i * 3 + 1], this.pos[i * 3 + 2])) continue;
             return this.sample(i);
         }
         return null;
