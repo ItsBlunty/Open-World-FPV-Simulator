@@ -38,7 +38,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Start at on the title card, Pause > Back to main menu, Settings > Help and about > Default settings / Clear all data. [camera §1k]
   Sound built (first pass): motors from each rotor's speed, calibrated against a real 5" recording; hits, prop strikes,
   steam trains, city and park ambience, race beeps, prop chime; Settings > Sound, M mutes; CC0 sources. [sound §1l]
-- **Tests:** `pnpm test`: 62 files, 549 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Sound fixes: strikes start at the hit, low latency buffer (19 vs 66 ms, falls back if it crackles), harmonics
+  re-measured (less tinny), own phase per rotor (no flanger echo), rush quieter and chopped (no static), Ambience slider at 50 %. [sound §1m]
+- **Tests:** `pnpm test`: 62 files, 550 tests pass. `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `68fe64ac…` (traffic v7 with people taking the trains, and the trains v3)
@@ -95,15 +97,15 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    Trials screen lists every gate. Courses right (yard too hard, park wires too tight)? Want split times, more courses?
    Gates and pad markers clear enough now? Pad size right? [time-trials §1h-§1j]
 
-17. **Sound:** fly with headphones, FPV and chase (C): motors realistic (hover, punch-out, flips, prop wash dives)?
-   Hits and prop strikes? Spawn "Fields station": chuffs, rail knocks, standing hiss, whistle (American chime: OK?).
-   City and park beds, race beeps, golden prop chime. Volumes in Settings > Sound. [sound §1l]
+17. **Sound (after the fixes):** fly with headphones, FPV and chase (C): still late, tinny, echoey or static? Hits and
+   prop strikes on time? Any crackle (then Settings > Sound > Low latency sound will have turned itself off: is it on?)
+   Ambience at 50 % right? Spawn "Fields station": chuffs, rail knocks, whistle (American chime: OK?). [sound §1l, §1m]
 
 ## Left open (not started)
 
-- **Sound, unfinished (next session):** browser check of trains, hits, strikes, beeps and chase Doppler not done
-  (`__fly.sound.counts`, `__fly.sound.spectrum()`; try `?spawn=station`); no hit sounds in replays; no car sounds;
-  British whistle wanted?; mix levels and loudness exponents are estimates. [sound]
+- **Sound:** browser check of trains, hits, strikes, beeps and chase Doppler not done (`__fly.sound.counts`,
+  `__fly.sound.spectrum()`, `?demo&spawn=station`); no hit sounds in replays; no car sounds; British whistle wanted?;
+  mix levels, rush chop and loudness exponents are estimates; low latency untested on the owner's PC. [sound §1m]
 
 - Freestyle grading: Matty flip, Rubik's cube, yaw spins, orbit not built; challenges (spots, pars, stars, ghost)
   not built and need owner questions first; long carving (> 8 s turning) hides tricks inside it. [freestyle-grading §11]
@@ -167,7 +169,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
-| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked |
+| `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START |
 
 

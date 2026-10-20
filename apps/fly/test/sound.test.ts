@@ -12,7 +12,7 @@ import { makeTrains } from '@owfpv/traffic';
 import { A, BEAT_M, TF, cityWeight, fastestHit, putQuad, putTrains, trainAxles } from '../src/audio/frame';
 import {
     BPF_DB, HARMONICS, MOTOR_DB, SHAFT_DB, airAbsorptionDbPerM, airCornerHz, bladesOf, doppler, noiseCornerHz, noiseGain,
-    rotorSpectrum, toneGain, washOf
+    rotorSpectrum, rotorWave, toneGain, washOf
 } from '../src/audio/quad-sound';
 import { FlightSession } from '../src/session';
 import { selftestSticks } from '../src/selftest';
@@ -43,6 +43,25 @@ describe('the rotor waveform', () => {
         expect(db(w[7])).toBeCloseTo(MOTOR_DB[0], 4);
         expect(db(w[14])).toBeCloseTo(MOTOR_DB[1], 4);
         for (let n = 1; n <= HARMONICS; n++) if (n % 3 !== 0) expect(w[n]).toBeLessThan(w[3]);
+    });
+
+    it('gives each rotor the same levels at its own phases, so four rotors do not comb-filter as one', () => {
+        const waves = [0, 1, 2, 3].map((i) => rotorWave(3, i));
+        for (const { real, imag } of waves) {
+            for (let n = 1; n <= HARMONICS; n++) expect(Math.hypot(real[n], imag[n])).toBeCloseTo(w[n], 6);
+        }
+        // any two rotors' waveforms are far from alike (correlation over one turn; 1 would be the same wave)
+        const corr = (a: number, b: number): number => {
+            let s = 0, e = 0;
+            for (let n = 1; n <= HARMONICS; n++) {
+                s += waves[a].real[n] * waves[b].real[n] + waves[a].imag[n] * waves[b].imag[n];
+                e += w[n] * w[n];
+            }
+            return s / e;
+        };
+        for (let a = 0; a < 4; a++) for (let b = a + 1; b < 4; b++) expect(Math.abs(corr(a, b))).toBeLessThan(0.9);
+        // the same seed, the same wave
+        expect(Array.from(rotorWave(3, 2).real)).toEqual(Array.from(waves[2].real));
     });
 });
 

@@ -82,7 +82,7 @@ function trafficConfig(): TrafficConfig {
 }
 
 function soundLevels(): SoundLevels {
-    return { on: settings.sound, master: settings.volume, quad: settings.quadVolume, world: settings.worldVolume, effects: settings.effectsVolume };
+    return { on: settings.sound, master: settings.volume, quad: settings.quadVolume, world: settings.worldVolume, ambience: settings.ambienceVolume, effects: settings.effectsVolume, lowLatency: settings.soundLowLatency };
 }
 
 /**
@@ -95,7 +95,11 @@ const sound = new AudioEngine(soundLevels(), {
     blades: bladesOf(String(presetFields.prop?.value ?? '')),
     hoverShare: 1 / Math.sqrt(Number(presetFields.twr?.value ?? 4)),
     axles: [],
-    base: new URL('sounds/', document.baseURI).href
+    base: new URL('sounds/', document.baseURI).href,
+    onCrackle: () => {
+        settings.soundLowLatency = false;
+        saveSettings(settings);
+    }
 });
 for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sound.unlock(), { capture: true });
 

@@ -17,7 +17,7 @@
 
 import { A, BEAT_M, RAIL_M, TF, MAX_TRAINS } from './frame';
 import {
-    HARMONICS, airCornerHz, doppler, noiseCornerHz, noiseGain, rotorSpectrum, toneGain, washOf
+    airCornerHz, doppler, noiseCornerHz, noiseGain, rotorWave, toneGain, washOf
 } from './quad-sound';
 
 /** The volume settings (settings.ts): on or off, then each part 0-100. */
@@ -25,9 +25,17 @@ export interface SoundLevels {
     on: boolean;
     master: number;
     quad: number;
+    /** the trains */
     world: number;
+    /** the city and the park */
+    ambience: number;
     effects: number;
+    /** the sound card's smallest buffer (about 20 ms to the ears instead of 65 in Chrome on Windows) */
+    lowLatency: boolean;
 }
+
+/** underruns within 4 s that count as crackle at low latency [estimate: a click a second is plainly audible] */
+const CRACKLES = 4;
 
 export interface SoundOptions {
     /** blades per prop (quad-sound.ts bladesOf) */
@@ -38,7 +46,15 @@ export interface SoundOptions {
     axles: number[];
     /** where the sound files are: a base URL ending in / */
     base: string;
+    /** low latency crackled and was turned off */
+    onCrackle?: () => void;
 }
+
+/**
+ * Where the prop strike starts in strike.ogg, s: the clip opens on 0.11 s of the quad flying before its props hit the
+ * frame, which made every strike sound late.
+ */
+const STRIKE_AT = 0.108;
 
 /** The recordings (sounds/SOURCES.md) */
 const FILES = {
@@ -47,9 +63,13 @@ const FILES = {
     soft: ['hit-soft-000', 'hit-soft-001', 'hit-soft-002', 'hit-soft-003', 'hit-soft-004']
 } as const;
 
-/** Mix levels of the parts against each other [tuned by ear: the owner's to judge] */
+/**
+ * Mix levels of the parts against each other [tuned by ear: the owner's to judge]. The quad at full throttle comes to
+ * about -6 dBFS rms (master 100 %), so the compressor only rounds off the loudest moments: driven hard, it pumped the
+ * other sounds and its fast limiter crackled.
+ */
 const MIX = {
-    quad: 10, rotor: 0.3, rush: 0.35, wind: 0.5,
+    quad: 10, rotor: 0.075, rush: 0.05, wind: 0.5,
     hit: 0.9, strike: 0.8,
     chuff: 0.9, roll: 0.25, click: 0.25, standing: 0.5, whistle: 0.9,
     park: 0.9, city: 1.0,
@@ -92,14 +112,22 @@ export class AudioEngine {
     private quadBus!: GainNode;
     private worldBus!: GainNode;
     private uiBus!: GainNode;
-    /** the quad's sounds go in here, then the air's dulling, then the panner */
+    private ambBus!: GainNode;
+    /**
+     * the quad's sounds go in here, then the air's dulling, then either straight out (on board: the microphone rides on
+     * the quad) or through the panner (out in the world)
+     */
     private quadIn!: GainNode;
     private quadAir!: BiquadFilterNode;
     private quadPan!: PannerNode;
+    private onboard!: GainNode;
+    private outside!: GainNode;
     private rotors: Rotor[] = [];
     private rushSrc!: AudioBufferSourceNode;
     private rushFilter!: BiquadFilterNode;
     private rushGain!: GainNode;
+    /** the rush comes in bursts as each blade passes: a tone at the blade-pass rate swings its level */
+    private chop!: OscillatorNode;
     private washDepth!: GainNode;
     private windGain!: GainNode;
     private trains: TrainVoice[] = [];
@@ -116,6 +144,10 @@ export class AudioEngine {
     private lastCount = -1;
     /** the time since the last frame, s */
     private frameDt = 0;
+    /** whether this context has the small buffer; the underrun counts of the last seconds; when they were last read */
+    private lowNow = false;
+    private underruns: number[] = [];
+    private crackleAt = 0;
 
     constructor(levels: SoundLevels, opts: SoundOptions) {
         this.levels = { ...levels };
@@ -123,7 +155,7 @@ export class AudioEngine {
     }
 
     /** For checks: the mix's spectrum now (dB per bin, bin width sampleRate / fftSize) and its state. */
-    spectrum(): { state: string; sampleRate: number; binHz: number; rmsDb: number; db: number[] } | null {
+    spectrum(): { state: string; sampleRate: number; binHz: number; rmsDb: number; latencyMs: number; db: number[] } | null {
         const c = this.ctx, an = this.analyser;
         if (!c || !an) return null;
         const d = new Float32Array(an.frequencyBinCount);
@@ -132,7 +164,9 @@ export class AudioEngine {
         an.getFloatTimeDomainData(w);
         let ss = 0;
         for (const x of w) ss += x * x;
-        return { state: c.state, sampleRate: c.sampleRate, binHz: c.sampleRate / an.fftSize, rmsDb: 10 * Math.log10(ss / w.length + 1e-12), db: Array.from(d) };
+        // what the browser and the sound card add between a change here and the ears
+        const latencyMs = 1000 * (c.baseLatency + (c.outputLatency || 0));
+        return { state: c.state, sampleRate: c.sampleRate, binHz: c.sampleRate / an.fftSize, rmsDb: 10 * Math.log10(ss / w.length + 1e-12), latencyMs, db: Array.from(d) };
     }
 
     /** The trains' wheel sets (the engine says once it is ready). */
@@ -153,15 +187,53 @@ export class AudioEngine {
         if (!this.levels.on) return;
         if (!this.ctx) {
             try {
-                this.ctx = new AudioContext({ latencyHint: 'interactive' });
+                // low latency: the smallest buffer the sound card takes. In Chrome on Windows (2026-10-19) 'interactive'
+                // left 66 ms between the sim and the ears, 0 about 19 ms; but a busy computer can't always refill so small
+                // a buffer in time, and each miss is a click (watchCrackle) (docs/notes/sound.md)
+                this.ctx = new AudioContext({ latencyHint: this.levels.lowLatency ? 0 : 'interactive' });
             } catch (err) {
                 console.warn('No sound: this browser could not start Web Audio.', err);
                 return;
             }
+            this.lowNow = this.levels.lowLatency;
+            this.underruns = [];
             this.build(this.ctx);
             void this.load(this.ctx);
         }
         if (this.ctx.state === 'suspended') void this.ctx.resume();
+    }
+
+    /** Starts the sound over in a new AudioContext (a new buffer size), keeping the loaded recordings. */
+    private restart(): void {
+        const old = this.ctx;
+        if (!old) return;
+        this.ctx = null;
+        this.analyser = null;
+        this.rotors = [];
+        this.trains = [];
+        this.lastL = null;
+        void old.close();
+        this.unlock();
+    }
+
+    /**
+     * Low latency: Chrome counts the times the sound card ran dry (AudioContext.playbackStats). More than a few in a few
+     * seconds is audible crackle: the sound starts over with the browser's ordinary buffer and says so (onCrackle).
+     */
+    private watchCrackle(c: AudioContext): void {
+        const stats = (c as AudioContext & { playbackStats?: { underrunEvents: number; totalDuration: number } }).playbackStats;
+        if (!this.lowNow || !stats) return;
+        const t = stats.totalDuration;
+        // once a second, after the first three (starting up has a few of its own)
+        if (t < 3 || t - this.crackleAt < 1) return;
+        this.crackleAt = t;
+        this.underruns.push(stats.underrunEvents);
+        if (this.underruns.length > 5) this.underruns.shift();
+        if (this.underruns.length < 2 || this.underruns[this.underruns.length - 1] - this.underruns[0] < CRACKLES) return;
+        console.info(`Sound: ${this.underruns[this.underruns.length - 1] - this.underruns[0]} buffer underruns in ${this.underruns.length - 1} s at low latency; back to the ordinary buffer.`);
+        this.levels.lowLatency = false;
+        this.opts.onCrackle?.();
+        this.restart();
     }
 
     /** The page is hidden or shown: the sound stops with it. */
@@ -172,8 +244,13 @@ export class AudioEngine {
     }
 
     setLevels(l: SoundLevels): void {
+        const restart = l.lowLatency !== this.levels.lowLatency;
         this.levels = { ...l };
         if (!this.ctx) {
+            return;
+        }
+        if (restart && l.on) {
+            this.restart();
             return;
         }
         if (!l.on) {
@@ -192,24 +269,26 @@ export class AudioEngine {
         this.quadBus.gain.setTargetAtTime(vol(l.quad), t, 0.05);
         this.worldBus.gain.setTargetAtTime(vol(l.world), t, 0.05);
         this.uiBus.gain.setTargetAtTime(vol(l.effects), t, 0.05);
+        this.ambBus.gain.setTargetAtTime(vol(l.ambience), t, 0.05);
     }
 
     private build(c: AudioContext): void {
         this.noise = whiteNoise(c, 3);
-        // a gentle compressor on the mix, as a camera's automatic gain: a full-throttle punch-out is loud, not clipped
+        // a gentle compressor on the mix, as a camera's automatic gain: a full-throttle punch-out is loud, not clipped. Its
+        // attack is slower than a period of the props' tones (2-5 ms), so it follows their level, not their waveform
         const comp = c.createDynamicsCompressor();
-        comp.threshold.value = -12;
-        comp.knee.value = 10;
-        comp.ratio.value = 3;
-        comp.attack.value = 0.005;
-        comp.release.value = 0.25;
+        comp.threshold.value = -10;
+        comp.knee.value = 8;
+        comp.ratio.value = 2.5;
+        comp.attack.value = 0.012;
+        comp.release.value = 0.3;
         // then a limiter, so nothing ever clips
         const limit = c.createDynamicsCompressor();
-        limit.threshold.value = -3;
+        limit.threshold.value = -1.5;
         limit.knee.value = 0;
         limit.ratio.value = 20;
-        limit.attack.value = 0.001;
-        limit.release.value = 0.1;
+        limit.attack.value = 0.004;
+        limit.release.value = 0.15;
         comp.connect(limit).connect(c.destination);
         this.analyser = c.createAnalyser();
         this.analyser.fftSize = 8192;
@@ -220,19 +299,21 @@ export class AudioEngine {
         this.quadBus = gainTo(c, this.master, 1);
         this.worldBus = gainTo(c, this.master, 1);
         this.uiBus = gainTo(c, this.master, 1);
+        this.ambBus = gainTo(c, this.master, 1);
         this.applyLevels();
 
         // the quad
         this.quadPan = panner(c, 1, 3000);
-        this.quadPan.connect(this.quadBus);
+        this.outside = gainTo(c, this.quadBus, 0);
+        this.quadPan.connect(this.outside);
+        this.onboard = gainTo(c, this.quadBus, 1);
         this.quadAir = c.createBiquadFilter();
         this.quadAir.type = 'lowpass';
         this.quadAir.frequency.value = 20000;
         this.quadAir.Q.value = 0.5;
         this.quadAir.connect(this.quadPan);
+        this.quadAir.connect(this.onboard);
         this.quadIn = gainTo(c, this.quadAir, 0);
-        const spec = rotorSpectrum(this.opts.blades);
-        const wave = c.createPeriodicWave(new Float32Array(HARMONICS + 1), spec);
         // prop wash: the rotors' sound throbs with the recirculating air, a slow random swell (about 4-20 Hz)
         const washLfo = c.createBufferSource();
         washLfo.buffer = this.noise;
@@ -245,10 +326,25 @@ export class AudioEngine {
         this.washDepth.gain.value = 0;
         washLfo.connect(washLp).connect(this.washDepth);
         washLfo.start();
+        // a real motor's speed never holds still: the flight controller corrects it all the time. A slow random wander of
+        // about 0.2 % (3 cents rms) [estimate] keeps the four props from locking into one steady, synthetic tone
+        const jitterLp = c.createBiquadFilter();
+        jitterLp.type = 'lowpass';
+        jitterLp.frequency.value = 6;
+        jitterLp.Q.value = 0.7;
+        const jitter = c.createGain();
+        // white noise low-passed at 6 Hz is about 0.011 rms
+        jitter.gain.value = 3 / 0.011;
+        washLfo.connect(jitterLp).connect(jitter);
         for (let i = 0; i < 4; i++) {
             const osc = c.createOscillator();
-            osc.setPeriodicWave(wave);
+            // each rotor its own phases (quad-sound.ts rotorWave), at the measured levels (no normalising)
+            const w = rotorWave(this.opts.blades, i);
+            osc.setPeriodicWave(c.createPeriodicWave(w.real, w.imag, { disableNormalization: true }));
             osc.frequency.value = 0;
+            const jd = c.createDelay(2);
+            jd.delayTime.value = 0.31 + i * 0.37;
+            jitter.connect(jd).connect(osc.detune);
             const gain = c.createGain();
             gain.gain.value = 0;
             const wash = c.createGain();
@@ -271,11 +367,21 @@ export class AudioEngine {
         this.rushFilter.frequency.value = 2000;
         const rushTop = c.createBiquadFilter();
         rushTop.type = 'lowpass';
-        rushTop.frequency.value = 11000;
+        rushTop.frequency.value = 8000;
         rushTop.Q.value = 0.5;
         this.rushGain = c.createGain();
         this.rushGain.gain.value = 0;
-        this.rushSrc.connect(this.rushFilter).connect(rushTop).connect(this.rushGain).connect(this.quadIn);
+        // steady white noise sounds like a radio's static; a blade's rush swells as it passes [estimate: half its level
+        // swinging at the blade-pass rate]
+        const chopped = c.createGain();
+        chopped.gain.value = 1;
+        this.chop = c.createOscillator();
+        this.chop.frequency.value = 0;
+        const depth = c.createGain();
+        depth.gain.value = 0.5;
+        this.chop.connect(depth).connect(chopped.gain);
+        this.chop.start();
+        this.rushSrc.connect(this.rushFilter).connect(rushTop).connect(chopped).connect(this.rushGain).connect(this.quadIn);
         this.rushSrc.start();
         // the wind on the quad's own camera microphone (FPV only): low rumble growing with airspeed
         const windSrc = c.createBufferSource();
@@ -315,12 +421,14 @@ export class AudioEngine {
         }
 
         // the places
-        this.parkGain = gainTo(c, this.worldBus, 0);
-        this.cityGain = gainTo(c, this.worldBus, 0);
+        this.parkGain = gainTo(c, this.ambBus, 0);
+        this.cityGain = gainTo(c, this.ambBus, 0);
     }
 
     private async load(c: AudioContext): Promise<void> {
-        const names = [FILES.strike, FILES.whistle, FILES.standing, FILES.park, FILES.city, ...FILES.hard, ...FILES.soft];
+        // a restart (a new buffer size) keeps what was loaded: AudioBuffers belong to no one context
+        const names = [FILES.strike, FILES.whistle, FILES.standing, FILES.park, FILES.city, ...FILES.hard, ...FILES.soft]
+            .filter((n) => !this.buffers.has(n));
         await Promise.all(names.map(async (n) => {
             try {
                 const r = await fetch(`${this.opts.base}${n}.ogg`);
@@ -330,6 +438,7 @@ export class AudioEngine {
                 console.warn(`Sound ${n} did not load:`, err);
             }
         }));
+        if (this.ctx !== c) return;
         this.loop(FILES.park, this.parkGain);
         this.loop(FILES.city, this.cityGain);
         for (const t of this.trains) t.standSrc = this.loop(FILES.standing, t.stand);
@@ -347,8 +456,8 @@ export class AudioEngine {
         return s;
     }
 
-    /** Plays a recording once into `to` at `gain`, speed `rate`. */
-    private shot(name: string, to: AudioNode, gain: number, rate = 1, when = 0): void {
+    /** Plays a recording once into `to` at `gain`, speed `rate`, from `from` s into it (faded in over 3 ms there). */
+    private shot(name: string, to: AudioNode, gain: number, rate = 1, from = 0): void {
         const b = this.buffers.get(name);
         const c = this.ctx;
         if (!b || !c) return;
@@ -356,8 +465,13 @@ export class AudioEngine {
         s.buffer = b;
         s.playbackRate.value = rate;
         const g = gainTo(c, to, gain);
+        const t = c.currentTime;
+        if (from > 0) {
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(gain, t + 0.003);
+        }
         s.connect(g);
-        s.start(when || c.currentTime);
+        s.start(t, from);
         s.onended = () => g.disconnect();
     }
 
@@ -365,6 +479,8 @@ export class AudioEngine {
     frame(a: Float32Array): void {
         const c = this.ctx;
         if (!c || c.state !== 'running') return;
+        this.watchCrackle(c);
+        if (this.ctx !== c) return;
         const t = c.currentTime;
         const on = a[A.on] > 0;
         const external = a[A.external] > 0;
@@ -386,7 +502,7 @@ export class AudioEngine {
         set(L.forwardX, fx, t); set(L.forwardY, fy, t); set(L.forwardZ, fz, t);
         set(L.upX, ux, t); set(L.upY, uy, t); set(L.upZ, uz, t);
 
-        this.quad(a, on, external, [fx, fy, fz], t);
+        this.quad(a, on, external, t);
         this.trainsFrame(a, on, t);
 
         // the places: the city's traffic among the blocks, the park's birds elsewhere, both quieter high up
@@ -403,17 +519,16 @@ export class AudioEngine {
         this.lastCount = count;
     }
 
-    private quad(a: Float32Array, on: boolean, external: boolean, fwd: [number, number, number], t: number): void {
+    private quad(a: Float32Array, on: boolean, external: boolean, t: number): void {
         const c = this.ctx!;
         const wRef = a[A.wRef] > 0 ? a[A.wRef] : 1;
         const px = a[A.px], py = a[A.py], pz = a[A.pz];
         const lx = a[A.lx], ly = a[A.ly], lz = a[A.lz];
-        // on board: the microphone rides with the camera, just ahead of it, heard straight (HRTF's colouring is for sounds
-        // around a head); out in the world, HRTF places it
-        const model: PanningModelType = external ? 'HRTF' : 'equalpower';
-        if (this.quadPan.panningModel !== model) this.quadPan.panningModel = model;
-        const sx = external ? px : lx + fwd[0] * 0.2, sy = external ? py : ly + fwd[1] * 0.2, sz = external ? pz : lz + fwd[2] * 0.2;
-        set(this.quadPan.positionX, sx, t); set(this.quadPan.positionY, sy, t); set(this.quadPan.positionZ, sz, t);
+        // on board: the microphone rides on the quad, heard straight, with no panner (a source kept just ahead of a fast
+        // camera swung from ear to ear as their smoothing lagged); out in the world, HRTF places it
+        set(this.onboard.gain, external ? 0 : 1, t, 0.03);
+        set(this.outside.gain, external ? 1 : 0, t, 0.03);
+        set(this.quadPan.positionX, px, t); set(this.quadPan.positionY, py, t); set(this.quadPan.positionZ, pz, t);
         const dx = px - lx, dy = py - ly, dz = pz - lz;
         const d = external ? Math.sqrt(dx * dx + dy * dy + dz * dz) : 0;
         set(this.quadAir.frequency, airCornerHz(d), t, 0.05);
@@ -432,6 +547,7 @@ export class AudioEngine {
         }
         set(this.rushGain.gain, MIX.rush * noiseGain(shares), t);
         set(this.rushFilter.frequency, noiseCornerHz(mean, this.opts.blades) * dop, t);
+        set(this.chop.frequency, (mean / (2 * Math.PI)) * this.opts.blades * dop, t);
         set(this.rushSrc.playbackRate, dop, t);
 
         // prop wash: air coming up through the props (minus the airspeed along the body's up axis)
@@ -461,7 +577,7 @@ export class AudioEngine {
         let k = 0;
         for (let i = 0; i < 4; i++) k = Math.max(k, a[A.k0 + i]);
         if (k > 0.04 && now - this.lastStrikeAt > 0.07) {
-            this.shot(FILES.strike, this.quadAir, MIX.strike * Math.min(1, k * 1.5) ** 0.7, 0.8 + 0.4 * Math.min(1, k) + Math.random() * 0.06);
+            this.shot(FILES.strike, this.quadAir, MIX.strike * Math.min(1, k * 1.5) ** 0.7, 0.8 + 0.4 * Math.min(1, k) + Math.random() * 0.06, STRIKE_AT);
             this.lastStrikeAt = now;
             this.counts.strike++;
         }

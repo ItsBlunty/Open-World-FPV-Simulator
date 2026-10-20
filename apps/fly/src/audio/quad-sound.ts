@@ -9,26 +9,28 @@
 // throttle cut, prop wash and turtle mode sound as they fly.
 //
 // The harmonic levels are measured from a recording of a 5-inch quad doing flybys (Freesound 524331 by 5deMayo, CC0;
-// sounds/SOURCES.md): the blade-pass tone near 1 kHz had its 2nd to 4th harmonics within 0-9 dB of it, about 30 dB over
-// the spectrum between them, and a shaft-rate tone about 10 dB under (docs/notes/sound.md has the analysis).
+// sounds/SOURCES.md): the blade-pass tone's 2nd to 5th harmonics 9-21 dB under it, the shaft-rate tone about 15 dB under
+// (docs/notes/sound.md has the analysis).
 
 /** Shaft-rate harmonics in each rotor's waveform: 8 blade-pass harmonics of a tri-blade. */
 export const HARMONICS = 24;
 
 /**
- * Levels of the blade-pass harmonics, dB from the first (the flyby recording's peaks over the spectrum around them:
- * 30, 28, 31, 22 dB in fast flight; 17, 19, 18, 17, 16 dB while hovering; above the 5th, a gentle roll-off [estimate]).
+ * Levels of the blade-pass harmonics, dB from the first: the flyby recording's peaks against the blade-pass peak (2nd to
+ * 5th: -15, -16, -21, -21 dB in a slow pass at 662 Hz; -9, -14, -15, -16 dB in a fast one at 1249 Hz), then rolling off
+ * [estimate: above the 5th the recording's peaks are lost in the broadband]. (The first pass at this, 2026-10-19, used
+ * how far each peak stood over the noise around it instead: 0 to -4 dB, a buzzy, tinny tone the owner heard.)
  */
-export const BPF_DB = [0, -2, -2, -4, -6, -9, -12, -15];
-/** the shaft rate and its second harmonic: blades not quite alike (the recording: about 10 dB under the blade-pass tone) */
-export const SHAFT_DB = [-11, -17];
+export const BPF_DB = [0, -12, -15, -18, -20, -23, -26, -29];
+/** the shaft rate and its second harmonic: blades not quite alike (the recording: 15 dB under the blade-pass tone) */
+export const SHAFT_DB = [-15, -20];
 /** every other shaft harmonic [estimate: a little of the blade-to-blade difference spread over them] */
-export const OTHER_DB = -30;
+export const OTHER_DB = -36;
 
 /** iFlight XING2 2207: 12 stator slots, 14 magnets (12N14P, retailers' listings of the motor): 7 pole pairs */
 export const POLE_PAIRS = 7;
-/** the motor's magnetic whine at the electrical frequency and twice it [estimate: heard as a thin tone over the props] */
-export const MOTOR_DB = [-22, -28];
+/** the motor's magnetic whine at the electrical frequency and twice it [estimate: a faint thin tone under the props] */
+export const MOTOR_DB = [-30, -34];
 
 /** Blades per prop from the preset's prop description ("Nazgul F5 5.1x3.5, 3-blade"); 2 if it does not say. */
 export function bladesOf(prop: string | undefined): number {
@@ -52,6 +54,28 @@ export function rotorSpectrum(blades: number, polePairs = POLE_PAIRS): Float32Ar
         out[n] = 10 ** (db / 20);
     }
     return out;
+}
+
+/**
+ * One rotor's waveform for a PeriodicWave (real: cosine, imag: sine terms), the rotorSpectrum's amplitudes at phases
+ * drawn from `seed`. Each rotor gets its own: four rotors with the same phases and nearly the same speed add up as one
+ * comb filter sweeping slowly through the sound (a flanger's hollow, echoey swish); with their own phases each harmonic
+ * beats on its own, as four real props do. The phases spread the waveform's peaks too, so it is not a buzzy pulse train.
+ */
+export function rotorWave(blades: number, seed: number, polePairs = POLE_PAIRS): { real: Float32Array; imag: Float32Array } {
+    const amp = rotorSpectrum(blades, polePairs);
+    const real = new Float32Array(amp.length), imag = new Float32Array(amp.length);
+    let r = Math.imul(seed + 1, 0x9e3779b9) >>> 0;
+    for (let n = 1; n < amp.length; n++) {
+        // mulberry32: the sound's own randomness, nothing of the sim
+        r = (r + 0x6d2b79f5) >>> 0;
+        let t = Math.imul(r ^ (r >>> 15), r | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        const phase = (((t ^ (t >>> 14)) >>> 0) / 4294967296) * 2 * Math.PI;
+        real[n] = amp[n] * Math.sin(phase);
+        imag[n] = amp[n] * Math.cos(phase);
+    }
+    return { real, imag };
 }
 
 /**

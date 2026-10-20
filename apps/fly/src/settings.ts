@@ -64,11 +64,17 @@ export interface Settings {
     graphics: GraphicsLevel;
     /** sound on or off (audio/audio.ts; the M key too) */
     sound: boolean;
-    /** volumes, 0-100: everything, the quad (motors, hits), the world (trains, the city, the park), the game's beeps and chimes */
+    /**
+     * volumes, 0-100: everything, the quad (motors, hits), the world (the trains), the ambience (the city, the park), the
+     * game's beeps and chimes
+     */
     volume: number;
     quadVolume: number;
     worldVolume: number;
+    ambienceVolume: number;
     effectsVolume: number;
+    /** the sound card's smallest buffer: sounds about 45 ms sooner; turns itself off if it crackles (audio/audio.ts) */
+    soundLowLatency: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -95,7 +101,10 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     volume: 80,
     quadVolume: 100,
     worldVolume: 80,
-    effectsVolume: 80
+    // low by default, with room above (owner, 2026-10-19): 50 is 12 dB under the trains
+    ambienceVolume: 50,
+    effectsVolume: 80,
+    soundLowLatency: true
 };
 
 const KEY = 'owfpv.settings';
@@ -140,7 +149,8 @@ export function loadSettings(): Settings {
     if (isShadowReach(s.shadowReach)) out.shadowReach = s.shadowReach;
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     if (typeof s.sound === 'boolean') out.sound = s.sound;
-    for (const k of ['volume', 'quadVolume', 'worldVolume', 'effectsVolume'] as const) {
+    if (typeof s.soundLowLatency === 'boolean') out.soundLowLatency = s.soundLowLatency;
+    for (const k of ['volume', 'quadVolume', 'worldVolume', 'ambienceVolume', 'effectsVolume'] as const) {
         const v = s[k];
         if (typeof v === 'number' && v >= 0 && v <= 100) out[k] = Math.round(v);
     }

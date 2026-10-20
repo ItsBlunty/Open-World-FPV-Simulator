@@ -1,4 +1,4 @@
-# Sound (§1l, 2026-10-19)
+# Sound (§1l, §1m, 2026-10-19)
 
 Owner: "add sounds, make them realistic, use open source sound sources (we're GPL 3)". Owner approved downloading
 ten CC0 files (Freesound previews, Kenney Impact Sounds). Credits: `apps/fly/public/sounds/SOURCES.md` (~1 MB shipped).
@@ -39,3 +39,41 @@ ten CC0 files (Freesound previews, Kenney Impact Sounds). Credits: `apps/fly/pub
 - Whistle is an American chime whistle (Big Boy); the model is a British Ivatt 2-6-0. No cars' own sounds (the city
   loop stands in), no hit sounds in replays, no sound for the level-crossing or people.
 - Exponents and mix levels are estimates; the owner has to listen and fly.
+
+## §1m The owner's first listen: late, tinny, echoey, static (2026-10-19)
+
+Owner: sounds come in too late; the props sound tinny, a bit echoey, with a static sound; environmental sounds too loud.
+
+- **Late, part 1: the strike clip.** `strike.ogg` opens on 0.11 s of the quad flying before its props hit the window
+  (rms in 2 ms steps: -22 dB to 110 ms, then -10 dB). It now plays from 0.108 s with a 3 ms fade-in (`STRIKE_AT`).
+  The Kenney hits start at once (peak within 2 ms); the whistle within 31 ms.
+- **Late, part 2: the sound card buffer.** Chrome on Windows (the Claude browser pane, 2026-10-19) offers two buffers only:
+  `latencyHint` 'interactive', 'balanced' or any number from 0.003 s: base 10 ms + output 56 ms = 66 ms; 0 or 0.001:
+  2.7 + 16 = about 19 ms. But at 0, with the game running (19-23 fps here), even an empty graph ran dry 17 times in 8 s
+  (`AudioContext.playbackStats.underrunEvents`), each a click; 'interactive': 0 in 10 s. HRTF or plain panning made no
+  difference (22 vs 13 in 8 s). So the game starts at 0 and, if 4 or more underruns fall within 4 s (after the first 3 s),
+  starts the sound over at 'interactive' (`watchCrackle`, `restart`: recordings kept) and saves Settings > Sound > Low
+  latency sound off. Seen working here: 11 ms at start, switched within 6 s, 0 underruns after.
+- **Tinny: harmonic levels re-measured.** §1l took each blade-pass harmonic's height over the noise around it as its
+  level. Against the blade-pass peak itself, the flyby (5deMayo 524331) gives 2nd-5th harmonics -15, -16, -21, -21 dB
+  (slow pass, BPF 662 Hz) and -9, -14, -15, -16 dB (fast, 1249 Hz); the shaft tone -15 dB. Now `BPF_DB` 0, -12, -15, -18,
+  -20, -23, -26, -29; shaft -15, -20; motor whine -30, -34 (estimate); others -36. (The onboard wall-hit clip, 854351, has
+  stronger harmonics, -2 to -7 dB: a camera microphone among the props is brighter. The flyby's balance was taken, as heard
+  by a person.)
+- **Echoey: four identical waves.** All four rotors played the same PeriodicWave, all harmonics in sine phase, at nearly
+  the same speed: they sum as a slowly sweeping comb filter (a flanger). Now each rotor has its own random phases
+  (`rotorWave(blades, seed)`, unnormalised so the measured levels hold; tested), and its speed wanders about 3 cents rms
+  (noise low-passed at 6 Hz into `detune`, estimate) as a flight controller's corrections do. The pulse-train crest factor
+  fell from 3.6 to 1.7. On the FPV camera the quad no longer goes through a panner at all: a source kept 0.2 m ahead of a
+  camera, both smoothed, could swing between the ears at speed.
+- **Static: the rush and the compressor.** The broadband rush was steady white noise as loud as the tones (measured in
+  flight: 2.5-10 kHz third-octaves at -29..-33 dB against the tone bands at -29..-37). Now 9 dB lower relative to the
+  tones, 8 kHz top instead of 11, and chopped at the blade-pass rate (half its level swinging, estimate). In flight
+  (62 % rotor speed, 21 m/s) the 1 kHz octave now leads at -22..-33 dB and 2-8 kHz sits 12-20 dB under it. The mix was
+  driven about 14 dB over the compressor's -12 dB threshold at full throttle into a 1 ms limiter; levels now come to about
+  -12 dBFS rms at 55-62 % rotor speed (master 80 %), compressor -10 dB 2.5:1 with a 12 ms attack, limiter -1.5 dB 4 ms
+  (both slower than a tone's period, so they follow its level, not its waveform).
+- **Ambience:** city and park on their own bus and slider, Settings > Sound > Ambience, default 50 % (-20 dB, 12 dB under
+  before; up to 20 dB of room). The World slider is now Trains.
+- Not checked: trains, hits, strikes, beeps and chase Doppler by ear or counter in the browser (one whistle counted);
+  whether the owner's PC holds low latency without crackle; Edge. `pnpm test`: 62 files, 550 tests pass, hashes unchanged.

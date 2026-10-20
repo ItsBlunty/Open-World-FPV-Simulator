@@ -257,9 +257,11 @@ export class SettingsUi {
                 this.check('Sound on (M turns it on and off while flying)', s.sound, (v) => { s.sound = v; host.save(); host.onSound(); this.build(); }),
                 this.slider('Volume', 0, 100, s.volume, '%', (v) => { s.volume = v; host.onSound(); host.save(); }),
                 this.slider('Quad', 0, 100, s.quadVolume, '%', (v) => { s.quadVolume = v; host.onSound(); host.save(); }),
-                this.slider('World', 0, 100, s.worldVolume, '%', (v) => { s.worldVolume = v; host.onSound(); host.save(); }),
+                this.slider('Trains', 0, 100, s.worldVolume, '%', (v) => { s.worldVolume = v; host.onSound(); host.save(); }),
+                this.slider('Ambience', 0, 100, s.ambienceVolume, '%', (v) => { s.ambienceVolume = v; host.onSound(); host.save(); }),
                 this.slider('Game sounds', 0, 100, s.effectsVolume, '%', (v) => { s.effectsVolume = v; host.onSound(); host.save(); }),
-                h('p', { class: 'note' }, 'Quad: the motors and props from the physics (each rotor\'s speed), hits and prop strikes. World: the steam trains, the city and the park. Game sounds: the time trial beeps and the golden prop chime.'),
+                this.check('Low latency sound (sounds about 45 ms sooner; turns itself off if the computer is too busy and it crackles)', s.soundLowLatency, (v) => { s.soundLowLatency = v; host.save(); host.onSound(); }),
+                h('p', { class: 'note' }, 'Quad: the motors and props from the physics (each rotor\'s speed), hits and prop strikes. Trains: the steam trains. Ambience: the city\'s traffic and the park\'s birds (low by default: turn it up here). Game sounds: the time trial beeps and the golden prop chime.'),
                 h('p', { class: 'note' }, 'On the FPV camera you hear the quad from on board, wind on the camera\'s microphone included; on the chase camera from behind it, as someone standing there would. Headphones place the sounds best.'),
             ],
             world: [
