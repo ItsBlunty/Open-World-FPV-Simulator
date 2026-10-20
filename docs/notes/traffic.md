@@ -258,3 +258,14 @@ prove it is the same every run); `stats-v1-runner.test.ts` removed (FlightStats 
 stopped using when the session moved to lives; `stats.test.ts` covers the stats on lives). 63 files / 560 tests in
 114 s -> 62 / 558 in 44 s; the slowest file is now `apps/fly/test/train.test.ts` (~45 s on one worker). The rest of the
 suite was read through: the tests are fast, each pins a behaviour or a control for one, so nothing else was cut.
+
+Second pass (owner asked what the run-hash tests do): `FlightSession` takes `startTick` (the first life's tick; traffic
+and trains are placed from the tick alone, and a life starting late already replays, log-format tests). The three train
+flights (shove, roof ride, run hash) waited 95 s of sim for the train; they now start 1 s (or 1 ms) before it: the file
+~45 s -> 12 s, same results (shove clearance 1.72 -> 1.57 mm: the pack no longer idles 95 s first). The train run-hash
+flight does touch the train (2 contacts, shoved 20 m). The traffic run-hash flight did not: network traffic's `place()`
+only answers between its last two steps, so "the car's place 0.5 s ahead" was where it already was, and the quad
+landed on a slow car's roof and rode it for 4 s. It now scouts a copy of the traffic for a car doing 5 m in 0.6 s, starts
+the session there and hovers the quad in its lane: the SUV hits it (asserted), it flies off at 10 m/s. Suite: 26 s.
+Seen on that roof: armed, sticks asking for roll, motor commands 0.98 / 0.06, yet it stayed exactly level for 4 s (not
+looked into; see HANDOFF open list).

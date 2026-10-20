@@ -19,6 +19,8 @@ const level = buildFirstMap();
 const TRAIN: TrafficConfig = { cars: false, people: false, signals: false, train: true };
 const GAME = { crashOn: false };
 const newState = (): TrainState => ({ run: 0, s: 0, v: 0, effort: 0, brake: 0 });
+/** the session's first train (makeTrains is a function of the level alone): where it is at a tick, before a session starts */
+const TRAIN0 = makeTrains(level, true)[0];
 /** a 5-inch quad with its props, m (as the map tests) */
 const QUAD = 0.25;
 
@@ -74,7 +76,7 @@ function sOf(tr: Train, x: number, z: number): number {
 function armed(s: FlightSession): Float32Array {
     const r = s.runner;
     const ch = new Float32Array([0, 0, -1, 0, -1, MODE_CHANNEL.angle, 0, 0]);
-    r.enqueue({ tUs: 1000, ch });
+    r.enqueue({ tUs: r.tUs + 1000, ch });
     for (let i = 0; i < 100; i++) r.stepOnce();
     ch[4] = 1;
     r.enqueue({ tUs: r.tUs + 1000, ch });
@@ -247,11 +249,11 @@ describe('the steam train', () => {
     });
 
     it('shoves a quad hovering on the line ahead without the quad going into it', () => {
-        const s = new FlightSession({ preset, level, traffic: TRAIN, overrides: GAME });
+        // on the ground line west past the bando (z 100, westbound), at x -300; the session starts 1 s before
+        const t0 = frontAt(TRAIN0, sOf(TRAIN0, -300, 100));
+        const s = new FlightSession({ preset, level, traffic: TRAIN, overrides: GAME, startTick: t0 - 1000 });
         const r = s.runner;
         const train = s.train!;
-        // on the ground line west past the bando (z 100, westbound), at x -300
-        const t0 = frontAt(train, sOf(train, -300, 100));
         const ch = armed(s);
         while (s.sim.tick < t0 - 500) r.stepOnce();
         r.respawn(-301.5, 2.2, 100, 270, { platform: false, keepArmed: true }, 'manual-start');
@@ -274,12 +276,11 @@ describe('the steam train', () => {
     });
 
     it('carries a quad on a coach roof through the tunnel, still', () => {
-        const s = new FlightSession({ preset, level, traffic: TRAIN, overrides: GAME });
-        const train = s.train!;
         const coach = 3;
         // the line north through the tunnel (x 20, z 298 to 226): the front at z 210, the second coach inside it
-        const t0 = frontAt(train, sOf(train, 20, 210));
-        while (s.sim.tick < t0 - 1) s.runner.stepOnce();
+        const t0 = frontAt(TRAIN0, sOf(TRAIN0, 20, 210));
+        const s = new FlightSession({ preset, level, traffic: TRAIN, overrides: GAME, startTick: t0 - 1 });
+        const train = s.train!;
         const pl = newTrainPlace();
         train.place(coach, t0, pl);
         const v = train.state(t0, newState()).v;
@@ -309,10 +310,11 @@ describe('the steam train', () => {
 
     it('is the same flight beside the train twice (run hash)', () => {
         const hash = (): string => {
-            const s = new FlightSession({ preset, level, traffic: { cars: true, people: true, signals: true, train: true }, runHash: true, overrides: GAME });
+            // the train passes x -300 on the line at z 100 and shoves the quad hovering on its edge
+            const t0 = frontAt(TRAIN0, sOf(TRAIN0, -300, 100));
+            const s = new FlightSession({ preset, level, traffic: { cars: true, people: true, signals: true, train: true }, runHash: true, overrides: GAME, startTick: t0 - 1000 });
             const r = s.runner;
             const ch = armed(s);
-            const t0 = frontAt(s.train!, sOf(s.train!, -300, 100));
             while (s.sim.tick < t0 - 800) r.stepOnce();
             r.respawn(-300, 1.5, 101, 270, { platform: false, keepArmed: true }, 'manual-start');
             const hover = hoverStickOf(s.sim.p) * 2 - 1;

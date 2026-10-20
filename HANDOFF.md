@@ -55,7 +55,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Duga remade (map v18-19, owner): separate wide towers, end masts, staggered dipole rows every 6.25 m on ochre feed
   pipes bent as in the owner's photos, no wires across (no open model found); 159 k triangles, no measurable frame cost. [map §1w, §1x]
   CI fixed: an armed quad's contact asks scanned every mover each time; now once a tick (4x faster, hashes unchanged). [traffic §1v]
-- **Tests:** `pnpm test`: 62 files, 558 tests pass in 44 s (was 114 s; trimmed 2026-10-20). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 62 files, 558 tests pass in 26 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -150,6 +150,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
   speed not rising as props unload, no inflow lag, no vortex-ring model); "(to read)" claims in the review are not
   yet checked against their sources. [physics]
+- Physics: a quad resting flat on a car roof, armed with lopsided motors (0.98 / 0.06), stayed exactly level for 4 s instead of tipping; not looked into. [traffic §1y]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;

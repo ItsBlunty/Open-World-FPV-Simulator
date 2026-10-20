@@ -1,13 +1,13 @@
 // Solid traffic in a real session (sim-core/0.5.0 moving surfaces, packages/traffic): a car driving into a
 // hovering quad shoves it without the quad going into the car; a quad on a car's roof with the car's speed
 // rides along on a straight, still; a quad set on a roof from rest is dragged at about mu g; the same
-// flight among the signalled traffic twice gives the same run hash.
+// flight among the signalled traffic, a car hitting the quad, twice gives the same run hash.
 
 import { describe, expect, it } from 'vitest';
 import { MODE_CHANNEL, S, hoverStickOf } from '@owfpv/sim-core';
 import type { PresetJson, Sim } from '@owfpv/sim-core';
 import { buildFirstMap } from '@owfpv/maps';
-import { CAR } from '@owfpv/traffic';
+import { CAR, makeTraffic } from '@owfpv/traffic';
 import type { Place, TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { FlightSession } from '../src/session';
@@ -164,22 +164,37 @@ describe('solid traffic in a session', () => {
         expect(a).toBeLessThan(1.05 * MU * G);
     });
 
-    it('is the same flight among the signalled traffic twice (run hash)', () => {
-        const hash = (): string => {
-            const s = new FlightSession({ preset, level, traffic: { cars: true, people: true, signals: true }, runHash: true, overrides: GAME });
+    it('is the same flight among the signalled traffic twice (run hash), a car hitting the quad in it', () => {
+        // a copy of the traffic (a function of the tick alone) finds a car driving at least 5 m in 0.6 s on a straight;
+        // network traffic places movers only at the tick it was brought to (at), so a session cannot look ahead
+        const cfg: TrafficConfig = { cars: true, people: true, signals: true };
+        const scout = makeTraffic(level, cfg)!;
+        const a = newPlace(), ahead = newPlace();
+        const from = new Map<number, number[]>();
+        let car = -1, t0 = 1000;
+        for (; car < 0; t0 += 500) {
+            scout.at(t0);
+            scout.movers.forEach((m, i) => { if (m.kind === 'car') { scout.place(i, t0, a); from.set(i, [a.x, a.z, a.hx, a.hz]); } });
+            scout.at(t0 + 600);
+            for (const [i, [x, z, hx, hz]] of from) {
+                scout.place(i, t0 + 600, ahead);
+                if (Math.hypot(ahead.x - x, ahead.z - z) > 5 && Math.abs(ahead.hx - hx) < 1e-6 && Math.abs(ahead.hz - hz) < 1e-6) { car = i; break; }
+            }
+            if (car >= 0) break;
+        }
+        const run = (): { hash: string; hits: number } => {
+            // the session starts 0.3 s before; the quad hovers in the car's lane where it will be 0.6 s later
+            const s = new FlightSession({ preset, level, traffic: cfg, runHash: true, overrides: GAME, startTick: t0 - 300 });
             const r = s.runner;
             const ch = new Float32Array([0, 0, -1, 0, -1, MODE_CHANNEL.angle, 0, 0]);
-            r.enqueue({ tUs: 1000, ch });
+            r.enqueue({ tUs: r.tUs + 1000, ch });
             for (let i = 0; i < 100; i++) r.stepOnce();
             ch[4] = 1;
             r.enqueue({ tUs: r.tUs + 1000, ch });
-            for (let i = 0; i < 100; i++) r.stepOnce();
-            // down into a city street with cars and people, then about in it for 4 s
-            const car = s.traffic!.movers.findIndex((m) => m.kind === 'car');
-            const pl = newPlace();
-            s.traffic!.place(car, s.sim.tick + 500, pl);
-            r.respawn(pl.x, s.groundY(pl.x, pl.z) + 0.8, pl.z, 30, { platform: false, keepArmed: true }, 'manual-start');
+            stepTo(s, t0);
+            r.respawn(ahead.x, s.groundY(ahead.x, ahead.z) + 0.6, ahead.z, 30, { platform: false, keepArmed: true }, 'manual-start');
             const hover = hoverStickOf(s.sim.p) * 2 - 1;
+            const n = r.events.length;
             for (let t = 0; t < 4000; t++) {
                 if (t % 4 === 0) {
                     ch[0] = 0.3 * Math.sin(t * 0.002);
@@ -189,8 +204,11 @@ describe('solid traffic in a session', () => {
                 }
                 r.stepOnce();
             }
-            return r.traceHash();
+            return { hash: r.traceHash(), hits: r.events.slice(n).filter((e) => e.type === 'contact').length };
         };
-        expect(hash()).toBe(hash());
+        const first = run();
+        console.log(`run hash: car ${car} (${scout.movers[car].shape!.kind}) from tick ${t0}; ${first.hits} contact events`);
+        expect(first.hits).toBeGreaterThan(0);
+        expect(run()).toEqual(first);
     });
 });
