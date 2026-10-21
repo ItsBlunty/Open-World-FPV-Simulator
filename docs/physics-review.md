@@ -425,3 +425,7 @@ against the real 28 / 22, tracking error 8.9 against 10.9 deg/s, calm. The physi
 Nazgul preset is (about 1.9x the NeuroBEM quad's angular acceleration per command; inertia 0.0016 estimated). Open:
 the Nazgul's real inertia and tune; then the ESC dead time in the motor model (`docs/evidence/2026-10-21-neurobem-replay/`).
 Side finding: the windmill tables refuse props pitched above about 4.4 inches on a 5.1-inch (P/D 0.86).
+G12 update (2026-10-21, public 6S data): real Nazgul Evoque F5 tunes (iFlight's 4.2.11: P 62/64, D 45/48; an owner's 4.5:
+P 59/62, D 50/57) run above Betaflight's defaults; with the real 4 ms dead time the sim Nazgul flies them only with about
+1.75x its inertia (0.0028), more than the larger Kingfisher's measured 0.0025, so its thrust and motor numbers are suspect
+too. The UZH Kingfisher (measured) is now a second quad in the game (`docs/evidence/2026-10-21-nazgul-public-data/`).
