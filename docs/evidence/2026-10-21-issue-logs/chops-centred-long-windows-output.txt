@@ -1,0 +1,10 @@
+### window 2.0 s
+  chop  254.23 s: rms r/p   8/ 15, peak r/p   24/  60 deg/s, tilt change 10.2 deg, a motor > 15 % until 1994 ms, peak I 121
+  chop   91.03 s: rms r/p   9/ 13, peak r/p   26/  52 deg/s, tilt change  5.8 deg, a motor > 15 % until 1915 ms, peak I 127
+ALL 2 centred chops: median / max  rms r/p 8/14 (9/15), peak 25/56 (26/60) deg/s, tilt 8.0 (10.2) deg, motor high until 1954 (1994) ms, I 124 (127)
+### window 2.5 s
+  chop  254.23 s: rms r/p   7/ 13, peak r/p   24/  60 deg/s, tilt change 10.4 deg, a motor > 15 % until 2480 ms, peak I 121
+ALL 1 centred chops: median / max  rms r/p 7/13 (7/13), peak 24/60 (24/60) deg/s, tilt 10.4 (10.4) deg, motor high until 2480 (2480) ms, I 121 (121)
+### window 3.0 s
+
+[exited with code 0]

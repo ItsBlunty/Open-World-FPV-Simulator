@@ -1,0 +1,104 @@
+== L2_3.npz raptor foxtrot (Betaflight 3.4.0 (7ad5254d8) OMNIBUSF4), throttle 999-1994
+  chop   28.53 s centred stick r/p/y   0/  0/  7 | max|gyro| r/p   95/  49 rms  30/ 21 deg/s | top motor 0.31, >0.15 for  562 ms | max|I|  74
+  chop   30.11 s         stick r/p/y  11/  0/ 54 | max|gyro| r/p   96/  64 rms  40/ 39 deg/s | top motor 0.40, >0.15 for  274 ms | max|I|  84
+  chop   34.64 s         stick r/p/y  47/ 26/ 73 | max|gyro| r/p   82/  82 rms  27/ 27 deg/s | top motor 0.38, >0.15 for  467 ms | max|I|  61
+  chop   37.67 s         stick r/p/y 494/ 82/133 | max|gyro| r/p 1240/  72 rms 709/ 25 deg/s | top motor 0.88, >0.15 for  298 ms | max|I|  73
+  chop   48.42 s         stick r/p/y 346/ 11/ 87 | max|gyro| r/p  235/  81 rms 151/ 31 deg/s | top motor 0.39, >0.15 for  579 ms | max|I|  61
+  chop   51.30 s         stick r/p/y 353/142/101 | max|gyro| r/p  178/  38 rms 126/ 21 deg/s | top motor 0.29, >0.15 for  129 ms | max|I| 115
+  chop   55.53 s         stick r/p/y 494/177/ 71 | max|gyro| r/p 1291/  98 rms 754/ 27 deg/s | top motor 0.91, >0.15 for  334 ms | max|I|  85
+  chop   60.71 s         stick r/p/y 375/  8/  0 | max|gyro| r/p  146/  55 rms  44/ 22 deg/s | top motor 0.37, >0.15 for  583 ms | max|I|  55
+  chop   66.42 s         stick r/p/y 494/ 94/ 26 | max|gyro| r/p 1107/ 157 rms 326/ 42 deg/s | top motor 0.96, >0.15 for  674 ms | max|I|  77
+  chop   82.08 s         stick r/p/y 303/ 92/102 | max|gyro| r/p  196/  76 rms 117/ 28 deg/s | top motor 0.39, >0.15 for  706 ms | max|I|  81
+  chop   89.76 s         stick r/p/y 420/ 64/229 | max|gyro| r/p  487/  51 rms 327/ 22 deg/s | top motor 0.35, >0.15 for  202 ms | max|I|  75
+  chop   92.03 s         stick r/p/y  70/ 98/179 | max|gyro| r/p   51/  22 rms  17/  9 deg/s | top motor 0.17, >0.15 for    5 ms | max|I|  97
+  chop   97.01 s         stick r/p/y 261/  0/ 22 | max|gyro| r/p   98/  74 rms  41/ 24 deg/s | top motor 0.36, >0.15 for  541 ms | max|I|  67
+  chop  101.86 s         stick r/p/y  57/494/  4 | max|gyro| r/p  174/1175 rms  55/672 deg/s | top motor 1.00, >0.15 for  375 ms | max|I|  82
+  chop  106.93 s         stick r/p/y  49/494/ 46 | max|gyro| r/p  151/1190 rms  50/685 deg/s | top motor 0.92, >0.15 for  470 ms | max|I|  83
+== L4_2.npz raptor foxtrot (Betaflight 3.4.0 (85f6849) OMNIBUSF4), throttle 1000-1994
+  chop   31.89 s         stick r/p/y  62/308/ 25 | max|gyro| r/p   18/ 137 rms   9/102 deg/s | top motor 0.12, >0.15 for    0 ms | max|I|  24
+  chop   46.82 s         stick r/p/y 343/180/146 | max|gyro| r/p  188/  56 rms 154/ 43 deg/s | top motor 0.19, >0.15 for   27 ms | max|I|  48
+  chop   54.89 s         stick r/p/y 376/217/188 | max|gyro| r/p  270/  64 rms 135/ 39 deg/s | top motor 0.23, >0.15 for  226 ms | max|I|  49
+  chop   60.13 s         stick r/p/y 308/124/ 63 | max|gyro| r/p  160/  58 rms 130/ 35 deg/s | top motor 0.25, >0.15 for   37 ms | max|I|  43
+  chop   73.71 s         stick r/p/y 382/139/224 | max|gyro| r/p  271/  48 rms 239/ 26 deg/s | top motor 0.21, >0.15 for   34 ms | max|I|  71
+  chop   81.43 s         stick r/p/y  34/284/142 | max|gyro| r/p   36/ 129 rms  19/105 deg/s | top motor 0.43, >0.15 for  491 ms | max|I|  77
+  chop   91.33 s         stick r/p/y 302/207/116 | max|gyro| r/p  108/  61 rms  79/ 38 deg/s | top motor 0.27, >0.15 for  133 ms | max|I|  63
+  chop  101.88 s         stick r/p/y 407/261/271 | max|gyro| r/p  380/ 113 rms 236/ 52 deg/s | top motor 0.28, >0.15 for   48 ms | max|I|  47
+== L5_1.npz Martian2 (Betaflight 3.3.1 (4b7eaf79d) MATEKF405), throttle 1000-2000
+  chop  531.00 s centred stick r/p/y   0/  0/ 18 | max|gyro| r/p   40/  78 rms  19/ 34 deg/s | top motor 0.24, >0.15 for  127 ms | max|I|  49
+  chop  540.84 s centred stick r/p/y   3/  0/ 19 | max|gyro| r/p   49/  77 rms  27/ 45 deg/s | top motor 0.24, >0.15 for  237 ms | max|I|  55
+== L6_1.npz QAVX220 (Betaflight 3.2.0 (b13f96d29) OMNIBUSF4SD), throttle 1000-2000
+  chop   97.37 s         stick r/p/y   0/129/ 18 | max|gyro| r/p   18/ 103 rms   9/ 46 deg/s | top motor 0.69, >0.15 for  364 ms | max|I| 186
+  chop   99.17 s centred stick r/p/y   0/  3/  3 | max|gyro| r/p   20/  83 rms   7/ 30 deg/s | top motor 0.58, >0.15 for  440 ms | max|I| 176
+  chop  107.58 s centred stick r/p/y   0/  1/ 20 | max|gyro| r/p   26/  77 rms  15/ 28 deg/s | top motor 0.58, >0.15 for  525 ms | max|I| 161
+  chop  110.18 s centred stick r/p/y   0/ 21/  4 | max|gyro| r/p   38/  91 rms  14/ 23 deg/s | top motor 0.63, >0.15 for  718 ms | max|I| 153
+  chop  111.91 s centred stick r/p/y   0/ 13/ 27 | max|gyro| r/p   26/  69 rms  12/ 21 deg/s | top motor 0.49, >0.15 for  714 ms | max|I| 131
+  chop  119.51 s         stick r/p/y   6/248/  1 | max|gyro| r/p   20/ 155 rms   6/121 deg/s | top motor 0.29, >0.15 for  174 ms | max|I|  67
+  chop  132.00 s         stick r/p/y 496/ 41/  1 | max|gyro| r/p 1227/ 190 rms 604/ 45 deg/s | top motor 1.00, >0.15 for  574 ms | max|I| 112
+  chop  134.66 s         stick r/p/y 497/160/ 30 | max|gyro| r/p 1383/ 261 rms 507/ 65 deg/s | top motor 1.00, >0.15 for  602 ms | max|I| 141
+  chop  140.85 s         stick r/p/y 493/180/ 17 | max|gyro| r/p 1162/ 130 rms 435/ 35 deg/s | top motor 0.75, >0.15 for  312 ms | max|I| 159
+  chop  144.19 s         stick r/p/y 496/149/  4 | max|gyro| r/p 1327/ 159 rms 525/ 42 deg/s | top motor 1.00, >0.15 for  448 ms | max|I| 159
+  chop  152.68 s         stick r/p/y   0/300/ 50 | max|gyro| r/p   16/ 200 rms   5/155 deg/s | top motor 0.30, >0.15 for  112 ms | max|I|  78
+  chop  157.10 s         stick r/p/y  53/497/  1 | max|gyro| r/p   98/1458 rms  23/684 deg/s | top motor 1.00, >0.15 for  433 ms | max|I| 199
+  chop  160.16 s         stick r/p/y 496/ 80/  2 | max|gyro| r/p 1243/ 156 rms 663/ 38 deg/s | top motor 1.00, >0.15 for  398 ms | max|I| 110
+  chop  164.57 s centred stick r/p/y   0/  1/  8 | max|gyro| r/p    9/  41 rms   3/ 15 deg/s | top motor 0.21, >0.15 for   55 ms | max|I|  55
+  chop  189.42 s         stick r/p/y   0/286/ 37 | max|gyro| r/p   15/ 201 rms   4/154 deg/s | top motor 0.32, >0.15 for   79 ms | max|I|  84
+  chop  254.23 s centred stick r/p/y   0/  1/  7 | max|gyro| r/p   24/  60 rms  11/ 20 deg/s | top motor 0.46, >0.15 for  608 ms | max|I| 121
+  chop  287.26 s         stick r/p/y   0/250/  1 | max|gyro| r/p   21/ 157 rms   6/118 deg/s | top motor 0.25, >0.15 for  143 ms | max|I|  62
+  chop  308.76 s centred stick r/p/y   0/  0/  1 | max|gyro| r/p   24/  35 rms  12/ 21 deg/s | top motor 0.06, >0.15 for    0 ms | max|I|  36
+  chop  310.76 s         stick r/p/y   1/ 60/  1 | max|gyro| r/p   13/ 137 rms   6/ 83 deg/s | top motor 0.23, >0.15 for  229 ms | max|I|  12
+== L7_1.npz FLINT TF2722 (Betaflight 4.0.0 (a35b31085) OMNIBUSF4), throttle 999-1999
+  chop   58.03 s centred stick r/p/y   0/  0/  2 | max|gyro| r/p   22/  61 rms  11/ 16 deg/s | top motor 0.48, >0.15 for  668 ms | max|I| 119
+  chop   62.18 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   43/  56 rms  19/ 15 deg/s | top motor 0.48, >0.15 for  725 ms | max|I| 116
+  chop   65.50 s centred stick r/p/y   0/  0/ 12 | max|gyro| r/p   66/  52 rms  30/ 19 deg/s | top motor 0.55, >0.15 for  716 ms | max|I| 119
+  chop   67.76 s         stick r/p/y 391/ 67/231 | max|gyro| r/p  418/  43 rms 279/ 32 deg/s | top motor 0.22, >0.15 for   22 ms | max|I|  14
+  chop   70.67 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   25/  71 rms   9/ 22 deg/s | top motor 0.49, >0.15 for  725 ms | max|I| 132
+  chop   73.60 s centred stick r/p/y   0/  0/  9 | max|gyro| r/p   37/  74 rms  15/ 19 deg/s | top motor 0.53, >0.15 for  719 ms | max|I| 126
+  chop   78.45 s centred stick r/p/y   0/  0/ 13 | max|gyro| r/p   35/  54 rms  15/ 18 deg/s | top motor 0.48, >0.15 for  709 ms | max|I| 128
+  chop   82.33 s         stick r/p/y 126/  3/104 | max|gyro| r/p   64/  12 rms  29/  5 deg/s | top motor 0.10, >0.15 for    0 ms | max|I|  14
+  chop   85.54 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   23/  60 rms  12/ 17 deg/s | top motor 0.51, >0.15 for  761 ms | max|I| 150
+  chop   91.03 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   22/  52 rms  10/ 14 deg/s | top motor 0.49, >0.15 for  760 ms | max|I| 127
+  chop   94.83 s         stick r/p/y 184/ 22/  0 | max|gyro| r/p  117/  19 rms  62/  5 deg/s | top motor 0.28, >0.15 for  198 ms | max|I|  22
+  chop  102.22 s         stick r/p/y  50/ 19/  9 | max|gyro| r/p   51/  77 rms  20/ 20 deg/s | top motor 0.58, >0.15 for  761 ms | max|I| 133
+  chop  104.78 s         stick r/p/y 273/109/136 | max|gyro| r/p  199/  58 rms 174/ 37 deg/s | top motor 0.28, >0.15 for   60 ms | max|I|  41
+  chop  116.18 s         stick r/p/y 241/ 96/117 | max|gyro| r/p  194/  62 rms 171/ 46 deg/s | top motor 0.19, >0.15 for    5 ms | max|I|  10
+  chop  118.84 s         stick r/p/y 110/  0/  9 | max|gyro| r/p   51/  52 rms  21/ 15 deg/s | top motor 0.56, >0.15 for  736 ms | max|I| 144
+  chop  121.15 s         stick r/p/y   0/  0/ 58 | max|gyro| r/p   71/  66 rms  20/ 23 deg/s | top motor 0.56, >0.15 for  681 ms | max|I| 124
+  chop  123.02 s         stick r/p/y 233/  5/105 | max|gyro| r/p  173/  45 rms 124/ 16 deg/s | top motor 0.48, >0.15 for  420 ms | max|I| 120
+  chop  124.74 s         stick r/p/y 152/ 12/ 39 | max|gyro| r/p  103/  65 rms  73/ 16 deg/s | top motor 0.51, >0.15 for  695 ms | max|I| 107
+  chop  131.28 s         stick r/p/y  62/ 66/ 23 | max|gyro| r/p   37/  61 rms  17/ 21 deg/s | top motor 0.51, >0.15 for  578 ms | max|I| 116
+  chop  132.74 s         stick r/p/y 309/  2/  0 | max|gyro| r/p  261/  14 rms 231/  6 deg/s | top motor 0.31, >0.15 for   60 ms | max|I|  50
+  chop  135.57 s centred stick r/p/y   0/  0/ 22 | max|gyro| r/p   49/  58 rms  17/ 16 deg/s | top motor 0.56, >0.15 for  761 ms | max|I| 139
+  chop  149.11 s         stick r/p/y 274/161/155 | max|gyro| r/p  207/ 103 rms 153/ 84 deg/s | top motor 0.16, >0.15 for    1 ms | max|I|  11
+  chop  151.67 s         stick r/p/y  44/497/  4 | max|gyro| r/p  106/ 782 rms  27/476 deg/s | top motor 1.00, >0.15 for  346 ms | max|I|  53
+  chop  168.65 s         stick r/p/y 193/ 46/ 50 | max|gyro| r/p  113/  53 rms  82/ 12 deg/s | top motor 0.52, >0.15 for  597 ms | max|I|  82
+== L8_1.npz FLINT TF2722 (Betaflight 4.0.0 (5530eb3eb) OMNIBUSF4), throttle 999-1999
+  chop   71.57 s centred stick r/p/y   0/  0/  4 | max|gyro| r/p   32/  47 rms  11/ 18 deg/s | top motor 0.46, >0.15 for  716 ms | max|I| 125
+  chop   73.74 s         stick r/p/y 137/ 20/ 54 | max|gyro| r/p   38/  61 rms  11/ 20 deg/s | top motor 0.42, >0.15 for  671 ms | max|I| 120
+  chop   77.99 s centred stick r/p/y   0/  0/  6 | max|gyro| r/p   29/  51 rms  11/ 16 deg/s | top motor 0.45, >0.15 for  757 ms | max|I| 120
+  chop   79.96 s         stick r/p/y 200/110/ 58 | max|gyro| r/p  132/  48 rms  43/ 20 deg/s | top motor 0.35, >0.15 for  580 ms | max|I| 108
+  chop   83.37 s         stick r/p/y 358/136/ 33 | max|gyro| r/p  343/  74 rms 150/ 37 deg/s | top motor 0.33, >0.15 for  107 ms | max|I|  42
+  chop   86.36 s         stick r/p/y 325/140/173 | max|gyro| r/p  268/  86 rms 212/ 67 deg/s | top motor 0.15, >0.15 for    0 ms | max|I|  34
+  chop   88.58 s centred stick r/p/y   0/ 10/ 29 | max|gyro| r/p   26/  51 rms  11/ 17 deg/s | top motor 0.39, >0.15 for  667 ms | max|I|  90
+  chop   95.76 s         stick r/p/y  95/ 28/ 74 | max|gyro| r/p   39/  72 rms  15/ 20 deg/s | top motor 0.54, >0.15 for  761 ms | max|I| 123
+  chop  100.61 s centred stick r/p/y   0/  0/ 16 | max|gyro| r/p   38/  48 rms  14/ 13 deg/s | top motor 0.45, >0.15 for  753 ms | max|I| 116
+  chop  102.58 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   22/  59 rms   9/ 17 deg/s | top motor 0.48, >0.15 for  710 ms | max|I| 132
+  chop  105.60 s         stick r/p/y 255/107/  3 | max|gyro| r/p  204/  71 rms 160/ 39 deg/s | top motor 0.57, >0.15 for  501 ms | max|I| 125
+  chop  114.46 s centred stick r/p/y   0/  0/ 30 | max|gyro| r/p   30/  67 rms  14/ 20 deg/s | top motor 0.48, >0.15 for  750 ms | max|I| 150
+  chop  119.78 s centred stick r/p/y   0/  0/  1 | max|gyro| r/p   42/  23 rms  11/  8 deg/s | top motor 0.49, >0.15 for  757 ms | max|I| 120
+  chop  124.06 s         stick r/p/y 278/110/ 37 | max|gyro| r/p  232/  58 rms 201/ 42 deg/s | top motor 0.28, >0.15 for   70 ms | max|I|  28
+  chop  126.42 s         stick r/p/y 498/  0/ 27 | max|gyro| r/p  751/  95 rms 535/ 18 deg/s | top motor 1.00, >0.15 for  111 ms | max|I|  74
+  chop  130.18 s         stick r/p/y 278/119/102 | max|gyro| r/p  197/  68 rms 132/ 49 deg/s | top motor 0.25, >0.15 for   29 ms | max|I|  22
+  chop  132.15 s         stick r/p/y  65/498/ 49 | max|gyro| r/p   62/ 797 rms  24/587 deg/s | top motor 0.84, >0.15 for  420 ms | max|I|  45
+  chop  138.67 s         stick r/p/y   0/  0/ 45 | max|gyro| r/p   55/  71 rms  18/ 16 deg/s | top motor 0.58, >0.15 for  760 ms | max|I| 120
+  chop  141.48 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   47/  56 rms  17/ 15 deg/s | top motor 0.57, >0.15 for  760 ms | max|I| 113
+  chop  146.24 s         stick r/p/y   0/ 52/  0 | max|gyro| r/p   43/  62 rms  12/ 21 deg/s | top motor 0.57, >0.15 for  761 ms | max|I| 147
+  chop  148.33 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   34/  71 rms  13/ 20 deg/s | top motor 0.60, >0.15 for  701 ms | max|I| 147
+  chop  162.14 s         stick r/p/y 360/162/163 | max|gyro| r/p  336/ 101 rms 230/ 88 deg/s | top motor 0.24, >0.15 for    7 ms | max|I|  35
+  chop  172.10 s centred stick r/p/y   0/  0/  0 | max|gyro| r/p   58/  86 rms  19/ 19 deg/s | top motor 0.63, >0.15 for  728 ms | max|I| 163
+  chop  182.31 s centred stick r/p/y  21/  0/ 17 | max|gyro| r/p   29/  23 rms   8/  9 deg/s | top motor 0.27, >0.15 for  550 ms | max|I|  54
+  chop  183.76 s centred stick r/p/y  17/ 24/  0 | max|gyro| r/p   34/  94 rms  17/ 34 deg/s | top motor 0.54, >0.15 for  280 ms | max|I| 164
+  chop  187.63 s         stick r/p/y 227/123/115 | max|gyro| r/p  220/  91 rms 115/ 53 deg/s | top motor 0.38, >0.15 for  188 ms | max|I|  31
+  chop  191.02 s centred stick r/p/y   0/  0/ 19 | max|gyro| r/p   23/  63 rms   8/ 16 deg/s | top motor 0.49, >0.15 for  760 ms | max|I| 144
+== L9_1.npz  (Betaflight 3.4.0 (2fe9d7990) MATEKF405), throttle 1000-1999
+  chop  176.07 s         stick r/p/y   0/127/  6 | max|gyro| r/p   29/ 114 rms  15/ 72 deg/s | top motor 0.22, >0.15 for  140 ms | max|I|  35
+  chop  178.62 s         stick r/p/y   0/ 68/  0 | max|gyro| r/p   36/ 177 rms  21/102 deg/s | top motor 0.31, >0.15 for  319 ms | max|I|  34

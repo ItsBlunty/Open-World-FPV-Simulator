@@ -1,0 +1,2 @@
+original: speed at chop 41.6 m/s; |f| before 1.09 g, after 2.72 g (peak 3.42), body x/y(thrust)/z after 0.13 -2.64 0.62
+supafly5: speed at chop 41.6 m/s; |f| before 1.09 g, after 2.73 g (peak 3.91), body x/y(thrust)/z after -0.08 -2.67 0.53

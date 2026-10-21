@@ -389,3 +389,9 @@ Presets such as SupaflyFPV's use all of them. Open; affects low-throttle authori
 G11 update (2026-10-21): TPA, thrust linearization, the relax cutoff and the anti-gravity gain built (sim-core 0.8.0,
 `ParamOverrides`, `test/tune-features.test.ts`); dynamic D not built (SupaFly, the default tune, turns it off). Open
 for dynamic D only.
+
+F9 update (2026-10-21, third pass): logs attached to the chop-bob issues (Betaflight 3.2-4.0) with the same air push
+on the props as the owner's chop (accelerometer 1.9-3.0 g after the chop, sim 2.7 g) show the same wobble, tilt
+change (6 deg) and motor-high time (1.5-2.5 s) as the sim; the sim's peak kick, 111-139 deg/s, is about twice their
+77 deg/s maximum. The finding narrows to that kick, and to how much modern Betaflight reduces the rest
+(`docs/evidence/2026-10-21-issue-logs/`).

@@ -246,3 +246,11 @@ Freestyle 5" (default, dynamic idle 3000 rpm), Betaflight defaults (TPA D 65 % f
 a minimum-rpm slider for dynamic idle (`apps/fly/src/tunes.ts`). On the owner's chop through the real sim-core:
 original RMS 13.2 deg/s, tilt change 6.9 deg; Betaflight defaults 12.9, 6.2; SupaFly 11.5, 4.6 (same as the scratch
 copy); a motor above 15 % about 1.5 s in all three. Flight feel: for the owner to fly (build at `/next/` on Pages).
+Owner flew it: "still unrealistic".
+
+**Logs from the Betaflight chop-bob issues (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-issue-logs/`).** Seven logs
+pilots attached to #3723, #6018, #6148 (Betaflight 3.2-4.0, 2017-2018). 11 chops with centred sticks: rms rate 10/15
+deg/s, peak 32/60 (max 77), tilt change 6 deg, a motor above 15 % for 1.5-2.5 s, I about 125. Their accelerometers
+read 1.9-3.0 g of air push after the chop (0.9-2.8 g backwards along the thrust axis); the sim's owner chop reads 2.7 g
+(2.6 back): the same airflow. The sim matches those chops in wobble, tilt and motor-high time; its sharpest kick
+(111-139 deg/s) is about twice the real maximum. Caveat: old firmware, pilots reporting a fault; no modern log at that airflow.

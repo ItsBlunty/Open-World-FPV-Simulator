@@ -1,0 +1,20 @@
+== L2_3.npz raptor foxtrot (Betaflight 3.4.0 (7ad5254d8) OMNIBUSF4), rollPID [33, 33, 17] pitchPID [30, 30, 17]
+== L4_2.npz raptor foxtrot (Betaflight 3.4.0 (85f6849) OMNIBUSF4), rollPID [33, 66, 17] pitchPID [33, 70, 17]
+== L5_1.npz Martian2 (Betaflight 3.3.1 (4b7eaf79d) MATEKF405), rollPID [38, 40, 35] pitchPID [80, 100, 70]
+  chop  540.84 s: rms r/p  23/ 37, peak r/p   49/  77 deg/s, tilt change 34.0 deg, a motor > 15 % until  537 ms, peak I  55
+== L6_1.npz QAVX220 (Betaflight 3.2.0 (b13f96d29) OMNIBUSF4SD), rollPID [43, 36, 8] pitchPID [49, 45, 11]
+  chop  254.23 s: rms r/p   9/ 17, peak r/p   24/  60 deg/s, tilt change  8.4 deg, a motor > 15 % until 1245 ms, peak I 121
+== L7_1.npz FLINT TF2722 (Betaflight 4.0.0 (a35b31085) OMNIBUSF4), rollPID [46, 45, 25] pitchPID [48, 50, 27]
+  chop   65.50 s: rms r/p  22/ 15, peak r/p   66/  52 deg/s, tilt change 10.8 deg, a motor > 15 % until 1500 ms, peak I 119
+  chop   70.67 s: rms r/p  11/ 17, peak r/p   41/  71 deg/s, tilt change  8.7 deg, a motor > 15 % until 1489 ms, peak I 132
+  chop   85.54 s: rms r/p   9/ 14, peak r/p   23/  60 deg/s, tilt change  6.0 deg, a motor > 15 % until 1499 ms, peak I 150
+  chop   91.03 s: rms r/p   9/ 14, peak r/p   26/  52 deg/s, tilt change  5.0 deg, a motor > 15 % until 1358 ms, peak I 127
+  chop  135.57 s: rms r/p  15/ 16, peak r/p   49/  58 deg/s, tilt change  7.8 deg, a motor > 15 % until 1497 ms, peak I 139
+== L8_1.npz FLINT TF2722 (Betaflight 4.0.0 (5530eb3eb) OMNIBUSF4), rollPID [46, 45, 25] pitchPID [48, 50, 27]
+  chop   71.57 s: rms r/p  10/ 15, peak r/p   32/  47 deg/s, tilt change  4.8 deg, a motor > 15 % until 1498 ms, peak I 125
+  chop   77.99 s: rms r/p   9/ 12, peak r/p   29/  51 deg/s, tilt change  4.3 deg, a motor > 15 % until 1499 ms, peak I 120
+  chop  114.46 s: rms r/p  11/ 16, peak r/p   30/  67 deg/s, tilt change  5.3 deg, a motor > 15 % until 1425 ms, peak I 150
+  chop  119.78 s: rms r/p  10/ 13, peak r/p   42/  67 deg/s, tilt change  5.0 deg, a motor > 15 % until 1499 ms, peak I 120
+== L9_1.npz  (Betaflight 3.4.0 (2fe9d7990) MATEKF405), rollPID [44, 45, 27] pitchPID [48, 50, 29]
+
+ALL 11 centred chops: median / max  rms r/p 10/15 (23/37), peak 32/60 (66/77) deg/s, tilt 6.0 (34.0) deg, motor high until 1497 (1500) ms, I 125 (150)

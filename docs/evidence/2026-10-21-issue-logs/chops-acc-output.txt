@@ -1,0 +1,16 @@
+== L5_1.npz Martian2 acc_1G 2048
+  chop  540.84 s: |acc| before 2.95 g, after 1.37 g (peak 2.08), body x/y/z after [-0.23 -0.03 -0.26]
+== L6_1.npz QAVX220 acc_1G 4096
+  chop  254.23 s: |acc| before 3.88 g, after 1.70 g (peak 2.80), body x/y/z after [-0.48  0.18  0.15]
+== L7_1.npz FLINT TF2722 acc_1G 2048
+  chop   65.50 s: |acc| before 2.61 g, after 2.49 g (peak 3.94), body x/y/z after [-0.75 -0.22 -1.4 ]
+  chop   70.67 s: |acc| before 3.49 g, after 1.94 g (peak 3.10), body x/y/z after [-0.48  0.08 -1.1 ]
+  chop   85.54 s: |acc| before 1.62 g, after 2.64 g (peak 4.51), body x/y/z after [-0.54  0.35 -2.11]
+  chop   91.03 s: |acc| before 1.28 g, after 2.28 g (peak 3.68), body x/y/z after [-0.67 -0.05 -1.59]
+  chop  135.57 s: |acc| before 1.40 g, after 2.93 g (peak 5.07), body x/y/z after [-0.82 -0.38 -2.01]
+== L8_1.npz FLINT TF2722 acc_1G 2048
+  chop   71.57 s: |acc| before 3.38 g, after 2.52 g (peak 3.89), body x/y/z after [-0.76  0.1  -1.11]
+  chop   77.99 s: |acc| before 2.27 g, after 2.30 g (peak 3.18), body x/y/z after [-0.99 -0.42 -0.89]
+  chop  114.46 s: |acc| before 2.06 g, after 2.61 g (peak 4.38), body x/y/z after [-0.81  0.34 -1.78]
+  chop  119.78 s: |acc| before 1.44 g, after 3.00 g (peak 4.21), body x/y/z after [-0.59 -0.39 -2.81]
+== L2_3.npz raptor foxtrot acc_1G 2048

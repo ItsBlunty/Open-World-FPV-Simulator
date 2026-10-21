@@ -1,0 +1,7 @@
+chop start 4187 ms; sticks during 1.5 s: roll/pitch/yaw max |stick| 0.01/0.00/0.11
+original 0-1500 ms: rms x/z 6/17, peak x/z 26/139 deg/s, tilt change 5.8 deg, a motor > 15 % until 1500 ms
+original 0-3000 ms: rms x/z 4/12, peak x/z 26/139 deg/s, tilt change 6.9 deg, a motor > 15 % until 1551 ms
+betaflight 0-1500 ms: rms x/z 7/16, peak x/z 28/128 deg/s, tilt change 5.1 deg, a motor > 15 % until 1500 ms
+betaflight 0-3000 ms: rms x/z 5/12, peak x/z 28/128 deg/s, tilt change 6.2 deg, a motor > 15 % until 1551 ms
+supafly5 0-1500 ms: rms x/z 15/6, peak x/z 111/28 deg/s, tilt change 3.9 deg, a motor > 15 % until 1500 ms
+supafly5 0-3000 ms: rms x/z 10/4, peak x/z 111/28 deg/s, tilt change 4.8 deg, a motor > 15 % until 1531 ms
