@@ -21,6 +21,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Real-world record:** Betaflight issues #3723/#6018/#6148 document the same chop bob on real quads (2017-2020);
   dynamic idle (PR #10294, BF 4.3) and reworked anti-gravity were the fix. Question for the owner: how strong is it on your
   quad with current Betaflight? [evidence 2026-10-21-public-logs/README.md]
+- **Top speed / tuning:** level top speed 157 km/h on this branch (unverified; only unsourced ~150 km/h found); Betaflight's
+  documented chop fixes act in the sim as documented (PIDs +30 %, anti-gravity x2 help), none removes it. [evidence 2026-10-21-tuning-topspeed]
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)

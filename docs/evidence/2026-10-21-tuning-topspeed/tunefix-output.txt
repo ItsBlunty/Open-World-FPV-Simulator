@@ -1,0 +1,11 @@
+owner settings (dynamic idle 3400 rpm)         owner chop: 139/ 26 deg/s, drift  3.9, >15% 1514 ms, I 191 | level 30: 17/42, 850 ms, I 138 | level 37: 20/51, 850 ms, I 163 | climb 27: 14/38, 813 ms, I 120 |
+dynamic idle 4000 rpm                          owner chop: 135/ 27 deg/s, drift  3.8, >15% 1476 ms, I 184 | level 30: 22/53, 848 ms, I 137 | level 37: 20/33, 850 ms, I 168 | climb 27: 13/41, 726 ms, I 116 |
+no dynamic idle, static idle 7 %               owner chop: 115/ 26 deg/s, drift  2.5, >15% 1554 ms, I 165 | level 30: 15/39, 850 ms, I 129 | level 37: 20/48, 850 ms, I 154 | climb 27: 12/35, 777 ms, I 112 |
+Pitch Tracking +30 % (pitch P, I)              owner chop:  28/114 deg/s, drift  3.8, >15% 1580 ms, I 167 | level 30: 16/39, 847 ms, I 135 | level 37: 20/46, 849 ms, I 160 | climb 27: 12/36, 806 ms, I 116 |
+Tracking +30 % (roll+pitch P, I)               owner chop:  22/115 deg/s, drift  4.1, >15% 1575 ms, I 161 | level 30: 14/37, 850 ms, I 132 | level 37: 16/42, 850 ms, I 157 | climb 27: 12/34, 805 ms, I 114 |
+all PIDs +30 %                                 owner chop:  11/ 66 deg/s, drift  4.0, >15% 1246 ms, I 115 | level 30: 13/34, 850 ms, I 133 | level 37: 20/43, 849 ms, I 156 | climb 27: 11/31, 804 ms, I 116 |
+I -30 % (Drift-Wobble slider down)             owner chop: 138/ 30 deg/s, drift  4.9, >15% 1494 ms, I 184 | level 30: 19/42, 850 ms, I 136 | level 37: 24/52, 850 ms, I 161 | climb 27: 14/38, 823 ms, I 118 |
+anti-gravity gain x0.5                         owner chop: 160/ 25 deg/s, drift  4.0, >15% 1505 ms, I 184 | level 30: 21/50, 850 ms, I 132 | level 37: 22/61, 850 ms, I 158 | climb 27: 18/45, 807 ms, I 115 |
+anti-gravity gain x2                           owner chop: 101/ 28 deg/s, drift  2.1, >15% 1543 ms, I 178 | level 30: 15/32, 850 ms, I 136 | level 37: 20/28, 850 ms, I 160 | climb 27: 11/30, 813 ms, I 119 |
+throttle expo 30 (mid 50)                      owner chop:  84/ 62 deg/s, drift  3.2, >15% 1513 ms, I 186 | level 30: 17/39, 850 ms, I 133 | level 37: 19/48, 850 ms, I 158 | climb 27: 14/35, 780 ms, I 115 |
+freestyle values P65 I95 D45 + dyn idle 4000   owner chop:  34/ 84 deg/s, drift  4.3, >15% 1437 ms, I 136 | level 30: 18/40, 850 ms, I 120 | level 37: 17/30, 850 ms, I 151 | climb 27: 14/26, 722 ms, I 100 |

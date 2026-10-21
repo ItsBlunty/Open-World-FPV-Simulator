@@ -220,3 +220,11 @@ re-starting properly in negative inflow" (2020) and answered with dynamic idle (
 reworked anti-gravity. So the effect the owner sees in the sim has a documented real counterpart; the open questions
 are how strong it should be on current Betaflight with dynamic idle, and whether the sim's version is too strong
 (the sim with dynamic idle at 3400 rpm still bobs; real logs at 14-22 m/s hold attitude within tens of deg/s).
+
+**Top speed and Betaflight's tuning fixes (owner, 2026-10-21; `docs/evidence/2026-10-21-tuning-topspeed/`).** Level
+top speed on this branch: 157 km/h at full throttle (143-166 km/h with the estimated drag area x1.5 / x0.75); no
+measured figure for a 6S 5-inch found (only unsourced "about 150 km/h"), so plausible, not verified. Betaflight's
+docs treat chop wobble as a tuning item (punch-and-cut test; anti-gravity, Pitch Tracking, enough P with not too much
+I, dynamic idle 3500-4000 rpm, thrust linear, 24 kHz PWM). In the sim those changes act in the documented direction
+(all PIDs +30 %: 139/26 -> 11/66 deg/s; anti-gravity x2: drift 3.9 -> 2.1 deg; x0.5 worse) but none removes the
+long motor-high phase, matching the issue threads ("helps, not a complete remedy").

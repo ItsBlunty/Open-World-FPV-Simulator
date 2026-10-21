@@ -1,0 +1,3 @@
+cdaScale 0.75: level top speed 46.1 m/s (166 km/h) | 50deg 36/+26 53deg 37/+24 56deg 38/+22 59deg 40/+20 62deg 41/+18 65deg 42/+15 68deg 43/+13 71deg 44/+11 74deg 45/+9 77deg 45/+6 80deg 46/+4 83deg 46/+1 86deg 46/-1
+cdaScale 1: level top speed 43.6 m/s (157 km/h) | 50deg 34/+24 53deg 35/+22 56deg 36/+21 59deg 38/+19 62deg 39/+17 65deg 40/+15 68deg 41/+12 71deg 42/+10 74deg 42/+8 77deg 43/+6 80deg 43/+4 83deg 44/+1 86deg 44/-1
+cdaScale 1.5: level top speed 39.8 m/s (143 km/h) | 50deg 31/+22 53deg 32/+20 56deg 33/+19 59deg 34/+17 62deg 35/+15 65deg 36/+13 68deg 37/+11 71deg 38/+9 74deg 39/+7 77deg 39/+5 80deg 39/+3 83deg 40/+1 86deg 40/-1
