@@ -15,14 +15,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   464 / ARR 4H26 measured that band on full-size props; the old 0.8.0 range was 7x too steep (now refit). No 5-inch data
   past zero thrust exists (UIUC stops there). BEM and blade-element fail there (Goyal 2024). AOS-RC (Chris Rosser)
   static data for the real Nazgul F5 prop: thrust 4 % above the model, Q/T 12.5 vs 13.6 mm, CT falls at low rpm.
-- **Gaps to check, each with evidence:** (1) 5-inch props at low Re may lack the band (a measured 16x8 low-Re prop has it from J 1.37); (2) crossflow:
-  checked, not the cause (`docs/evidence/2026-10-20-crossflow/`); (3) steady curves used for fast rpm changes (no dynamic inflow /
-  unsteady aero); (4) motor spool and (5) ESC braking: checked, not the cause (motors 1.3-1.6x faster than
-  measured: a separate fix to decide; `docs/evidence/2026-10-20-motor-lag/`); (6) FC emulation (1 kHz ideal gyro, airmode mix floor, windup) never checked against real Betaflight (SITL);
-  (7) no frame aerodynamic moments or damping; (8) drag levels (5 N per prop braking, frame CdA, unloaded-prop rpm);
-  (9) inertia (G3); (10) static calibration from other props; (11) no gusts, the owner's yaw input at the chop.
-- **Evidence routes:** Betaflight SITL on the same sticks; a blackbox log with RPM telemetry (owner: not now); a
-  5-inch prop on a stand in airflow; small-prop negative-thrust literature.
+- **Checked (2026-10-20/21):** all gaps 1-11 tested; none removes the long motor-high phase alone. Public logs
+  (eRPM, GPS) show that phase is real Betaflight behaviour at 14-22 m/s with attitude held, and the model matches there.
+  Open: the size of the owner's 40 m/s kick (139 deg/s); no public log that fast. [physics §2g, evidence 2026-10-21-public-logs]
+- **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)
 

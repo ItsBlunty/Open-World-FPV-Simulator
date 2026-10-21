@@ -1,0 +1,15 @@
+as built (0.8.0 + NACA refit)                              roll  139 pitch   26 deg/s, drift  3.9 deg, motor>15% 1514 ms, max|I| 191
+gap 3: prop loads lag 1 ms (dynamic inflow, Peters)        roll   21 pitch   68 deg/s, drift  7.5 deg, motor>15% 1247 ms, max|I| 170
+gap 3: lag 5 ms                                            roll  167 pitch  150 deg/s, drift  6.9 deg, motor>15% 2850 ms, max|I| 11
+gap 3: lag 20 ms (far beyond physics)                      roll  363 pitch  355 deg/s, drift 93.9 deg, motor>15% 2850 ms, max|I| 6
+gap 1: windmill curves x0.65 (measured small-prop depth)   roll  124 pitch   50 deg/s, drift  2.3 deg, motor>15% 1839 ms, max|I| 215
+gap 1: windmill curves x0.3                                roll  141 pitch   77 deg/s, drift  0.9 deg, motor>15% 2346 ms, max|I| 238
+gap 7: frame damping 2e-3 N m s at 40 m/s                  roll  137 pitch   26 deg/s, drift  3.9 deg, motor>15% 1515 ms, max|I| 190
+gap 7: frame damping 1e-2 (5x the estimate)                roll  132 pitch   24 deg/s, drift  3.9 deg, motor>15% 1517 ms, max|I| 191
+gap 9: inertia x0.7                                        roll   12 pitch  100 deg/s, drift  5.2 deg, motor>15% 1195 ms, max|I| 106
+gap 9: inertia x0.5                                        roll   98 pitch  102 deg/s, drift  1.6 deg, motor>15% 2850 ms, max|I| 3
+gap 10: kappa 0.0125 (AOS-RC Nazgul F5 prop)               roll   77 pitch   74 deg/s, drift  2.5 deg, motor>15% 1529 ms, max|I| 158
+gap 11: yaw stick 0 from the chop                          roll  112 pitch   40 deg/s, drift  3.7 deg, motor>15% 1508 ms, max|I| 188
+gap 11: all sticks centred from the chop                   roll   21 pitch  137 deg/s, drift  4.8 deg, motor>15% 1624 ms, max|I| 189
+dynamic idle off (owner had it on)                         roll  100 pitch   38 deg/s, drift  2.1 deg, motor>15% 1617 ms, max|I| 183
+classic physics (no airflow on the props)                  roll    1 pitch    1 deg/s, drift  0.8 deg, motor>15%   54 ms, max|I| 0

@@ -199,3 +199,15 @@ crossflow terms move the control moment by at most 0.001 N m against 0.011-0.057
 crossflow's axial term does not depend on rpm. Not the cause. The idle motor (J 2.5-5.3) has no numeric data. Side
 finding: the same measured fit reverses (more rpm, less thrust) above Jx 1.37 on a small low-Re prop, near the
 model's own onset (J 1.41): evidence for gap 1's band at small scale, though only to J 2.1. Left: gaps 1, 3, 6, 7.
+
+**Public logs and the remaining gaps (owner: "do the rest of the gaps", "Look up data on this", 2026-10-21;
+`docs/evidence/2026-10-21-public-logs/`).** Real Betaflight logs with eRPM (Fawkes, bbx-analyzer) and with GPS (Diatone
+Roma F5, gimbal-ghost) show the model's chop pattern is real: all four motors fall together, then one pair is raised to
+0.2-0.4 while the other sits at idle, a motor stays above 15 % for 0.45-0.8 s, the I-term swings by about 100, and at
+14-22 m/s the attitude holds within tens of deg/s. The model at those speeds, sticks centred, with a 2-5 % spread
+between motors, gives the same numbers, and stays under 42 deg/s up to 37 m/s. Real quads sometimes kick too (364 deg/s
+on one centred-stick chop). So the motor firing up is ordinary; what is unexplained is the size of the owner's 40 m/s
+kick (139 deg/s), at a speed no public log reaches. Whether props act backwards could not be read from closed-loop
+logs. The other gaps: band depth x0.65 (measured small prop), load lag (Peters: about 1 ms), frame damping, inertia,
+torque ratio, stick inputs, dynamic idle: none removes the long motor-high phase; Betaflight's mixer and anti-gravity
+match 4.5.1 line by line. Next: a log of the owner's own quad at speed (with eRPM and GPS) would compare like for like.

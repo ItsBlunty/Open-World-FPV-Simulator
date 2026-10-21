@@ -1,0 +1,31 @@
+== roma_1.npz: 16420 frames, 250 Hz; normal flight sticks centred |error| r/p p99 [1274.  769.] deg/s
+  chop  235.56 s: GPS 21.7 m/s, climb +79.1 | demand |sp| r/p  102/   9, |error| r/p   14/  41, |gyro| r/p  107/  43 | motor cmd max 0.39 min 0.05 | >15 %  704 of  704 ms | |I| 103
+  chop  256.27 s: GPS 18.8 m/s, climb +48.0 | demand |sp| r/p    9/ 181, |error| r/p   31/  38, |gyro| r/p   26/ 181 | motor cmd max 0.26 min 0.05 | >15 %  588 of  796 ms | |I|  70
+  chop  264.19 s: GPS 17.3 m/s, climb +18.0 | demand |sp| r/p  225/  40, |error| r/p   26/  14, |gyro| r/p  236/  42 | motor cmd max 0.27 min 0.05 | >15 %  820 of  848 ms | |I|  78
+  chop  272.06 s: GPS 14.0 m/s, climb +12.0 | demand |sp| r/p  200/   6, |error| r/p   41/  32, |gyro| r/p  201/  32 | motor cmd max 0.30 min 0.05 | >15 %  580 of  848 ms | |I|  61
+  chop  274.79 s: GPS  6.5 m/s, climb -105.0 | demand |sp| r/p   37/  35, |error| r/p   20/  14, |gyro| r/p   21/  33 | motor cmd max 0.20 min 0.05 | >15 %    8 of  148 ms | |I|  11
+  chop  281.63 s: GPS 14.1 m/s, climb  -3.0 | demand |sp| r/p  260/  27, |error| r/p   37/  33, |gyro| r/p  265/  35 | motor cmd max 0.38 min 0.05 | >15 %  708 of  800 ms | |I|  97
+== roma_2.npz: 22168 frames, 250 Hz; normal flight sticks centred |error| r/p p99 [10. 18.] deg/s
+  chop  324.98 s: GPS 13.7 m/s, climb  +6.0 | demand |sp| r/p   38/ 673, |error| r/p   31/ 327, |gyro| r/p   45/ 679 | motor cmd max 1.00 min 0.05 | >15 %  468 of  800 ms | |I|  54
+  chop  329.59 s: GPS 14.3 m/s, climb +49.0 | demand |sp| r/p  238/  26, |error| r/p   27/  35, |gyro| r/p  251/  38 | motor cmd max 0.30 min 0.05 | >15 %  704 of  704 ms | |I|  83
+  chop  339.70 s: GPS 19.5 m/s, climb +17.1 | demand |sp| r/p   43/ 676, |error| r/p   28/ 316, |gyro| r/p   41/ 693 | motor cmd max 1.00 min 0.05 | >15 %  472 of  848 ms | |I|  95
+  chop  352.14 s: GPS 20.3 m/s, climb +13.0 | demand |sp| r/p   11/ 303, |error| r/p   65/  84, |gyro| r/p   61/ 284 | motor cmd max 0.41 min 0.05 | >15 %  592 of  704 ms | |I| 105
+  chop  361.02 s: GPS 17.5 m/s, climb +15.0 | demand |sp| r/p    5/ 133, |error| r/p    5/  20, |gyro| r/p   10/ 136 | motor cmd max 0.18 min 0.05 | >15 %   80 of  700 ms | |I|  42
+  chop  378.58 s: GPS 20.2 m/s, climb -18.0 | demand |sp| r/p   46/ 678, |error| r/p   42/ 396, |gyro| r/p   49/ 712 | motor cmd max 1.00 min 0.05 | >15 %  556 of  700 ms | |I| 126
+== roma_3.npz: 32387 frames, 250 Hz; normal flight sticks centred |error| r/p p99 [ 6. 12.] deg/s
+  chop  394.98 s: GPS 14.5 m/s, climb +23.0 | demand |sp| r/p   24/ 671, |error| r/p   18/ 216, |gyro| r/p   41/ 683 | motor cmd max 0.88 min 0.05 | >15 %  388 of  844 ms | |I|  75
+  chop  406.88 s: GPS 15.5 m/s, climb  +2.0 | demand |sp| r/p   43/ 673, |error| r/p   41/ 286, |gyro| r/p   49/ 953 | motor cmd max 1.00 min 0.05 | >15 %  496 of  700 ms | |I| 105
+  chop  416.30 s: GPS 15.0 m/s, climb +15.0 | demand |sp| r/p   14/ 564, |error| r/p   15/ 174, |gyro| r/p   20/ 475 | motor cmd max 0.55 min 0.05 | >15 %  308 of  704 ms | |I|  87
+  chop  420.57 s: GPS 15.8 m/s, climb +50.0 | demand |sp| r/p  289/   6, |error| r/p   41/  34, |gyro| r/p  301/  36 | motor cmd max 0.28 min 0.05 | >15 %  500 of  768 ms | |I|  71
+  chop  428.35 s: GPS 15.2 m/s, climb +21.0 | demand |sp| r/p   29/ 601, |error| r/p    9/ 143, |gyro| r/p   29/ 556 | motor cmd max 0.51 min 0.05 | >15 %  160 of  796 ms | |I|  18
+  chop  446.45 s: GPS 15.3 m/s, climb +32.0 | demand |sp| r/p   28/ 230, |error| r/p   28/  33, |gyro| r/p   37/ 241 | motor cmd max 0.27 min 0.05 | >15 %  448 of  704 ms | |I|  54
+  chop  457.53 s: GPS 17.6 m/s, climb  +9.0 | demand |sp| r/p  133/   4, |error| r/p   24/  11, |gyro| r/p  135/  11 | motor cmd max 0.33 min 0.05 | >15 %  700 of  700 ms | |I|  94
+  chop  465.34 s: GPS 19.4 m/s, climb +31.0 | demand |sp| r/p   27/ 220, |error| r/p   22/  39, |gyro| r/p   29/ 225 | motor cmd max 0.25 min 0.05 | >15 %  596 of  704 ms | |I|  66
+  chop  474.29 s: GPS 15.6 m/s, climb +22.0 | demand |sp| r/p    7/ 120, |error| r/p    4/  13, |gyro| r/p   10/ 117 | motor cmd max 0.15 min 0.05 | >15 %    0 of  704 ms | |I|  14
+  chop  480.07 s: GPS 21.8 m/s, climb +43.0 | demand |sp| r/p  145/  21, |error| r/p   11/  37, |gyro| r/p  150/  45 | motor cmd max 0.33 min 0.05 | >15 %  704 of  704 ms | |I|  99
+  chop  489.66 s: GPS  8.0 m/s, climb +17.0 | demand |sp| r/p  312/  24, |error| r/p   25/  22, |gyro| r/p  334/  35 | motor cmd max 0.24 min 0.05 | >15 %  460 of  704 ms | |I|  52
+  chop  499.40 s: GPS 20.2 m/s, climb  -9.0 | demand |sp| r/p  167/   2, |error| r/p   27/  44, |gyro| r/p  169/  45 | motor cmd max 0.40 min 0.05 | >15 %  700 of  700 ms | |I| 124
+== gg_log1_1.npz: 229265 frames, 975 Hz; normal flight sticks centred |error| r/p p99 [13. 12.] deg/s
+  chop  390.01 s: GPS  1.4 m/s, climb +15.0 | demand |sp| r/p    0/   2, |error| r/p    3/   5, |gyro| r/p    3/   6 | motor cmd max 0.12 min 0.06 | >15 %    0 of   95 ms | |I|   6
+  chop  409.40 s: GPS  5.9 m/s, climb  -2.0 | demand |sp| r/p    1/  27, |error| r/p    9/   6, |gyro| r/p   10/  31 | motor cmd max 0.17 min 0.06 | >15 %    7 of  205 ms | |I|  18
+  chop  450.56 s: GPS 17.7 m/s, climb +52.0 | demand |sp| r/p  145/  14, |error| r/p   24/  16, |gyro| r/p  162/  21 | motor cmd max 0.24 min 0.06 | >15 %  161 of  700 ms | |I|  27

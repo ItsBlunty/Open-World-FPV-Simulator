@@ -1,0 +1,40 @@
+== BTFL_BLACKBOX_LOG_FAWKES_20261010_122732_SUB250REDFOXF722AIO_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [250. 870.] deg/s
+  chop   21.41 s: stick demand max |sp| r/p   32/   0, max |error| r/p  232/ 139, max |gyro| r/p  254/ 139 deg/s | top motor cmd 0.14 at  4029 rpm, slowest 1629 | max |I|  14
+  chop   22.94 s: stick demand max |sp| r/p   39/  38, max |error| r/p   97/ 205, max |gyro| r/p   96/ 238 deg/s | top motor cmd 0.20 at  5100 rpm, slowest 1643 | max |I|  26
+  chop   24.63 s: stick demand max |sp| r/p  136/  10, max |error| r/p  204/  66, max |gyro| r/p  184/  66 deg/s | top motor cmd 0.15 at  4314 rpm, slowest 1629 | max |I|  13
+  chop   26.98 s: stick demand max |sp| r/p  816/  20, max |error| r/p  270/ 163, max |gyro| r/p  918/ 171 deg/s | top motor cmd 0.23 at  5986 rpm, slowest 1643 | max |I|  25
+  chop   32.38 s: stick demand max |sp| r/p    0/   5, max |error| r/p   59/  81, max |gyro| r/p   59/  86 deg/s | top motor cmd 0.10 at  4500 rpm, slowest 1686 | max |I|  17
+  chop   59.25 s: stick demand max |sp| r/p   61/ 236, max |error| r/p  359/ 861, max |gyro| r/p  378/1047 deg/s | top motor cmd 0.93 at 11400 rpm, slowest 1629 | max |I|  27
+== BTFL_BLACKBOX_LOG_FAWKES_20261010_124526_SUB250REDFOXF722AIO_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [126. 170.] deg/s
+  chop   40.84 s: stick demand max |sp| r/p   19/  10, max |error| r/p  103/ 361, max |gyro| r/p   94/ 364 deg/s | top motor cmd 0.28 at  7686 rpm, slowest 1686 | max |I|  96
+== BTFL_BLACKBOX_LOG_FAWKES_20261010_130023_SUB250REDFOXF722AIO_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [315. 318.] deg/s
+  chop   68.71 s: stick demand max |sp| r/p   69/  15, max |error| r/p  209/  74, max |gyro| r/p  210/  82 deg/s | top motor cmd 0.16 at  4943 rpm, slowest 1643 | max |I|  23
+  chop   77.93 s: stick demand max |sp| r/p    0/   0, max |error| r/p   61/ 236, max |gyro| r/p   61/ 236 deg/s | top motor cmd 0.17 at  4643 rpm, slowest 1629 | max |I|  36
+  chop   92.97 s: stick demand max |sp| r/p 2712/  25, max |error| r/p 1880/ 277, max |gyro| r/p 2383/ 289 deg/s | top motor cmd 0.40 at  8271 rpm, slowest 1614 | max |I|  21
+  chop  169.25 s: stick demand max |sp| r/p   77/ 131, max |error| r/p  177/ 313, max |gyro| r/p  159/ 309 deg/s | top motor cmd 0.19 at  5057 rpm, slowest 1643 | max |I|  28
+  chop  170.84 s: stick demand max |sp| r/p  833/1352, max |error| r/p  899/1193, max |gyro| r/p 1068/1620 deg/s | top motor cmd 0.20 at  5786 rpm, slowest 1657 | max |I|  33
+== BTFL_BLACKBOX_LOG_FAWKES_20261010_131418_SUB250REDFOXF722AIO_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [263. 385.] deg/s
+  chop   41.32 s: stick demand max |sp| r/p  136/   0, max |error| r/p   67/  88, max |gyro| r/p  153/  88 deg/s | top motor cmd 0.11 at 14571 rpm, slowest 1629 | max |I|  10
+  chop   47.83 s: stick demand max |sp| r/p  540/   2, max |error| r/p  186/  79, max |gyro| r/p  702/  78 deg/s | top motor cmd 0.17 at  4414 rpm, slowest 1586 | max |I|  12
+  chop   86.07 s: stick demand max |sp| r/p  156/   0, max |error| r/p  127/ 101, max |gyro| r/p  248/ 101 deg/s | top motor cmd 0.21 at  5500 rpm, slowest 1600 | max |I|  20
+== BTFL_BLACKBOX_LOG_FAWKES_20261011_152137_SUB250REDFOXF722AIO_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [174. 161.] deg/s
+  chop  105.98 s: stick demand max |sp| r/p   10/  31, max |error| r/p  105/  98, max |gyro| r/p   98/  96 deg/s | top motor cmd 0.15 at  4700 rpm, slowest 1643 | max |I|   6
+  chop  107.93 s: stick demand max |sp| r/p  625/  25, max |error| r/p  362/  86, max |gyro| r/p  712/  71 deg/s | top motor cmd 0.12 at  4229 rpm, slowest 1629 | max |I|  13
+  chop  110.07 s: stick demand max |sp| r/p  165/ 469, max |error| r/p  104/ 229, max |gyro| r/p  157/ 554 deg/s | top motor cmd 0.14 at  4800 rpm, slowest 1629 | max |I|  11
+  chop  113.03 s: stick demand max |sp| r/p   42/  39, max |error| r/p  141/ 159, max |gyro| r/p  141/ 158 deg/s | top motor cmd 0.12 at  4014 rpm, slowest 1657 | max |I|   9
+  chop  115.00 s: stick demand max |sp| r/p  116/ 171, max |error| r/p  329/ 450, max |gyro| r/p  306/ 400 deg/s | top motor cmd 0.24 at  6300 rpm, slowest 1657 | max |I|  37
+  chop  123.22 s: stick demand max |sp| r/p 1658/ 118, max |error| r/p  553/ 130, max |gyro| r/p 1742/ 226 deg/s | top motor cmd 0.18 at  4700 rpm, slowest 1600 | max |I|  25
+  chop  132.69 s: stick demand max |sp| r/p   29/4100, max |error| r/p   99/3904, max |gyro| r/p  106/4327 deg/s | top motor cmd 0.54 at  8914 rpm, slowest 1600 | max |I|  58
+  chop  179.23 s: stick demand max |sp| r/p  280/  31, max |error| r/p   78/ 244, max |gyro| r/p  316/ 225 deg/s | top motor cmd 0.22 at  5500 rpm, slowest 1657 | max |I|  44
+  chop  181.43 s: stick demand max |sp| r/p 3867/1559, max |error| r/p  653/ 324, max |gyro| r/p 4130/1674 deg/s | top motor cmd 0.31 at  7786 rpm, slowest 1629 | max |I|  40
+== f155232_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [194. 188.] deg/s
+  chop   32.18 s: stick demand max |sp| r/p  140/ 102, max |error| r/p  330/ 288, max |gyro| r/p  275/ 255 deg/s | top motor cmd 0.21 at  6571 rpm, slowest 1643 | max |I|  19
+  chop   39.57 s: stick demand max |sp| r/p  188/ 353, max |error| r/p  282/ 767, max |gyro| r/p  272/ 630 deg/s | top motor cmd 0.42 at  9200 rpm, slowest 1700 | max |I| 103
+  chop   47.37 s: stick demand max |sp| r/p  130/ 484, max |error| r/p  215/ 632, max |gyro| r/p  217/ 523 deg/s | top motor cmd 0.37 at  8029 rpm, slowest 1686 | max |I|  80
+  chop   67.57 s: stick demand max |sp| r/p  984/ 269, max |error| r/p  953/ 618, max |gyro| r/p  893/ 516 deg/s | top motor cmd 0.29 at  6914 rpm, slowest 1686 | max |I|  59
+  chop  181.79 s: stick demand max |sp| r/p   60/ 169, max |error| r/p  154/ 459, max |gyro| r/p  115/ 453 deg/s | top motor cmd 0.34 at  7357 rpm, slowest 1657 | max |I|  62
+== BTFL_FAWKES_20260927_192610_1.npz: normal flight with sticks near centre, |error| roll/pitch p99: [12. 13.] deg/s
+  chop   91.36 s: stick demand max |sp| r/p    5/  15, max |error| r/p   16/  35, max |gyro| r/p   13/  24 deg/s | top motor cmd 0.36 at  8400 rpm, slowest 2286 | max |I|  71
+  chop  103.66 s: stick demand max |sp| r/p    5/  21, max |error| r/p   12/  22, max |gyro| r/p   12/  36 deg/s | top motor cmd 0.32 at 10114 rpm, slowest 2329 | max |I|  88
+  chop  117.66 s: stick demand max |sp| r/p    5/  21, max |error| r/p   15/  28, max |gyro| r/p   14/  34 deg/s | top motor cmd 0.36 at 10900 rpm, slowest 2329 | max |I| 106
+  chop  192.53 s: stick demand max |sp| r/p  451/  56, max |error| r/p   42/  23, max |gyro| r/p  461/  61 deg/s | top motor cmd 0.45 at  8943 rpm, slowest 2171 | max |I|  28

@@ -1,0 +1,6 @@
+roll p, |v|  0- 3 m/s (n 218574): rate coefficient +2.07e-03 N m s, I/(-c) =    inf s, R^2 0.457, median |v| 0.9
+roll p, |v|  3- 8 m/s (n 131466): rate coefficient +5.83e-03 N m s, I/(-c) =    inf s, R^2 0.384, median |v| 5.1
+roll p, |v|  8-18 m/s (n  99674): rate coefficient +7.35e-03 N m s, I/(-c) =    inf s, R^2 0.217, median |v| 10.1
+pitch q, |v|  0- 3 m/s (n 218574): rate coefficient +2.03e-03 N m s, I/(-c) =    inf s, R^2 0.334, median |v| 0.9
+pitch q, |v|  3- 8 m/s (n 131466): rate coefficient +4.95e-03 N m s, I/(-c) =    inf s, R^2 0.262, median |v| 5.1
+pitch q, |v|  8-18 m/s (n  99674): rate coefficient +7.48e-03 N m s, I/(-c) =    inf s, R^2 0.202, median |v| 10.1

@@ -374,3 +374,7 @@ F9 update (2026-10-20): crossflow checked against NASA TM-20210014010, Simmons A
 data exist. Finding G10: props make no in-plane force or hub moment in the model (measured to add across a vehicle;
 small here, larger in edgewise flight; open). Small-prop evidence for the reversed band: Simmons' fit reverses above
 Jx 1.37 (to J 2.1 tested).
+
+F9 update (2026-10-21): public Betaflight logs (eRPM, GPS) show the chop's motor pattern (a pair raised, a pair at idle,
+a motor above 15 % for 0.45-0.8 s, I swing about 100) on real 5-inch quads at 14-22 m/s with attitude held; the model
+matches at those speeds. The open part narrows to the size of the owner's 40 m/s kick (`docs/evidence/2026-10-21-public-logs/`).

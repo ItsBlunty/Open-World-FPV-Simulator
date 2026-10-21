@@ -1,0 +1,12 @@
+roll  normal flight           : n 135088, slope       +74 deg/s^2 per 1e6 rpm^2, correlation +0.31
+roll  160-260 ms after chops  : n    918, slope       -36 deg/s^2 per 1e6 rpm^2, correlation -0.10
+pitch normal flight           : n 135088, slope       +60 deg/s^2 per 1e6 rpm^2, correlation +0.28
+pitch 160-260 ms after chops  : n    918, slope      -101 deg/s^2 per 1e6 rpm^2, correlation -0.62
+roll  normal flight           : n 135088, slope       +74 deg/s^2 per 1e6 rpm^2, correlation +0.31
+roll  260-400 ms after chops  : n   1414, slope       +66 deg/s^2 per 1e6 rpm^2, correlation +0.38
+pitch normal flight           : n 135088, slope       +60 deg/s^2 per 1e6 rpm^2, correlation +0.28
+pitch 260-400 ms after chops  : n   1414, slope       +77 deg/s^2 per 1e6 rpm^2, correlation +0.62
+roll  normal flight           : n 135088, slope       +74 deg/s^2 per 1e6 rpm^2, correlation +0.31
+roll  400-800 ms after chops  : n   4041, slope      +134 deg/s^2 per 1e6 rpm^2, correlation +0.65
+pitch normal flight           : n 135088, slope       +60 deg/s^2 per 1e6 rpm^2, correlation +0.28
+pitch 400-800 ms after chops  : n   4041, slope       +34 deg/s^2 per 1e6 rpm^2, correlation +0.25

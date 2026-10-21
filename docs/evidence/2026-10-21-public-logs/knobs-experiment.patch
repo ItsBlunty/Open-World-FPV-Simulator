@@ -1,0 +1,45 @@
+--- a/packages/sim-core/src/sim.ts
++++ b/packages/sim-core/src/sim.ts
+@@ -858,6 +858,13 @@
+                 if (om > 0) {
+                     T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz);
+                     Q = this.propQ;
++                    const g = globalThis as any;
++                    if (g.K_LAG > 0) {
++                        if (!g.lagT) { g.lagT = [T, T, T, T]; g.lagQ = [Q, Q, Q, Q]; }
++                        const a = 1 - Math.exp(-DT / g.K_LAG);
++                        g.lagT[i] += (T - g.lagT[i]) * a; g.lagQ[i] += (Q - g.lagQ[i]) * a;
++                        T = g.lagT[i]; Q = g.lagQ[i];
++                    }
+                 } else {
+                     // backwards (turtle mode) or stopped: thrust from the rotor speed alone at REVERSE_THRUST, and the
+                     // static torque against the rotation
+@@ -867,6 +874,7 @@
+                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
+                 T *= keep * strike[i];
++                const ka = (globalThis as any).K_ASYM; if (ka) { T *= ka[i]; Q *= ka[i]; }
+                 const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
+                 const tauE = mot.ke * amps;
+                 let next = om + ((tauE - Q) * DT) / p.rotorInertia;
+@@ -953,6 +961,8 @@
+         const fy = r10 * dbx + r11 * dby + r12 * dbz - p.mass * p.gravity;
+         const fz = r20 * dbx + r21 * dby + r22 * dbz;
+ 
++        const kdmp = ((globalThis as any).K_DAMP ?? 0) * speed / 40;
++        tauX -= kdmp * wx; tauZ -= kdmp * wz;
+         // ---- integrate (semi-implicit Euler) ----
+         const px0 = s[S.px], py0 = s[S.py], pz0 = s[S.pz];
+         const q0w = qw, q0x = qx, q0y = qy, q0z = qz;
+@@ -1082,8 +1092,9 @@
+         const x = ((f.theta * tip) / uy) * WINDMILL_X0;
+         const R = f.radius;
+         const k = this.p.rho * uy * uy * 4 * R * R * f.kWindmill;
+-        this.propQ = k * 2 * R * tableAt(WINDMILL_QC, WINDMILL_DX, x);
+-        return k * tableAt(WINDMILL_TC, WINDMILL_DX, x);
++        const kb = (globalThis as any).K_BAND ?? 1;
++        this.propQ = kb * k * 2 * R * tableAt(WINDMILL_QC, WINDMILL_DX, x);
++        return kb * k * tableAt(WINDMILL_TC, WINDMILL_DX, x);
+     }
+ 
+     /**
