@@ -47,6 +47,11 @@ export interface SimParams {
     dynIdle: DynIdleParams | null;
     /** controller and physics loops per second (gyro = PID loop rate): 1000, 2000, 4000 or 8000; loopHz / 1000 per tick */
     loopHz: number;
+    /**
+     * the ESC's dead time in loops (preset esc_delay_ms x loopHz / 1000, rounded): the motors act on the command of that
+     * many loops ago; 0 without the field, as before (sim-core/0.8.0)
+     */
+    escDelayLoops: number;
     /** Betaflight's TPA (tpa_*), compiled; null = no attenuation (every version before sim-core/0.8.0 had none) */
     tpa: TpaParams | null;
     /** Betaflight's thrust_linear as a fraction (0-1.5); 0 = off */
@@ -137,6 +142,11 @@ export interface MotorModel {
     ke: number;
     /** effective resistance of the speed-torque line, ohm */
     r: number;
+    /**
+     * duty the ESC loses (0-0.2, preset esc_duty_offset): the winding sees max(0, d - dutyOffset) x V. 0 without the
+     * field, as before (sim-core/0.8.0)
+     */
+    dutyOffset: number;
 }
 
 /**
@@ -348,6 +358,15 @@ export interface TpaParams {
     lowBreakpoint: number;
     lowMultiplier: number;
     lowAlways: boolean;
+}
+
+/** The preset's TPA (optional field `tpa`, a TpaConfig in Betaflight's CLI units); undefined without it. */
+function presetTpa(p: PresetJson): TpaConfig | undefined {
+    const f = p.fields.tpa;
+    if (f === undefined) return undefined;
+    const v = f.value as Partial<TpaConfig> | null;
+    if (!v || typeof v !== 'object' || (v.mode !== 'D' && v.mode !== 'PD')) throw new Error(`preset ${p.id}: field tpa is not a TPA setting`);
+    return v as TpaConfig;
 }
 
 function tpaOf(c: TpaConfig | undefined): TpaParams | null {
@@ -614,7 +633,12 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const cdaScale = o.cdaScale ?? 1;
     const cdaH = (num(p, 'cda_horizontal_cm2') / 10000) * cdaScale;
     const inflow = o.classicPhysics === true ? null : inflowOf(p, tmaxMotorNom, omegaMaxPerVolt * vNom, kappa);
-    const motor = inflow ? motorOf(kv, rpmFrac, vNom, kappa, tmaxMotorNom) : null;
+    // the ESC (sim-core/0.8.0): duty it loses (esc_duty_offset) and its dead time (esc_delay_ms); absent: 0, as before
+    const dutyOffset = optNum(p, 'esc_duty_offset', 0);
+    if (!(dutyOffset >= 0 && dutyOffset <= 0.2)) throw new Error(`preset ${p.id}: esc_duty_offset ${dutyOffset} outside 0-0.2`);
+    const escDelayMs = optNum(p, 'esc_delay_ms', 0);
+    if (!(escDelayMs >= 0 && escDelayMs <= 20)) throw new Error(`preset ${p.id}: esc_delay_ms ${escDelayMs} outside 0-20`);
+    const motor = inflow ? motorOf(kv, rpmFrac, vNom, kappa, tmaxMotorNom, dutyOffset) : null;
     // with rotor inflow the props unload at speed themselves, so the vertical drag area is the frame's own; the
     // classic model's larger cda_vertical_cm2 stands in for that unloading
     const cdaV = (num(p, inflow ? 'cda_vertical_inflow_cm2' : 'cda_vertical_cm2') / 10000) * cdaScale;
@@ -642,7 +666,9 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         idle: o.idle ?? num(p, 'motor_idle'),
         dynIdle: dynIdleOf(o.dynIdle, 1 / loopHzOf(o.loopHz)),
         loopHz: loopHzOf(o.loopHz),
-        tpa: tpaOf(o.tpa),
+        escDelayLoops: Math.round((escDelayMs * loopHzOf(o.loopHz)) / 1000),
+        // the override, else the preset's own TPA (optional field tpa, CLI units like TpaConfig; sim-core/0.8.0), else none
+        tpa: tpaOf(o.tpa ?? presetTpa(p)),
         thrustLinear: rangeOf(o.thrustLinear, 0, 0, 150, 'thrustLinear') / 100,
         relaxK: pt1Gain(rangeOf(o.itermRelaxCutoff, 15, 1, 50, 'itermRelaxCutoff'), 1 / loopHzOf(o.loopHz)),
         antiGravityGain: rangeOf(o.antiGravityGain, 80, 0, 250, 'antiGravityGain'),
@@ -743,9 +769,12 @@ function inflowOf(p: PresetJson, tmaxMotor: number, omegaMax: number, kappa: num
  * voltage and rest the motor holds its prop's static torque (kappa x the full thrust) at the loaded speed:
  * Ke w_L = rpm_loaded_fraction V_nom, so R = Ke V_nom (1 - rpm_loaded_fraction) / Q_L.
  */
-function motorOf(kv: number, rpmFrac: number, vNom: number, kappa: number, tmaxMotor: number): MotorModel {
+function motorOf(kv: number, rpmFrac: number, vNom: number, kappa: number, tmaxMotor: number, dutyOffset: number): MotorModel {
     const ke = 1 / (kv * 0.10471975511965977);
-    return { ke, r: (ke * vNom * (1 - rpmFrac)) / (kappa * tmaxMotor) };
+    // with an ESC duty offset the winding sees (1 - dutyOffset) V_nom at full output (0: the formula before)
+    const r = dutyOffset === 0 ? (ke * vNom * (1 - rpmFrac)) / (kappa * tmaxMotor) : (ke * vNom * (1 - dutyOffset - rpmFrac)) / (kappa * tmaxMotor);
+    if (!(r > 0)) throw new Error('motor model: rpm_loaded_fraction + esc_duty_offset must stay under 1');
+    return { ke, r, dutyOffset };
 }
 
 /** Throttle-curve output (0..1) that hovers at nominal voltage: u = (1/sqrt(TWR_local) - idle) / (1 - idle). */
@@ -796,7 +825,8 @@ function solveHover(sp: SimParams, soc: number): { motor: number; share: number;
     if (!m) return { motor: w, share: w, volts: v };
     // duty d with d V = Ke w + R Q / Ke, Q = kappa x the hover thrust (the prop's static torque)
     const omega = w * sp.omegaMaxPerVolt * v;
-    return { motor: (m.ke * omega + (m.r * sp.kappa * need) / m.ke) / v, share: w, volts: v };
+    const duty = (m.ke * omega + (m.r * sp.kappa * need) / m.ke) / v;
+    return { motor: m.dutyOffset === 0 ? duty : duty + m.dutyOffset, share: w, volts: v };
 }
 
 /**

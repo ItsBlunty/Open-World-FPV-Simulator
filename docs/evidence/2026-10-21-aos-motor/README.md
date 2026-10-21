@@ -56,3 +56,31 @@ The Nazgul preset's motor is too stiff: its resistance came from an estimated `r
 on a stand measures about 0.70. With that, the measured ESC dead time and inertia 0.0022, the sim Nazgul flies real
 Nazgul tunes the way real quads do. Still not modelled: the ESC's duty offset (about 4 %, which sets low-throttle thrust
 and idle rpm).
+
+## Applied to the Nazgul (owner: "Yes put it on next", 2026-10-21)
+
+sim-core gains optional preset fields for the ESC: `esc_duty_offset` (the winding sees max(0, d - offset) x V; the motor
+model's R formula includes it) and `esc_delay_ms` (the motors act on the command of that many ms ago, a buffer in the
+hashed state), and an optional preset `tpa` (Betaflight CLI units). Absent: as before, bit for bit.
+
+The Nazgul preset now has rpm_loaded_fraction 0.66 with esc_duty_offset 0.04 (R 0.178 ohm, the stand's 0.18 at 1750 KV;
+spool 25 ms, `frac-offset.test.ts`), inertia 0.0022 / yaw 0.0038, and Betaflight 4.5's default TPA (D 65 % from 1350),
+which real Betaflight ships and without which the default gains shake at full throttle (`tpa-full-throttle.test.ts`,
+`tpa-full-throttle-output.txt`).
+
+**The ESC dead time is not applied** (`chop-new-nazgul.test.ts`, `chop-variants-output.txt`): with it the throttle chop
+at 43 m/s turns violent (SupaFly: peak 163 / 206 deg/s, angular acceleration 19 800 deg/s^2); without it the new numbers
+give the calmest chop yet. The delay is real, so the windmill band (the props' braking at speed) is still too strong in
+the model; the delay goes in once that is right.
+
+As shipped (`chop-final-output.txt`, `step-final-output.txt`; 4 kHz, 16 motor spreads, sticks centred):
+
+| | peak median / max | angular acceleration median | top motor | tilt |
+| --- | --- | --- | --- | --- |
+| SupaFly (game default) | 40 / 62 deg/s | 3 840 deg/s^2 | 0.80 | 5.0 deg |
+| Betaflight defaults | 44 / 63 | 2 590 | 0.68 | 4.6 |
+| previous build (`../2026-10-21-sitl/`) | 62 / 86 | 3 960 | 0.91 | 6.6 |
+| real issue logs | ~60 / 77 | 2 200 | 0.49 | 6 |
+
+Step response with SupaFly: 50 % in 10-11 ms with 15-21 % overshoot (real quads on default-like gains 16-22 ms; the
+missing dead time makes the sim quicker). Level top speed with TPA tunes 142 km/h, as before.

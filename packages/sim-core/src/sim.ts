@@ -389,6 +389,9 @@ export class Sim {
     private kAtt: number;
     private kAff: number;
     private kHz: number;
+    /** first state slot of the ESC dead-time buffer, and the delayed commands the physics flies (escDelayed) */
+    private readonly escBase: number;
+    private readonly escOut: Float64Array;
     /** the loop: h = 1 / loopHz seconds, nLoop = loopHz / 1000 loops per 1 ms tick, and the filter gains for it */
     private readonly h: number;
     private readonly nLoop: number;
@@ -420,7 +423,11 @@ export class Sim {
 
     constructor(p: SimParams, world: ContactWorld | null) {
         this.p = p;
-        this.s = new Float64Array(p.tpa && !p.tpa.lowAlways ? S_TPA.size : p.dynIdle ? S_DYN.size : S.size);
+        const base = p.tpa && !p.tpa.lowAlways ? S_TPA.size : p.dynIdle ? S_DYN.size : S.size;
+        // the ESC's dead time (p.escDelayLoops): the commands of the last loops, oldest first, 4 per loop after the other slots
+        this.escBase = base;
+        this.escOut = new Float64Array(4);
+        this.s = new Float64Array(base + 4 * p.escDelayLoops);
         this.world = world;
         this.nS = p.spheres.length / 4;
         this.c0 = new Float64Array(this.nS * 3);
@@ -598,8 +605,20 @@ export class Sim {
         // of the tick; with one loop (loopHz 1000, the default) exactly the step before the setting
         for (let k = 0; k < this.nLoop; k++) {
             this.controller();
-            this.physics(this.motorCmd);
+            this.physics(this.p.escDelayLoops > 0 ? this.escDelayed() : this.motorCmd);
         }
+    }
+
+    /**
+     * The ESC's dead time (sim-core/0.8.0, preset esc_delay_ms): the command of escDelayLoops loops ago, from a buffer in
+     * the hashed state (reset clears it: the motors start from rest).
+     */
+    private escDelayed(): Float64Array {
+        const s = this.s, b = this.escBase, n = this.p.escDelayLoops * 4, out = this.escOut, c = this.motorCmd;
+        for (let i = 0; i < 4; i++) out[i] = s[b + i];
+        for (let j = b; j < b + n - 4; j++) s[j] = s[j + 4];
+        for (let i = 0; i < 4; i++) s[b + n - 4 + i] = c[i];
+        return out;
     }
 
     /**
@@ -934,7 +953,9 @@ export class Sim {
                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
                 T *= keep * strike[i];
-                const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
+                // the ESC loses dutyOffset of the duty (0 without esc_duty_offset: the command itself)
+                const duty = mot.dutyOffset === 0 ? out[i] : out[i] > mot.dutyOffset ? out[i] - mot.dutyOffset : 0;
+                const amps = (dir[i] * duty * volt - mot.ke * om) / mot.r;
                 const tauE = mot.ke * amps;
                 let next = om + ((tauE - Q) * this.h) / p.rotorInertia;
                 // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)

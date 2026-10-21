@@ -60,6 +60,13 @@ Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb
   before, bit for bit. New preset `uzh-kingfisher-4s`: UZH's NeuroBEM / Agilicious research quad, measured geometry,
   inertia and Betaflight tune, hover fitted to its logs (docs/evidence/2026-10-21-neurobem-replay). Test:
   `test/preset-kingfisher.test.ts`.
+- Optional preset fields for the ESC and the tune (2026-10-21): `esc_duty_offset` (0-0.2: the winding sees
+  max(0, d - offset) x V, and the motor model's R includes it), `esc_delay_ms` (0-20: the motors act on the command of that
+  many ms ago, `SimParams.escDelayLoops`, 4 state slots per loop after the others), `tpa` (a TpaConfig; an override
+  replaces it). Absent: as before, bit for bit. The Nazgul preset: rpm_loaded_fraction 0.66 and esc_duty_offset 0.04 from
+  Chris Rosser's (AOS-RC) thrust-stand sweeps (R 0.178 ohm), inertia 0.0022 / 0.0038, Betaflight 4.5's default TPA; no
+  esc_delay_ms yet (with it the chop at speed turns violent: the windmill band is still too strong). New self-test hashes
+  (flight `39e4d2f4...`, classic `9c048e73...`). docs/evidence/2026-10-21-aos-motor.
 - The throttle chop out of a climb still shakes (physics-review F9); its test is a known failure.
 Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`, `test/loop-rate.test.ts`,
 `test/preset-kingfisher.test.ts`.

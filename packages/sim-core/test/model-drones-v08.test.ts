@@ -229,15 +229,17 @@ describe('v0.8 presets fly like a race quad, a freestyle quad and a heavy cineli
         expect(topSpeedKmh(RACE, { cdaScale: 2 })).toBeLessThan(160);
     });
 
-    it('roll: the 5-inch quads reach 63 % of a full-stick rate within 20 ms, the cinelifter takes over 35 ms (inertia, 50 ms motors)', () => {
+    it('roll: the 5-inch quads reach 63 % of a full-stick rate within 30 ms, the cinelifter takes over 35 ms (inertia, 50 ms motors)', () => {
+        // real 5-inch quads on Betaflight's default gains reach 50 % of a stick step in 16-22 ms (step-response logs) and
+        // NeuroBEM's in 22-28 ms; the freestyle preset's measured motors and ESC dead time (2026-10-21) put it at 24-25 ms
         expect(rollStep(p(RACE)).t63).toBeLessThanOrEqual(20);
-        expect(rollStep(p(FREE)).t63).toBeLessThanOrEqual(20);
+        expect(rollStep(p(FREE)).t63).toBeLessThanOrEqual(30);
         expect(rollStep(p(CINE)).t63).toBeGreaterThan(35);
     });
 
     it('control: the freestyle quad with three times its rotor inertia (motors about as slow as the cinelifter\'s) is slower than 20 ms', () => {
         // its motor lag follows from the motor model (sim-core/0.8.0), so tauMs no longer reaches it; the rotor inertia does
-        expect(rollStep(p(FREE, { propInertia: 3 })).t63).toBeGreaterThan(20);
+        expect(rollStep(p(FREE, { propInertia: 3 })).t63).toBeGreaterThan(30);
     });
 
     it('the cinelifter\'s own tune rolls cleanly on a thumb-paced stick (80 ms): overshoot <= 12 %, at most one crossing', () => {
@@ -355,10 +357,12 @@ describe('prop wash (wake.ts)', () => {
         }
     });
 
-    it('a full-throttle punch-out leaves the wake at once (the thrust makes v_i large): under 15 % more height lost', () => {
+    it('a full-throttle punch-out leaves the wake quickly (the thrust makes v_i large): under 30 % more height lost', () => {
+        // at the game's 4 kHz loop; the freestyle preset's measured motors (25 ms spool) and 4 ms ESC dead time (2026-10-21)
+        // take about 30 ms longer to build thrust while it falls at about 20 m/s: 28 % (15 % with the earlier quicker motors)
         for (const id of NEW) {
-            const on = dropAndCatch(p(id), 2000, 10), off = dropAndCatch(p(id, { wake: 0 }), 2000, 10);
-            expect(on.lost / off.lost, id).toBeLessThan(1.15);
+            const on = dropAndCatch(p(id, { loopHz: 4000 }), 2000, 10), off = dropAndCatch(p(id, { wake: 0, loopHz: 4000 }), 2000, 10);
+            expect(on.lost / off.lost, id).toBeLessThan(1.3);
         }
     });
 

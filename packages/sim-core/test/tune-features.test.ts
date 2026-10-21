@@ -5,10 +5,11 @@
 import { describe, expect, it } from 'vitest';
 import { LifePlayer, MODE_CHANNEL, S, S_DYN, S_TPA, Sim, compileParams, thrustLinearOutput, thrustLinearThrottle, tpaFactor } from '../src/index';
 import type { Life, ParamOverrides } from '../src/index';
-import { preset } from './model-helpers';
+import { plainPreset } from './model-helpers';
 import { PlaneWorld, Pilot, crashCycles, deps, newRunner, runFrames } from './log-kit';
 
-const NAZGUL = preset('nazgulf5v3-6s');
+// the Nazgul without its own TPA and ESC dead time: these tests isolate one controller feature
+const NAZGUL = plainPreset('nazgulf5v3-6s');
 /** SupaflyFPV Freestyle 5 Inch (betaflight/firmware-presets 4.5) TPA */
 const SUPAFLY_TPA = { mode: 'PD' as const, rate: 50, breakpoint: 1250, lowRate: 20, lowBreakpoint: 1100, lowAlways: true };
 /** Betaflight 4.5's defaults (pid.c resetPidProfile) */

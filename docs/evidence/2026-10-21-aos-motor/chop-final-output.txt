@@ -1,0 +1,2 @@
+supafly5   peak 40 / 62 deg/s | accel 3841 / 7281 deg/s^2 | top motor 0.80 | motor high until 1500 ms | tilt 5.0 deg
+betaflight peak 44 / 63 deg/s | accel 2589 / 4541 deg/s^2 | top motor 0.68 | motor high until 1500 ms | tilt 4.6 deg

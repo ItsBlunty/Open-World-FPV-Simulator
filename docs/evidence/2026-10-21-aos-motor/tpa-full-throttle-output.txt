@@ -1,0 +1,4 @@
+own gains, no TPA            top speed 132 km/h, body rate rms at full throttle 38.2 deg/s | step flight error rms 18.0 p99 76 deg/s
+Betaflight defaults + TPA    top speed 142 km/h, body rate rms at full throttle 0.0 deg/s | step flight error rms 14.2 p99 64 deg/s
+SupaflyFPV                   top speed 142 km/h, body rate rms at full throttle 0.0 deg/s | step flight error rms 11.5 p99 50 deg/s
+iFlight's Nazgul tune        top speed 143 km/h, body rate rms at full throttle 0.7 deg/s | step flight error rms 20.3 p99 89 deg/s

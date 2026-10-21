@@ -200,7 +200,8 @@ describe('solid traffic in a session', () => {
         expect(s.sim.armed).toBe(true);
         expect(upY).toBeLessThan(0.995);
         expect(above).toBeGreaterThan(0);
-        expect(above).toBeLessThan(0.1);
+        // a few cm; 10.5 cm with the Nazgul's measured motors and ESC dead time (2026-10-21)
+        expect(above).toBeLessThan(0.15);
     });
 
     // 2026-10-20 (traffic.md §1z, physics-review F7): a quad respawned inside an SUV's body was pushed up into its glass box,

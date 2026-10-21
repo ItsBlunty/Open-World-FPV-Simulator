@@ -289,3 +289,12 @@ logged sticks, the sim matches the real step response (26 / 22 ms vs 28 / 22) an
 So the physics engine is right for that quad; the Nazgul preset's numbers (about 1.9x its angular acceleration per
 command) are what oscillate with Betaflight's default gains and the real delay. Delay chain: real command -> acceleration
 15-21 ms, sim 9-11 ms; real rotor speed -> acceleration 4-8 ms, sim 0.
+
+**Measured motor and ESC on the Nazgul (owner, 2026-10-21; `docs/evidence/2026-10-21-aos-motor/`).** Chris Rosser's
+(AOS-RC) 44 thrust-stand sweeps of one 6S 2207 (~1850 KV) give an effective motor + ESC resistance of 0.16 ohm and a
+~4 % ESC duty offset; the Nazgul preset's estimated 0.114 ohm made its motors 1.4-1.6x too quick. Applied:
+rpm_loaded_fraction 0.66 with esc_duty_offset 0.04 (0.178 ohm, 25 ms spool), inertia 0.0022 (fitted so real Nazgul tunes
+fly with the real 4 ms ESC dead time), Betaflight's default TPA in the preset. The dead time itself is not applied: with
+it the chop at speed turns violent, so the windmill band is still too strong. As shipped, the chop is the closest to real
+logs yet (SupaFly peak 40 / 62 deg/s, 3 840 deg/s^2, top motor 0.80; real ~60 / 77, 2 200, 0.49). Flight feel: for the
+owner to fly.

@@ -7,6 +7,8 @@ import { MODE_CHANNEL, S, Sim, compileParams } from '../src/index';
 import { preset } from './model-helpers';
 
 const KF = preset('uzh-kingfisher-4s');
+const MACH = preset('machr5sport-6s').fields;
+const IPR = MACH.inertia_roll_pitch_kgm2.value as number, IYAW = MACH.inertia_yaw_kgm2.value as number;
 
 describe('UZH Kingfisher preset', () => {
     it('motors at +-77.5 mm forward, +-100 mm sideways; inertia roll 0.0025, pitch 0.0021, yaw 0.0043 (UZH kingfisher.yaml)', () => {
@@ -51,9 +53,9 @@ describe('UZH Kingfisher preset', () => {
     });
 
     it('presets without the new fields keep the square X and one roll / pitch inertia', () => {
-        const p = compileParams(preset('nazgulf5v3-6s'), {});
-        const a = 239 / 2000 / Math.SQRT2;
+        const p = compileParams(preset('machr5sport-6s'), {});
+        const a = 210 / 2000 / Math.SQRT2;
         expect(Array.from(p.motorPos)).toEqual([a, 0, a, a, 0, -a, -a, 0, a, -a, 0, -a]);
-        expect(p.inertia).toEqual([0.0016, 0.0028, 0.0016]);
+        expect(p.inertia).toEqual([IPR, IYAW, IPR]);
     });
 });

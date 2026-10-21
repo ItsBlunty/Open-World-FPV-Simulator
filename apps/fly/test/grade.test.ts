@@ -9,7 +9,8 @@ import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { Grader } from '../src/grade';
 import type { GradedTrick } from '../src/grade';
 
-const params = compileParams(nazgul as unknown as PresetJson, {});
+// the game's loop rate (4 kHz since 2026-10-21)
+const params = compileParams(nazgul as unknown as PresetJson, { loopHz: 4000 });
 const HOVER = hoverSolve(params, 1).stick;
 const DEG = 180 / Math.PI;
 
@@ -49,7 +50,8 @@ function fly(script: (p: Pilot) => void, ms: number, gradeWorld: ContactWorld | 
         rate(axis, degPerS, thr) {
             const i = axis === 'roll' ? 0 : 1;
             const now = (axis === 'roll' ? -sim.s[S.wz] : -sim.s[S.wx]) * DEG;
-            const v = ch[i] + 0.0003 * (degPerS - now);
+            // the scripted thumb's gain: 0.0003 rang against the measured motors with an ESC dead time (2026-10-21)
+            const v = ch[i] + 0.0002 * (degPerS - now);
             ch[i] = v > 1 ? 1 : v < -1 ? -1 : v;
             ch[1 - i] = 0; ch[3] = 0; ch[2] = thr * 2 - 1;
         }
@@ -107,7 +109,8 @@ const loopScript = (R: number, climb: number, cutAt: number, katch: number) => (
 
 /** A split-S: half roll right at low throttle, then pull back along a path of radius R. */
 const splitScript = (R: number, thr: number, rollTo = 180) => (p: Pilot): boolean => {
-    if (p.roll < rollTo - 6 && p.pitch > -20) { p.rate('roll', 600, 0.1); return false; }
+    // release 15° early: at 600 deg/s the quad rolls on while it stops (the measured motor spool, 2026-10-21)
+    if (p.roll < rollTo - 15 && p.pitch > -20) { p.rate('roll', 600, 0.1); return false; }
     const v = p.sim.s;
     const sp = Math.sqrt(v[S.vx] * v[S.vx] + v[S.vy] * v[S.vy] + v[S.vz] * v[S.vz]);
     p.rate('pitch', -Math.min(400, Math.max(80, (sp / R) * DEG)), thr);

@@ -3,52 +3,25 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## Active: throttle-chop bobble (owner, 2026-10-20) — start here [physics §2g, physics-review F9, F10]
+## Active: throttle-chop bobble and flight feel (owner, 2026-10-20) — start here [physics §2g, physics-review F9, F10, G12]
 
-- **Issue:** in real flights a quad chopped to zero throttle at speed holds its attitude and its motors stay near idle.
-  In every model here (0.7.0, 0.8.0, 0.8.0 + NACA refit) it bobbles and motors ramp up (PID fights, I-term winds up,
-  1-2 s). Classic physics does not. Owner flew the refit: still wrong. Find the gap; no bandaids (owner).
-- **Where the work is:** branch `main-bng8wu` (not merged; sim-core/0.8.0; hashes re-pinned flight 9002c3fa, classic 6cadfb8b; the chop test is a known failure):
-  motor/ESC model, prop torque, Betaflight anti-gravity and throttle boost, NACA windmill curves. Owner's chop flight and
-  replay harness in `docs/evidence/2026-10-20-windmill/`.
-- **Learned:** the model's mechanism is the windmill-brake band (more rpm, more drag), so the PID acts backwards. NACA
-  464 / ARR 4H26 measured that band on full-size props; the old 0.8.0 range was 7x too steep (now refit). No 5-inch data
-  past zero thrust exists (UIUC stops there). BEM and blade-element fail there (Goyal 2024). AOS-RC (Chris Rosser)
-  static data for the real Nazgul F5 prop: thrust 4 % above the model, Q/T 12.5 vs 13.6 mm, CT falls at low rpm.
-- **Checked (2026-10-20/21):** all gaps 1-11 tested; none removes the long motor-high phase alone. Public logs
-  (eRPM, GPS) show that phase is real Betaflight behaviour at 14-22 m/s with attitude held, and the model matches there.
-  Open: the size of the owner's 40 m/s kick (139 deg/s); no public log that fast. [physics §2g, evidence 2026-10-21-public-logs]
-- **Real-world record:** Betaflight issues #3723/#6018/#6148 document the same chop bob on real quads (2017-2020);
-  dynamic idle (PR #10294, BF 4.3) and reworked anti-gravity were the fix. Question for the owner: how strong is it on your
-  quad with current Betaflight? [evidence 2026-10-21-public-logs/README.md]
-- **Top speed / tuning:** level top speed 157 km/h on this branch (unverified; only unsourced ~150 km/h found); Betaflight's
-  documented chop fixes act in the sim as documented (PIDs +30 %, anti-gravity x2 help), none removes it. [evidence 2026-10-21-tuning-topspeed]
-- **SupaFly preset:** the official SupaflyFPV 5" tune still bobbles, about a third less (tilt change 6.9 -> 4.6 deg).
-  TPA, thrust linear, relax cutoff, anti-gravity gain now built in sim-core 0.8.0; SupaFly is the default tune
-  (Settings > World and physics > Tune); no dynamic D (SupaFly has it off). [physics §2g, review G11]
-- **Fly it:** the branch builds to https://itsblunty.github.io/Open-World-FPV-Simulator/next/ (CI on push to main or
-  main-bng8wu builds both; main stays at the root). Owner flew SupaFly: "still unrealistic".
-- **Issue logs:** 7 logs attached to the Betaflight chop-bob issues (BF 3.2-4.0); in the same airflow (accelerometer
-  2-3 g after the chop, sim 2.7 g) they match the sim's wobble, 6 deg tilt and 1.5-2.5 s motor-high; the sim's peak
-  kick (111-139 deg/s) is about twice theirs (77). [evidence 2026-10-21-issue-logs]
-- **Kick:** controller vs props in the windmill band (faster windmilling prop brakes harder). 16 seeded chops: size near
-  real (SupaFly 59/88 vs 60/77), but starts 3x harder (7200 vs 2200 deg/s^2) and saturates motors (1.0 vs 0.49); no
-  measured fix found. Side finding G12: with the real 4 ms ESC dead time the sim oscillates in normal flight unless
-  inertia x2; inertia 0.0016 is an estimate. [evidence 2026-10-21-kick]
-- **Step response:** sim 50 % in 12 ms vs real 16-22 ms on the same gains; at speed sim 10 ms, real 15-31 ms; with 4 ms
-  dead time sim oscillates at speed. Model's control response too strong/fast, worst at speed. [evidence 2026-10-21-step-response]
-- **Inertia, thrust:** not the cause (inertia 0.0016 vs 0.0016-0.0019 scaled from UZH Kingfisher; thrust per command
-  matches stand data, flat with speed). Open: timing (real motor chain slower) and why the sim can't fly the real
-  delay. [evidence 2026-10-21-inertia-thrust]
-- **SITL + 4 kHz loop:** Betaflight 2026.6.2 SITL (lock-step patch, WSL ~/owfpv-sitl) on the sim physics: same chop as
-  built-in, also can't fly the real ESC delay -> physics too lively, controller cleared. sim-core `loopHz` built; game
-  flies 4 kHz by default (8 kHz option): chop accel 7100 -> 3960 deg/s^2 (real 2200). Waiting: owner flies /next/ at
-  4 kHz. [evidence 2026-10-21-sitl]
-- **NeuroBEM replay:** its quad rebuilt in the sim (measured mass/inertia/geometry/hover rpm, own BF 4.2 tune, real 4 ms
-  dead time, own sticks) matches its real step response (26/22 vs 28/22 ms) and stays calm: physics engine OK. The
-  Nazgul preset (1.9x its authority; inertia 0.0016 estimated) is what oscillates. Next: the Nazgul's real inertia and
-  tune (owner's quad: bifilar swing + `diff all`), then add ESC dead time to the motor model. [evidence 2026-10-21-neurobem-replay]
-- **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
+- **Issue:** a quad chopped to zero throttle at speed should hold attitude with motors near idle; the sim bobbled and
+  fought (PID vs props in the windmill-brake band). Owner wants proper physics, no bandaids.
+- **Where the work is:** branch `main-bng8wu` (not merged; sim-core/0.8.0; self-test pinned flight 39e4d2f4, classic
+  9c048e73; the chop test is a known failure). Flyable at https://itsblunty.github.io/Open-World-FPV-Simulator/next/
+  (CI builds main at the root and this branch at /next/).
+- **Built on the branch:** motor/ESC model, NACA windmill curves, Betaflight anti-gravity, throttle boost, TPA, thrust
+  linear, relax cutoff; tunes (SupaFly default); gyro/PID loop at 4 kHz (`loopHz`); quad picker with the UZH Kingfisher
+  (measured, reproduces its logs); the Nazgul with measured motor (R 0.178 ohm), ESC duty offset 0.04, inertia 0.0022,
+  Betaflight's default TPA. [physics §2g]
+- **Where it stands:** chop now closest to real logs (SupaFly peak 40/62 deg/s, 3840 deg/s^2, top motor 0.80; real
+  ~60/77, 2200, 0.49). Step response 10-11 ms (real 16-22). Waiting: owner flies /next/. [evidence 2026-10-21-aos-motor]
+- **Next:** the ESC dead time (4 ms, measured; field `esc_delay_ms` exists) is left out because with it the chop at speed
+  turns violent: the windmill band is still too strong at speed (F9/F10). Fix the band, then add the delay. Also: the
+  ceiling contact rocks with the delay (0.5 mm thrust loss step, F4).
+- **Tools:** Betaflight 2026.6.2 SITL in lock-step (WSL ~/owfpv-sitl, patch and bridge in docs/evidence/2026-10-21-sitl);
+  public logs and replays in docs/evidence/2026-10-2*; Chris Rosser's stand spreadsheet is the owner's (not committed).
+- **Owner's quad would settle it:** `diff all`, a swing test for inertia, a blackbox log with rpm of a fast chop.
 
 ## State (2026-10-20)
 

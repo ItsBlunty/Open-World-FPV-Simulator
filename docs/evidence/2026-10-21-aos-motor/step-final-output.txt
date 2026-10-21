@@ -1,0 +1,2 @@
+step_steps_supafly.npz                       new nazgul ste PID sim/sim | roll: n  71, 50 % at  11 ms, 90 % at  21 ms, peak 1.15 at  38 ms | pitch: n  76, 50 % at  10 ms, 90 % at  20 ms, peak 1.11 at  39 ms
+step_fast_supafly.npz                        new nazgul fas PID sim/sim | roll: n  40, 50 % at  10 ms, 90 % at  18 ms, peak 1.21 at  35 ms | pitch: n  22, 50 % at   9 ms, 90 % at  17 ms, peak 1.21 at  34 ms

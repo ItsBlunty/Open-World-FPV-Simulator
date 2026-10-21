@@ -1,0 +1,6 @@
+all new                        peak 163 / 206 deg/s | accel 19832 / 22139 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 5.4 deg
+no duty offset (f 0.70)        peak 143 / 178 deg/s | accel 18059 / 20028 deg/s^2 | top motor 1.00 | motor high until 1341 ms | tilt 3.9 deg
+no ESC delay                   peak 40 / 62 deg/s | accel 3841 / 7281 deg/s^2 | top motor 0.80 | motor high until 1500 ms | tilt 5.0 deg
+old motor (0.80, no offset)    peak 119 / 157 deg/s | accel 13987 / 16539 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 4.9 deg
+old inertia                    peak 283 / 306 deg/s | accel 37337 / 39119 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 2.9 deg
+no preset TPA                  peak 163 / 206 deg/s | accel 19832 / 22139 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 5.4 deg

@@ -434,3 +434,8 @@ resistance of 0.16 ohm (0.18 at 1750 KV) and a ~4 % ESC duty offset; the Nazgul 
 0.80 makes R 0.114 and its motors 1.4-1.6x too quick. With 0.70 (R 0.176), the measured 4 ms dead time and inertia
 0.0022, the sim Nazgul flies real Nazgul tunes calmly (error 11-16 deg/s). Not modelled: the ESC duty offset
 (`docs/evidence/2026-10-21-aos-motor/`).
+G12 / F9 update (2026-10-21, applied): the Nazgul now has the measured motor (R 0.178 ohm), the ESC duty offset (0.04),
+inertia 0.0022 and Betaflight's default TPA, but not the ESC dead time: with it the chop at 43 m/s turns violent (163 deg/s
+peak, 19 800 deg/s^2), so the windmill band is still too strong (open, F9/F10). As shipped the chop is the closest to the
+real logs yet: SupaFly peak 40 / 62 deg/s, 3 840 deg/s^2, top motor 0.80 (real ~60 / 77, 2 200, 0.49); step response
+10-11 ms (real 16-22: the missing delay).

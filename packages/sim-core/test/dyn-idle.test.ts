@@ -4,10 +4,11 @@
 import { describe, expect, it } from 'vitest';
 import { DYN_IDLE_DEFAULTS, LifePlayer, MODE_CHANNEL, S, S_DYN, Sim, autoDynIdleMinRpm, compileParams } from '../src/index';
 import type { Life, ParamOverrides } from '../src/index';
-import { preset } from './model-helpers';
+import { plainPreset } from './model-helpers';
 import { PlaneWorld, Pilot, crashCycles, deps, newRunner, runFrames } from './log-kit';
 
-const NAZGUL = preset('nazgulf5v3-6s');
+// the Nazgul without its own TPA and ESC dead time: these tests isolate one controller feature
+const NAZGUL = plainPreset('nazgulf5v3-6s');
 
 /** rpm of the slowest motor */
 function minRpm(sim: Sim): number {

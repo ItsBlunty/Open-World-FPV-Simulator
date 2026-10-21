@@ -88,7 +88,8 @@ describe('rotor inflow (sim-core/0.6.0)', () => {
     it('climbing along the thrust axis the thrust falls to zero near the pitch speed, as measured 5-inch props do; sinking it grows', () => {
         const c10 = share(p(), 1, [0, 10, 0]), c20 = share(p(), 1, [0, 20, 0]);
         expect(c10).toBeLessThan(0.9); expect(c10).toBeGreaterThan(0.75);
-        expect(c20).toBeLessThan(0.7); expect(c20).toBeGreaterThan(0.55);
+        // 0.545 since the Nazgul's measured motor resistance (2026-10-21) lowered its loaded full-throttle speed a little
+        expect(c20).toBeLessThan(0.7); expect(c20).toBeGreaterThan(0.5);
         // UIUC volume 2 (docs/evidence/2026-10-20-motor-model/prop_fit.py): five 5-inch props reach zero thrust at
         // 0.93-1.09 x their pitch speed
         for (const w of [1, 0.6]) {

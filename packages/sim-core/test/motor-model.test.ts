@@ -63,7 +63,8 @@ describe('motor and ESC model (sim-core/0.8.0)', () => {
     it('at full output, nominal voltage and rest the motor holds the loaded speed against the static torque (the calibration)', () => {
         const sp = p(), m = sp.motor!;
         const wL = sp.omegaMaxPerVolt * sp.vNom;
-        const torque = (m.ke * (sp.vNom - m.ke * wL)) / m.r;
+        // the winding sees (1 - the ESC's duty offset) V_nom at full output (esc_duty_offset, 2026-10-21)
+        const torque = (m.ke * (sp.vNom * (1 - m.dutyOffset) - m.ke * wL)) / m.r;
         expect(torque).toBeCloseTo(sp.kappa * sp.tmaxMotorNom, 10);
         // Ke is 1 / Kv in SI units
         expect(1 / m.ke / 0.10471975511965977).toBeCloseTo(1750, 8);

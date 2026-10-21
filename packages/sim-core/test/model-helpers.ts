@@ -9,6 +9,16 @@ export function preset(id: string): PresetJson {
     return JSON.parse(readFileSync(join(__dirname, '..', 'presets', `${id}.json`), 'utf8')) as PresetJson;
 }
 
+/**
+ * A preset without its own TPA and ESC (fields tpa, esc_delay_ms, esc_duty_offset, 2026-10-21): for tests of one controller
+ * feature in isolation, where the preset's TPA or the dead time's state slots would mix in.
+ */
+export function plainPreset(id: string): PresetJson {
+    const p = preset(id);
+    for (const k of ['tpa', 'esc_delay_ms', 'esc_duty_offset']) delete p.fields[k];
+    return p;
+}
+
 /** Every preset in packages/sim-core/presets, sorted: tests over "all presets" cover a new drone by themselves. */
 export const PRESET_IDS: readonly string[] = readdirSync(join(__dirname, '..', 'presets')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 
