@@ -409,3 +409,8 @@ quad's inertia (bifilar pendulum) and find what else makes the loop too fast (`d
 G12 update (2026-10-21): step response (PID-Analyzer method) on the same Betaflight default gains: real quads reach
 50 % in 16-22 ms (gimbal-ghost 4.3.0 log, Roma F5 6S), the sim in 12 ms; over 16 m/s the real ones stay at 15-31 ms
 while the sim speeds up to 10 ms, and with the 4 ms dead time it oscillates there (`docs/evidence/2026-10-21-step-response/`).
+G12 update (2026-10-21): inertia and thrust are not the cause. The closest measured quad (UZH Kingfisher, 752 g, 5.1-inch
+props, inertia 2.5/2.1 x 10^-3) scaled to the Nazgul gives 0.0016-0.0019 kg m^2 (preset 0.0016); thrust per command is
+in line with stand data and does not grow with speed outside the windmill band. Open: timing (real motor chain 4 ms
+dead time + 24-32 ms spool against 0 + 18-20) and why the sim cannot fly it; Betaflight SITL would settle the controller
+side (`docs/evidence/2026-10-21-inertia-thrust/`).

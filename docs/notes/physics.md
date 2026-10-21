@@ -269,3 +269,8 @@ preset inertia (0.0016) is an estimate; no measured 5-inch inertia found.
 sim reaches 50 % of a stick move in 12 ms, real 5-inch quads in 16-22 ms; in fast flight the sim gets quicker (10 ms),
 the real ones do not (15-31 ms over 16 m/s by GPS). With the real 4 ms ESC dead time the sim oscillates at speed. The
 model's control response is too strong or too fast, most of all at speed (review G12).
+
+**Inertia and thrust per command (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-inertia-thrust/`).** Not the cause.
+UZH's Kingfisher (752 g, 5.1-inch props, identified inertia 2.5/2.1 x 10^-3 kg m^2) scaled to the Nazgul by its parts
+gives 0.0016-0.0019 (preset 0.0016). Thrust per command: 14.4 N at full (AOS-RC 15.1 N at the same rpm), 11-18 N per
+unit of command, flat with airspeed from 0 to 40 m/s outside the windmill band. Left: timing, and a Betaflight SITL run.
