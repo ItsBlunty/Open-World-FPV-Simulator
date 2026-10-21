@@ -363,3 +363,8 @@ over a narrow rpm band. NACA Report 464 (Hartman 1933) measured thrust and torqu
 a smooth rise to about 2.1x the locked drag near 0.6 of the zero-thrust speed (12 deg blade, zero thrust at J 0.68 as
 ours at 0.70); ARR 4H26 (1944) agrees (1.4-2.7x by pitch). Now `WINDMILL_TC/QC` are used with the air from in front,
 scaled to the closed form where they join. The reversed band remains (it is measured), so F9 is not fixed by it.
+
+F9 update (2026-10-20): motor spool and ESC braking checked against NeuroBEM's blackbox logs, BLHeli_32's manual and
+AM32's source (`docs/evidence/2026-10-20-motor-lag/`). The 0.8.0 motor is 1.3-1.6 x faster than measured and has no
+dead time (real 4 ms, about 11-13 ms more from idle); matching it does not remove the bobble, nor do AM32's low-rpm
+limits. Finding G9: the motor response is faster than measured (open; a handling change, for the owner to decide).

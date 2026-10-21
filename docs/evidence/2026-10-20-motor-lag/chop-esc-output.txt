@@ -1,0 +1,9 @@
+cap 0 slew 0: 2376 -> 15213 rpm, 10 % at 2 ms, 63 % at 19 ms
+cap 1 slew 1: 2376 -> 15213 rpm, 10 % at 5 ms, 63 % at 21 ms
+cap off slew off inertia x1: max roll rate 139, max pitch rate 26 deg/s, pitch drift 3.9 deg, motor cmd > 15 % 1514 ms, max |I| 191
+cap on  slew off inertia x1: max roll rate 139, max pitch rate 26 deg/s, pitch drift 3.9 deg, motor cmd > 15 % 1514 ms, max |I| 191
+cap off slew on  inertia x1: max roll rate 139, max pitch rate 26 deg/s, pitch drift 4.0 deg, motor cmd > 15 % 1516 ms, max |I| 188
+cap on  slew on  inertia x1: max roll rate 139, max pitch rate 26 deg/s, pitch drift 4.0 deg, motor cmd > 15 % 1516 ms, max |I| 188
+cap on  slew on  inertia x1.5: max roll rate 90, max pitch rate 90 deg/s, pitch drift 4.3 deg, motor cmd > 15 % 1510 ms, max |I| 153
+cap 0 slew 0: 2376 -> 15213 rpm, 10 % at 2 ms, 63 % at 19 ms
+cap 1 slew 1: 2376 -> 15213 rpm, 10 % at 5 ms, 63 % at 21 ms

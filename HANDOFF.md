@@ -17,8 +17,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   static data for the real Nazgul F5 prop: thrust 4 % above the model, Q/T 12.5 vs 13.6 mm, CT falls at low rpm.
 - **Gaps to check, each with evidence:** (1) 5-inch props at low Re may lack the band; (2) crossflow dropped past the
   edge (asymmetric loading, H-force, hub moments); (3) steady curves used for fast rpm changes (no dynamic inflow /
-  unsteady aero); (4) motor spool too fast (inertia, R, no ESC current limit or latency); (5) ESC braking at low duty
-  assumed; (6) FC emulation (1 kHz ideal gyro, airmode mix floor, windup) never checked against real Betaflight (SITL);
+  unsteady aero); (4) motor spool and (5) ESC braking: checked, not the cause (motors 1.3-1.6x faster than
+  measured: a separate fix to decide; `docs/evidence/2026-10-20-motor-lag/`); (6) FC emulation (1 kHz ideal gyro, airmode mix floor, windup) never checked against real Betaflight (SITL);
   (7) no frame aerodynamic moments or damping; (8) drag levels (5 N per prop braking, frame CdA, unloaded-prop rpm);
   (9) inertia (G3); (10) static calibration from other props; (11) no gusts, the owner's yaw input at the chop.
 - **Evidence routes:** Betaflight SITL on the same sticks; a blackbox log with RPM telemetry (owner: not now); a

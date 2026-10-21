@@ -1,0 +1,10 @@
+== l1.npz
+  roll: telemetry torque best correlation +0.254 with the gyro's acceleration +5 ms later
+  roll: command^2 torque best correlation +0.363 with the gyro's acceleration +18 ms later
+  pitch: telemetry torque best correlation -0.121 with the gyro's acceleration +4 ms later
+  pitch: command^2 torque best correlation -0.156 with the gyro's acceleration +21 ms later
+== l2.npz
+  roll: telemetry torque best correlation +0.446 with the gyro's acceleration +5 ms later
+  roll: command^2 torque best correlation +0.519 with the gyro's acceleration +15 ms later
+  pitch: telemetry torque best correlation -0.149 with the gyro's acceleration +8 ms later
+  pitch: command^2 torque best correlation -0.191 with the gyro's acceleration +19 ms later

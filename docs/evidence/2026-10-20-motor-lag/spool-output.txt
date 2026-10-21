@@ -1,0 +1,18 @@
+== l1.npz: 59.3 s armed, cmd 0.055-0.382, rpm 2300-13845
+  steady map w = -237 + 2064 sqrt(d) + 1065 d (rad/s); idle d=0.055: 2915 rpm
+  delay 0 ms: rms 20.7 rad/s, rise 36 ms, fall 30 ms
+  delay 2 ms: rms 20.6 rad/s, rise 34 ms, fall 28 ms
+  delay 4 ms: rms 20.5 rad/s, rise 32 ms, fall 26 ms
+  delay 6 ms: rms 20.5 rad/s, rise 30 ms, fall 26 ms
+  delay 8 ms: rms 20.6 rad/s, rise 28 ms, fall 24 ms
+  delay 10 ms: rms 20.7 rad/s, rise 26 ms, fall 22 ms
+  BEST: delay 4 ms, rise tau 32 ms, fall tau 26 ms, rms 20.5 rad/s
+== l2.npz: 115.2 s armed, cmd 0.055-1.000, rpm 2528-26889
+  steady map w = -276 + 2345 sqrt(d) + 520 d (rad/s); idle d=0.055: 2894 rpm
+  delay 0 ms: rms 44.8 rad/s, rise 28 ms, fall 24 ms
+  delay 2 ms: rms 44.6 rad/s, rise 26 ms, fall 22 ms
+  delay 4 ms: rms 44.5 rad/s, rise 24 ms, fall 20 ms
+  delay 6 ms: rms 44.5 rad/s, rise 22 ms, fall 18 ms
+  delay 8 ms: rms 44.7 rad/s, rise 20 ms, fall 16 ms
+  delay 10 ms: rms 45.0 rad/s, rise 18 ms, fall 14 ms
+  BEST: delay 4 ms, rise tau 24 ms, fall tau 20 ms, rms 44.5 rad/s

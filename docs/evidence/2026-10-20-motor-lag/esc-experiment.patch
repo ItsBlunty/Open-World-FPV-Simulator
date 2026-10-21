@@ -1,0 +1,21 @@
+--- a/packages/sim-core/src/sim.ts
++++ b/packages/sim-core/src/sim.ts
+@@ -867,7 +867,17 @@
+                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
+                 T *= keep * strike[i];
+-                const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
++                // EXPERIMENT (scratch only): AM32 defaults, 1750 KV 14 poles: low-rpm duty cap 20 % -> 100 % from 8 to 72 k erpm,
++                // duty slew 6 %/ms under 40 k erpm, 16 %/ms above (Src/main.c, Inc/targets.h)
++                const kerpm = (om * 9.5492966 * 7) / 1000;
++                const cap = (globalThis as any).ESC_CAP === 0 ? 1 : kerpm <= 8 ? 0.2 : kerpm >= 72 ? 1 : 0.2 + (0.8 * (kerpm - 8)) / 64;
++                const g = globalThis as any; if (!g.escDuty) g.escDuty = [0.055, 0.055, 0.055, 0.055];
++                const tgt = out[i] < cap ? out[i] : cap;
++                const rate = g.ESC_SLEW === 0 ? 1 : kerpm >= 40 ? 0.16 : 0.06;
++                let dd = tgt; const prev = g.escDuty[i];
++                if (dd > prev + rate) dd = prev + rate; if (dd < prev - rate) dd = prev - rate;
++                g.escDuty[i] = dd;
++                const amps = (dir[i] * dd * volt - mot.ke * om) / mot.r;
+                 const tauE = mot.ke * amps;
+                 let next = om + ((tauE - Q) * DT) / p.rotorInertia;
+                 // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)

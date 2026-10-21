@@ -1,0 +1,3 @@
+rotor inertia x1: 0.055->0.3: 10 % 3 ms, 63 % 20 ms; 0.25->0.4: 10 % 2 ms, 63 % 18 ms | owner chop 4.15-7 s: max roll rate 139, max pitch rate 26 deg/s, pitch drift 3.9 deg, motor > 15 % 1514 ms, max |I| 191
+rotor inertia x1.5: 0.055->0.3: 10 % 4 ms, 63 % 29 ms; 0.25->0.4: 10 % 3 ms, 63 % 26 ms | owner chop 4.15-7 s: max roll rate 90, max pitch rate 90 deg/s, pitch drift 4.3 deg, motor > 15 % 1510 ms, max |I| 153
+rotor inertia x2: 0.055->0.3: 10 % 5 ms, 63 % 39 ms; 0.25->0.4: 10 % 4 ms, 63 % 35 ms | owner chop 4.15-7 s: max roll rate 95, max pitch rate 105 deg/s, pitch drift 6.0 deg, motor > 15 % 1526 ms, max |I| 172

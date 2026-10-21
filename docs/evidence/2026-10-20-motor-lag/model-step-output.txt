@@ -1,0 +1,8 @@
+airflow cmd 0.055 -> 0.3: 2376 -> 11861 rpm, 10 % at 3 ms, 63 % at 20 ms, peak accel 47013 rad/s^2
+airflow cmd 0.055 -> 0.4: 2376 -> 15213 rpm, 10 % at 2 ms, 63 % at 19 ms, peak accel 66198 rad/s^2
+airflow cmd 0.25 -> 0.4: 10066 -> 15208 rpm, 10 % at 2 ms, 63 % at 18 ms, peak accel 28414 rad/s^2
+airflow cmd 0.4 -> 0.25: 15200 -> 10057 rpm, 10 % at 2 ms, 63 % at 19 ms, peak accel 27811 rad/s^2
+classic cmd 0.055 -> 0.3: 1940 -> 10504 rpm, 10 % at 2 ms, 63 % at 17 ms, peak accel 50087 rad/s^2
+classic cmd 0.055 -> 0.4: 1940 -> 13864 rpm, 10 % at 2 ms, 63 % at 17 ms, peak accel 70517 rad/s^2
+classic cmd 0.25 -> 0.4: 8780 -> 13860 rpm, 10 % at 2 ms, 63 % at 17 ms, peak accel 30057 rad/s^2
+classic cmd 0.4 -> 0.25: 13854 -> 8773 rpm, 10 % at 2 ms, 63 % at 17 ms, peak accel 28776 rad/s^2

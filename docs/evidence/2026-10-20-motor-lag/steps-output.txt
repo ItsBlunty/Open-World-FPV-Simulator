@@ -1,0 +1,9 @@
+== l1.npz
+  up     2957 ->   9982 rpm (cmd 0.06 -> 0.28): 10 % at 13 ms, 63 % at 37 ms, peak accel  44595 rad/s^2
+  up     2971 ->  10672 rpm (cmd 0.06 -> 0.31): 10 % at 13 ms, 63 % at 36 ms, peak accel  58150 rad/s^2
+  up     3057 ->  11921 rpm (cmd 0.06 -> 0.33): 10 % at 14 ms, 63 % at 40 ms, peak accel  53252 rad/s^2
+  samples at idle command: 12798; rpm then median 2986, p5 2869, p95 3086
+== l2.npz
+  up     2929 ->   9479 rpm (cmd 0.06 -> 0.29): 10 % at 13 ms, 63 % at 40 ms, peak accel  37829 rad/s^2
+  up     2943 ->  10881 rpm (cmd 0.06 -> 0.34): 10 % at 15 ms, 63 % at 41 ms, peak accel  42558 rad/s^2
+  samples at idle command: 5621; rpm then median 2957, p5 2800, p95 3057

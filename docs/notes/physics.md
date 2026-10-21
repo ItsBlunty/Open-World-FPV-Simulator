@@ -154,10 +154,10 @@ committed: third-party data) give the Nazgul F5 prop: 15.1 N at 28 728 rpm (mode
    idle in the chop). Asymmetric blade loading, H-force and hub moments may add damping or moments.
 3. *Steady curves used for fast changes:* NACA is steady state; no dynamic inflow or unsteady blade aerodynamics. The
    short-term effect of an rpm step (blade angle of attack changes at once, the wake later) may have the normal sign.
-4. *Motor spool:* rotor inertia 6e-6 kg m^2, R 0.114 ohm and the spool-up (5 k -> 15 k rpm in 15 ms in the trace) are
-   estimates; no ESC current limit, no DShot/ESC latency. Faster-than-real motors feed the PID's runaway.
-5. *ESC at low duty with a windmilling prop:* complementary-PWM braking to duty x V / Ke assumed for all ESCs; regen
-   current limits, BLHeli/AM32/Bluejay specifics, and what "idle" holds (duty, not rpm) are not checked.
+4. *Motor spool:* CHECKED, not the cause (below, "Gaps 4 and 5 checked"). The model is 1.3-1.6 x faster than
+   measured, without the real 4 ms dead time; slowing it to match leaves the bobble.
+5. *ESC at low duty with a windmilling prop:* CHECKED, not the cause. Active braking is the BLHeli_32 and AM32 default;
+   their low-rpm limits never act in a chop. No flight data of an idle motor with the air from in front.
 6. *Flight controller emulation:* 1 kHz loop on an ideal gyro (real 4-8 kHz with filters, RPM filter); airmode mix at
    the bottom of the range, iterm_windup, I-term relax, anti-gravity (new) and throttle boost read from Betaflight 4.5
    formulas but never compared against a real Betaflight trace (SITL would).
@@ -174,3 +174,17 @@ committed: third-party data) give the Nazgul F5 prop: 15.1 N at 28 728 rpm (mode
 Ways to get evidence: a Betaflight SITL run of the same sticks (separates controller from physics, SPEC R1); a
 blackbox log with RPM telemetry of a chop at speed (owner: not now); a 5-inch prop on a stand in airflow; small-prop
 negative-thrust papers not yet found.
+
+**Gaps 4 and 5 checked (owner: "Start with gaps 4 and 5", 2026-10-20; `docs/evidence/2026-10-20-motor-lag/`).**
+NeuroBEM's raw Betaflight blackbox logs (752 g, 2306 motors, 5-inch tri-blades, 4S) log each motor's command and DShot
+RPM telemetry. Fitted on the same commands: real dead time 4 ms, time constants 24-32 ms up and 20-26 ms down; the
+0.8.0 motor 0 ms and 18-20 ms. From idle the real motor reaches 10 % of a step at 13-15 ms (model 2-3) and 63 % at
+36-41 ms (model 19-20), with the same peak acceleration (38-58 k vs 47-66 k rad/s^2): it starts later. The gyro
+follows the telemetry by about 5 ms, so the telemetry is not what is late. BLHeli_32's manual and AM32's source:
+braking by default, with low-rpm power caps and duty slew limits (AM32: 6-16 %/ms). On the owner's chop: rotor inertia
+x1.5 and x2 (matching the measured lag) keep a motor above 15 % for 1.5 s, drift 4.3-6.0 deg (3.9 now); AM32's
+limits change nothing (the air holds the motors above 10 k rpm, where the cap is 100 %). So neither gap causes the
+bobble. The lag mismatch itself is real and affects handling everywhere; correcting it (inertia or a dead time) is a
+separate decision for the owner. Dive speed: no measured 5-inch zero-throttle dive found (only unsourced blog figures);
+Hammer et al. 2024 (wind tunnel): free-spinning props stop with the air through the discs and add no drag then.
+Left: gaps 1, 2, 3, 6, 7 (8-11 untouched).
