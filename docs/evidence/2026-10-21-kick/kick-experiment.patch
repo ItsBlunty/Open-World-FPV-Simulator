@@ -1,0 +1,98 @@
+diff --git a/packages/sim-core/src/sim.ts b/b/packages/sim-core/src/sim.ts
+index 0064e8d..9e822fd 100644
+--- a/packages/sim-core/src/sim.ts
++++ b/b/packages/sim-core/src/sim.ts
+@@ -579,8 +579,19 @@ export class Sim {
+             else return; // parked at the spawn: no forces until armed
+         }
+         this.controller();
++        // K_CMD (experiment): fixed motor commands instead of the controller's, from the tick K_CMD_T on
++        const gk = globalThis as any; if (gk.K_CMD && this.tick >= gk.K_CMD_T) for (let i = 0; i < 4; i++) this.motorCmd[i] = gk.K_CMD[i];
++        // K_DEAD (experiment): the motors act on the command of K_DEAD ticks ago (measured ESC/motor dead time)
++        if (gk.K_DEAD > 0) {
++            if (!this.deadBuf) this.deadBuf = [];
++            this.deadBuf.push(Array.from(this.motorCmd));
++            const d = this.deadBuf.length > gk.K_DEAD ? this.deadBuf.shift() : this.deadBuf[0];
++            this.physics(Float64Array.from(d));
++            return;
++        }
+         this.physics(this.motorCmd);
+     }
++    private deadBuf: number[][] | null = null;
+ 
+     /**
+      * Arming: the edge of the arm switch, throttle low, not crashed, and level within small_angle unless the turtle
+@@ -905,6 +916,13 @@ export class Sim {
+                 if (om > 0) {
+                     T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz);
+                     Q = this.propQ;
++                    const g = globalThis as any;
++                    if (g.K_LAG > 0) {
++                        if (!g.lagT) { g.lagT = [T, T, T, T]; g.lagQ = [Q, Q, Q, Q]; }
++                        const a = 1 - Math.exp(-DT / g.K_LAG);
++                        g.lagT[i] += (T - g.lagT[i]) * a; g.lagQ[i] += (Q - g.lagQ[i]) * a;
++                        T = g.lagT[i]; Q = g.lagQ[i];
++                    }
+                 } else {
+                     // backwards (turtle mode) or stopped: thrust from the rotor speed alone at REVERSE_THRUST, and the
+                     // static torque against the rotation
+@@ -914,6 +932,7 @@ export class Sim {
+                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
+                 T *= keep * strike[i];
++                const ka = (globalThis as any).K_ASYM; if (ka) { T *= ka[i]; Q *= ka[i]; }
+                 const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
+                 const tauE = mot.ke * amps;
+                 let next = om + ((tauE - Q) * DT) / p.rotorInertia;
+@@ -1000,6 +1019,8 @@ export class Sim {
+         const fy = r10 * dbx + r11 * dby + r12 * dbz - p.mass * p.gravity;
+         const fz = r20 * dbx + r21 * dby + r22 * dbz;
+ 
++        const kdmp = ((globalThis as any).K_DAMP ?? 0) * speed / 40;
++        tauX -= kdmp * wx; tauZ -= kdmp * wz;
+         // ---- integrate (semi-implicit Euler) ----
+         const px0 = s[S.px], py0 = s[S.py], pz0 = s[S.pz];
+         const q0w = qw, q0x = qx, q0y = qy, q0z = qz;
+@@ -1099,7 +1120,30 @@ export class Sim {
+      * axial airflow) the loads come from windmillLoads (air from in front) or bladeLoads (from behind) instead, blended in
+      * up to INFLOW_BLADE_FULL.
+      */
++    // K_SIMMONS (experiment): past the model's zero-thrust point with air from in front, thrust from Simmons' measured
++    // 16x8 fit (AIAA 2021-1190 Table 4, Re_hat 0) at the same share x of the zero-thrust speed (J = 0.727 / x),
++    // Tc = C_T / J^2 = T / (rho V^2 D^2); below x 0.346 (J > 2.1, untested) the model's shape scaled to meet it. Torque: the model's.
+     private propLoads(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
++        const T0 = this.propLoads0(f, i, omega, bvx, bvy, bvz, wx, wy, wz);
++        if (!(globalThis as any).K_SIMMONS) return T0;
++        const mp = this.p.motorPos;
++        const uy = bvy + wz * mp[i * 3] - wx * mp[i * 3 + 2];
++        const A0 = 0.70 / Math.PI;
++        if (uy <= 0) return T0;
++        const along = uy / (omega * f.radius);
++        if (along <= A0) return T0;
++        const x = A0 / along;
++        const D2 = 4 * f.radius * f.radius;
++        const tc = (xx: number) => { const J = 0.727 / xx; return (0.117 - 0.288 * J * J + 0.0917 * J * J * J) / (J * J); };
++        if (x >= 0.346) return this.p.rho * uy * uy * D2 * tc(x);
++        const q = this.propQ;
++        const om346 = uy / ((A0 / 0.346) * f.radius);
++        const tm346 = this.propLoads0(f, i, om346, 0, uy, 0, 0, 0, 0);
++        this.propQ = q;
++        return T0 * (this.p.rho * uy * uy * D2 * tc(0.346)) / tm346;
++    }
++
++    private propLoads0(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
+         const mp = this.p.motorPos;
+         const mx = mp[i * 3], mz = mp[i * 3 + 2];
+         // w x (mx, 0, mz) = (wy mz, wz mx - wx mz, -wy mx)
+@@ -1129,8 +1173,9 @@ export class Sim {
+         const x = ((f.theta * tip) / uy) * WINDMILL_X0;
+         const R = f.radius;
+         const k = this.p.rho * uy * uy * 4 * R * R * f.kWindmill;
+-        this.propQ = k * 2 * R * tableAt(WINDMILL_QC, WINDMILL_DX, x);
+-        return k * tableAt(WINDMILL_TC, WINDMILL_DX, x);
++        const kb = (globalThis as any).K_BAND ?? 1;
++        this.propQ = kb * k * 2 * R * tableAt(WINDMILL_QC, WINDMILL_DX, x);
++        return kb * k * tableAt(WINDMILL_TC, WINDMILL_DX, x);
+     }
+ 
+     /**

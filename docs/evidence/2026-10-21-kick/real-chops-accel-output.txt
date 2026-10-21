@@ -1,0 +1,12 @@
+L5_1.npz chop  540.84: max angular acceleration roll/pitch   700/ 1200 deg/s^2, top motor 0.24
+L6_1.npz chop  254.23: max angular acceleration roll/pitch   800/ 2500 deg/s^2, top motor 0.46
+L7_1.npz chop   65.50: max angular acceleration roll/pitch  3700/ 3700 deg/s^2, top motor 0.55
+L7_1.npz chop   70.67: max angular acceleration roll/pitch  1700/ 3600 deg/s^2, top motor 0.49
+L7_1.npz chop   85.54: max angular acceleration roll/pitch  1000/ 1700 deg/s^2, top motor 0.51
+L7_1.npz chop   91.03: max angular acceleration roll/pitch  1600/ 1700 deg/s^2, top motor 0.49
+L7_1.npz chop  135.57: max angular acceleration roll/pitch  1700/ 2200 deg/s^2, top motor 0.56
+L8_1.npz chop   71.57: max angular acceleration roll/pitch  2200/ 2700 deg/s^2, top motor 0.46
+L8_1.npz chop   77.99: max angular acceleration roll/pitch  2500/ 2000 deg/s^2, top motor 0.45
+L8_1.npz chop  114.46: max angular acceleration roll/pitch  1600/ 2200 deg/s^2, top motor 0.48
+L8_1.npz chop  119.78: max angular acceleration roll/pitch  1600/ 1500 deg/s^2, top motor 0.49
+ALL 11: max accel median 2200, max 3700 deg/s^2; top motor median 0.49

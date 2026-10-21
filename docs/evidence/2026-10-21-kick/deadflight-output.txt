@@ -1,0 +1,8 @@
+original  as built                 normal flight 0.5-4.1 s: error rms 2 peak 12 deg/s | chop 0-1.5 s: rms 17 peak 110 deg/s
+original  dead 4 ms                normal flight 0.5-4.1 s: error rms 112 peak 199 deg/s | chop 0-1.5 s: rms 149 peak 193 deg/s
+original  dead 4 ms + motors x1.5  normal flight 0.5-4.1 s: error rms 88 peak 164 deg/s | chop 0-1.5 s: rms 115 peak 172 deg/s
+original  dead 2 ms                normal flight 0.5-4.1 s: error rms 67 peak 124 deg/s | chop 0-1.5 s: rms 89 peak 123 deg/s
+supafly5  as built                 normal flight 0.5-4.1 s: error rms 2 peak 10 deg/s | chop 0-1.5 s: rms 15 peak 95 deg/s
+supafly5  dead 4 ms                normal flight 0.5-4.1 s: error rms 135 peak 246 deg/s | chop 0-1.5 s: rms 169 peak 337 deg/s
+supafly5  dead 4 ms + motors x1.5  normal flight 0.5-4.1 s: error rms 80 peak 193 deg/s | chop 0-1.5 s: rms 135 peak 311 deg/s
+supafly5  dead 2 ms                normal flight 0.5-4.1 s: error rms 53 peak 140 deg/s | chop 0-1.5 s: rms 34 peak 154 deg/s

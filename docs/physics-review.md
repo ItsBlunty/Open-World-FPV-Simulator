@@ -395,3 +395,14 @@ on the props as the owner's chop (accelerometer 1.9-3.0 g after the chop, sim 2.
 change (6 deg) and motor-high time (1.5-2.5 s) as the sim; the sim's peak kick, 111-139 deg/s, is about twice their
 77 deg/s maximum. The finding narrows to that kick, and to how much modern Betaflight reduces the rest
 (`docs/evidence/2026-10-21-issue-logs/`).
+
+F9 update (2026-10-21, fourth pass): the kick is the controller fighting props in the windmill band (a faster
+windmilling prop brakes harder). Over 16 seeded chops its size is near the real range (SupaFly 59 / 88 deg/s against
+60 / 77), but it starts about 3x harder (7 200 against 2 200 deg/s^2) and saturates the correcting motors (1.0 against
+0.49); measured motor speed, measured thrust shape, load lag, torque ratio and inertia x2 do not fix that
+(`docs/evidence/2026-10-21-kick/`).
+
+Finding G12 (2026-10-21): the model has no ESC/motor dead time (about 4 ms measured, NeuroBEM telemetry). With it the
+sim's quad oscillates in ordinary flight with Betaflight's default gains, which real quads fly steadily; inertia x2
+(0.0032 kg m^2) restores it. The preset inertia 0.0016 kg m^2 is an estimate, not a measurement. Open: measure a 5-inch
+quad's inertia (bifilar pendulum) and find what else makes the loop too fast (`docs/evidence/2026-10-21-kick/` §5).

@@ -1,0 +1,22 @@
+original  as built                           peak   83 /  113 deg/s | accel   7132 /  10798 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  motors as measured (x1.5)          peak   76 /  106 deg/s | accel   5336 /   8482 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  motors x1.5 + 4 ms dead time       peak  166 /  168 deg/s | accel  19156 /  19431 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  prop loads lag 1 ms (Peters)       peak   61 /   70 deg/s | accel   6816 /   8369 deg/s^2 | top motor 0.90 | motor high until 1241 ms
+original  Simmons thrust shape               peak   88 /  110 deg/s | accel   5643 /   7936 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  kappa 0.0125 (AOS-RC)              peak   79 /  109 deg/s | accel   6279 /   9861 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  all measured: x1.5+4ms+1ms+Simmons peak  185 /  187 deg/s | accel  20121 /  20347 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  as built                           peak   59 /   88 deg/s | accel   7239 /  11536 deg/s^2 | top motor 0.97 | motor high until 1500 ms
+supafly5  motors as measured (x1.5)          peak   58 /   83 deg/s | accel   6322 /   9259 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  motors x1.5 + 4 ms dead time       peak  308 /  343 deg/s | accel  34129 /  35405 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  prop loads lag 1 ms (Peters)       peak   63 /  128 deg/s | accel   9199 /  13813 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  Simmons thrust shape               peak   68 /   97 deg/s | accel   6666 /   9479 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  kappa 0.0125 (AOS-RC)              peak   58 /   85 deg/s | accel   6807 /  10476 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  all measured: x1.5+4ms+1ms+Simmons peak  273 /  305 deg/s | accel  28142 /  30668 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  as built                           peak   83 /  113 deg/s | accel   7132 /  10798 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  inertia x2, dead 4, motors x1.5    peak   89 /  129 deg/s | accel   7486 /   9792 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  same + Simmons + lag 1 ms          peak   98 /  126 deg/s | accel   5485 /   7627 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+original  inertia x1.5, dead 2, motors x1.5  peak   83 /  124 deg/s | accel   6719 /  10366 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  as built                           peak   59 /   88 deg/s | accel   7239 /  11536 deg/s^2 | top motor 0.97 | motor high until 1500 ms
+supafly5  inertia x2, dead 4, motors x1.5    peak   86 /  119 deg/s | accel   8345 /  10431 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  same + Simmons + lag 1 ms          peak   82 /  112 deg/s | accel   6463 /   8643 deg/s^2 | top motor 1.00 | motor high until 1500 ms
+supafly5  inertia x1.5, dead 2, motors x1.5  peak   67 /  104 deg/s | accel   7907 /  10960 deg/s^2 | top motor 1.00 | motor high until 1500 ms

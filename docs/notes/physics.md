@@ -254,3 +254,13 @@ deg/s, peak 32/60 (max 77), tilt change 6 deg, a motor above 15 % for 1.5-2.5 s,
 read 1.9-3.0 g of air push after the chop (0.9-2.8 g backwards along the thrust axis); the sim's owner chop reads 2.7 g
 (2.6 back): the same airflow. The sim matches those chops in wobble, tilt and motor-high time; its sharpest kick
 (111-139 deg/s) is about twice the real maximum. Caveat: old firmware, pilots reporting a fault; no modern log at that airflow.
+
+**The kick (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-kick/`).** Traced ms by ms: the props spin down into the
+windmill band, a small spread starts a roll, the controller drives the other side to full, and a windmilling prop brakes
+harder as it speeds up, so for about 25 ms the correction pushes the wrong way. Over 16 seeded centred-stick chops the
+peak is 83 / 113 deg/s (original) and 59 / 88 (SupaFly) against about 60 / 77 real: the owner's 139 was a high case.
+What does not match: the sim's angular acceleration in the first 400 ms (median 7 200 deg/s^2) is about 3x the real
+chops' (2 200), and its correcting motors go to full (real 0.49). Measured motor speed, Simmons' thrust shape, a 1 ms
+load lag, the measured torque ratio, inertia x2: none fixes it. Side finding: with the real ESCs' 4 ms dead time the
+sim oscillates in ordinary flight (rms 112-135 deg/s against 2); it needs inertia x2 to fly steadily with it. The
+preset inertia (0.0016) is an estimate; no measured 5-inch inertia found.

@@ -1,0 +1,2 @@
+original  as built        peak median 83 max 113 deg/s (all: 105 76 65 83 62 113 95 88 63 69 90 70 67 83 92 74) | tilt median 6.6 deg | motor high until median 1500 ms | max accel median 7132 max 10798 deg/s^2 | top motor median 1.00
+supafly5  as built        peak median 59 max 88 deg/s (all: 85 59 45 59 51 88 76 63 50 51 60 50 53 69 73 57) | tilt median 5.1 deg | motor high until median 1500 ms | max accel median 7239 max 11536 deg/s^2 | top motor median 0.97

@@ -1,0 +1,9 @@
+simlog_original.npz                      sim Nazgul origi (gyroADC, n 980) roll: tau 12 ms, k   35260 deg/s^2 per unit, r 0.70 | pitch: tau  5 ms, k   83746 deg/s^2 per unit, r 0.93
+L7_1.npz                                 FLINT TF2722     (gyroADC, n 68147) roll: tau 17 ms, k    1730 deg/s^2 per unit, r 0.28 | pitch: tau 18 ms, k    5317 deg/s^2 per unit, r 0.39
+L8_1.npz                                 FLINT TF2722     (gyroADC, n 61540) roll: tau 17 ms, k    1890 deg/s^2 per unit, r 0.29 | pitch: tau 18 ms, k    4352 deg/s^2 per unit, r 0.35
+L6_1.npz                                 QAVX220          (gyroADC, n 175567) roll: tau 20 ms, k    2181 deg/s^2 per unit, r 0.30 | pitch: tau 22 ms, k    1442 deg/s^2 per unit, r 0.27
+L5_1.npz                                 Martian2         (gyroADC, n 15896) roll: tau 16 ms, k    3780 deg/s^2 per unit, r 0.46 | pitch: tau 18 ms, k     781 deg/s^2 per unit, r 0.20
+roma_1.npz                               DIATONE ROMA F5  (gyroADC, n 43509) roll: tau  0 ms, k   21190 deg/s^2 per unit, r 0.27 | pitch: tau  2 ms, k    4435 deg/s^2 per unit, r 0.03
+roma_2.npz                               DIATONE ROMA F5  (gyroADC, n 46277) roll: tau  0 ms, k   13007 deg/s^2 per unit, r 0.23 | pitch: tau 30 ms, k    3134 deg/s^2 per unit, r 0.05
+BTFL_BLACKBOX_LOG_FAWKES_20261010_124526 Fawkes           (gyroUnfilt, n 98476) roll: tau 19 ms, k   34669 deg/s^2 per unit, r 0.39 | pitch: tau 17 ms, k   32362 deg/s^2 per unit, r 0.37
+f155232_1.npz                            Fawkes           (gyroUnfilt, n 129599) roll: tau 24 ms, k  147077 deg/s^2 per unit, r 0.67 | pitch: tau 30 ms, k   46398 deg/s^2 per unit, r 0.39
