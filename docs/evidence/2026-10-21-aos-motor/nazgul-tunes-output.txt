@@ -1,0 +1,12 @@
+iflight   f 0.8 dead 4 ms, inertia x1.00 (0.0016): error rms 133.6 p99 185 deg/s, motor at full 99.8 %
+iflight   f 0.8 dead 4 ms, inertia x1.20 (0.0019): error rms 107.7 p99 172 deg/s, motor at full 97.3 %
+iflight   f 0.8 dead 4 ms, inertia x1.40 (0.0022): error rms 70.9 p99 139 deg/s, motor at full 68.3 %
+iflight   f 0.7 dead 4 ms, inertia x1.00 (0.0016): error rms 109.8 p99 181 deg/s, motor at full 95.3 %
+iflight   f 0.7 dead 4 ms, inertia x1.20 (0.0019): error rms 53.1 p99 142 deg/s, motor at full 44.2 %
+iflight   f 0.7 dead 4 ms, inertia x1.40 (0.0022): error rms 16.4 p99 72 deg/s, motor at full 18.8 %
+bfdefault f 0.8 dead 4 ms, inertia x1.00 (0.0016): error rms 95.8 p99 140 deg/s, motor at full 99.4 %
+bfdefault f 0.8 dead 4 ms, inertia x1.20 (0.0019): error rms 79.2 p99 122 deg/s, motor at full 90.4 %
+bfdefault f 0.8 dead 4 ms, inertia x1.40 (0.0022): error rms 65.4 p99 113 deg/s, motor at full 73.5 %
+bfdefault f 0.7 dead 4 ms, inertia x1.00 (0.0016): error rms 75.5 p99 119 deg/s, motor at full 82.3 %
+bfdefault f 0.7 dead 4 ms, inertia x1.20 (0.0019): error rms 48.3 p99 104 deg/s, motor at full 58.0 %
+bfdefault f 0.7 dead 4 ms, inertia x1.40 (0.0022): error rms 11.5 p99 52 deg/s, motor at full 19.1 %

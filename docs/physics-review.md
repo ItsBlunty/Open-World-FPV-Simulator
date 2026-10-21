@@ -429,3 +429,8 @@ G12 update (2026-10-21, public 6S data): real Nazgul Evoque F5 tunes (iFlight's 
 P 59/62, D 50/57) run above Betaflight's defaults; with the real 4 ms dead time the sim Nazgul flies them only with about
 1.75x its inertia (0.0028), more than the larger Kingfisher's measured 0.0025, so its thrust and motor numbers are suspect
 too. The UZH Kingfisher (measured) is now a second quad in the game (`docs/evidence/2026-10-21-nazgul-public-data/`).
+G12 update (2026-10-21, AOS-RC thrust stand): 44 sweeps of one 6S 2207 (fitted 1 850 KV) give an effective motor + ESC
+resistance of 0.16 ohm (0.18 at 1750 KV) and a ~4 % ESC duty offset; the Nazgul preset's estimated rpm_loaded_fraction
+0.80 makes R 0.114 and its motors 1.4-1.6x too quick. With 0.70 (R 0.176), the measured 4 ms dead time and inertia
+0.0022, the sim Nazgul flies real Nazgul tunes calmly (error 11-16 deg/s). Not modelled: the ESC duty offset
+(`docs/evidence/2026-10-21-aos-motor/`).
