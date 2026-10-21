@@ -69,9 +69,8 @@ describe('dynamic idle (ParamOverrides.dynIdle)', () => {
         const on = zeroThrottle({ dynIdle: { minRpm: target / 100 } }, 500, 1500);
         expect(on.s.length).toBe(S_DYN.size);
         expect(on.s[S_DYN.airAct]).toBe(1);
-        // the static 5.5 % idle turns the Nazgul near its motor's free speed (0.055 x Kv x V, about 2400 rpm: the motor
-        // model, sim-core/0.8.0); dynamic idle holds it at the target
-        expect(minRpm(off)).toBeLessThan(2600);
+        // the static 5.5 % idle turns a 5-inch at about 1600-2000 rpm; dynamic idle holds it at the target
+        expect(minRpm(off)).toBeLessThan(2200);
         expect(Math.abs(minRpm(on) - target)).toBeLessThan(0.02 * target);
         expect(on.s[S_DYN.dynI]).toBeGreaterThan(0);
         expect(on.s[S_DYN.dynI]).toBeLessThanOrEqual(0.15);

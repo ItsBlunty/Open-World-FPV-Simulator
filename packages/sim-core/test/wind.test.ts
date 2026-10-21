@@ -167,11 +167,10 @@ describe('the flight model in wind (drag on the airspeed)', () => {
     });
 
     it('adds no hashed state: the state layout is the one the A6 reference was recorded with', () => {
-        // 70 slots then; sim-core/0.3.0 added one, the health (S.health), 0.4.0 one, turtle mode (S.flip), and 0.8.0 four,
-        // anti-gravity and throttle boost (S.agT..S.tbL), none for the wind
-        expect(S.size).toBe(76);
+        // 70 slots then; sim-core/0.3.0 added one, the health (S.health), and 0.4.0 one, turtle mode (S.flip), not for the wind
+        expect(S.size).toBe(72);
         expect(S.health).toBe(70);
         expect(S.flip).toBe(71);
-        expect(new Sim(compileParams(PRESET, { wind: WIND }), null).s.length).toBe(76);
+        expect(new Sim(compileParams(PRESET, { wind: WIND }), null).s.length).toBe(72);
     });
 });
