@@ -1,0 +1,299 @@
+{
+  "id": "uzh-kingfisher-4s",
+  "name": "UZH Kingfisher research quad (NeuroBEM / Agilicious), 4S",
+  "class": "5-inch research quad",
+  "notes": "The University of Zurich Robotics and Perception Group's 5-inch quad of the NeuroBEM and Agilicious papers: an Armattan Chameleon 6-inch frame with 5.1-inch props and a Jetson TX2 on board. Geometry, inertia, hover thrust and its Betaflight tune come from UZH's published model and logs; with them the simulator reproduces its logged flights (step response 26 / 22 ms against the real 28 / 22, docs/evidence/2026-10-21-neurobem-replay). Aerodynamic drag and collision are the Nazgul preset's estimates. Nothing here is endorsed by UZH.",
+  "fields": {
+    "wheelbase_mm": {
+      "value": 253,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "motor to motor across the diagonal, from the motor positions below (2 x sqrt(77.5^2 + 100^2))"
+    },
+    "motor_forward_mm": {
+      "value": 77.5,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "each motor ahead of / behind the centre (a stretched X on the Armattan Chameleon 6-inch frame)"
+    },
+    "motor_lateral_mm": {
+      "value": 100,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "each motor to the side of the centre"
+    },
+    "motor": {
+      "value": "Hobbywing XRotor 2306 2400KV",
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100",
+      "note": "Agilicious Table 2: 23x6 mm stator, 2400 kV, 758 W, 27.5 g"
+    },
+    "motor_kv": {
+      "value": 2400,
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100"
+    },
+    "prop": {
+      "value": "Azure Power SFP 5148, 3-blade",
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100",
+      "note": "Agilicious Table 2: 5.1 inch, 4.8 inch pitch, 5 g"
+    },
+    "prop_diameter_mm": {
+      "value": 129.5,
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100",
+      "note": "5.1 inch"
+    },
+    "prop_solidity": {
+      "value": 0.115,
+      "source": "estimate",
+      "ref": "https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html",
+      "note": "the Nazgul preset's estimate for 5-inch three-blade props; the 5148's chord is not published"
+    },
+    "prop_pitch_in": {
+      "value": 4.4,
+      "source": "estimate",
+      "ref": "https://arxiv.org/abs/2307.06100",
+      "note": "the prop is 4.8 inch pitch; the rotor inflow model's windmill curves (sim-core/0.8.0) take at most about 4.4 on a 5.1-inch prop, so 4.4; the thrust level is set by the hover fit (twr)"
+    },
+    "dry_mass_g": {
+      "value": 553,
+      "source": "measured:UZH",
+      "ref": "https://arxiv.org/abs/2106.08015",
+      "note": "752 g take-off weight minus the 199 g pack (the NeuroBEM website later gives 772 g; the logs were fitted with 752)"
+    },
+    "battery": {
+      "value": "4S 1800 mAh (Tattoo R-Line)",
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100"
+    },
+    "battery_cells": {
+      "value": 4,
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100"
+    },
+    "battery_capacity_mah": {
+      "value": 1800,
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100"
+    },
+    "battery_mass_g": {
+      "value": 199,
+      "source": "manufacturer",
+      "ref": "https://arxiv.org/abs/2307.06100"
+    },
+    "auw_g": {
+      "value": 752,
+      "source": "measured:UZH",
+      "ref": "https://arxiv.org/abs/2106.08015",
+      "note": "NeuroBEM paper section IV; includes the Jetson TX2 compute unit (154 g)"
+    },
+    "twr": {
+      "value": 4.6,
+      "source": "measured:UZH",
+      "ref": "https://arxiv.org/abs/2106.08015",
+      "min": 4.3,
+      "max": 4.8,
+      "note": "fitted so the model hovers at the logs' median 11 100-11 500 rpm (DShot rpm telemetry): 11 400 rpm; the model's static thrust is then 31.6 N, the paper's 'approximately 33 N' (4.5)"
+    },
+    "inertia_roll_pitch_kgm2": {
+      "value": 0.0023,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "mean of roll and pitch (the per-axis values below are the ones used)"
+    },
+    "inertia_roll_kgm2": {
+      "value": 0.0025,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "\"identified from the real platform\" (NeuroBEM paper section V)"
+    },
+    "inertia_pitch_kgm2": {
+      "value": 0.0021,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml"
+    },
+    "inertia_yaw_kgm2": {
+      "value": 0.0043,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml"
+    },
+    "motor_tau_ms": {
+      "value": 17,
+      "source": "estimate",
+      "min": 10,
+      "max": 30,
+      "note": "classic physics only; with rotor inflow the motor model spools in 23-24 ms (63 %), as measured on this quad (24-32 ms rise, 20-26 fall after 4 ms dead time, docs/evidence/2026-10-21-neurobem-replay)"
+    },
+    "motor_kappa_m": {
+      "value": 0.022,
+      "source": "measured:UZH",
+      "ref": "https://github.com/uzh-rpg/agile_flight/blob/main/envsim/parameters/quads/kingfisher.yaml",
+      "note": "kappa 0.022 N m / N (torque / thrust) in UZH's model of this quad; higher than the Nazgul's 0.0136, with its 4.8-inch pitch"
+    },
+    "motor_idle": {
+      "value": 0.055,
+      "source": "measured:UZH",
+      "ref": "NeuroBEM raw blackbox logs (https://rpg.ifi.uzh.ch/NeuroBEM.html), log header",
+      "note": "dshot_idle_value 550"
+    },
+    "rates": {
+      "value": {
+        "type": "BETAFLIGHT",
+        "roll": [
+          220,
+          0,
+          0
+        ],
+        "pitch": [
+          220,
+          0,
+          0
+        ],
+        "yaw": [
+          204,
+          0,
+          0
+        ],
+        "rate_limit": 1998
+      },
+      "source": "measured:UZH",
+      "ref": "NeuroBEM raw blackbox logs (https://rpg.ifi.uzh.ch/NeuroBEM.html), log header",
+      "note": "rc_rates 220/220/204, rates 0, rc_expo 0, rates_type BETAFLIGHT: linear, 440 deg/s on roll and pitch at full stick"
+    },
+    "pid_roll": {
+      "value": [
+        40,
+        80,
+        20,
+        0
+      ],
+      "source": "measured:UZH",
+      "ref": "NeuroBEM raw blackbox logs (https://rpg.ifi.uzh.ch/NeuroBEM.html), log header",
+      "note": "Betaflight 4.2.0 P, I, D, F (feedforward_weight 0)"
+    },
+    "pid_pitch": {
+      "value": [
+        40,
+        80,
+        20,
+        0
+      ],
+      "source": "measured:UZH",
+      "ref": "NeuroBEM raw blackbox logs (https://rpg.ifi.uzh.ch/NeuroBEM.html), log header"
+    },
+    "pid_yaw": {
+      "value": [
+        30,
+        60,
+        0,
+        0
+      ],
+      "source": "measured:UZH",
+      "ref": "NeuroBEM raw blackbox logs (https://rpg.ifi.uzh.ch/NeuroBEM.html), log header"
+    },
+    "rpm_loaded_fraction": {
+      "value": 0.8,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). loaded rpm / (KV * V) at full throttle on the stand: sets the full-throttle rotor speed, so with the TWR the prop's static thrust coefficient (0.18 in UIUC units; measured 5-inch three-blade props: 0.15-0.18), and the motor model's effective resistance (sim-core/0.8.0: 0.11 ohm, 1.5 x the 74 mOhm winding iFlight lists; the rest stands for the ESC and the motor's losses under load)"
+    },
+    "cda_horizontal_cm2": {
+      "value": 200,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). side-on frame, air unit and pack"
+    },
+    "cda_vertical_cm2": {
+      "value": 430,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). classic physics only: set so the top speed in the simulator is about 150 km/h (iFlight states 190 km/h); stands in for the props unloading at speed, which the classic model does not have"
+    },
+    "cda_vertical_inflow_cm2": {
+      "value": 150,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). frame, pack and camera seen from above (owner agreed 150, 2026-10-18); with rotor inflow the props unload at speed themselves, so this is the frame's own drag"
+    },
+    "collider_duct_radius_mm": {
+      "value": 45,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). open props: one sphere per prop zone"
+    },
+    "collider_duct_offset_mm": {
+      "value": 100,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). reaches the prop tips (arm 84.5 mm + prop radius 65 mm)"
+    },
+    "collider_body_radius_mm": {
+      "value": 45,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class)."
+    },
+    "v_bounce_ms": {
+      "value": 1.5,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class)."
+    },
+    "v_crash_ms": {
+      "value": 5.0,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). a 5-inch freestyle frame shrugs off more than a whoop"
+    },
+    "pack_resistance_per_cell_ohm": {
+      "value": 0.005,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). 6S 1480 mAh freestyle pack, wiring and XT60 included"
+    },
+    "efficiency": {
+      "value": 0.737,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). shaft power / pack power; 0.65 with the estimated kappa 0.012, raised with the measured kappa (sim-core/0.8.0) so the hover current, checked against iFlight's hover time, is unchanged"
+    },
+    "camera_uptilt_deg": {
+      "value": 30,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). the mount adjusts 10-45 deg; freestyle pilots fly about 25-35"
+    },
+    "camera_fov_deg": {
+      "value": 115,
+      "source": "estimate",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). horizontal field of view of the simulated camera"
+    },
+    "throttle": {
+      "value": {
+        "mid": 50,
+        "expo": 0
+      },
+      "source": "bf-default",
+      "note": "as the Nazgul preset (a 5-inch quad of the same class)."
+    },
+    "rotor_drag_per_s": {
+      "value": 0.51,
+      "source": "estimate",
+      "ref": "https://arxiv.org/abs/1712.02402",
+      "min": 0.35,
+      "max": 0.7,
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). momentum theory sqrt(g rho A_rotors / m) = 0.93 1/s times 0.55, the share Faessler et al. 2018 measured on an open-prop quad of the same size (0.24-0.54 1/s)"
+    },
+    "rotor_inertia_kgm2": {
+      "value": 6e-06,
+      "source": "estimate",
+      "min": 3e-06,
+      "max": 9e-06,
+      "note": "as the Nazgul preset; with it the model spools in 23-24 ms (63 %), as measured on this quad (docs/evidence/2026-10-21-neurobem-replay)"
+    },
+    "wake_loss": {
+      "value": 0.25,
+      "source": "estimate",
+      "min": 0,
+      "max": 0.5,
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). share of thrust lost at the worst point of a descent through the rotors' own wake (vortex-ring band of momentum theory); sim-core wake.ts"
+    },
+    "wake_shake": {
+      "value": 0.3,
+      "source": "estimate",
+      "min": 0,
+      "max": 0.6,
+      "note": "as the Nazgul preset (a 5-inch quad of the same class). turbulent roll/pitch torque in the wake, as a share of one rotor's thrust times the arm (rotor thrust fluctuates by tens of per cent in the vortex-ring state)"
+    }
+  }
+}

@@ -8,6 +8,8 @@ import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { DEFAULT_SETTINGS, loadSettings } from '../src/settings';
 import { DEFAULT_TUNE, TUNES, tuneOverrides } from '../src/tunes';
 import type { TuneId } from '../src/tunes';
+import { QUADS } from '../src/quads';
+import type { QuadId } from '../src/quads';
 
 function withStorage(v: unknown): void {
     const m = new Map<string, string>([['owfpv.settings', JSON.stringify(v)]]);
@@ -60,6 +62,22 @@ describe('tunes', () => {
         expect(loadSettings().loopHz).toBe(8000);
         withStorage({ version: 1, loopHz: 1000 });
         expect(loadSettings().loopHz).toBe(4000);
+    });
+
+    it('quads: the Nazgul by default, the UZH Kingfisher kept when chosen; each quad compiles with every tune', () => {
+        expect(DEFAULT_SETTINGS.quad).toBe('nazgul');
+        withStorage({ version: 1, quad: 'kingfisher' });
+        expect(loadSettings().quad).toBe('kingfisher');
+        withStorage({ version: 1, quad: 'nonsense' });
+        expect(loadSettings().quad).toBe('nazgul');
+        expect(QUADS.kingfisher.tune).toBe('original');
+        for (const q of Object.keys(QUADS) as QuadId[]) {
+            for (const id of Object.keys(TUNES) as TuneId[]) {
+                const o: ParamOverrides = { loopHz: 4000 };
+                tuneOverrides(id, o);
+                expect(() => compileParams(QUADS[q].preset, o), `${q} ${id}`).not.toThrow();
+            }
+        }
     });
 
     it('every tune compiles; the original tune adds nothing (the simulator as before)', () => {

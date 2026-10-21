@@ -566,11 +566,14 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const off = num(p, 'collider_duct_offset_mm') / 1000;
     const ductR = num(p, 'collider_duct_radius_mm') / 1000;
     const bodyR = num(p, 'collider_body_radius_mm') / 1000;
-    // motor positions follow the wheelbase diagonal
+    // motor positions follow the wheelbase diagonal (a square X), unless the preset gives a stretched X: motor_forward_mm
+    // and motor_lateral_mm, each motor's distance from the centre along the nose and sideways (optional, sim-core/0.8.0)
     const arm = num(p, 'wheelbase_mm') / 2000 / Math.SQRT2;
+    const armFwd = p.fields.motor_forward_mm === undefined ? arm : optNum(p, 'motor_forward_mm', 0) / 1000;
+    const armLat = p.fields.motor_lateral_mm === undefined ? arm : optNum(p, 'motor_lateral_mm', 0) / 1000;
     // Betaflight quad X order: M1 rear-right, M2 front-right, M3 rear-left, M4 front-left.
     // Body frame: x right, y up, z back (forward is -z).
-    const motorPos = new Float64Array([arm, 0, arm, arm, 0, -arm, -arm, 0, arm, -arm, 0, -arm]);
+    const motorPos = new Float64Array([armLat, 0, armFwd, armLat, 0, -armFwd, -armLat, 0, armFwd, -armLat, 0, -armFwd]);
     // props-in default: M1 CW, M2 CCW, M3 CCW, M4 CW (seen from above)
     const motorYaw = new Float64Array([1, -1, -1, 1]);
 
@@ -617,12 +620,15 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const cdaV = (num(p, inflow ? 'cda_vertical_inflow_cm2' : 'cda_vertical_cm2') / 10000) * cdaScale;
 
     const ipr = num(p, 'inertia_roll_pitch_kgm2');
+    // optional per-axis inertia for a craft that is not symmetric (sim-core/0.8.0); absent: inertia_roll_pitch_kgm2 for both
+    const iRoll = optNum(p, 'inertia_roll_kgm2', ipr);
+    const iPitch = optNum(p, 'inertia_pitch_kgm2', ipr);
     const iy = num(p, 'inertia_yaw_kgm2');
 
     return {
         presetId: p.id,
         mass,
-        inertia: [ipr, iy, ipr],
+        inertia: [iPitch, iy, iRoll],
         twr,
         tmaxMotorNom,
         vNom,

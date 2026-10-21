@@ -15,6 +15,7 @@ import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { clearStoredSettings, defaultSettings, loadCollection, loadCoursesRaw, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveCoursesRaw, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
 import { tuneOverrides } from './tunes';
+import { QUADS } from './quads';
 import { blankCourse, courseFileName, courseText, newCourseId, parseCourses, proposeLink, putCourse, readCourseText, removeCourse } from './course-store';
 import type { CourseFile } from '@owfpv/maps';
 import { CreatorUi } from './ui/creator-ui';
@@ -66,8 +67,10 @@ addEventListener('error', (e) => errorLog.add('uncaught', [e.error ?? e.message]
 addEventListener('unhandledrejection', (e) => errorLog.add('unhandled rejection', [e.reason]));
 
 const params = new URLSearchParams(location.search);
-const preset = nazgul as unknown as PresetJson;
 const settings = loadSettings();
+// the quad flown (quads.ts, owner 2026-10-21); the self-test always flies the Nazgul, whose hashes are pinned
+const preset = QUADS[settings.quad].preset;
+const selftestPreset = nazgul as unknown as PresetJson;
 const presetRates = compileParams(preset).rates;
 const presetIdle = compileParams(preset).idle;
 /** dynamic idle's minimum (x 100 rpm) the game picks for this quad from its props; null: the preset has no prop size */
@@ -130,7 +133,7 @@ const sound = new AudioEngine(soundLevels(), {
 for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sound.unlock(), { capture: true });
 
 function engineSettings(): EngineSettings {
-    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
+    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn, quad: settings.quad };
 }
 
 // ---------------------------------------------------------------- keys, mouse, free-fly camera (state)
@@ -1232,9 +1235,9 @@ function pageFrame(): void {
 async function runSelftestPage(): Promise<void> {
     const [{ CLASSIC_SELFTEST_HASH, SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest }, { buildFirstMap }] = await Promise.all([import('./selftest'), import('@owfpv/maps')]);
     const level = buildFirstMap();
-    const r = runSelftest(preset, level);
+    const r = runSelftest(selftestPreset, level);
     // the same flight with classic physics (sim-core/0.6.0): checks the old model too
-    const classic = runSelftest(preset, level, { classicPhysics: true }).hash;
+    const classic = runSelftest(selftestPreset, level, { classicPhysics: true }).hash;
     const traffic = runTrafficSelftest(level);
     const flightOk = r.hash === SELFTEST_HASH && classic === CLASSIC_SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
     const ok = flightOk && trafficOk;

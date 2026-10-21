@@ -55,8 +55,14 @@ Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb
   loopHz / 1000 times per 1 ms tick; every filter gain, derivative, integral and the physics step use the loop's dt
   (dynamic idle and the I-term relax cutoff too). Ticks, logs and replays stay at 1 ms. Absent: 1000, bit for bit as
   before. Test: `test/loop-rate.test.ts`.
+- Optional preset fields `motor_forward_mm`, `motor_lateral_mm` (a stretched X; absent: the square X of wheelbase_mm) and
+  `inertia_roll_kgm2`, `inertia_pitch_kgm2` (absent: inertia_roll_pitch_kgm2 for both). Presets without them compile as
+  before, bit for bit. New preset `uzh-kingfisher-4s`: UZH's NeuroBEM / Agilicious research quad, measured geometry,
+  inertia and Betaflight tune, hover fitted to its logs (docs/evidence/2026-10-21-neurobem-replay). Test:
+  `test/preset-kingfisher.test.ts`.
 - The throttle chop out of a climb still shakes (physics-review F9); its test is a known failure.
-Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`, `test/loop-rate.test.ts`.
+Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`, `test/loop-rate.test.ts`,
+`test/preset-kingfisher.test.ts`.
 
 ## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
 

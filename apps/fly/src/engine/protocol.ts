@@ -7,6 +7,7 @@
 // Clocks: a worker's performance.now() counts from its own timeOrigin, not the page's. Input stamps are page time;
 // the engine shifts them by `pageToEngineMs` before the sim clock sees them.
 
+import type { QuadId } from '../quads';
 import type { ParamOverrides } from '@owfpv/sim-core';
 import type { CourseFile } from '@owfpv/maps';
 import type { EditorOp } from '../course-editor';
@@ -33,6 +34,8 @@ export interface EngineSettings {
     overrides: ParamOverrides;
     traffic: TrafficConfig;
     spawn: string;
+    /** the quad flown (quads.ts); read at start: a change reloads the game */
+    quad: QuadId;
 }
 
 export interface InitMsg {

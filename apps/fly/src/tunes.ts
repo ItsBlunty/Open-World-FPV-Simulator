@@ -45,10 +45,11 @@ export const TUNES: Readonly<Record<TuneId, Tune>> = {
         tpa: { mode: 'D', rate: 65, breakpoint: 1350, lowRate: 20, lowBreakpoint: 1050, lowAlways: false },
         dynIdleMinRpm: null
     },
-    // the simulator's tune before 2026-10-21: the preset's gains, no TPA, no thrust linear
+    // the quad preset's own gains, no TPA, no thrust linear: on the Nazgul the simulator's tune before 2026-10-21 (Betaflight's
+    // defaults), on the UZH Kingfisher its logged Betaflight 4.2 tune
     original: {
-        name: 'Original simulator tune',
-        note: "The simulator's tune before the presets: Betaflight's default gains without TPA. For comparison.",
+        name: "The quad's own tune",
+        note: "The gains the quad comes with, no TPA: on the Nazgul Betaflight's default gains (the simulator's tune before the presets), on the UZH Kingfisher the tune from its own flight logs.",
         dynIdleMinRpm: null
     }
 };

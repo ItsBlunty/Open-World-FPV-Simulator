@@ -43,7 +43,11 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **SITL + 4 kHz loop:** Betaflight 2026.6.2 SITL (lock-step patch, WSL ~/owfpv-sitl) on the sim physics: same chop as
   built-in, also can't fly the real ESC delay -> physics too lively, controller cleared. sim-core `loopHz` built; game
   flies 4 kHz by default (8 kHz option): chop accel 7100 -> 3960 deg/s^2 (real 2200). Waiting: owner flies /next/ at
-  4 kHz. Next: find the damping real quads have that the model lacks. [evidence 2026-10-21-sitl]
+  4 kHz. [evidence 2026-10-21-sitl]
+- **NeuroBEM replay:** its quad rebuilt in the sim (measured mass/inertia/geometry/hover rpm, own BF 4.2 tune, real 4 ms
+  dead time, own sticks) matches its real step response (26/22 vs 28/22 ms) and stays calm: physics engine OK. The
+  Nazgul preset (1.9x its authority; inertia 0.0016 estimated) is what oscillates. Next: the Nazgul's real inertia and
+  tune (owner's quad: bifilar swing + `diff all`), then add ESC dead time to the motor model. [evidence 2026-10-21-neurobem-replay]
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)

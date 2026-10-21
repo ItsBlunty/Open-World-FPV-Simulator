@@ -54,3 +54,12 @@ Nazgul preset is: its numbers (inertia 0.0016 kg m^2 estimated, 14.4 N per motor
 NeuroBEM quad's angular acceleration per motor command, and with Betaflight's default gains and the real dead time it
 oscillates, where real 6S 5-inch quads (Roma F5) fly near-default gains at 16-22 ms. Open: measure the Nazgul's (or the
 owner's quad's) inertia and real tune; add the measured ESC dead time to the motor model once the preset is right.
+
+## 4. The game preset (`packages/sim-core/presets/uzh-kingfisher-4s.json`, owner 2026-10-21: "add the zurich drone as an option")
+
+Written by `make_kingfisher_preset.py`; sim-core reads the stretched X and per-axis inertia from the optional preset fields
+`motor_forward_mm`, `motor_lateral_mm`, `inertia_roll_kgm2`, `inertia_pitch_kgm2`. With UZH's torque ratio kappa 0.022
+the hover fit is twr 4.6: hover 11 400 rpm (logs 11 100-11 500), static 31.6 N (paper about 33 N). Its logged flights
+replayed with the final preset (`replay-preset.test.ts`, `replay-preset-output.txt`): l2 step response 24 / 21 ms with
+the 4 ms dead time (real 28 / 22), tracking error 8.3 deg/s (real 10.9). (Sections 3's numbers used an earlier fit, twr
+5.6 with kappa 0.0136.)

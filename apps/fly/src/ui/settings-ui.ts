@@ -10,6 +10,8 @@ import type { FlightMode, RateAxis, RateFieldName, RatesConfig, RatesType } from
 import type { Settings } from '../settings';
 import { TUNES } from '../tunes';
 import type { TuneId } from '../tunes';
+import { QUADS } from '../quads';
+import type { QuadId } from '../quads';
 import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
@@ -320,6 +322,19 @@ export class SettingsUi {
                 h('p', { class: 'note' }, 'On the FPV camera you hear the quad from on board, wind on the camera\'s microphone included; on the chase camera from behind it, as someone standing there would. Headphones place the sounds best.'),
             ],
             world: [
+                // the quad (quads.ts): its weight, props and sound are set up at start, so a change reloads the game
+                h('h2', {}, 'Quad'),
+                this.field('Quad', this.select<QuadId>(s.quad, (Object.keys(QUADS) as QuadId[]).map((id) => ({ value: id, label: QUADS[id].name })), (v) => {
+                    if (v === s.quad) return;
+                    s.quad = v;
+                    s.tune = QUADS[v].tune;
+                    const min = TUNES[s.tune].dynIdleMinRpm;
+                    s.dynIdle = min !== null;
+                    if (min !== null) s.dynIdleMinRpm = min;
+                    host.save();
+                    location.reload();
+                })),
+                h('p', { class: 'note' }, `${QUADS[s.quad].note} Picking a quad sets its own tune and reloads the game.`),
                 // what moves in the world: all of it is solid (you can hit it and land on it), so a change restarts the flight
                 h('h2', {}, 'Traffic and train'),
                 ...(trafficAllowed(host.graphicsNow)

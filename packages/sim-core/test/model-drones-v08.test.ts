@@ -9,7 +9,8 @@ import { PRESET_IDS, pitch, preset, roll, tracer } from './model-helpers';
 
 const FREE = 'nazgulf5v3-6s', RACE = 'machr5sport-6s', CINE = 'taurusx8-komodo-6s';
 const NEW = [FREE, RACE, CINE];
-const OLD = PRESET_IDS.filter((id) => !NEW.includes(id));
+// the whoops of the first presets (the UZH Kingfisher, added 2026-10-21, is a 5-inch with prop wash like the new drones)
+const OLD = PRESET_IDS.filter((id) => !NEW.includes(id) && id !== 'uzh-kingfisher-4s');
 const R2D = 180 / Math.PI;
 const p = (id: string, o: ParamOverrides = {}): SimParams => compileParams(preset(id), o);
 const field = (id: string, k: string): number => preset(id).fields[k].value as number;
