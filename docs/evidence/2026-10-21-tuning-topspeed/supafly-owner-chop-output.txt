@@ -1,0 +1,7 @@
+sim stock tune (owner settings, dyn idle 3400)           owner chop: 139/ 26 deg/s, drift  3.9, rms  13 deg/s, tilt change  6.9, >15% 1514 ms, I 191
+Betaflight 4.5 defaults incl. TPA (D 30, dyn idle 3400)  owner chop: 138/ 25 deg/s, drift  3.4, rms  13 deg/s, tilt change  6.5, >15% 1522 ms, I 185
+SupaFly 5" (action cam option, the default)              owner chop:  28/111 deg/s, drift  4.8, rms  11 deg/s, tilt change  4.6, >15% 1515 ms, I 152
+SupaFly 5" (no action cam option)                        owner chop: 145/ 23 deg/s, drift  3.0, rms  13 deg/s, tilt change  7.2, >15% 1566 ms, I 180
+SupaFly cam, without thrust linear                       owner chop: 138/ 22 deg/s, drift  3.1, rms  13 deg/s, tilt change  6.7, >15% 1564 ms, I 190
+SupaFly cam, without TPA                                 owner chop:  24/ 49 deg/s, drift  3.4, rms   8 deg/s, tilt change  4.2, >15% 1649 ms, I 154
+SupaFly cam, PIDs only                                   owner chop:  21/ 54 deg/s, drift  5.0, rms   8 deg/s, tilt change  4.9, >15% 1318 ms, I 155

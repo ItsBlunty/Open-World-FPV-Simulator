@@ -228,3 +228,10 @@ docs treat chop wobble as a tuning item (punch-and-cut test; anti-gravity, Pitch
 I, dynamic idle 3500-4000 rpm, thrust linear, 24 kHz PWM). In the sim those changes act in the documented direction
 (all PIDs +30 %: 139/26 -> 11/66 deg/s; anti-gravity x2: drift 3.9 -> 2.1 deg; x0.5 worse) but none removes the
 long motor-high phase, matching the issue threads ("helps, not a complete remedy").
+
+**A published tune: SupaflyFPV Freestyle 5 Inch (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-tuning-topspeed/` §4).**
+The official Betaflight preset (4.5) with its PIDs from Betaflight's slider maths, thrust linear 30, TPA PD with
+low-throttle TPA always on, dynamic idle 3000 rpm, relax cutoff 10, anti-gravity 120: the owner's chop still bobbles,
+about a third less (tilt change 6.9 -> 4.6 deg, RMS rate 13 -> 11 deg/s), a motor still high about 1.5 s. Thrust
+linear helps; the always-on low TPA hurts. The sim's controller lacks TPA, thrust linear, a relax-cutoff setting and
+dynamic D (tested only in a scratch copy).

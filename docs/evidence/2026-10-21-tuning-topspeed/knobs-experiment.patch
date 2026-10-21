@@ -1,6 +1,27 @@
 --- a/packages/sim-core/src/sim.ts
 +++ b/packages/sim-core/src/sim.ts
-@@ -658,7 +658,7 @@
+@@ -646,6 +646,20 @@
+             thr = throttleCurve(thrStick, p.throttle);
+         }
+ 
++        // EXPERIMENT: TPA (Betaflight 4.5.1 pidUpdateTpaFactor), globalThis.K_TPA = {mode, rate, bp, lowRate, lowBp, lowAlways}
++        {
++            const G = globalThis as any; const c = G.K_TPA;
++            if (c) {
++                const t = thr < 0 ? 0 : thr > 1 ? 1 : thr;
++                const bp = Math.min(Math.max((c.bp - 1000) / 1000, 0), 0.99); const mul = (c.rate / 100) / (1 - bp);
++                let lbp = Math.min(Math.max((c.lowBp - 1000) / 1000, 0.01), 1); lbp = Math.min(lbp, bp); const lmul = c.lowRate / (100 * lbp);
++                const past = !(t < lbp && lbp > 0.01);
++                let rate = 0;
++                if (past || G.tpaLowFaded) { rate = mul * Math.max(t - bp, 0); if (!c.lowAlways && !G.tpaLowFaded) G.tpaLowFaded = true; }
++                else rate = lmul * (lbp - t);
++                G.tpaF = 1 - rate; G.tpaPD = c.mode === 'PD';
++            } else { G.tpaF = 1; G.tpaPD = false; }
++        }
+         // ---- rate PID in Betaflight units ----
+         const gR = this.gyroFilter(0, -wz * RAD2DEG);
+         const gP = this.gyroFilter(1, -wx * RAD2DEG);
+@@ -658,7 +672,7 @@
          const ffRP = mode !== 'angle';
          // anti-gravity (sim-core/0.8.0): the throttle-change signal the mixer filtered last tick, as Betaflight's
          // pidController reads what its mixTable left (pid.c: antiGravityThrottleD x anti_gravity_gain)
@@ -9,7 +30,24 @@
          const pidR = this.axisPid(0, spR, acroR, ffRP, gR, p.pid.roll, dynCi, armed, 500, kD1, agD);
          const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1, agD);
          const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1, 0);
-@@ -858,6 +858,13 @@
+@@ -690,6 +704,8 @@
+             if (thr < 0.01) thr = 0.01;
+         }
+ 
++        const TL = (globalThis as any).K_TL ?? 0;
++        if (TL !== 0) { const comp = TL - 0.5 * TL * TL; const r = 1 - thr; thr = thr / (1 + comp * r * r); }
+         // ---- mixer with airmode ----
+         const out = this.motorCmd;
+         if (armed) {
+@@ -711,6 +727,7 @@
+             s[S.mixRange] = range;
+             for (let i = 0; i < 4; i++) {
+                 let v = out[i] + t;
++                if (TL !== 0) v *= 1 + TL * (1 - v) * (1 - v);
+                 v = v < 0 ? 0 : v > 1 ? 1 : v;
+                 out[i] = lo + (1 - lo) * v;
+             }
+@@ -858,6 +875,13 @@
                  if (om > 0) {
                      T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz);
                      Q = this.propQ;
@@ -23,7 +61,7 @@
                  } else {
                      // backwards (turtle mode) or stopped: thrust from the rotor speed alone at REVERSE_THRUST, and the
                      // static torque against the rotation
-@@ -867,6 +874,7 @@
+@@ -867,6 +891,7 @@
                  // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
                  // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
                  T *= keep * strike[i];
@@ -31,7 +69,7 @@
                  const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
                  const tauE = mot.ke * amps;
                  let next = om + ((tauE - Q) * DT) / p.rotorInertia;
-@@ -953,6 +961,8 @@
+@@ -953,6 +978,8 @@
          const fy = r10 * dbx + r11 * dby + r12 * dbz - p.mass * p.gravity;
          const fz = r20 * dbx + r21 * dby + r22 * dbz;
  
@@ -40,7 +78,7 @@
          // ---- integrate (semi-implicit Euler) ----
          const px0 = s[S.px], py0 = s[S.py], pz0 = s[S.pz];
          const q0w = qw, q0x = qx, q0y = qy, q0z = qz;
-@@ -1082,8 +1092,9 @@
+@@ -1082,8 +1109,9 @@
          const x = ((f.theta * tip) / uy) * WINDMILL_X0;
          const R = f.radius;
          const k = this.p.rho * uy * uy * 4 * R * R * f.kWindmill;
@@ -52,3 +90,22 @@
      }
  
      /**
+@@ -1270,7 +1298,7 @@
+         let iErr = e;
+         if (ax < 2) {
+             const lK = S.splR + ax;
+-            const lpf = s[lK] + (sp - s[lK]) * K_RELAX;
++            const lpf = s[lK] + (sp - s[lK]) * ((globalThis as any).K_RELAXK ?? K_RELAX);
+             s[lK] = lpf;
+             const hp = sp - lpf;
+             const relax = 1 - (hp < 0 ? -hp : hp) / RELAX_THRESHOLD;
+@@ -1290,7 +1318,8 @@
+             const att = (sp < 0 ? -sp : sp) / 50;
+             pBoost = 1 + (agD / (att > 1 ? att : 1)) * AG_KP;
+         }
+-        let sum = g[0] * P_SCALE * e * pBoost + s[iK] + dTerm + ff;
++        const GG = globalThis as any; const tf = GG.tpaF ?? 1;
++        let sum = g[0] * P_SCALE * e * pBoost * (GG.tpaPD ? tf : 1) + s[iK] + dTerm * tf + ff;
+         sum = sum < -limit ? -limit : sum > limit ? limit : sum;
+         return sum / 1000;
+     }

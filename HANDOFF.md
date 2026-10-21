@@ -23,6 +23,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   quad with current Betaflight? [evidence 2026-10-21-public-logs/README.md]
 - **Top speed / tuning:** level top speed 157 km/h on this branch (unverified; only unsourced ~150 km/h found); Betaflight's
   documented chop fixes act in the sim as documented (PIDs +30 %, anti-gravity x2 help), none removes it. [evidence 2026-10-21-tuning-topspeed]
+- **SupaFly preset:** the official SupaflyFPV 5" tune still bobbles, about a third less; the sim's FC lacks TPA, thrust linear,
+  relax cutoff and dynamic D (review G11). [evidence 2026-10-21-tuning-topspeed §4]
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)

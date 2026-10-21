@@ -1,0 +1,7 @@
+sim stock tune (owner settings, dyn idle 3400)           owner chop: 139/ 26 deg/s, drift  3.9, >15% 1514 ms, I 191 | level 30: 22/53, 848 ms, I 146 | level 37: 20/33, 850 ms, I 175 | climb 27: 14/45, 757 ms, I 125 |
+Betaflight 4.5 defaults incl. TPA (D 30, dyn idle 3400)  owner chop: 138/ 25 deg/s, drift  3.4, >15% 1522 ms, I 185 | level 30: 24/57, 847 ms, I 141 | level 37: 24/43, 850 ms, I 169 | climb 27: 20/51, 754 ms, I 122 |
+SupaFly 5" (action cam option, the default)              owner chop:  28/111 deg/s, drift  4.8, >15% 1515 ms, I 152 | level 30: 13/28, 841 ms, I 134 | level 37: 17/35, 832 ms, I 164 | climb 27: 11/22, 770 ms, I 111 |
+SupaFly 5" (no action cam option)                        owner chop: 145/ 23 deg/s, drift  3.0, >15% 1566 ms, I 180 | level 30: 18/44, 847 ms, I 134 | level 37: 19/28, 850 ms, I 160 | climb 27: 15/29, 781 ms, I 113 |
+SupaFly cam, without thrust linear                       owner chop: 138/ 22 deg/s, drift  3.1, >15% 1564 ms, I 190 | level 30: 16/32, 843 ms, I 146 | level 37: 19/37, 833 ms, I 174 | climb 27: 14/24, 765 ms, I 124 |
+SupaFly cam, without TPA                                 owner chop:  24/ 49 deg/s, drift  3.4, >15% 1649 ms, I 154 | level 30: 13/24, 846 ms, I 122 | level 37: 16/29, 837 ms, I 149 | climb 27: 10/22, 762 ms, I 106 |
+SupaFly cam, PIDs only                                   owner chop:  21/ 54 deg/s, drift  5.0, >15% 1318 ms, I 155 | level 30: 13/35, 832 ms, I 134 | level 37: 18/37, 836 ms, I 158 | climb 27: 12/28, 740 ms, I 110 |
