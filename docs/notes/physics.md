@@ -298,3 +298,15 @@ fly with the real 4 ms ESC dead time), Betaflight's default TPA in the preset. T
 it the chop at speed turns violent, so the windmill band is still too strong. As shipped, the chop is the closest to real
 logs yet (SupaFly peak 40 / 62 deg/s, 3 840 deg/s^2, top motor 0.80; real ~60 / 77, 2 200, 0.49). Flight feel: for the
 owner to fly.
+
+**The ESC dead time checked (owner: "Let's work on the esc delay issue", 2026-10-21; `docs/evidence/2026-10-21-esc-delay/`).**
+The plan was to weaken the windmill band, then add the delay. Not supported: divided by each prop's own slope at zero
+thrust, the model's band has the shape of Simmons' measured low-Re fit within -10 to +14 % (the earlier "0.65x" compared
+amplitudes of different props), and real eRPM logs show the same end state (one pair held at 7-8 k rpm, the other near
+idle) and, once, the same lost authority (Fawkes, pitch to 340 deg/s with the front pair raised). What turns violent with
+the delay is the controller climbing a pair back over the band's hump: authority flat or reversed below it, then about
+2x the hover gain just above it, met 4 ms late. Betaflight's defaults with the delay chop near the real logs (36-66 / 48-96
+deg/s at 20-40 m/s); SupaFly with dynamic idle about twice that, and with the hump flattened 27-53. A stick step with the
+delay reaches 50 % at 12 ms with overshoot 1.5-1.65 (real 6S quads on near-default gains 16-22 ms, well damped), and more
+lag only adds overshoot: for its gains the Nazgul has too much authority per command (review G12). Nothing changed; the
+delay stays out until that is found (the owner's inertia swing test, `diff all` and a chop log with eRPM would settle it).

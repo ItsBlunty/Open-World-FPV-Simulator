@@ -1,0 +1,27 @@
+== extra first-order lag of the thrust after the rotor speed: 0 ms
+original  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 9 ms, 90 % at 15 ms, peak 1.08
+original  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 15 ms, 90 % at 33 ms, peak 1.06
+original  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 12 ms, 90 % at 16 ms, peak 1.50
+original  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 17 ms, 90 % at 24 ms, peak 1.09
+supafly5  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 8 ms, 90 % at 13 ms, peak 1.19
+supafly5  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 14 ms, 90 % at 26 ms, peak 1.01
+supafly5  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 12 ms, 90 % at 15 ms, peak 1.65
+supafly5  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 16 ms, 90 % at 22 ms, peak 1.20
+== extra first-order lag of the thrust after the rotor speed: 2 ms
+original  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 10 ms, 90 % at 15 ms, peak 1.22
+original  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 16 ms, 90 % at 29 ms, peak 1.05
+original  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 14 ms, 90 % at 17 ms, peak 1.73
+original  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 19 ms, 90 % at 24 ms, peak 1.24
+supafly5  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 10 ms, 90 % at 14 ms, peak 1.35
+supafly5  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 15 ms, 90 % at 23 ms, peak 1.04
+supafly5  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 14 ms, 90 % at 17 ms, peak 1.89
+supafly5  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 18 ms, 90 % at 23 ms, peak 1.40
+== extra first-order lag of the thrust after the rotor speed: 4 ms
+original  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 12 ms, 90 % at 16 ms, peak 1.36
+original  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 17 ms, 90 % at 26 ms, peak 1.06
+original  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 15 ms, 90 % at 19 ms, peak 1.89
+original  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 20 ms, 90 % at 26 ms, peak 1.44
+supafly5  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 11 ms, 90 % at 15 ms, peak 1.50
+supafly5  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 16 ms, 90 % at 23 ms, peak 1.15
+supafly5  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 17 ms, 90 % at 21 ms, peak 2.30
+supafly5  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 20 ms, 90 % at 25 ms, peak 2.29

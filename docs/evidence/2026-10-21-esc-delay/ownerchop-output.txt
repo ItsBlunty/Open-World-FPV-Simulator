@@ -1,0 +1,6 @@
+== ESC dead time 0 ms
+supafly5   peak 40 / 62 deg/s | accel 3841 / 7281 deg/s^2 | top motor 0.80 | motor high until 1500 ms | tilt 5.0 deg
+betaflight peak 44 / 63 deg/s | accel 2589 / 4541 deg/s^2 | top motor 0.68 | motor high until 1500 ms | tilt 4.6 deg
+== ESC dead time 4 ms
+supafly5   peak 163 / 206 deg/s | accel 19832 / 22139 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 5.4 deg
+betaflight peak 95 / 141 deg/s | accel 10095 / 13984 deg/s^2 | top motor 0.90 | motor high until 1500 ms | tilt 5.5 deg

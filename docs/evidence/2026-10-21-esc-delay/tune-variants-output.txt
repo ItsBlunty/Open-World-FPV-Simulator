@@ -1,0 +1,25 @@
+== SupaFly with NODYN=1
+delay 4 level V 20: peak   28 /   40 deg/s | top motor 0.37
+delay 4 level V 40: peak  101 /  153 deg/s | top motor 0.80
+delay 4 climb V 20: peak   52 /   76 deg/s | top motor 0.59
+delay 4 climb V 40: peak   95 /  138 deg/s | top motor 0.77
+== SupaFly with OX={"thrustLinear":0}
+delay 4 level V 20: peak   27 /   37 deg/s | top motor 0.32
+delay 4 level V 40: peak  147 /  174 deg/s | top motor 1.00
+delay 4 climb V 20: peak  100 /  133 deg/s | top motor 0.76
+delay 4 climb V 40: peak  131 /  161 deg/s | top motor 0.98
+== SupaFly with OX={"antiGravityGain":0}
+delay 4 level V 20: peak   26 /   36 deg/s | top motor 0.28
+delay 4 level V 40: peak  113 /  175 deg/s | top motor 0.77
+delay 4 climb V 20: peak   87 /  110 deg/s | top motor 0.60
+delay 4 climb V 40: peak  107 /  166 deg/s | top motor 0.74
+== SupaFly with OX={"pid":{"roll":[45,80,40,120],"pitch":[47,84,46,125],"yaw":[45,80,0,120]}}
+delay 4 level V 20: peak   27 /   38 deg/s | top motor 0.34
+delay 4 level V 40: peak  118 /  156 deg/s | top motor 0.91
+delay 4 climb V 20: peak  101 /  118 deg/s | top motor 0.69
+delay 4 climb V 40: peak  109 /  144 deg/s | top motor 0.88
+== SupaFly with OX={"tpa":{"mode":"D","rate":65,"breakpoint":1350,"lowRate":20,"lowBreakpoint":1050,"lowAlways":false}}
+delay 4 level V 20: peak   23 /   46 deg/s | top motor 0.34
+delay 4 level V 40: peak  199 /  205 deg/s | top motor 1.00
+delay 4 climb V 20: peak   65 /  121 deg/s | top motor 0.69
+delay 4 climb V 40: peak  197 /  201 deg/s | top motor 1.00

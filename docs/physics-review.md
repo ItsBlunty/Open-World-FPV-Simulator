@@ -439,3 +439,9 @@ inertia 0.0022 and Betaflight's default TPA, but not the ESC dead time: with it 
 peak, 19 800 deg/s^2), so the windmill band is still too strong (open, F9/F10). As shipped the chop is the closest to the
 real logs yet: SupaFly peak 40 / 62 deg/s, 3 840 deg/s^2, top motor 0.80 (real ~60 / 77, 2 200, 0.49); step response
 10-11 ms (real 16-22: the missing delay).
+G12 / F9 update (2026-10-21, the delay checked): the band is not shown to be too strong. Normalised by each prop's slope at
+zero thrust, its shape matches Simmons' measured low-Re fit within -10 to +14 %, and real eRPM logs show its end state and
+its lost authority. With the 4 ms dead time, Betaflight's defaults chop near the real logs (36-66 deg/s median at 20-40
+m/s) but SupaFly with dynamic idle gives about twice the real kick, and a stick step overshoots 1.5-1.65 at 12 ms (real
+16-22 ms, well damped); adding lag makes it worse. The open item is G12's: the Nazgul's authority per command is too high
+for real gains. The dead time stays out (`docs/evidence/2026-10-21-esc-delay/`).

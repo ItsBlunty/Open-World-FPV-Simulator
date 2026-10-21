@@ -1,0 +1,13 @@
+== SupaFly, windmill band's hump flattened (x held at 0.85 or above: no more-rpm-more-drag range)
+delay 0 level V 20: peak    6 /   13 deg/s | top motor 0.20
+delay 0 level V 30: peak   17 /   27 deg/s | top motor 0.35
+delay 0 level V 40: peak   28 /   36 deg/s | top motor 0.48
+delay 0 climb V 20: peak   20 /   27 deg/s | top motor 0.40
+delay 0 climb V 30: peak   26 /   34 deg/s | top motor 0.45
+delay 0 climb V 40: peak   29 /   38 deg/s | top motor 0.48
+delay 4 level V 20: peak    8 /   17 deg/s | top motor 0.20
+delay 4 level V 30: peak   25 /   50 deg/s | top motor 0.39
+delay 4 level V 40: peak   50 /   77 deg/s | top motor 0.58
+delay 4 climb V 20: peak   27 /   53 deg/s | top motor 0.43
+delay 4 climb V 30: peak   38 /   57 deg/s | top motor 0.51
+delay 4 climb V 40: peak   53 /   81 deg/s | top motor 0.59
