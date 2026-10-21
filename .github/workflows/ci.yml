@@ -1,8 +1,10 @@
 name: ci
 
+# Pushes to main or main-bng8wu test the pushed commit, then publish both builds to GitHub Pages: main at the site
+# root, main-bng8wu (the physics work in progress, owner 2026-10-21) under /next/. This file is the same on both branches.
 on:
   push:
-    branches: [main]
+    branches: [main, main-bng8wu]
   pull_request:
 
 permissions:
@@ -22,17 +24,50 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @owfpv/fly build
-      - uses: actions/upload-pages-artifact@v5
-        if: github.event_name == 'push'
-        with:
-          path: apps/fly/dist
 
-  # Playtest build at https://itsblunty.github.io/Open-World-FPV-Simulator/ (owner's choice, 2026-10-17).
-  # Needs the repository's Settings > Pages > Source set to "GitHub Actions".
-  pages:
+  # Playtest build at https://itsblunty.github.io/Open-World-FPV-Simulator/ (owner's choice, 2026-10-17), the
+  # main-bng8wu build at .../next/. Needs the repository's Settings > Pages > Source set to "GitHub Actions".
+  build-site:
     if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: site-main
+      - uses: actions/checkout@v7
+        with:
+          ref: main-bng8wu
+          path: site-next
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: site-main/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: site-*/pnpm-lock.yaml
+      # each build stamps its own commit (vite.config.ts reads GITHUB_SHA for the report screen)
+      - run: |
+          for b in main next; do
+            (cd site-$b && pnpm install --frozen-lockfile && GITHUB_SHA=$(git rev-parse HEAD) pnpm --filter @owfpv/fly build)
+          done
+          mkdir -p out/next
+          cp -r site-main/apps/fly/dist/. out/
+          cp -r site-next/apps/fly/dist/. out/next/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: out
+
+  pages:
+    if: github.event_name == 'push'
+    needs: build-site
+    runs-on: ubuntu-latest
+    # one deploy at a time: a push to either branch rebuilds both
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
       pages: write
       actions: read
