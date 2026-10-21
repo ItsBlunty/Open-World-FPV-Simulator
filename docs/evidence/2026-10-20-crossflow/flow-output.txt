@@ -1,0 +1,13 @@
+4.00 s: m0 ax  41.7 side  3.6 tip 230.6 lc  0.18 mu 0.02 T  5.01 | m1 ax  41.7 side  3.6 tip 230.7 lc  0.18 mu 0.02 T  5.01 | m2 ax  41.7 side  3.6 tip 230.5 lc  0.18 mu 0.02 T  5.00 | m3 ax  41.7 side  3.6 tip 230.6 lc  0.18 mu 0.02 T  5.01
+4.15 s: m0 ax  42.0 side  3.7 tip 225.4 lc  0.19 mu 0.02 T  4.19 | m1 ax  42.0 side  3.7 tip 225.1 lc  0.19 mu 0.02 T  4.16 | m2 ax  42.0 side  3.7 tip 225.1 lc  0.19 mu 0.02 T  4.16 | m3 ax  42.0 side  3.7 tip 225.5 lc  0.19 mu 0.02 T  4.21
+4.20 s: m0 ax  40.9 side  3.8 tip 138.8 lc  0.29 mu 0.03 T -4.49 | m1 ax  40.9 side  3.8 tip 136.0 lc  0.30 mu 0.03 T -4.67 | m2 ax  40.9 side  3.7 tip 135.9 lc  0.30 mu 0.03 T -4.68 | m3 ax  40.9 side  3.7 tip 138.8 lc  0.29 mu 0.03 T -4.49
+4.30 s: m0 ax  36.8 side  4.8 tip 131.0 lc  0.28 mu 0.04 T -3.19 | m1 ax  36.8 side  4.8 tip 129.2 lc  0.28 mu 0.04 T -3.32 | m2 ax  36.8 side  4.8 tip  29.2 lc  1.26 mu 0.16 T -2.57 | m3 ax  36.8 side  4.8 tip  21.8 lc  1.69 mu 0.22 T -2.42
+4.50 s: m0 ax  30.8 side  6.0 tip 116.2 lc  0.26 mu 0.05 T -1.75 | m1 ax  30.8 side  6.0 tip  97.8 lc  0.32 mu 0.06 T -2.81 | m2 ax  30.7 side  6.0 tip  69.6 lc  0.44 mu 0.09 T -2.87 | m3 ax  30.7 side  6.0 tip  23.0 lc  1.33 mu 0.26 T -1.77
+4.80 s: m0 ax  24.1 side  7.4 tip  88.4 lc  0.27 mu 0.08 T -1.17 | m1 ax  24.1 side  7.4 tip  90.4 lc  0.27 mu 0.08 T -1.05 | m2 ax  24.1 side  7.4 tip  90.2 lc  0.27 mu 0.08 T -1.07 | m3 ax  24.1 side  7.4 tip  23.0 lc  1.05 mu 0.32 T -1.17
+5.20 s: m0 ax  18.6 side  8.2 tip  63.9 lc  0.29 mu 0.13 T -0.78 | m1 ax  18.6 side  8.2 tip  67.2 lc  0.28 mu 0.12 T -0.66 | m2 ax  18.6 side  8.2 tip  67.1 lc  0.28 mu 0.12 T -0.67 | m3 ax  18.6 side  8.2 tip  23.0 lc  0.81 mu 0.36 T -0.79
+6.00 s: m0 ax  11.7 side 10.8 tip  29.6 lc  0.39 mu 0.36 T -0.39 | m1 ax  11.7 side 10.8 tip  38.7 lc  0.30 mu 0.28 T -0.17 | m2 ax  11.7 side 10.8 tip  38.8 lc  0.30 mu 0.28 T -0.17 | m3 ax  11.7 side 10.8 tip  23.1 lc  0.51 mu 0.47 T -0.39
+6.80 s: m0 ax   7.3 side 13.7 tip  23.1 lc  0.31 mu 0.59 T -0.08 | m1 ax   7.3 side 13.7 tip  25.7 lc  0.28 mu 0.53 T -0.02 | m2 ax   7.3 side 13.7 tip  25.8 lc  0.28 mu 0.53 T -0.02 | m3 ax   7.3 side 13.7 tip  23.1 lc  0.31 mu 0.59 T -0.08
+chop 4.15-7 s: flow angle from the axis deg p5/50/95: [ 7.3 32.  63.3]
+  side m/s p5/50/95 [ 4.7  9.3 13.9] | mu p5/50/95 [0.04 0.28 0.59] | lc p5/50/95 [0.27 0.3  1.09]
+  share past the edge (lc >= 0.45, NACA path): 0.206  blended (0.3-0.45): 0.301
+first 0.55 s (4.15-4.7 s): flow angle deg p5/50/95 [ 5.1  9.2 15.3]

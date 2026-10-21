@@ -368,3 +368,9 @@ F9 update (2026-10-20): motor spool and ESC braking checked against NeuroBEM's b
 AM32's source (`docs/evidence/2026-10-20-motor-lag/`). The 0.8.0 motor is 1.3-1.6 x faster than measured and has no
 dead time (real 4 ms, about 11-13 ms more from idle); matching it does not remove the bobble, nor do AM32's low-rpm
 limits. Finding G9: the motor response is faster than measured (open; a handling change, for the owner to decide).
+
+F9 update (2026-10-20): crossflow checked against NASA TM-20210014010, Simmons AIAA 2021-1190 and NACA TN 3228
+(`docs/evidence/2026-10-20-crossflow/`): in the chop its terms change the control moment by at most about 5 % where
+data exist. Finding G10: props make no in-plane force or hub moment in the model (measured to add across a vehicle;
+small here, larger in edgewise flight; open). Small-prop evidence for the reversed band: Simmons' fit reverses above
+Jx 1.37 (to J 2.1 tested).

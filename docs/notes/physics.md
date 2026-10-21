@@ -150,8 +150,8 @@ committed: third-party data) give the Nazgul F5 prop: 15.1 N at 28 728 rpm (mode
 **Gaps and assumptions to test next** (none ruled out; each needs evidence, not a fit to the symptom):
 1. *Small props in the windmill band:* 5-inch at Re 3-6e4 may not share the full-size reversed band, or not its size.
    No data found. A thrust stand in airflow, or a published small-prop windmill test, would settle it.
-2. *Crossflow ignored past the edge:* the windmill range and blade-element range drop in-plane flow (mu up to 0.4 at
-   idle in the chop). Asymmetric blade loading, H-force and hub moments may add damping or moments.
+2. *Crossflow ignored past the edge:* CHECKED, not the cause (below, "Gap 2 checked"): within 15 deg of the axis in
+   the first half second; measured crossflow terms change the control moment by at most about 5 %.
 3. *Steady curves used for fast changes:* NACA is steady state; no dynamic inflow or unsteady blade aerodynamics. The
    short-term effect of an rpm step (blade angle of attack changes at once, the wake later) may have the normal sign.
 4. *Motor spool:* CHECKED, not the cause (below, "Gaps 4 and 5 checked"). The model is 1.3-1.6 x faster than
@@ -188,3 +188,14 @@ bobble. The lag mismatch itself is real and affects handling everywhere; correct
 separate decision for the owner. Dive speed: no measured 5-inch zero-throttle dive found (only unsourced blog figures);
 Hammer et al. 2024 (wind tunnel): free-spinning props stop with the air through the discs and add no drag then.
 Left: gaps 1, 2, 3, 6, 7 (8-11 untouched).
+
+**Gap 2 checked (owner: "Next check gap 2", 2026-10-20; `docs/evidence/2026-10-20-crossflow/`).** The model has no
+in-plane prop force or hub moment anywhere and drops crossflow past the edge. In the owner's chop the flow is 5-15 deg
+off the prop axis for the first 0.55 s (31-42 m/s axial, 4-6 sideways), 32 deg median later. Measured data (Simmons
+and Hatke, NASA TM-20210014010, 16x8 props at Re 4e4-1.4e5; Simmons AIAA 2021-1190's fitted coefficients; NACA TN
+3228): at low incidence axial loads follow the axial advance ratio; in-plane force and pitching moment add across the
+props, yaw-plane moments cancel. Scaled to the Nazgul's driven motors (inside the tested range), per +10 % rpm the
+crossflow terms move the control moment by at most 0.001 N m against 0.011-0.057 N m from thrust x arm, and the
+crossflow's axial term does not depend on rpm. Not the cause. The idle motor (J 2.5-5.3) has no numeric data. Side
+finding: the same measured fit reverses (more rpm, less thrust) above Jx 1.37 on a small low-Re prop, near the
+model's own onset (J 1.41): evidence for gap 1's band at small scale, though only to J 2.1. Left: gaps 1, 3, 6, 7.
