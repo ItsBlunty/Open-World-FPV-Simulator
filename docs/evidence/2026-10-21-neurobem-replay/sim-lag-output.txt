@@ -1,0 +1,15 @@
+== sim_built1k.npz
+  roll: telemetry torque best correlation +0.821 with the gyro's acceleration +0 ms later
+  roll: command^2 torque best correlation +0.771 with the gyro's acceleration +9 ms later
+  pitch: telemetry torque best correlation -0.765 with the gyro's acceleration +0 ms later
+  pitch: command^2 torque best correlation -0.736 with the gyro's acceleration +9 ms later
+== sim_built.npz
+  roll: telemetry torque best correlation +0.819 with the gyro's acceleration -1 ms later
+  roll: command^2 torque best correlation +0.697 with the gyro's acceleration +11 ms later
+  pitch: telemetry torque best correlation -0.762 with the gyro's acceleration -1 ms later
+  pitch: command^2 torque best correlation -0.635 with the gyro's acceleration +11 ms later
+== sim_delay.npz
+  roll: telemetry torque best correlation +0.938 with the gyro's acceleration +1 ms later
+  roll: command^2 torque best correlation +0.817 with the gyro's acceleration +12 ms later
+  pitch: telemetry torque best correlation -0.990 with the gyro's acceleration +1 ms later
+  pitch: command^2 torque best correlation -0.983 with the gyro's acceleration +12 ms later

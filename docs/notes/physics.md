@@ -282,3 +282,10 @@ with the real 4 ms ESC delay it too fights (error rms 51-55 deg/s at 4 kHz, moto
 physics, not the controller emulation, is too lively. sim-core now runs controller and physics at the gyro rate
 (`loopHz`; game default 4 kHz, 8 kHz option): the chop's angular acceleration fell from 7 100 to 3 960 deg/s^2 (real 2 200).
 Cost: about 27 ms CPU per second of flight more at 4 kHz on the real map. Flight feel: for the owner to fly.
+
+**The NeuroBEM quad rebuilt in the sim (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-neurobem-replay/`).** With its
+measured mass, inertia, arm layout and hover rpm, its Betaflight 4.2 tune and the 4 ms ESC dead time, flown with its own
+logged sticks, the sim matches the real step response (26 / 22 ms vs 28 / 22) and stays calm (8.9 vs 10.9 deg/s error).
+So the physics engine is right for that quad; the Nazgul preset's numbers (about 1.9x its angular acceleration per
+command) are what oscillate with Betaflight's default gains and the real delay. Delay chain: real command -> acceleration
+15-21 ms, sim 9-11 ms; real rotor speed -> acceleration 4-8 ms, sim 0.

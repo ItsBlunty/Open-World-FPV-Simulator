@@ -419,3 +419,9 @@ G12 update (2026-10-21, SITL): Betaflight 2026.6.2 SITL in lock-step on the sim'
 cleared, the physics is too lively. The gyro / PID loop now runs at the real rate (sim-core `loopHz`, 4 kHz in the game),
 which halves the chop's angular acceleration (7 100 -> 3 960 deg/s^2, real 2 200); the delayed loop is about 40 % calmer
 but still fights. Open: what damps real quads that the model lacks (`docs/evidence/2026-10-21-sitl/`).
+G12 update (2026-10-21, NeuroBEM replay): the NeuroBEM quad rebuilt with its measured mass, inertia, geometry and hover
+thrust, its own Betaflight 4.2 tune and the real 4 ms dead time, flown with its logged sticks: step response 26 / 22 ms
+against the real 28 / 22, tracking error 8.9 against 10.9 deg/s, calm. The physics is not generally too lively; the
+Nazgul preset is (about 1.9x the NeuroBEM quad's angular acceleration per command; inertia 0.0016 estimated). Open:
+the Nazgul's real inertia and tune; then the ESC dead time in the motor model (`docs/evidence/2026-10-21-neurobem-replay/`).
+Side finding: the windmill tables refuse props pitched above about 4.4 inches on a 5.1-inch (P/D 0.86).

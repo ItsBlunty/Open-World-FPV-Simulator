@@ -1,0 +1,247 @@
+{
+ "id": "nazgulf5v3-6s",
+ "name": "neurobem-kingfisher (scratch)",
+ "class": "5-inch freestyle quad",
+ "notes": "Class preset of the 5-inch freestyle quad most often recommended ready to fly (docs/research/drones-v08.md). Weights, geometry, motors, props and battery from iFlight's listing; thrust, inertia, motor lag and aerodynamics are estimates. Nothing here is endorsed by iFlight.",
+ "fields": {
+  "wheelbase_mm": {
+   "value": 253,
+   "source": "NeuroBEM"
+  },
+  "motor": {
+   "value": "Hobbywing XRotor 2306 2400KV",
+   "source": "NeuroBEM"
+  },
+  "motor_kv": {
+   "value": 2400,
+   "source": "NeuroBEM"
+  },
+  "prop": {
+   "value": "Azure Power SFP 5148 3-blade",
+   "source": "NeuroBEM"
+  },
+  "prop_diameter_mm": {
+   "value": 129.5,
+   "source": "NeuroBEM"
+  },
+  "prop_solidity": {
+   "value": 0.115,
+   "source": "estimate",
+   "ref": "https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html",
+   "note": "N_b c_tip / (pi R) of the rotor inflow model's c_tip / r chord with the measured blade's thrust-weighted chord: 0.092, 0.114 and 0.140 on three measured 5-inch three-blade props (UIUC volume 2 geometry); the Nazgul F5 prop's own chord is not published"
+  },
+  "prop_pitch_in": {
+   "value": 4.4,
+   "source": "NeuroBEM"
+  },
+  "dry_mass_g": {
+   "value": 552,
+   "source": "NeuroBEM"
+  },
+  "battery": {
+   "value": "4S 1800 mAh",
+   "source": "NeuroBEM"
+  },
+  "battery_cells": {
+   "value": 4,
+   "source": "NeuroBEM"
+  },
+  "battery_capacity_mah": {
+   "value": 1800,
+   "source": "NeuroBEM"
+  },
+  "battery_mass_g": {
+   "value": 200,
+   "source": "NeuroBEM"
+  },
+  "auw_g": {
+   "value": 752,
+   "source": "NeuroBEM"
+  },
+  "twr": {
+   "value": 5.6,
+   "source": "fitted: hover at the logs 11 300 rpm"
+  },
+  "inertia_roll_pitch_kgm2": {
+   "value": 0.0023,
+   "source": "NeuroBEM"
+  },
+  "inertia_yaw_kgm2": {
+   "value": 0.0043,
+   "source": "NeuroBEM"
+  },
+  "motor_tau_ms": {
+   "value": 17,
+   "source": "estimate",
+   "min": 10,
+   "max": 30,
+   "note": "J / (Kt^2/R + 2 Q0/w0) for a 2207 1750KV with a 3.9 g prop: about 15-20 ms"
+  },
+  "motor_kappa_m": {
+   "value": 0.0136,
+   "source": "measured",
+   "ref": "https://m-selig.ae.illinois.edu/props/volume-2/propDB-volume-2.html",
+   "note": "static torque / thrust: 0.105 x the diameter on three measured 5-inch three-blade props (UIUC volume 2: Micro Invent 5x4, DA4052 and DA4022 5x3.75; docs/evidence/2026-10-20-motor-model/prop_fit.py); 0.012 was an estimate until sim-core/0.8.0"
+  },
+  "motor_idle": {
+   "value": 0.055,
+   "source": "bf-default",
+   "note": "dshot_idle_value 550"
+  },
+  "rpm_loaded_fraction": {
+   "value": 0.8,
+   "source": "estimate",
+   "note": "loaded rpm / (KV * V) at full throttle on the stand: sets the full-throttle rotor speed, so with the TWR the prop's static thrust coefficient (0.18 in UIUC units; measured 5-inch three-blade props: 0.15-0.18), and the motor model's effective resistance (sim-core/0.8.0: 0.11 ohm, 1.5 x the 74 mOhm winding iFlight lists; the rest stands for the ESC and the motor's losses under load)"
+  },
+  "cda_horizontal_cm2": {
+   "value": 200,
+   "source": "estimate",
+   "note": "side-on frame, air unit and pack"
+  },
+  "cda_vertical_cm2": {
+   "value": 430,
+   "source": "estimate",
+   "note": "classic physics only: set so the top speed in the simulator is about 150 km/h (iFlight states 190 km/h); stands in for the props unloading at speed, which the classic model does not have"
+  },
+  "cda_vertical_inflow_cm2": {
+   "value": 150,
+   "source": "estimate",
+   "note": "frame, pack and camera seen from above (owner agreed 150, 2026-10-18); with rotor inflow the props unload at speed themselves, so this is the frame's own drag"
+  },
+  "collider_duct_radius_mm": {
+   "value": 45,
+   "source": "estimate",
+   "note": "open props: one sphere per prop zone"
+  },
+  "collider_duct_offset_mm": {
+   "value": 100,
+   "source": "estimate",
+   "note": "reaches the prop tips (arm 84.5 mm + prop radius 65 mm)"
+  },
+  "collider_body_radius_mm": {
+   "value": 45,
+   "source": "estimate"
+  },
+  "v_bounce_ms": {
+   "value": 1.5,
+   "source": "estimate"
+  },
+  "v_crash_ms": {
+   "value": 5.0,
+   "source": "estimate",
+   "note": "a 5-inch freestyle frame shrugs off more than a whoop"
+  },
+  "pack_resistance_per_cell_ohm": {
+   "value": 0.005,
+   "source": "estimate",
+   "note": "6S 1480 mAh freestyle pack, wiring and XT60 included"
+  },
+  "efficiency": {
+   "value": 0.737,
+   "source": "estimate",
+   "note": "shaft power / pack power; 0.65 with the estimated kappa 0.012, raised with the measured kappa (sim-core/0.8.0) so the hover current, checked against iFlight's hover time, is unchanged"
+  },
+  "flight_time": {
+   "value": "12-13 min hover (iFlight); about 4-6 min of freestyle",
+   "source": "manufacturer",
+   "ref": "https://www.defiancerc.com/products/iflight-nazgul-evoque-f5-v3-o4-6s-hd-bnf"
+  },
+  "camera_uptilt_deg": {
+   "value": 30,
+   "source": "estimate",
+   "note": "the mount adjusts 10-45 deg; freestyle pilots fly about 25-35"
+  },
+  "camera_fov_deg": {
+   "value": 115,
+   "source": "estimate",
+   "note": "horizontal field of view of the simulated camera"
+  },
+  "rates": {
+   "value": {
+    "type": "ACTUAL",
+    "roll": [
+     7,
+     67,
+     0
+    ],
+    "pitch": [
+     7,
+     67,
+     0
+    ],
+    "yaw": [
+     7,
+     67,
+     0
+    ],
+    "rate_limit": 1998
+   },
+   "source": "bf-default",
+   "note": "Betaflight 4.5 defaults; freestyle pilots usually fly their own (paste your diff all)"
+  },
+  "pid_roll": {
+   "value": [
+    45,
+    80,
+    40,
+    120
+   ],
+   "source": "bf-default",
+   "note": "P, I, D, F; Betaflight's default tune is made on 5-inch quads"
+  },
+  "pid_pitch": {
+   "value": [
+    47,
+    84,
+    46,
+    125
+   ],
+   "source": "bf-default"
+  },
+  "pid_yaw": {
+   "value": [
+    45,
+    80,
+    0,
+    120
+   ],
+   "source": "bf-default"
+  },
+  "throttle": {
+   "value": {
+    "mid": 50,
+    "expo": 0
+   },
+   "source": "bf-default"
+  },
+  "rotor_drag_per_s": {
+   "value": 0.51,
+   "source": "estimate",
+   "ref": "https://arxiv.org/abs/1712.02402",
+   "min": 0.35,
+   "max": 0.7,
+   "note": "momentum theory sqrt(g rho A_rotors / m) = 0.93 1/s times 0.55, the share Faessler et al. 2018 measured on an open-prop quad of the same size (0.24-0.54 1/s)"
+  },
+  "rotor_inertia_kgm2": {
+   "value": 6e-06,
+   "source": "estimate",
+   "min": 3e-06,
+   "max": 9e-06,
+   "note": "3.9 g prop (about 0.2 m R^2) + 2207 bell (about 14 g at 11 mm)"
+  },
+  "wake_loss": {
+   "value": 0.25,
+   "source": "estimate",
+   "min": 0,
+   "max": 0.5,
+   "note": "share of thrust lost at the worst point of a descent through the rotors' own wake (vortex-ring band of momentum theory); sim-core wake.ts"
+  },
+  "wake_shake": {
+   "value": 0.3,
+   "source": "estimate",
+   "min": 0,
+   "max": 0.6,
+   "note": "turbulent roll/pitch torque in the wake, as a share of one rotor's thrust times the arm (rotor thrust fluctuates by tens of per cent in the vortex-ring state)"
+  }
+ }
+}
