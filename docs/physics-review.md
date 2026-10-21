@@ -378,3 +378,7 @@ Jx 1.37 (to J 2.1 tested).
 F9 update (2026-10-21): public Betaflight logs (eRPM, GPS) show the chop's motor pattern (a pair raised, a pair at idle,
 a motor above 15 % for 0.45-0.8 s, I swing about 100) on real 5-inch quads at 14-22 m/s with attitude held; the model
 matches at those speeds. The open part narrows to the size of the owner's 40 m/s kick (`docs/evidence/2026-10-21-public-logs/`).
+
+F9 update (2026-10-21, second pass): the chop bob is documented on real Betaflight quads (issues #3723, #6018, #6148;
+dynamic idle PR #10294 was the developers' answer). The finding is now about its size on current Betaflight, not its
+existence.

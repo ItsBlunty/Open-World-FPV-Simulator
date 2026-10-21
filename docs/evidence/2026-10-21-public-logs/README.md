@@ -48,3 +48,22 @@
 
 Run: `ROOT=<repo or patched copy> pnpm exec vitest run --root docs/evidence/2026-10-21-public-logs <name>`; Python
 scripts take the decoded npz.
+
+## More sources (2026-10-21, second pass)
+
+- TII "Race Against the Machine" (`tii-racing/drone-racing-dataset`, MIT; Betaflight 4.3.1, T-Motor F60 Pro V 2020 KV,
+  6S, motion capture): 18 piloted flights' raw CSVs fetched by range from the split release zip (`splitzip.py`), images
+  skipped. Its fast chops (17-18 m/s, 12-16 m/s along the thrust axis) all come with a full roll stick, so they are
+  commanded moves, not clean chops (`tii_chops.py`, `tii-chops-output.txt`). No rpm.
+- Betaflight's issue tracker, read in full: #3723 (2017, "Attitude error during hard deceleration aka throttle blip,
+  throttle cut"), #6018 (2018-2020, "Arm drop - after quick throttle drop to zero ..."), #6148 (2018), and PR #10294
+  (dynamic idle, merged 2020-11-27, Betaflight 4.3). Pilots reported a bob or arm dip after hard throttle chops from
+  fast forward flight and flat punch-outs on many real 5-inch builds (one pilot: over 15 of his 30-plus), worst on
+  light, powerful quads and on chops all the way to zero; not cured by PIDs, anti-gravity up to 9, protocol, motor or
+  ESC swaps; helped by higher idle, throttle expo, anti-gravity 12, chopping to 10-15 %. Betaflight developers first
+  read it as an external force the controller answered correctly, then (ctzsnooze, 2020-06-16) as a centre-of-gravity
+  offset with motors not restarting properly in negative inflow, helped by dynamic idle and a reworked anti-gravity.
+  PR #10294 explains why: without dynamic idle the idle drive is fixed, airflow against the prop can pull its rpm down
+  until it restarts slowly or desyncs; dynamic idle holds the slowest motor's rpm up.
+- So the owner's chop behaviour has a documented real counterpart in Betaflight; how much of it remains on current
+  Betaflight with dynamic idle could not be measured from public data.

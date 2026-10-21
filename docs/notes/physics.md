@@ -211,3 +211,12 @@ kick (139 deg/s), at a speed no public log reaches. Whether props act backwards 
 logs. The other gaps: band depth x0.65 (measured small prop), load lag (Peters: about 1 ms), frame damping, inertia,
 torque ratio, stick inputs, dynamic idle: none removes the long motor-high phase; Betaflight's mixer and anti-gravity
 match 4.5.1 line by line. Next: a log of the owner's own quad at speed (with eRPM and GPS) would compare like for like.
+
+**The real-world record (2026-10-21; `docs/evidence/2026-10-21-public-logs/README.md`).** Betaflight issues #3723
+(2017), #6018 (2018-2020) and #6148 document an attitude bob or arm dip after hard throttle chops from fast forward
+flight and flat punch-outs on many real 5-inch quads, not cured by tuning or hardware swaps, eased by higher idle,
+throttle expo or chopping to 10-15 %. Betaflight's developers ended at "offset centre of gravity and motors not
+re-starting properly in negative inflow" (2020) and answered with dynamic idle (PR #10294, Betaflight 4.3) and a
+reworked anti-gravity. So the effect the owner sees in the sim has a documented real counterpart; the open questions
+are how strong it should be on current Betaflight with dynamic idle, and whether the sim's version is too strong
+(the sim with dynamic idle at 3400 rpm still bobs; real logs at 14-22 m/s hold attitude within tens of deg/s).

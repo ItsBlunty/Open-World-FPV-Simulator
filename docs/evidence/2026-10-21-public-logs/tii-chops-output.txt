@@ -1,0 +1,31 @@
+== flight-01p-ellipse: 106 s, 500 Hz, top speed 8.4 m/s, throttle 988-1488
+== flight-02p-ellipse: 94 s, 500 Hz, top speed 8.4 m/s, throttle 988-1542
+== flight-03p-ellipse: 91 s, 501 Hz, top speed 8.3 m/s, throttle 988-1519
+  chop  25.06 s:  3.1 m/s,  +2.4 along the thrust axis | stick r/p 165/ 52 us | |gyro| r/p/y   56/  17/   1 deg/s | motor max 0.12 min 0.06, >15 %    0 of  226 ms
+== flight-04p-ellipse: 107 s, 500 Hz, top speed 8.5 m/s, throttle 988-1492
+  chop 106.15 s:  0.8 m/s,  -0.5 along the thrust axis | stick r/p   8/  3 us | |gyro| r/p/y   99/  83/  38 deg/s | motor max 0.37 min 0.00, >15 %   48 of  394 ms
+== flight-05p-ellipse: 85 s, 500 Hz, top speed 9.5 m/s, throttle 988-1558
+== flight-06p-ellipse: 93 s, 501 Hz, top speed 8.5 m/s, throttle 988-1504
+== flight-07p-lemniscate: 107 s, 501 Hz, top speed 8.3 m/s, throttle 988-1512
+  chop 105.44 s:  0.6 m/s,  -0.5 along the thrust axis | stick r/p   7/ 36 us | |gyro| r/p/y   93/  71/  15 deg/s | motor max 0.00 min 0.00, >15 %    0 of  707 ms
+== flight-08p-lemniscate: 87 s, 500 Hz, top speed 7.6 m/s, throttle 988-1433
+== flight-09p-lemniscate: 93 s, 500 Hz, top speed 14.3 m/s, throttle 988-1443
+== flight-10p-lemniscate: 93 s, 501 Hz, top speed 8.3 m/s, throttle 988-1380
+  chop  92.17 s:  0.4 m/s,  -0.3 along the thrust axis | stick r/p  40/  1 us | |gyro| r/p/y  141/ 186/  56 deg/s | motor max 0.10 min 0.00, >15 %    0 of  711 ms
+== flight-11p-lemniscate: 108 s, 500 Hz, top speed 8.5 m/s, throttle 988-1398
+  chop 107.33 s:  0.9 m/s,  -0.6 along the thrust axis | stick r/p  76/  3 us | |gyro| r/p/y  358/ 232/ 167 deg/s | motor max 0.00 min 0.00, >15 %    0 of  426 ms
+== flight-12p-lemniscate: 105 s, 500 Hz, top speed 7.6 m/s, throttle 988-1389
+  chop 104.25 s:  0.6 m/s,  +0.0 along the thrust axis | stick r/p  13/ 18 us | |gyro| r/p/y   77/ 294/  62 deg/s | motor max 0.99 min 0.00, >15 %   14 of  352 ms
+== flight-13p-trackRATM: 45 s, 501 Hz, top speed 19.4 m/s, throttle 988-2012
+  chop  19.41 s: 18.1 m/s, +13.8 along the thrust axis | stick r/p 505/259 us | |gyro| r/p/y  736/ 172/  60 deg/s | motor max 0.50 min 0.06, >15 %   94 of   94 ms
+== flight-14p-trackRATM: 45 s, 501 Hz, top speed 18.5 m/s, throttle 1004-2012
+  chop  15.20 s: 16.5 m/s, +12.0 along the thrust axis | stick r/p 505/267 us | |gyro| r/p/y  738/ 168/  70 deg/s | motor max 0.78 min 0.06, >15 %  124 of  124 ms
+== flight-15p-trackRATM: 35 s, 500 Hz, top speed 19.7 m/s, throttle 991-2012
+  chop   9.77 s: 16.6 m/s, +12.8 along the thrust axis | stick r/p 505/222 us | |gyro| r/p/y  725/ 132/  84 deg/s | motor max 0.43 min 0.06, >15 %  118 of  118 ms
+== flight-16p-trackRATM: 31 s, 500 Hz, top speed 21.3 m/s, throttle 988-2012
+  chop  20.13 s: 17.9 m/s, +15.8 along the thrust axis | stick r/p 505/133 us | |gyro| r/p/y  748/  71/  52 deg/s | motor max 0.55 min 0.06, >15 %  128 of  128 ms
+  chop  25.34 s: 17.9 m/s, +13.2 along the thrust axis | stick r/p 505/196 us | |gyro| r/p/y  756/ 120/  70 deg/s | motor max 0.60 min 0.06, >15 %   86 of   86 ms
+== flight-17p-trackRATM: 42 s, 501 Hz, top speed 18.9 m/s, throttle 988-2012
+== flight-18p-trackRATM: 44 s, 501 Hz, top speed 20.8 m/s, throttle 988-2012
+  chop   9.43 s: 18.0 m/s, +14.1 along the thrust axis | stick r/p 505/109 us | |gyro| r/p/y  720/  60/  56 deg/s | motor max 0.47 min 0.06, >15 %   80 of   80 ms
+  chop  22.79 s: 17.7 m/s, +13.7 along the thrust axis | stick r/p 505/112 us | |gyro| r/p/y  744/  64/  69 deg/s | motor max 0.50 min 0.06, >15 %   82 of   82 ms

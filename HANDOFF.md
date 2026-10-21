@@ -18,6 +18,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Checked (2026-10-20/21):** all gaps 1-11 tested; none removes the long motor-high phase alone. Public logs
   (eRPM, GPS) show that phase is real Betaflight behaviour at 14-22 m/s with attitude held, and the model matches there.
   Open: the size of the owner's 40 m/s kick (139 deg/s); no public log that fast. [physics §2g, evidence 2026-10-21-public-logs]
+- **Real-world record:** Betaflight issues #3723/#6018/#6148 document the same chop bob on real quads (2017-2020);
+  dynamic idle (PR #10294, BF 4.3) and reworked anti-gravity were the fix. Question for the owner: how strong is it on your
+  quad with current Betaflight? [evidence 2026-10-21-public-logs/README.md]
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)
