@@ -386,3 +386,6 @@ existence.
 Finding G11 (2026-10-21): the built-in flight controller lacks Betaflight's TPA (default D 65 % from 1350, and the low-
 throttle TPA), thrust linearization, an I-term relax cutoff setting (fixed 15) and dynamic D (D fixed at the peak).
 Presets such as SupaflyFPV's use all of them. Open; affects low-throttle authority (`docs/evidence/2026-10-21-tuning-topspeed/` §4).
+G11 update (2026-10-21): TPA, thrust linearization, the relax cutoff and the anti-gravity gain built (sim-core 0.8.0,
+`ParamOverrides`, `test/tune-features.test.ts`); dynamic D not built (SupaFly, the default tune, turns it off). Open
+for dynamic D only.

@@ -14,6 +14,7 @@ import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
 import { clearStoredSettings, defaultSettings, loadCollection, loadCoursesRaw, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveCoursesRaw, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
+import { tuneOverrides } from './tunes';
 import { blankCourse, courseFileName, courseText, newCourseId, parseCourses, proposeLink, putCourse, readCourseText, removeCourse } from './course-store';
 import type { CourseFile } from '@owfpv/maps';
 import { CreatorUi } from './ui/creator-ui';
@@ -83,10 +84,13 @@ function overrides(): ParamOverrides {
     if (!settings.battery) o.batteryDrain = false;
     // arming angle (Betaflight small_angle): 180 by default (owner 2026-10-20), any tilt arms; 25 is sim-core's default
     if (settings.armAngle !== 25) o.smallAngleDeg = settings.armAngle;
-    // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own
+    // the flight controller's tune (owner 2026-10-21: SupaflyFPV's 5-inch preset by default)
+    tuneOverrides(settings.tune, o);
+    // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own;
+    // dynamic idle needs the quad's prop size (dynIdleMinRpm, the game's own suggestion), its minimum is the setting's
     if (settings.dynIdle && dynIdleMinRpm !== null) {
         o.dynIdle = {
-            minRpm: dynIdleMinRpm, p: settings.dynIdleP, i: settings.dynIdleI, d: settings.dynIdleD,
+            minRpm: settings.dynIdleMinRpm, p: settings.dynIdleP, i: settings.dynIdleI, d: settings.dynIdleD,
             maxIncrease: settings.dynIdleMaxIncrease, startIncrease: settings.dynIdleStartIncrease
         };
     } else if (settings.motorIdle / 1000 !== presetIdle) o.idle = settings.motorIdle / 1000;

@@ -8,6 +8,8 @@ import type { RadioProfile, StickMode } from '@owfpv/input';
 import { DYN_IDLE_DEFAULTS, copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
+import { DEFAULT_TUNE, TUNES, isTuneId } from './tunes';
+import type { TuneId } from './tunes';
 import { isGraphicsLevel } from './graphics';
 import type { GraphicsLevel } from './graphics';
 import { isShadowReach } from './render/shadow-follow';
@@ -63,6 +65,10 @@ export interface Settings {
      * game picks from the quad's props (sim-core autoDynIdleMinRpm); the rest are Betaflight's dyn_idle_* in its units.
      */
     dynIdle: boolean;
+    /** dyn_idle_min_rpm (x 100 rpm, 10-200) while dynamic idle is on; the tune sets it when picked (SupaFly: 30) */
+    dynIdleMinRpm: number;
+    /** the flight controller's tune (tunes.ts); SupaflyFPV's 5-inch preset by default (owner, 2026-10-21) */
+    tune: TuneId;
     /** dyn_idle_max_increase (0.1 % steps, 10-255, default 150) and dyn_idle_start_increase (10-255, default 50) */
     dynIdleMaxIncrease: number;
     dynIdleStartIncrease: number;
@@ -121,7 +127,10 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     battery: false,
     armAngle: 180,
     motorIdle: 55,
-    dynIdle: false,
+    // the default tune's idle: SupaflyFPV's preset turns dynamic idle on at 3000 rpm
+    dynIdle: TUNES[DEFAULT_TUNE].dynIdleMinRpm !== null,
+    dynIdleMinRpm: TUNES[DEFAULT_TUNE].dynIdleMinRpm ?? 30,
+    tune: DEFAULT_TUNE,
     dynIdleMaxIncrease: DYN_IDLE_DEFAULTS.maxIncrease,
     dynIdleStartIncrease: DYN_IDLE_DEFAULTS.startIncrease,
     dynIdleP: DYN_IDLE_DEFAULTS.p,
@@ -185,7 +194,12 @@ export function loadSettings(): Settings {
     // Betaflight's ranges (cli/settings.c): idle 0-2000 (here tenths of a percent, 0-200), dyn_idle_* as noted above
     const whole = (v: unknown, lo: number, hi: number): number | null => (typeof v === 'number' && v >= lo && v <= hi ? Math.round(v) : null);
     out.motorIdle = whole(s.motorIdle, 0, 200) ?? out.motorIdle;
-    if (typeof s.dynIdle === 'boolean') out.dynIdle = s.dynIdle;
+    // settings saved before the tunes (2026-10-21) have no tune: they get the default tune and its idle
+    if (isTuneId(s.tune)) {
+        out.tune = s.tune;
+        if (typeof s.dynIdle === 'boolean') out.dynIdle = s.dynIdle;
+        out.dynIdleMinRpm = whole(s.dynIdleMinRpm, 10, 200) ?? out.dynIdleMinRpm;
+    }
     out.dynIdleMaxIncrease = whole(s.dynIdleMaxIncrease, 10, 255) ?? out.dynIdleMaxIncrease;
     out.dynIdleStartIncrease = whole(s.dynIdleStartIncrease, 10, 255) ?? out.dynIdleStartIncrease;
     out.dynIdleP = whole(s.dynIdleP, 1, 250) ?? out.dynIdleP;

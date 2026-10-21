@@ -45,6 +45,14 @@ export interface SimParams {
     idle: number;
     /** Betaflight's dynamic idle (dyn_idle_*), compiled for the 1 ms tick; null = off (the static idle above) */
     dynIdle: DynIdleParams | null;
+    /** Betaflight's TPA (tpa_*), compiled; null = no attenuation (every version before sim-core/0.8.0 had none) */
+    tpa: TpaParams | null;
+    /** Betaflight's thrust_linear as a fraction (0-1.5); 0 = off */
+    thrustLinear: number;
+    /** PT1 gain of I-term relax's setpoint filter at iterm_relax_cutoff Hz for the 1 ms tick */
+    relaxK: number;
+    /** anti_gravity_gain (0-250; Betaflight's default 80) */
+    antiGravityGain: number;
     motorPos: Float64Array; // 4 x (x, y, z) body frame, m
     motorYaw: Float64Array; // +1 = CW prop (reaction yaw left, +y torque), -1 = CCW
     cda: [number, number, number]; // m^2 along body x, y, z
@@ -294,6 +302,80 @@ export interface ParamOverrides {
      * motor's rpm instead. The game's "Dynamic idle" setting (owner, 2026-10-20).
      */
     dynIdle?: DynIdleConfig;
+    /**
+     * Betaflight's TPA (throttle PID attenuation), in its CLI units. Absent: none, as before (Betaflight's own default
+     * is D mode, 65 % from 1350). sim-core/0.8.0; the game's tunes (owner, 2026-10-21).
+     */
+    tpa?: TpaConfig;
+    /** Betaflight's thrust_linear, 0-150 (%). Absent or 0: off, as before. sim-core/0.8.0 */
+    thrustLinear?: number;
+    /** Betaflight's iterm_relax_cutoff, 1-50 Hz. Absent: 15, Betaflight's default and the fixed value before. sim-core/0.8.0 */
+    itermRelaxCutoff?: number;
+    /** Betaflight's anti_gravity_gain, 0-250. Absent: 80, Betaflight's default and the fixed value before. sim-core/0.8.0 */
+    antiGravityGain?: number;
+}
+
+/** Betaflight's TPA settings (src/main/flight/pid.c, 4.5.1), CLI units; ranges from cli/settings.c. */
+export interface TpaConfig {
+    /** tpa_mode: 'PD' attenuates P and D, 'D' only D */
+    mode: 'PD' | 'D';
+    /** tpa_rate: how much P/D fall by full throttle, 0-100 % */
+    rate: number;
+    /** tpa_breakpoint: the throttle (1000-2000) above which attenuation starts */
+    breakpoint: number;
+    /** tpa_low_rate: the attenuation at zero throttle below tpa_low_breakpoint, 0-100 % */
+    lowRate: number;
+    /** tpa_low_breakpoint, 1000-2000 (taken as at most tpa_breakpoint) */
+    lowBreakpoint: number;
+    /** tpa_low_always: keep the low-throttle part after the first time the throttle passes its breakpoint */
+    lowAlways: boolean;
+}
+
+/** TPA compiled as Betaflight's pidInitConfig() does (src/main/flight/pid_init.c, 4.5.1). */
+export interface TpaParams {
+    pd: boolean;
+    /** tpaBreakpoint, tpaMultiplier, tpaLowBreakpoint, tpaLowMultiplier (throttle 0-1) */
+    breakpoint: number;
+    multiplier: number;
+    lowBreakpoint: number;
+    lowMultiplier: number;
+    lowAlways: boolean;
+}
+
+function tpaOf(c: TpaConfig | undefined): TpaParams | null {
+    if (c === undefined) return null;
+    const num = (v: number, lo: number, hi: number, name: string): number => {
+        if (!Number.isFinite(v)) throw new RangeError(`tpa.${name} ${v}`);
+        return Math.min(hi, Math.max(lo, Math.round(v)));
+    };
+    const rate = num(c.rate, 0, 100, 'rate');
+    const lowRate = num(c.lowRate, 0, 100, 'lowRate');
+    // pid_init.c: constrainf((tpa_breakpoint - PWM_RANGE_MIN) / 1000, 0, 0.99); multiplier = rate / 100 / (1 - bp);
+    // low breakpoint constrained to 0.01-1 and to at most the breakpoint; low multiplier = low rate / (100 x low bp)
+    const breakpoint = Math.min(0.99, Math.max(0, (num(c.breakpoint, 1000, 2000, 'breakpoint') - 1000) / 1000));
+    let lowBreakpoint = Math.min(1, Math.max(0.01, (num(c.lowBreakpoint, 1000, 2000, 'lowBreakpoint') - 1000) / 1000));
+    lowBreakpoint = Math.min(lowBreakpoint, breakpoint);
+    return {
+        pd: c.mode === 'PD',
+        breakpoint,
+        multiplier: rate / 100 / (1 - breakpoint),
+        lowBreakpoint,
+        // a low breakpoint of 0 (tpa_breakpoint 1000) never applies the low part (pidUpdateTpaFactor tests > 0.01)
+        lowMultiplier: lowBreakpoint > 0 ? lowRate / (100 * lowBreakpoint) : 0,
+        lowAlways: c.lowAlways === true
+    };
+}
+
+/** Betaflight's pt1FilterGain(f, dT) (src/main/common/filter.c) for the 1 ms tick */
+function pt1Gain(fc: number): number {
+    const rc = 1 / (2 * Math.PI * fc);
+    return 0.001 / (rc + 0.001);
+}
+
+function rangeOf(v: number | undefined, dflt: number, lo: number, hi: number, name: string): number {
+    if (v === undefined) return dflt;
+    if (!Number.isFinite(v)) throw new RangeError(`${name} ${v}`);
+    return Math.min(hi, Math.max(lo, Math.round(v)));
 }
 
 /** Betaflight's dyn_idle_* settings (src/main/flight/pid.c, 4.5), CLI units; missing fields take Betaflight's defaults. */
@@ -539,6 +621,10 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         kappa,
         idle: o.idle ?? num(p, 'motor_idle'),
         dynIdle: dynIdleOf(o.dynIdle),
+        tpa: tpaOf(o.tpa),
+        thrustLinear: rangeOf(o.thrustLinear, 0, 0, 150, 'thrustLinear') / 100,
+        relaxK: pt1Gain(rangeOf(o.itermRelaxCutoff, 15, 1, 50, 'itermRelaxCutoff')),
+        antiGravityGain: rangeOf(o.antiGravityGain, 80, 0, 250, 'antiGravityGain'),
         motorPos,
         motorYaw,
         cda: [cdaH, cdaV, cdaH],

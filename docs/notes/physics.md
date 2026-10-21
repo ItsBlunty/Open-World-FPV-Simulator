@@ -235,3 +235,14 @@ low-throttle TPA always on, dynamic idle 3000 rpm, relax cutoff 10, anti-gravity
 about a third less (tilt change 6.9 -> 4.6 deg, RMS rate 13 -> 11 deg/s), a motor still high about 1.5 s. Thrust
 linear helps; the always-on low TPA hurts. The sim's controller lacks TPA, thrust linear, a relax-cutoff setting and
 dynamic D (tested only in a scratch copy).
+
+**Betaflight tuning features built, SupaFly the default tune (owner, 2026-10-21).** sim-core 0.8.0 gains Betaflight
+4.5.1's TPA (pid_init.c / `pidUpdateTpaFactor`, PD or D mode, low-throttle TPA with its fade latch), thrust
+linearization (`pidCompensateThrustLinearization` on the throttle after dynamic idle, `pidApplyThrustLinearization` on
+each motor before the clamp, as mixer.c orders them), the I-term relax cutoff and the anti-gravity gain as
+`ParamOverrides` in CLI units; absent, traces are unchanged (`test/tune-features.test.ts`, hand-worked values). No
+dynamic D: the SupaFly preset turns it off (dmax 0). The game has Settings > World and physics > Tune: SupaflyFPV
+Freestyle 5" (default, dynamic idle 3000 rpm), Betaflight defaults (TPA D 65 % from 1350), Original simulator tune;
+a minimum-rpm slider for dynamic idle (`apps/fly/src/tunes.ts`). On the owner's chop through the real sim-core:
+original RMS 13.2 deg/s, tilt change 6.9 deg; Betaflight defaults 12.9, 6.2; SupaFly 11.5, 4.6 (same as the scratch
+copy); a motor above 15 % about 1.5 s in all three. Flight feel: for the owner to fly (build at `/next/` on Pages).

@@ -34,6 +34,25 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
   it (the voltage still sags under load); absent or `true` drains it as before, bit for bit (self-test hashes
   unchanged). The game's "Battery simulation" switch. Test: `test/model-physics.test.ts` "battery drain switch".
 
+## sim-core/0.8.0: motor model, prop torque, anti-gravity, windmilling props, Betaflight tuning features (unreleased, branch main-bng8wu)
+
+Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb8b…`).
+- `SimParams.motor` (`MotorModel`): DC motor and ESC torque balance with active braking, rotor inflow presets only;
+  `hoverSolve` returns the duty that holds the hover speed. Null: the first-order lag as before.
+- Prop torque (Gill and D'Andrea eq. 37-38) beside the thrust; `INFLOW_PITCH_FACTOR` 1.025 (was eq. 82's 1.25), preset
+  `prop_solidity`, Nazgul kappa 0.0136 (measured) and efficiency 0.737.
+- Past `INFLOW_RATIO_MAX` the loads are no longer clamped: air from in front follows NACA Report 464's windmill curves
+  (`WINDMILL_TC`, `WINDMILL_QC`), air from behind a stalling blade-element model, blended up to 0.45.
+- Betaflight 4.5 anti-gravity and throttle boost (both models).
+- Betaflight 4.5.1 tuning features in the built-in flight controller, in CLI units and ranges (owner, 2026-10-21):
+  `ParamOverrides.tpa` (`TpaConfig`, `TpaParams`, `tpaFactor`; pid_init.c / pid.c `pidUpdateTpaFactor`: PD or D mode,
+  rate, breakpoint, low rate and breakpoint, `tpa_low_always`; without it the fade latch is one slot `S_TPA.lowFaded`
+  after `S.size`), `thrustLinear` (`thrustLinearThrottle`, `thrustLinearOutput`; pid.c thrust linearization, 0-150),
+  `itermRelaxCutoff` (1-50 Hz, default 15) and `antiGravityGain` (0-250, default 80). Absent or at their defaults:
+  traces as without them. No dynamic D (the built-in D is fixed). Test: `test/tune-features.test.ts`.
+- The throttle chop out of a climb still shakes (physics-review F9); its test is a known failure.
+Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`.
+
 ## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
 
 Changes traces of any flight that touches something (new self-test hashes `1eb33767…`, classic physics `c1c4280b…`).

@@ -13,13 +13,14 @@ import type { Place } from '@owfpv/traffic';
 
 export const SELFTEST_TICKS = 20000;
 /** The hash Node computes (test/selftest.test.ts); the page shows whether its own run matches. */
-export const SELFTEST_HASH = '1eb3376757a7b615f9822bccba5981441f39590d8ab490aae1e1f00a3b405a05';
+export const SELFTEST_HASH = '9002c3fa3807a239845cc021d5ccafce0a0e126bdf62691047cc58380a3e144c';
 /**
  * The same flight with classic physics (sim-core/0.6.0 classicPhysics). Until 0.7.0 it kept the hash 0.5.0 gave
  * (cd45c59c…), which proved the classic model was the old one bit for bit; 0.7.0 changed the contacts (wall bounces,
- * blade strikes) under both models, and the flight dives into the ground, so it has a new hash too.
+ * blade strikes) under both models, and the flight dives into the ground, so it has a new hash too. 0.8.0 changed it
+ * again: anti-gravity, throttle boost and the motor lag changed under both models (classic keeps its own aero).
  */
-export const CLASSIC_SELFTEST_HASH = 'c1c4280b98d10d23bfd6424892c08a3da2214be9aa50d49f2cd3789b9e36df1d';
+export const CLASSIC_SELFTEST_HASH = '6cadfb8bf91b79f6f9217db08f49390c63e7eaff7e3be4336c5ed7a835e75819';
 
 /** Sticks at tick t: arm, climb, fly north, dive into the ground, fly on after the respawn. */
 export function selftestSticks(t: number, out: Float32Array): Float32Array {

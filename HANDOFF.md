@@ -8,7 +8,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Issue:** in real flights a quad chopped to zero throttle at speed holds its attitude and its motors stay near idle.
   In every model here (0.7.0, 0.8.0, 0.8.0 + NACA refit) it bobbles and motors ramp up (PID fights, I-term winds up,
   1-2 s). Classic physics does not. Owner flew the refit: still wrong. Find the gap; no bandaids (owner).
-- **Where the work is:** branch `main-bng8wu` (not merged; sim-core/0.8.0; 2 selftest hash tests fail on purpose):
+- **Where the work is:** branch `main-bng8wu` (not merged; sim-core/0.8.0; hashes re-pinned flight 9002c3fa, classic 6cadfb8b; the chop test is a known failure):
   motor/ESC model, prop torque, Betaflight anti-gravity and throttle boost, NACA windmill curves. Owner's chop flight and
   replay harness in `docs/evidence/2026-10-20-windmill/`.
 - **Learned:** the model's mechanism is the windmill-brake band (more rpm, more drag), so the PID acts backwards. NACA
@@ -23,8 +23,11 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   quad with current Betaflight? [evidence 2026-10-21-public-logs/README.md]
 - **Top speed / tuning:** level top speed 157 km/h on this branch (unverified; only unsourced ~150 km/h found); Betaflight's
   documented chop fixes act in the sim as documented (PIDs +30 %, anti-gravity x2 help), none removes it. [evidence 2026-10-21-tuning-topspeed]
-- **SupaFly preset:** the official SupaflyFPV 5" tune still bobbles, about a third less; the sim's FC lacks TPA, thrust linear,
-  relax cutoff and dynamic D (review G11). [evidence 2026-10-21-tuning-topspeed §4]
+- **SupaFly preset:** the official SupaflyFPV 5" tune still bobbles, about a third less (tilt change 6.9 -> 4.6 deg).
+  TPA, thrust linear, relax cutoff, anti-gravity gain now built in sim-core 0.8.0; SupaFly is the default tune
+  (Settings > World and physics > Tune); no dynamic D (SupaFly has it off). [physics §2g, review G11]
+- **Fly it:** the branch builds to https://itsblunty.github.io/Open-World-FPV-Simulator/next/ (CI on push to main or
+  main-bng8wu builds both; main stays at the root). Waiting: owner flies SupaFly on /next/ and reports the chop.
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)

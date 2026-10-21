@@ -13,7 +13,7 @@
 // craft's height above the scan's ground; without it the airspeed is the velocity (still air).
 
 import { dcos, dsin, datan2, RAD2DEG, DEG2RAD } from './dmath';
-import type { DynIdleParams, RotorInflow, SimParams } from './params';
+import type { DynIdleParams, RotorInflow, SimParams, TpaParams } from './params';
 import { cellVoc, hoverSolve, INFLOW_DELTA, INFLOW_RATIO_MAX, tableAt, WINDMILL_DX, WINDMILL_QC, WINDMILL_TC, WINDMILL_X0 } from './params';
 import { setpointRate, throttleCurve } from './rates';
 import { modeFromChannel } from './contracts';
@@ -120,6 +120,34 @@ export const S = {
  */
 export const S_DYN = { dynI: 76, dynPrev: 77, airAct: 78, size: 79 } as const;
 
+/**
+ * TPA's state (SimParams.tpa with lowAlways off): Betaflight's isTpaLowFaded latch (pid.c pidUpdateTpaFactor), set
+ * once the throttle first passes tpa_low_breakpoint. In a slot after dynamic idle's, present only then (sim-core/0.8.0).
+ */
+export const S_TPA = { lowFaded: 79, size: 80 } as const;
+
+/**
+ * Betaflight's TPA factor (src/main/flight/pid.c pidUpdateTpaFactor, 4.5.1): the multiplier on D (and P in PD mode) at
+ * throttle t (0-1). Below tpa_low_breakpoint, until the latch `faded` is set (never with lowAlways), the low-throttle
+ * rate applies; otherwise attenuation grows above tpa_breakpoint to tpa_rate at full throttle.
+ */
+export function tpaFactor(tpa: TpaParams, t: number, faded: boolean): number {
+    const pastLow = !(t < tpa.lowBreakpoint && tpa.lowBreakpoint > 0.01);
+    const rate = pastLow || faded ? tpa.multiplier * (t > tpa.breakpoint ? t - tpa.breakpoint : 0) : tpa.lowMultiplier * (tpa.lowBreakpoint - t);
+    return 1 - rate;
+}
+
+/** Betaflight's pidCompensateThrustLinearization (pid.c, 4.5.1): the throttle lowered for thrust_linear tl (0-1.5) */
+export function thrustLinearThrottle(tl: number, thr: number): number {
+    const r = 1 - thr;
+    return thr / (1 + (tl - 0.5 * tl * tl) * r * r);
+}
+
+/** Betaflight's pidApplyThrustLinearization (pid.c, 4.5.1): a motor's mix-plus-throttle output (0-1) raised at the low end */
+export function thrustLinearOutput(tl: number, v: number): number {
+    return v * (1 + tl * (1 - v) * (1 - v));
+}
+
 const PT1 = (fc: number) => {
     const rc = 1 / (2 * Math.PI * fc);
     return DT / (rc + DT);
@@ -134,17 +162,16 @@ const K_DTERM2 = PT1(150);
 const K_GYRO1 = PT1(250);
 const K_GYRO2 = PT1(500);
 const K_FF = PT1(30);
-const K_RELAX = PT1(15);
+// I-term relax's setpoint filter: SimParams.relaxK (iterm_relax_cutoff, default 15 Hz)
 // Betaflight's PT2 moves the cutoff so the cascade, not each stage, is -3 dB at fc (filter.c pt2FilterGain): 1 / sqrt(2^(1/2) - 1)
 const PT2_CUTOFF_CORRECTION = 1 / Math.sqrt(Math.SQRT2 - 1);
 const PT2 = (fc: number) => {
     const rc = 1 / (2 * Math.PI * fc * PT2_CUTOFF_CORRECTION);
     return DT / (rc + DT);
 };
-// Betaflight 4.5 anti-gravity, on by default (config/feature.c FEATURE_ANTI_GRAVITY): anti_gravity_gain 80,
-// anti_gravity_cutoff_hz 5, anti_gravity_p_gain 100 (pid.c resetPidProfile); ANTIGRAVITY_KI 0.34, ANTIGRAVITY_KP 0.0034
-// (pid.h); the P gain is anti_gravity_p_gain / 100 x ANTIGRAVITY_KP (pid_init.c)
-const AG_GAIN = 80;
+// Betaflight 4.5 anti-gravity, on by default (config/feature.c FEATURE_ANTI_GRAVITY): anti_gravity_gain 80 (SimParams.
+// antiGravityGain), anti_gravity_cutoff_hz 5, anti_gravity_p_gain 100 (pid.c resetPidProfile); ANTIGRAVITY_KI 0.34,
+// ANTIGRAVITY_KP 0.0034 (pid.h); the P gain is anti_gravity_p_gain / 100 x ANTIGRAVITY_KP (pid_init.c)
 const AG_KI = 0.34;
 const AG_KP = (100 / 100) * 0.0034;
 const K_AG = PT2(5);
@@ -386,7 +413,7 @@ export class Sim {
 
     constructor(p: SimParams, world: ContactWorld | null) {
         this.p = p;
-        this.s = new Float64Array(p.dynIdle ? S_DYN.size : S.size);
+        this.s = new Float64Array(p.tpa && !p.tpa.lowAlways ? S_TPA.size : p.dynIdle ? S_DYN.size : S.size);
         this.world = world;
         this.nS = p.spheres.length / 4;
         this.c0 = new Float64Array(this.nS * 3);
@@ -646,6 +673,19 @@ export class Sim {
             thr = throttleCurve(thrStick, p.throttle);
         }
 
+        // ---- TPA (Betaflight 4.5.1 pid.c pidUpdateTpaFactor, from its code): the throttle after its curve, before
+        // throttle boost and dynamic idle. Betaflight's PID loop reads the factor its mixer left one loop earlier
+        // (125-250 us at 4-8 kHz); here it is the same 1 ms tick [numerical choice].
+        let tpaD = 1, tpaP = 1;
+        const tpa = p.tpa;
+        if (tpa) {
+            const t = thr < 0 ? 0 : thr > 1 ? 1 : thr;
+            const faded = !tpa.lowAlways && s[S_TPA.lowFaded] > 0;
+            if (!tpa.lowAlways && !faded && !(t < tpa.lowBreakpoint && tpa.lowBreakpoint > 0.01)) s[S_TPA.lowFaded] = 1;
+            tpaD = tpaFactor(tpa, t, faded);
+            if (tpa.pd) tpaP = tpaD;
+        }
+
         // ---- rate PID in Betaflight units ----
         const gR = this.gyroFilter(0, -wz * RAD2DEG);
         const gP = this.gyroFilter(1, -wx * RAD2DEG);
@@ -658,10 +698,10 @@ export class Sim {
         const ffRP = mode !== 'angle';
         // anti-gravity (sim-core/0.8.0): the throttle-change signal the mixer filtered last tick, as Betaflight's
         // pidController reads what its mixTable left (pid.c: antiGravityThrottleD x anti_gravity_gain)
-        const agD = s[S.ag2] * AG_GAIN;
-        const pidR = this.axisPid(0, spR, acroR, ffRP, gR, p.pid.roll, dynCi, armed, 500, kD1, agD);
-        const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1, agD);
-        const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1, 0);
+        const agD = s[S.ag2] * p.antiGravityGain;
+        const pidR = this.axisPid(0, spR, acroR, ffRP, gR, p.pid.roll, dynCi, armed, 500, kD1, agD, tpaP, tpaD);
+        const pidP = this.axisPid(1, spP, acroP, ffRP, gP, p.pid.pitch, dynCi, armed, 500, kD1, agD, tpaP, tpaD);
+        const pidY = this.axisPid(2, spY, spY, true, gY, p.pid.yaw, dynCi, armed, 400, kD1, 0, tpaP, tpaD);
 
         // ---- anti-gravity's throttle filter and throttle boost (Betaflight 4.5 mixer.c mixTable, pid.c) ----
         // the size of the throttle change per second, weighted to low throttle, then a PT2 at 5 Hz
@@ -690,6 +730,11 @@ export class Sim {
             if (thr < 0.01) thr = 0.01;
         }
 
+        // ---- thrust linearization (Betaflight 4.5.1 pid.c pidCompensateThrustLinearization, after dynamic idle's offset
+        // as in mixer.c): the throttle is lowered by the amount the output curve below will add back ----
+        const tl = p.thrustLinear;
+        if (tl !== 0) thr = thrustLinearThrottle(tl, thr);
+
         // ---- mixer with airmode ----
         const out = this.motorCmd;
         if (armed) {
@@ -711,6 +756,8 @@ export class Sim {
             s[S.mixRange] = range;
             for (let i = 0; i < 4; i++) {
                 let v = out[i] + t;
+                // pidApplyThrustLinearization (mixer.c applyMixToMotors): more output at the low end, none added at full
+                if (tl !== 0) v = thrustLinearOutput(tl, v);
                 v = v < 0 ? 0 : v > 1 ? 1 : v;
                 out[i] = lo + (1 - lo) * v;
             }
@@ -1244,7 +1291,7 @@ export class Sim {
      * sp = the setpoint the loop tracks (after self-level); ffIn = the stick setpoint whose
      * derivative drives the feed-forward (0 output when ffOn is false); dynCi = I-term windup gain.
      */
-    private axisPid(ax: number, sp: number, ffIn: number, ffOn: boolean, gyro: number, g: number[], dynCi: number, armed: boolean, limit: number, kD1: number, agD: number): number {
+    private axisPid(ax: number, sp: number, ffIn: number, ffOn: boolean, gyro: number, g: number[], dynCi: number, armed: boolean, limit: number, kD1: number, agD: number, tpaP: number, tpaD: number): number {
         const s = this.s;
         const iK = S.iR + ax, dK = S.dfR + ax, fK = S.ffR + ax, spK = S.spR + ax;
         const e = sp - gyro;
@@ -1270,7 +1317,7 @@ export class Sim {
         let iErr = e;
         if (ax < 2) {
             const lK = S.splR + ax;
-            const lpf = s[lK] + (sp - s[lK]) * K_RELAX;
+            const lpf = s[lK] + (sp - s[lK]) * this.p.relaxK;
             s[lK] = lpf;
             const hp = sp - lpf;
             const relax = 1 - (hp < 0 ? -hp : hp) / RELAX_THRESHOLD;
@@ -1290,7 +1337,8 @@ export class Sim {
             const att = (sp < 0 ? -sp : sp) / 50;
             pBoost = 1 + (agD / (att > 1 ? att : 1)) * AG_KP;
         }
-        let sum = g[0] * P_SCALE * e * pBoost + s[iK] + dTerm + ff;
+        // TPA scales P (PD mode) and D after their gains (pid.c pidController: Kp x error x tpaFactorKp, D x tpaFactor)
+        let sum = g[0] * P_SCALE * e * pBoost * tpaP + s[iK] + dTerm * tpaD + ff;
         sum = sum < -limit ? -limit : sum > limit ? limit : sum;
         return sum / 1000;
     }

@@ -19,7 +19,7 @@ describe('self-test flight on the first map', () => {
         expect(a.hash).toBe(SELFTEST_HASH);
     });
 
-    it('with classic physics flies the sim-core/0.5.0 flight model (contacts of 0.7.0)', () => {
+    it('with classic physics flies the sim-core/0.5.0 aero (contacts of 0.7.0, flight controller of 0.8.0)', () => {
         const c = runSelftest(preset, level, { classicPhysics: true });
         expect(c.hash).toBe(CLASSIC_SELFTEST_HASH);
         // control: the default (rotor inflow) is another flight

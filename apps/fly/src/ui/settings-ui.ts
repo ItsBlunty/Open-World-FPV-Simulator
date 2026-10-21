@@ -8,6 +8,8 @@
 import { RATE_AXES, RATE_FIELDS, copyRates, fitRates, fullStickRates, readField, shownText, withField } from '@owfpv/sim-core';
 import type { FlightMode, RateAxis, RateFieldName, RatesConfig, RatesType } from '@owfpv/sim-core';
 import type { Settings } from '../settings';
+import { TUNES } from '../tunes';
+import type { TuneId } from '../tunes';
 import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
@@ -138,7 +140,23 @@ export class SettingsUi {
             out);
     }
 
-    /** Settings > World > Motor idle: Betaflight's static idle, or its dynamic idle with the minimum rpm picked by the game. */
+    /** Settings > World > Tune: the flight controller's tune (tunes.ts); picking one also sets its idle. */
+    private tune(host: SettingsHost, s: Settings): HTMLElement[] {
+        const ids = Object.keys(TUNES) as TuneId[];
+        return [
+            h('h2', {}, 'Tune'),
+            this.field('Tune', this.select<TuneId>(s.tune, ids.map((id) => ({ value: id, label: TUNES[id].name })), (v) => {
+                s.tune = v;
+                const min = TUNES[v].dynIdleMinRpm;
+                s.dynIdle = min !== null;
+                if (min !== null) s.dynIdleMinRpm = min;
+                host.save(); host.onFlight(); this.build();
+            })),
+            h('p', { class: 'note' }, `${TUNES[s.tune].note} Picking a tune also sets its motor idle below. Changing it restarts at the spawn point.`)
+        ];
+    }
+
+    /** Settings > World > Motor idle: Betaflight's static idle, or its dynamic idle with its minimum rpm. */
     private idle(host: SettingsHost, s: Settings): HTMLElement[] {
         const apply = (): void => { host.save(); host.onFlight(); };
         const tenths = (v: number): string => `${(v / 10).toFixed(1)} %`;
@@ -152,7 +170,8 @@ export class SettingsUi {
         }
         if (s.dynIdle && min !== null) {
             out.push(
-                h('p', { class: 'note' }, `Minimum: ${min * 100} rpm (Betaflight's dyn_idle_min_rpm ${min}), picked by the game from this quad's props. On a real quad you find it by testing for desyncs, which the simulator does not have. The fixed idle is not used while dynamic idle is on, as in Betaflight 4.3 and later.`),
+                this.slider('Minimum rpm', 10, 100, s.dynIdleMinRpm, '', (v) => { s.dynIdleMinRpm = v; }, apply, (v) => `${v * 100} rpm`),
+                h('p', { class: 'note' }, `Betaflight's dyn_idle_min_rpm (here ${s.dynIdleMinRpm}). The tune sets it: SupaflyFPV's preset uses 3000 rpm; Betaflight suggests 3000-4000 for a 5-inch; the game's own estimate from this quad's props is ${min * 100} rpm. On a real quad you find it by testing for desyncs, which the simulator does not have. The fixed idle is not used while dynamic idle is on, as in Betaflight 4.3 and later.`),
                 this.slider('Max increase', 10, 255, s.dynIdleMaxIncrease, '', (v) => { s.dynIdleMaxIncrease = v; }, apply, tenths),
                 this.slider('Start increase', 10, 255, s.dynIdleStartIncrease, '', (v) => { s.dynIdleStartIncrease = v; }, apply, tenths),
                 h('p', { class: 'note' }, "How far dynamic idle may raise the motors' floor in flight (dyn_idle_max_increase, default 15 %) and before airmode is active, until the throttle first passes 25 % after arming (dyn_idle_start_increase, default 5 %)."),
@@ -320,6 +339,7 @@ export class SettingsUi {
                 h('p', { class: 'note' }, 'With it on, the pack is full again whenever you go back to the start point or onto a time trial pad.'),
                 this.slider('Arming angle', 0, 180, s.armAngle, '°', (v) => { s.armAngle = v; }, () => { host.save(); host.onFlight(); }),
                 h('p', { class: 'note' }, "Arming needs the quad within this tilt of level (Betaflight's small_angle). 180° (the default here) arms at any tilt; 25° is Betaflight's own default. Changing it restarts at the spawn point."),
+                ...this.tune(host, s),
                 ...this.idle(host, s),
                 h('h2', {}, 'Crashes and damage'),
                 this.check('Damage and crashes (off: every hit is a bounce and you keep flying). Changing it restarts at the spawn point.', s.damage, (v) => { s.damage = v; host.save(); host.onFlight(); }),
