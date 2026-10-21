@@ -1,11 +1,13 @@
 name: ci
 
 # Pushes to main or main-bng8wu test the pushed commit, then publish both builds to GitHub Pages: main at the site
-# root, main-bng8wu (the physics work in progress, owner 2026-10-21) under /next/. This file is the same on both branches.
+# root, main-bng8wu (the physics work in progress, owner 2026-10-21) under /next/. The github-pages environment deploys
+# from main only, so a main-bng8wu push starts this workflow on main, which builds both. Same file on both branches.
 on:
   push:
     branches: [main, main-bng8wu]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -27,8 +29,20 @@ jobs:
 
   # Playtest build at https://itsblunty.github.io/Open-World-FPV-Simulator/ (owner's choice, 2026-10-17), the
   # main-bng8wu build at .../next/. Needs the repository's Settings > Pages > Source set to "GitHub Actions".
+  # a main-bng8wu push: rebuild the site from main (GITHUB_TOKEN may start workflow_dispatch runs)
+  redeploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main-bng8wu'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   build-site:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -61,7 +75,7 @@ jobs:
           path: out
 
   pages:
-    if: github.event_name == 'push'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build-site
     runs-on: ubuntu-latest
     # one deploy at a time: a push to either branch rebuilds both
