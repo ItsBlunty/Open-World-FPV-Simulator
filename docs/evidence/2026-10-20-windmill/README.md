@@ -11,6 +11,6 @@ NTRS 19930093338), Sinnige et al. AIAA 2019-3033, Sinnige and Della Corte AIAA 2
 - `fit.py`, `bem.py`: section-stall and wind-turbine BEM attempts; neither reproduces the measured rise from a locked prop.
 - `wm.py`: the measured-curve windmill range as built in sim-core (WINDMILL_TC/QC, kWindmill).
 
-Status: the refit removes the model's 7x-too-steep drag cliff, but the owner's 8 s chop flight still shows the PID
-fighting the (measured, real for full-size props) reversed band. Waiting for the owner: keep the refit (A) or wait for
-5-inch windmill data (B). Hashes not re-pinned; selftest hash tests fail on purpose until then.
+Status: shipped in sim-core/0.8.0 for the owner to fly (owner: "Lets test out the NACA refit"). The refit removes the
+model's 7x-too-steep drag cliff, but the owner's 8 s chop flight still shows the PID fighting the (measured, real for
+full-size props) reversed band. After flying: keep the refit (A) or wait for 5-inch windmill data (B).

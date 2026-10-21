@@ -1,0 +1,35 @@
+sim-core/0.8.0
+
+=== AIRFLOW
+hover: solved motor command 0.2523, stick 0.2088; after 3 s: vy -0.092 m/s, rpm 10144, 5.66 A, 25.01 V
+idle, armed, throttle down 1 s: rpm 2300 2300 2300 2300
+motor step up  : 10144 -> 19509 rpm, 63 % in 12 ms
+motor step down: 19509 -> 10291 rpm, 63 % in 12 ms
+full-throttle climb        0.5s:24.6 1.0s:35.1 1.5s:38.4 2.0s:39.3 2.5s:39.5 3.0s:39.5 3.5s:39.4 4.0s:39.3
+full throttle, 60 deg      0.5s:26.4 1.0s:37.3 1.5s:40.5 2.0s:41.4 2.5s:41.6 3.0s:41.6 3.5s:41.5 4.0s:41.4
+full throttle, 75 deg      0.5s:27.2 1.0s:38.2 1.5s:41.5 2.0s:42.4 2.5s:42.5 3.0s:42.5 3.5s:42.5 4.0s:42.4
+flat fall, throttle down   1.0s:8.7 2.0s:15.0 3.0s:18.4 4.0s:20.1 5.0s:20.9 6.0s:21.2
+nose-down dive, thr down   1.0s:8.8 2.0s:14.8 3.0s:18.1 4.0s:19.7 5.0s:20.4 6.0s:20.7
+full throttle 0.5 s: 134.5 A, 21.09 V, rpm 30898
+roll step at hover: setpoint 670 deg/s, 63 % in 16 ms, peak 677
+chop from a 23 m/s climb, 23 deg (28.1 m/s): peak motor cmd 0.59, ms a motor > 15 %: 665, pitch moved 4.3 deg, max pitch rate 90 deg/s
+chop from a 33 m/s climb, 39 deg (34.1 m/s): peak motor cmd 0.88, ms a motor > 15 %: 948, pitch moved 4.2 deg, max pitch rate 111 deg/s
+chop from a slow climb, 11 deg (23.6 m/s): peak motor cmd 0.42, ms a motor > 15 %: 444, pitch moved 3.9 deg, max pitch rate 70 deg/s
+roll input in the chop (0.3 stick, 150 ms): rate error rms 27 deg/s, max 90, overshoot swings 0, roll left 11.4 deg
+
+=== CLASSIC
+hover: solved motor command 0.2897, stick 0.2484; after 3 s: vy -0.200 m/s, rpm 10145, 5.65 A, 25.01 V
+idle, armed, throttle down 1 s: rpm 1940 1940 1940 1940
+motor step up  : 10145 -> 19231 rpm, 63 % in 11 ms
+motor step down: 19231 -> 10139 rpm, 63 % in 12 ms
+full-throttle climb        0.5s:27.7 1.0s:39.7 1.5s:42.6 2.0s:43.1 2.5s:43.1 3.0s:43.0 3.5s:42.9 4.0s:42.7
+full throttle, 60 deg      0.5s:29.6 1.0s:41.6 1.5s:44.4 2.0s:44.8 2.5s:44.8 3.0s:44.7 3.5s:44.5 4.0s:44.4
+full throttle, 75 deg      0.5s:30.4 1.0s:42.5 1.5s:45.1 2.0s:45.6 2.5s:45.5 3.0s:45.4 3.5s:45.3 4.0s:45.2
+flat fall, throttle down   1.0s:8.5 2.0s:13.4 3.0s:15.3 4.0s:15.9 5.0s:16.2 6.0s:16.2
+nose-down dive, thr down   1.0s:8.9 2.0s:15.0 3.0s:18.4 4.0s:20.1 5.0s:20.9 6.0s:21.2
+full throttle 0.5 s: 155.4 A, 20.45 V, rpm 28637
+roll step at hover: setpoint 670 deg/s, 63 % in 15 ms, peak 679
+chop from a 23 m/s climb, 23 deg (31.4 m/s): peak motor cmd 0.06, ms a motor > 15 %: 0, pitch moved 0.0 deg, max pitch rate 0 deg/s
+chop from a 33 m/s climb, 39 deg (37.5 m/s): peak motor cmd 0.06, ms a motor > 15 %: 0, pitch moved 0.0 deg, max pitch rate 0 deg/s
+chop from a slow climb, 11 deg (26.5 m/s): peak motor cmd 0.06, ms a motor > 15 %: 0, pitch moved 0.0 deg, max pitch rate 0 deg/s
+roll input in the chop (0.3 stick, 150 ms): rate error rms 10 deg/s, max 77, overshoot swings 0, roll left 11.3 deg

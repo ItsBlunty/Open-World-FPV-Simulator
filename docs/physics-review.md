@@ -344,3 +344,27 @@ level of 20 % of top speed, so none of it was heard; fixed in the sound (`docs/n
 whether a real quad holds its motors higher through a sustained zero-throttle roll (a blackbox log would tell).
 Dynamic idle was added then (Betaflight's, off by default); it cannot show its real purpose here because rotor speed
 does not respond to the airflow through the prop (the inflow gap above).
+
+### F9. Throttle-chop shake: the PID fights a prop that makes less thrust the faster it spins (owner, 2026-10-20; open)
+
+Owner: dropping the throttle while moving forward, the quad "can't maintain steady and shakes out of line", and a motor
+is heard firing up. Reproduced in Node (Nazgul): it needs air coming through the props from in front, i.e. a chop out of
+a climb or a fast nose-down line still climbing; a level chop stays steady. Not wind beating the idle: until 0.7.0 the
+airflow could not change a rotor's speed at all. Cause in 0.7.0: past the inflow model's edge the loads were clamped
+(no drag from a slow prop, no damping), leaving a band where a faster prop made less thrust, so a correction turned the
+wrong way and the I-term wound up; a 2 rpm front/rear difference grew to 23 deg/s with the sticks centred.
+sim-core/0.8.0 (`docs/notes/physics.md` §2g) adds the motor/ESC model, prop torque, Betaflight's anti-gravity and
+throttle boost, and NACA Report 464's measured windmill curves past the edge (F10). The reversed band is real in that
+data (full-size props), so the shake is smaller in the owner's 8 s chop flight (pitch drift 9.8 -> 3.9 deg) but not
+gone (roll kick up to 139 deg/s), and the scripted chops hold a motor above 15 % for 444-948 ms (0.7.0: 0-470 ms).
+Open: whether 5-inch props share the reversed band (no 5-inch windmill data found; a blackbox log of a real chop would
+tell). `test/motor-model.test.ts` keeps the target as a known failure.
+
+### F10. Blade-element drag of a windmilling prop rose 7x too steeply (found 2026-10-20)
+
+Past the measured domain (advance ratio about 0.3), the blade-element range first built for 0.8.0 made the drag of a
+slow prop in fast air jump in a cliff. NACA Report 464 (Hartman 1933) and ARR 4H26 measure a smooth rise from a locked
+prop to about 2.1x the locked drag near 0.6 of the zero-thrust speed, then a fall. 0.8.0 uses Report 464's 12 deg
+curves (zero thrust at J 0.68, ours 0.70) scaled to the closed form where they join. A section-stall model and a
+wind-turbine BEM did not reproduce the measured rise (`docs/evidence/2026-10-20-windmill/`). Air from behind (falls,
+dives) still uses blade-element theory with a stalling section [estimate, no data found].

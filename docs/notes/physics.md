@@ -110,7 +110,34 @@ idle 72 state slots, slowest motor 2736-9772 rpm with the stick under 10 %; dyna
 motor 3116-5313 rpm; screenshots of both settings layouts; no console errors. Node: idle held within 2 % of 3400 rpm
 after airmode is active; 618 tests pass, pinned hashes unchanged.
 
-**Limits:** rotor speed in the sim does not change with the airflow through the prop (physics-review open gap), so the
+**Limits** (until 0.8.0, whose motor model lets the airflow change rotor speed: §2g): rotor speed in the sim did not change with the airflow through the prop, so the
 case dynamic idle exists for on real quads (props unloading or windmilling in a dive, desyncs) is not in the model;
 here it raises and holds the idle floor. Betaflight's I-term reset at low throttle before airmode activates is not
 modelled (the sim's mixer always runs airmode).
+
+## 2g. Throttle-chop shake: motor model and NACA windmill refit, sim-core/0.8.0 (owner, 2026-10-20): built, to fly
+
+Owner: the quad shakes out of line on a throttle chop while moving forward; "fix it with proper physics modeling and
+flight controller modelling ... not bandaging". Cause and the open part: `docs/physics-review.md` F9, F10.
+
+**Built (sim-core/0.8.0):**
+- Motor and ESC: each rotor's speed from the torque balance of a DC motor (Ke = 1/Kv, effective R 0.11 ohm) at the
+  commanded duty against its prop's torque, with active braking; a prop that unloads speeds up, the air can drive one.
+  Airflow physics only; classic keeps the first-order lag.
+- Prop torque from Gill and D'Andrea eq. 37-38; kappa 0.0136 x thrust (measured on three UIUC 5-inch three-blade props,
+  was the estimate 0.012), blade-angle factor 1.025 (fitted to five UIUC 5-inch props), solidity 0.115; efficiency 0.737
+  so the hover current is unchanged (`prop_fit.py`).
+- Betaflight 4.5 anti-gravity (gain 80, 5 Hz, P gain 100) and throttle boost (5, 15 Hz), from pid.c and mixer.c.
+  These run under both physics models.
+- Past the inflow model's edge with air from in front: NACA Report 464's measured windmill thrust and torque (F10).
+
+**Envelope** (`docs/evidence/2026-10-20-motor-model/envelope-*.txt`; `before` = 0.7.0, `naca` = as shipped): hover,
+climbs and dives within 0.4 m/s except the flat throttle-down fall, 26.4 -> 21.2 m/s at 6 s (the props now drag);
+full-throttle climb 37.3 -> 39.3 m/s; idle 1940 -> 2300 rpm (the same 5.5 % duty spins an unloaded prop faster);
+motor 63 % step 16-18 -> 12 ms; full-throttle current 155 -> 135 A. Chops out of 11-39 deg climbs: pitch moves
+3.9-4.3 deg (0.7.0: 0-4.1), a motor above 15 % for 444-948 ms (0-470), peak pitch rate 70-111 deg/s (0-36). Classic:
+unchanged except motor step 11-12 ms.
+
+**Shipped to fly before finishing** (owner: "Lets test out the NACA refit and see where that puts us"). Hashes re-pinned
+(flight `9002c3fa…`, classic `6cadfb8b…`); the chop test is `it.fails` with its 400 ms target. Saved flights from 0.7.0
+no longer check as matching. Not heard or flown by Claude.

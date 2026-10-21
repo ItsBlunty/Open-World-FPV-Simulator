@@ -73,12 +73,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 69 files, 618 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+  Throttle-chop shake (owner), sim-core/0.8.0 shipped to fly before finishing: motor/ESC model, prop torque, Betaflight
+  anti-gravity and throttle boost, NACA 464 windmill curves past the inflow edge; the shake is smaller but not gone. [physics §2g, review F9-F10]
+- **Tests:** `pnpm test`: 70 files, 629 pass + 1 known failure (the chop target, `it.fails`) (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
-  - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
+  - flight self-test `9002c3fa…`; classic physics `6cadfb8b…` (`apps/fly/src/selftest.ts`, both new in 0.8.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
   - map v21 `2c689a96…` (544 196 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `AIR_VERSION` 1, `GRADE_VERSION` 1.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.8.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `AIR_VERSION` 1, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -164,6 +166,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 27. **Motor idle:** stick down, roll and flip: the props should now be heard revving. Then Settings > World and physics >
    Motor idle: try the idle slider, then Dynamic idle on (3400 rpm): drops, dives, zero-throttle flips, hang time
    inverted. Feels like your quad? Want your own values instead? [physics §2f]
+28. **Throttle-chop shake (sim-core/0.8.0, NACA refit):** chop the throttle out of a climb and a fast nose-down line, as
+   before. Less shake, gone, or worse? Then punch-outs, rolls, flips, dives: anything else feel different (idle 2300 rpm
+   now, props drag in a flat fall: 21 m/s instead of 26)? Then: keep the refit or wait for 5-inch data? [physics §2g]
 
 ## Left open (not started)
 
@@ -186,9 +191,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   pass through the hill at a portal; the train ignores the quad; look-around doesn't run the sim (the train stands). [railway]
 - Chase see-through: one ray to the quad's centre (a thin pole can flick it on; a part-hidden quad doesn't); cars don't
   trigger it. [camera §0x]
-- Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); inflow gaps (idle props in a fast fall, rotor
-  speed not rising as props unload, so dynamic idle never sees a dive's rpm drop, no inflow lag, no vortex-ring
-  model); sound between idle and hover not measured; "(to read)" claims in the review are not
+- Physics: G3 inertia may be 20-50 % high (waits for blackbox logs); chop shake not fixed (F9: no 5-inch windmill data,
+  a blackbox log of a real chop would settle it); air from behind the props is an estimate (F10); no inflow lag, no
+  vortex-ring model; sound between idle and hover not measured; "(to read)" claims in the review are not
   yet checked against their sources. [physics]
 - Traffic: saved flights with traffic from v9 no longer open; the crash toast's "back N s" doesn't know a car will push the rewind further back; train vehicles not checked for the inside-a-car trap. [traffic §1z]
 - Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
@@ -231,7 +236,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
 | `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias) |
-| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
+| `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound; §2g: throttle-chop shake, motor model, NACA windmill refit (sim-core/0.8.0) |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
