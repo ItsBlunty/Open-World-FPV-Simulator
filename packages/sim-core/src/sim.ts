@@ -148,41 +148,39 @@ export function thrustLinearOutput(tl: number, v: number): number {
     return v * (1 + tl * (1 - v) * (1 - v));
 }
 
-const PT1 = (fc: number) => {
+/** PT1 gain at cutoff fc for a loop of h seconds (Betaflight filter.c pt1FilterGain) */
+const PT1 = (fc: number, h: number) => {
     const rc = 1 / (2 * Math.PI * fc);
-    return DT / (rc + DT);
+    return h / (rc + h);
 };
 // D-term filtering, Betaflight 4.5.1 defaults (flight/pid.h): LPF1 PT1 dynamic 75..150 Hz with
 // throttle, LPF2 PT1 150 Hz. (The spec's single PT1 100 Hz was an estimate; this is the default.)
 const DTERM_DYN_MIN = 75;
 const DTERM_DYN_MAX = 150;
-const K_DTERM2 = PT1(150);
 // Betaflight 4.5.1 default gyro filtering (sensors/gyro.h): LPF1 PT1 250 Hz (dynamic minimum), LPF2 PT1 500 Hz.
 // The sensor itself is ideal; these are the controller's filters and their phase lag.
-const K_GYRO1 = PT1(250);
-const K_GYRO2 = PT1(500);
-const K_FF = PT1(30);
+// (the gains for the loop rate are computed in the constructor: kGyro1 250 Hz, kGyro2 500 Hz, kDterm2 150 Hz, kFF 30 Hz)
 // I-term relax's setpoint filter: SimParams.relaxK (iterm_relax_cutoff, default 15 Hz)
 // Betaflight's PT2 moves the cutoff so the cascade, not each stage, is -3 dB at fc (filter.c pt2FilterGain): 1 / sqrt(2^(1/2) - 1)
 const PT2_CUTOFF_CORRECTION = 1 / Math.sqrt(Math.SQRT2 - 1);
-const PT2 = (fc: number) => {
+const PT2 = (fc: number, h: number) => {
     const rc = 1 / (2 * Math.PI * fc * PT2_CUTOFF_CORRECTION);
-    return DT / (rc + DT);
+    return h / (rc + h);
 };
 // Betaflight 4.5 anti-gravity, on by default (config/feature.c FEATURE_ANTI_GRAVITY): anti_gravity_gain 80 (SimParams.
 // antiGravityGain), anti_gravity_cutoff_hz 5, anti_gravity_p_gain 100 (pid.c resetPidProfile); ANTIGRAVITY_KI 0.34,
 // ANTIGRAVITY_KP 0.0034 (pid.h); the P gain is anti_gravity_p_gain / 100 x ANTIGRAVITY_KP (pid_init.c)
 const AG_KI = 0.34;
 const AG_KP = (100 / 100) * 0.0034;
-const K_AG = PT2(5);
+// (anti-gravity's PT2 at 5 Hz: kAG)
 // throttle boost: throttle_boost 5 x 0.1, throttle_boost_cutoff 15 Hz PT1 (pid.c resetPidProfile, pid_init.c)
 const TBOOST = 5 * 0.1;
-const K_TBOOST = PT1(15);
+// (throttle boost's PT1 at 15 Hz: kTboost)
 // Betaflight's PT3 moves the cutoff so the cascade, not each stage, is -3 dB at fc: 1 / sqrt(2^(1/3) - 1)
 const PT3_CUTOFF_CORRECTION = 1.961459177;
-const PT3 = (fc: number) => {
+const PT3 = (fc: number, h: number) => {
     const rc = 1 / (2 * Math.PI * fc * PT3_CUTOFF_CORRECTION);
-    return DT / (rc + DT);
+    return h / (rc + h);
 };
 
 const P_SCALE = 0.032029;
@@ -391,6 +389,15 @@ export class Sim {
     private kAtt: number;
     private kAff: number;
     private kHz: number;
+    /** the loop: h = 1 / loopHz seconds, nLoop = loopHz / 1000 loops per 1 ms tick, and the filter gains for it */
+    private readonly h: number;
+    private readonly nLoop: number;
+    private readonly kGyro1: number;
+    private readonly kGyro2: number;
+    private readonly kDterm2: number;
+    private readonly kFF: number;
+    private readonly kAG: number;
+    private readonly kTboost: number;
     private sqrtTwr: number;
     /** the wind of the place (wind.ts), compiled from p.wind; null: still air, exactly the model without wind */
     private readonly air: WindField | null;
@@ -431,12 +438,21 @@ export class Sim {
         const rc = p.rates;
         this.maxR = setpointRate(rc.type, 1, rc.roll, rc.rateLimit, rc.quickRcExpo === true);
         this.maxP = setpointRate(rc.type, 1, rc.pitch, rc.rateLimit, rc.quickRcExpo === true);
+        const h = 1 / p.loopHz;
+        this.h = h;
+        this.nLoop = p.loopHz / 1000;
+        this.kGyro1 = PT1(250, h);
+        this.kGyro2 = PT1(500, h);
+        this.kDterm2 = PT1(150, h);
+        this.kFF = PT1(30, h);
+        this.kAG = PT2(5, h);
+        this.kTboost = PT1(15, h);
         const lv = p.level;
-        this.kAtt = p.levelOutputHz > 0 ? PT3(p.levelOutputHz) : 0;
+        this.kAtt = p.levelOutputHz > 0 ? PT3(p.levelOutputHz, h) : 0;
         // Betaflight: angle feed-forward cutoff = 1000 / (2 pi smoothing_ms)
-        this.kAff = lv.ffSmoothMs > 0 ? PT3(1000 / (2 * Math.PI * lv.ffSmoothMs)) : 1;
+        this.kAff = lv.ffSmoothMs > 0 ? PT3(1000 / (2 * Math.PI * lv.ffSmoothMs), h) : 1;
         // PT1 with time constant horizon_delay_ms
-        this.kHz = lv.horizonDelayMs > 0 ? DT / (lv.horizonDelayMs / 1000 + DT) : 1;
+        this.kHz = lv.horizonDelayMs > 0 ? h / (lv.horizonDelayMs / 1000 + h) : 1;
         this.sqrtTwr = Math.sqrt(p.twr);
         // auto-throttle hover from the params alone, so a replay needs nothing from the page (D-g);
         // v0.2 defaulted to 0.4 and relied on the page setting hoverSolve().motor
@@ -578,8 +594,12 @@ export class Sim {
             if (s[S.armed] > 0) s[S.hold] = 0;
             else return; // parked at the spawn: no forces until armed
         }
-        this.controller();
-        this.physics(this.motorCmd);
+        // loopHz / 1000 loops per tick, each with a fresh gyro sample (the state the last loop left) and the sticks
+        // of the tick; with one loop (loopHz 1000, the default) exactly the step before the setting
+        for (let k = 0; k < this.nLoop; k++) {
+            this.controller();
+            this.physics(this.motorCmd);
+        }
     }
 
     /**
@@ -675,7 +695,7 @@ export class Sim {
 
         // ---- TPA (Betaflight 4.5.1 pid.c pidUpdateTpaFactor, from its code): the throttle after its curve, before
         // throttle boost and dynamic idle. Betaflight's PID loop reads the factor its mixer left one loop earlier
-        // (125-250 us at 4-8 kHz); here it is the same 1 ms tick [numerical choice].
+        // (125-250 us at 4-8 kHz); here it is the same loop [numerical choice].
         let tpaD = 1, tpaP = 1;
         const tpa = p.tpa;
         if (tpa) {
@@ -692,7 +712,7 @@ export class Sim {
         const gY = this.gyroFilter(2, -wy * RAD2DEG);
         const dynCi = itermGain(s[S.mixRange], p.itermWindup);
         const fcD = DTERM_DYN_MIN + (DTERM_DYN_MAX - DTERM_DYN_MIN) * (thr < 0 ? 0 : thr > 1 ? 1 : thr);
-        const kD1 = PT1(fcD);
+        const kD1 = PT1(fcD, this.h);
         // rate-loop feed-forward follows the stick setpoint; Betaflight 4.5 forces it to 0 on axes
         // under angle-mode control (horizon keeps it)
         const ffRP = mode !== 'angle';
@@ -709,13 +729,13 @@ export class Sim {
         {
             const inv = 1 - thr;
             const prev = s[S.agT];
-            let dThr = (thr > prev ? thr - prev : prev - thr) * (1 / DT) * inv * inv;
+            let dThr = (thr > prev ? thr - prev : prev - thr) * (1 / this.h) * inv * inv;
             if (thr > prev) dThr *= inv * 0.5;
             s[S.agT] = thr;
-            s[S.ag1] += (dThr - s[S.ag1]) * K_AG;
-            s[S.ag2] += (s[S.ag1] - s[S.ag2]) * K_AG;
+            s[S.ag1] += (dThr - s[S.ag1]) * this.kAG;
+            s[S.ag2] += (s[S.ag1] - s[S.ag2]) * this.kAG;
             // throttle boost: throttle_boost / 10 x the throttle's change over a 15 Hz PT1, kept in 0..1
-            const lpf = s[S.tbL] + (thr - s[S.tbL]) * K_TBOOST;
+            const lpf = s[S.tbL] + (thr - s[S.tbL]) * this.kTboost;
             s[S.tbL] = lpf;
             thr += TBOOST * (thr - lpf);
             thr = thr < 0 ? 0 : thr > 1 ? 1 : thr;
@@ -845,11 +865,11 @@ export class Sim {
         let tauX = 0, tauY = 0, tauZ = 0;
         let power = 0;
         const mp = p.motorPos;
-        const a = p.tau > 0 ? DT / p.tau : 1;
+        const a = p.tau > 0 ? this.h / p.tau : 1;
         const aa = a > 1 ? 1 : a;
         // spinning a rotor up takes torque, and the body takes the reaction about the motor axis:
         // J_r * d(omega)/dt with omega = w * omega_max(V) (H.2 item 3); CW props (+1) push +y like their drag
-        const jr = (p.rotorInertia * p.omegaMaxPerVolt * volt) / DT;
+        const jr = (p.rotorInertia * p.omegaMaxPerVolt * volt) / this.h;
         // prop wash (wake.ts): only a preset that has it; without it `keep` stays exactly 1 (x 1 is exact
         // in IEEE arithmetic) and no torque is added, so such a model flies bit for bit as before
         let keep = 1;
@@ -916,9 +936,9 @@ export class Sim {
                 T *= keep * strike[i];
                 const amps = (dir[i] * out[i] * volt - mot.ke * om) / mot.r;
                 const tauE = mot.ke * amps;
-                let next = om + ((tauE - Q) * DT) / p.rotorInertia;
+                let next = om + ((tauE - Q) * this.h) / p.rotorInertia;
                 // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)
-                if (brake[i] > 0) next -= next * brake[i] * (DT / BRAKE_TAU);
+                if (brake[i] > 0) next -= next * brake[i] * (this.h / BRAKE_TAU);
                 omNew[i] = next;
                 th[i] = T;
                 tSum += T;
@@ -938,7 +958,7 @@ export class Sim {
             const dw = (dir[i] * out[i] - s[k]) * aa;
             s[k] += dw;
             // blade strike: the surface brakes the rotor (the wall takes that torque, not the body: no reaction)
-            if (brake[i] > 0) s[k] -= s[k] * brake[i] * (DT / BRAKE_TAU);
+            if (brake[i] > 0) s[k] -= s[k] * brake[i] * (this.h / BRAKE_TAU);
             const w = s[k];
             const wa = w < 0 ? -w : w;
             // backwards: thrust and reaction torque the other way, at REVERSE_THRUST of the forward value
@@ -972,7 +992,7 @@ export class Sim {
         const amps = volt > 0.1 ? (power >= 0 ? power / (p.eta * volt) : (power * p.eta) / volt) : 0;
         let soc = s[S.soc];
         if (p.batteryDrain) {
-            soc -= (amps * DT) / p.capacityAs;
+            soc -= (amps * this.h) / p.capacityAs;
             if (soc < 0) soc = 0;
             s[S.soc] = soc;
         }
@@ -1004,18 +1024,18 @@ export class Sim {
         const px0 = s[S.px], py0 = s[S.py], pz0 = s[S.pz];
         const q0w = qw, q0x = qx, q0y = qy, q0z = qz;
         const invM = 1 / p.mass;
-        let nvx = vx + fx * invM * DT;
-        let nvy = vy + fy * invM * DT;
-        let nvz = vz + fz * invM * DT;
+        let nvx = vx + fx * invM * this.h;
+        let nvy = vy + fy * invM * this.h;
+        let nvz = vz + fz * invM * this.h;
 
         // Rotation: I w' = tau - w x I w, integrated through the world-frame angular momentum
         // (L_w += R tau dt), which keeps |L| exact when no torque acts; w follows from the new
         // attitude. Semi-implicit: the attitude update uses the predicted new w.
         const I0 = p.inertia[0], I1 = p.inertia[1], I2 = p.inertia[2];
         const lbx = I0 * wx, lby = I1 * wy, lbz = I2 * wz;
-        let lwx = r00 * lbx + r01 * lby + r02 * lbz + (r00 * tauX + r01 * tauY + r02 * tauZ) * DT;
-        let lwy = r10 * lbx + r11 * lby + r12 * lbz + (r10 * tauX + r11 * tauY + r12 * tauZ) * DT;
-        let lwz = r20 * lbx + r21 * lby + r22 * lbz + (r20 * tauX + r21 * tauY + r22 * tauZ) * DT;
+        let lwx = r00 * lbx + r01 * lby + r02 * lbz + (r00 * tauX + r01 * tauY + r02 * tauZ) * this.h;
+        let lwy = r10 * lbx + r11 * lby + r12 * lbz + (r10 * tauX + r11 * tauY + r12 * tauZ) * this.h;
+        let lwz = r20 * lbx + r21 * lby + r22 * lbz + (r20 * tauX + r21 * tauY + r22 * tauZ) * this.h;
 
         // ---- contact, velocities: every surface near the body now, solved together (contactsAt) ----
         // With nothing within SPEC_MARGIN the velocities are untouched, so free flight is the model before 0.3.0.
@@ -1028,13 +1048,13 @@ export class Sim {
             nvx = vl[0]; nvy = vl[1]; nvz = vl[2]; lwx = vl[3]; lwy = vl[4]; lwz = vl[5];
         }
         s[S.vx] = nvx; s[S.vy] = nvy; s[S.vz] = nvz;
-        s[S.px] = px0 + nvx * DT; s[S.py] = py0 + nvy * DT; s[S.pz] = pz0 + nvz * DT;
+        s[S.px] = px0 + nvx * this.h; s[S.py] = py0 + nvy * this.h; s[S.pz] = pz0 + nvz * this.h;
 
         // predictor with the old attitude
         const pwx = (r00 * lwx + r10 * lwy + r20 * lwz) / I0;
         const pwy = (r01 * lwx + r11 * lwy + r21 * lwz) / I1;
         const pwz = (r02 * lwx + r12 * lwy + r22 * lwz) / I2;
-        integrateQuat(s, pwx, pwy, pwz);
+        integrateQuat(s, pwx, pwy, pwz, this.h);
         const aw = s[S.qw], ax = s[S.qx], ay = s[S.qy], az = s[S.qz];
         const n00 = 1 - 2 * (ay * ay + az * az), n01 = 2 * (ax * ay - aw * az), n02 = 2 * (ax * az + aw * ay);
         const n10 = 2 * (ax * ay + aw * az), n11 = 1 - 2 * (ax * ax + az * az), n12 = 2 * (ay * az - aw * ax);
@@ -1058,13 +1078,13 @@ export class Sim {
 
         // crashed body settling: air and scraping losses, rest detection and 4 s cap
         if (s[S.crashed] > 0) {
-            s[S.crashT] += DT;
-            const kw = 1 - CRASH_ANG_DAMP * DT, kv = 1 - CRASH_LIN_DAMP * DT;
+            s[S.crashT] += this.h;
+            const kw = 1 - CRASH_ANG_DAMP * this.h, kv = 1 - CRASH_LIN_DAMP * this.h;
             s[S.wx] *= kw; s[S.wy] *= kw; s[S.wz] *= kw;
             s[S.vx] *= kv; s[S.vz] *= kv;
             const v2 = s[S.vx] * s[S.vx] + s[S.vy] * s[S.vy] + s[S.vz] * s[S.vz];
             const w2 = s[S.wx] * s[S.wx] + s[S.wy] * s[S.wy] + s[S.wz] * s[S.wz];
-            if (v2 < 0.0025 && w2 < 0.25) s[S.restT] += DT; else s[S.restT] = 0;
+            if (v2 < 0.0025 && w2 < 0.25) s[S.restT] += this.h; else s[S.restT] = 0;
             if (s[S.restT] >= 0.5 || s[S.crashT] >= 4) {
                 if (s[S.crashed] === 1) {
                     s[S.crashed] = 2; // settled
@@ -1235,7 +1255,7 @@ export class Sim {
         const max = ax === 0 ? this.maxR : this.maxP;
         const target = max > 0 ? (lv.limitDeg * acro) / max : 0;
         const tK = S.tgR + ax;
-        const ffRaw = (lv.ffGain * (target - s[tK])) / DT;
+        const ffRaw = (lv.ffGain * (target - s[tK])) / this.h;
         s[tK] = target;
         const ff = pt3(s, S.afR1 + ax * 3, ffRaw, this.kAff);
         const rate = ((target - curDeg) * lv.gain) / 10 + ff;
@@ -1282,8 +1302,8 @@ export class Sim {
     private gyroFilter(ax: number, raw: number): number {
         const s = this.s;
         const a = S.g1R + ax, b = S.g2R + ax;
-        s[a] += (raw - s[a]) * K_GYRO1;
-        s[b] += (s[a] - s[b]) * K_GYRO2;
+        s[a] += (raw - s[a]) * this.kGyro1;
+        s[b] += (s[a] - s[b]) * this.kGyro2;
         return s[b];
     }
 
@@ -1300,17 +1320,17 @@ export class Sim {
         s[dK] = d1;
         const d2K = S.d2R + ax;
         const prevD = s[d2K];
-        const dNow = prevD + (d1 - prevD) * K_DTERM2;
+        const dNow = prevD + (d1 - prevD) * this.kDterm2;
         s[d2K] = dNow;
-        const dTerm = -g[2] * D_SCALE * ((dNow - prevD) / DT);
+        const dTerm = -g[2] * D_SCALE * ((dNow - prevD) / this.h);
         // feed-forward on the stick setpoint derivative, PT1 filtered; the previous setpoint is
         // tracked even while it is off, so switching back to acro gives no spike
-        const spDelta = (ffIn - s[spK]) / DT;
+        const spDelta = (ffIn - s[spK]) / this.h;
         s[spK] = ffIn;
         let ff = 0;
         if (ffOn) {
             const ffPrev = s[fK];
-            ff = ffPrev + (g[3] * F_SCALE * spDelta - ffPrev) * K_FF;
+            ff = ffPrev + (g[3] * F_SCALE * spDelta - ffPrev) * this.kFF;
         }
         s[fK] = ff;
         // I with iterm relax (roll, pitch), windup attenuation and no I while disarmed
@@ -1327,7 +1347,7 @@ export class Sim {
         // agD x ANTIGRAVITY_KI ("itermAccelerator"), and P is boosted by agD x anti_gravity_p_gain / 100 x ANTIGRAVITY_KP,
         // attenuated above 50 deg/s of setpoint
         if (armed && dynCi > 0) {
-            let I = s[iK] + (g[1] * I_SCALE + agD * AG_KI) * dynCi * iErr * DT;
+            let I = s[iK] + (g[1] * I_SCALE + agD * AG_KI) * dynCi * iErr * this.h;
             I = I < -ITERM_LIMIT ? -ITERM_LIMIT : I > ITERM_LIMIT ? ITERM_LIMIT : I;
             s[iK] = I;
         }
@@ -1419,7 +1439,7 @@ export class Sim {
             this.pointVel(ox, oy, oz, w);
             const vn0 = (w.x - c[o + 22]) * nx + (w.y - c[o + 23]) * ny + (w.z - c[o + 24]) * nz;
             const gap = c[o + 20];
-            const allowed = gap > 0 ? -gap / DT : 0;
+            const allowed = gap > 0 ? -gap / this.h : 0;
             let target = allowed;
             if (vn0 < allowed) {
                 const e = this.restitution(-vn0, nx * R[1] + ny * R[4] + nz * R[7]);
@@ -1464,7 +1484,7 @@ export class Sim {
             const o = j * CN;
             const vn0 = c[o + 19];
             const gap = c[o + 20];
-            if (!(c[o + 16] > 0) || !(vn0 < (gap > 0 ? -gap / DT : 0))) continue;
+            if (!(c[o + 16] > 0) || !(vn0 < (gap > 0 ? -gap / this.h : 0))) continue;
             const a = -vn0;
             if (gap < PRESS_GAP && a < PRESS_V) continue;
             const dmg = this.damageOf(a, c[o + 3] * ux + c[o + 4] * uy + c[o + 5] * uz);
@@ -1534,7 +1554,7 @@ export class Sim {
         spherePoses(sp, n, s[S.px], s[S.py], s[S.pz], s[S.qw], s[S.qx], s[S.qy], s[S.qz], this.c1);
         // rotation chord error bound: d * dtheta^2 / 8
         const wmag = Math.sqrt(s[S.wx] * s[S.wx] + s[S.wy] * s[S.wy] + s[S.wz] * s[S.wz]);
-        const dth = wmag * DT;
+        const dth = wmag * this.h;
         for (let i = 0; i < n; i++) {
             const lx = sp[i * 4], ly = sp[i * 4 + 1], lz = sp[i * 4 + 2];
             const d = Math.sqrt(lx * lx + ly * ly + lz * lz);
@@ -1733,9 +1753,9 @@ function autoThrottle(u: number, hover: number): number {
 }
 
 /** q <- q * exp(w dt / 2), renormalised. */
-function integrateQuat(s: Float64Array, wx: number, wy: number, wz: number): void {
+function integrateQuat(s: Float64Array, wx: number, wy: number, wz: number, h: number): void {
     const wm = Math.sqrt(wx * wx + wy * wy + wz * wz);
-    const half = wm * DT * 0.5;
+    const half = wm * h * 0.5;
     let dw = 1, dx = 0, dy = 0, dz = 0;
     if (wm > 1e-12) {
         const sn = dsin(half) / wm;

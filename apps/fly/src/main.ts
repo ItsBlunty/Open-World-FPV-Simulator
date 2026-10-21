@@ -86,6 +86,8 @@ function overrides(): ParamOverrides {
     if (settings.armAngle !== 25) o.smallAngleDeg = settings.armAngle;
     // the flight controller's tune (owner 2026-10-21: SupaflyFPV's 5-inch preset by default)
     tuneOverrides(settings.tune, o);
+    // gyro / PID loop rate (owner 2026-10-21): the controller and physics run at the board's rate, 4 kHz by default
+    o.loopHz = settings.loopHz;
     // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own;
     // dynamic idle needs the quad's prop size (dynIdleMinRpm, the game's own suggestion), its minimum is the setting's
     if (settings.dynIdle && dynIdleMinRpm !== null) {

@@ -1,0 +1,3 @@
+sitl     n 16 | speed at chop 43.5 m/s | peak rate median 64 max 88 deg/s | accel median 5009 max 8204 deg/s^2 | top motor median 0.97 | motor > 15 % until 1500 ms | tilt 6.6 deg
+builtin  n 16 | speed at chop 43.4 m/s | peak rate median 62 max 86 deg/s | accel median 3958 max 6159 deg/s^2 | top motor median 0.91 | motor > 15 % until 1500 ms | tilt 6.6 deg
+real, 11 centred chops (Betaflight 3.2-4.0 issue logs): peak ~60 max 77 deg/s, accel median 2200 max 3700 deg/s^2, top motor 0.49, motor high 1.5-2.5 s, tilt 6 deg

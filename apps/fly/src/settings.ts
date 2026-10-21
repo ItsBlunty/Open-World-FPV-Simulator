@@ -69,6 +69,8 @@ export interface Settings {
     dynIdleMinRpm: number;
     /** the flight controller's tune (tunes.ts); SupaflyFPV's 5-inch preset by default (owner, 2026-10-21) */
     tune: TuneId;
+    /** gyro / PID loop rate, Hz: 4000 (default, owner 2026-10-21: as real Betaflight boards) or 8000; sim-core loopHz */
+    loopHz: 4000 | 8000;
     /** dyn_idle_max_increase (0.1 % steps, 10-255, default 150) and dyn_idle_start_increase (10-255, default 50) */
     dynIdleMaxIncrease: number;
     dynIdleStartIncrease: number;
@@ -131,6 +133,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     dynIdle: TUNES[DEFAULT_TUNE].dynIdleMinRpm !== null,
     dynIdleMinRpm: TUNES[DEFAULT_TUNE].dynIdleMinRpm ?? 30,
     tune: DEFAULT_TUNE,
+    loopHz: 4000,
     dynIdleMaxIncrease: DYN_IDLE_DEFAULTS.maxIncrease,
     dynIdleStartIncrease: DYN_IDLE_DEFAULTS.startIncrease,
     dynIdleP: DYN_IDLE_DEFAULTS.p,
@@ -200,6 +203,7 @@ export function loadSettings(): Settings {
         if (typeof s.dynIdle === 'boolean') out.dynIdle = s.dynIdle;
         out.dynIdleMinRpm = whole(s.dynIdleMinRpm, 10, 200) ?? out.dynIdleMinRpm;
     }
+    if (s.loopHz === 4000 || s.loopHz === 8000) out.loopHz = s.loopHz;
     out.dynIdleMaxIncrease = whole(s.dynIdleMaxIncrease, 10, 255) ?? out.dynIdleMaxIncrease;
     out.dynIdleStartIncrease = whole(s.dynIdleStartIncrease, 10, 255) ?? out.dynIdleStartIncrease;
     out.dynIdleP = whole(s.dynIdleP, 1, 250) ?? out.dynIdleP;

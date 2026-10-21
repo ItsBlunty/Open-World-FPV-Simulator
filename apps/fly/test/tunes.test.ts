@@ -54,6 +54,14 @@ describe('tunes', () => {
         expect(o.antiGravityGain).toBe(120);
     });
 
+    it('gyro / PID loop at 4 kHz by default (owner 2026-10-21), 8 kHz kept when chosen, anything else back to 4 kHz', () => {
+        expect(DEFAULT_SETTINGS.loopHz).toBe(4000);
+        withStorage({ version: 1, loopHz: 8000 });
+        expect(loadSettings().loopHz).toBe(8000);
+        withStorage({ version: 1, loopHz: 1000 });
+        expect(loadSettings().loopHz).toBe(4000);
+    });
+
     it('every tune compiles; the original tune adds nothing (the simulator as before)', () => {
         for (const id of Object.keys(TUNES) as TuneId[]) {
             const o: ParamOverrides = {};

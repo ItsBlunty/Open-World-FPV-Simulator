@@ -1,0 +1,9 @@
+open air                 1000 Hz: 2.05 ms CPU per second of flight
+open air                 4000 Hz: 4.33 ms CPU per second of flight
+open air                 8000 Hz: 8.62 ms CPU per second of flight
+room (walls 4 m, floor)  1000 Hz: 8.51 ms CPU per second of flight
+room (walls 4 m, floor)  4000 Hz: 21.93 ms CPU per second of flight
+room (walls 4 m, floor)  8000 Hz: 41.59 ms CPU per second of flight
+real map + traffic, 1000 Hz: 33.38 ms CPU per second of flight
+real map + traffic, 4000 Hz: 59.83 ms CPU per second of flight
+real map + traffic, 8000 Hz: 92.51 ms CPU per second of flight

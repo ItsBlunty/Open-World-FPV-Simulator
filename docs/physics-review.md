@@ -414,3 +414,8 @@ props, inertia 2.5/2.1 x 10^-3) scaled to the Nazgul gives 0.0016-0.0019 kg m^2 
 in line with stand data and does not grow with speed outside the windmill band. Open: timing (real motor chain 4 ms
 dead time + 24-32 ms spool against 0 + 18-20) and why the sim cannot fly it; Betaflight SITL would settle the controller
 side (`docs/evidence/2026-10-21-inertia-thrust/`).
+G12 update (2026-10-21, SITL): Betaflight 2026.6.2 SITL in lock-step on the sim's physics also cannot fly the real delay
+(error rms 51-55 deg/s at 4 kHz) and gives the same chop as the built-in controller: the controller emulation is
+cleared, the physics is too lively. The gyro / PID loop now runs at the real rate (sim-core `loopHz`, 4 kHz in the game),
+which halves the chop's angular acceleration (7 100 -> 3 960 deg/s^2, real 2 200); the delayed loop is about 40 % calmer
+but still fights. Open: what damps real quads that the model lacks (`docs/evidence/2026-10-21-sitl/`).

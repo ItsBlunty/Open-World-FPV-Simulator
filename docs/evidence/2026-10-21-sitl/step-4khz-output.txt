@@ -1,0 +1,16 @@
+step4k_fast_delay_builtin.csv      tracking error rms  59.3 p99   106 deg/s | motors at full 55.7 % of the time | speed median 29.3 m/s
+step4k_fast_delay_sitl.csv         tracking error rms  51.2 p99   101 deg/s | motors at full 43.0 % of the time | speed median 29.6 m/s
+step4k_fast_plain_builtin.csv      tracking error rms   2.6 p99     9 deg/s | motors at full  0.0 % of the time | speed median 31.7 m/s
+step4k_fast_plain_sitl.csv         tracking error rms   3.9 p99    14 deg/s | motors at full  0.0 % of the time | speed median 31.3 m/s
+step4k_steps_delay_builtin.csv     tracking error rms  61.0 p99   115 deg/s | motors at full 68.7 % of the time | speed median 24.9 m/s
+step4k_steps_delay_sitl.csv        tracking error rms  55.3 p99   114 deg/s | motors at full 65.0 % of the time | speed median 25.1 m/s
+step4k_steps_plain_builtin.csv     tracking error rms   7.2 p99    34 deg/s | motors at full 27.0 % of the time | speed median 26.4 m/s
+step4k_steps_plain_sitl.csv        tracking error rms   9.5 p99    42 deg/s | motors at full 26.6 % of the time | speed median 26.0 m/s
+step4k_fast_delay_builtin.npz                k_fast_delay_b PID / | roll: n  41, 50 % at  12 ms, 90 % at  17 ms, peak 1.29 at  54 ms | pitch: n  14, 50 % at   6 ms, 90 % at  10 ms, peak 1.50 at  46 ms
+step4k_fast_delay_sitl.npz                   k_fast_delay_s PID / | roll: n  41, 50 % at  14 ms, 90 % at  22 ms, peak 1.19 at  56 ms | pitch: n  16, 50 % at   7 ms, 90 % at  12 ms, peak 1.39 at  75 ms
+step4k_fast_plain_builtin.npz                k_fast_plain_b PID / | roll: n  40, 50 % at  11 ms, 90 % at  24 ms, peak 1.08 at  55 ms | pitch: n  22, 50 % at  11 ms, 90 % at  25 ms, peak 1.09 at  53 ms
+step4k_fast_plain_sitl.npz                   k_fast_plain_s PID / | roll: n  40, 50 % at  13 ms, 90 % at  31 ms, peak 1.09 at  75 ms | pitch: n  22, 50 % at  14 ms, 90 % at  32 ms, peak 1.11 at  71 ms
+step4k_steps_delay_builtin.npz               k_steps_delay_ PID / | roll: n  72, 50 % at  12 ms, 90 % at  24 ms, peak 1.07 at  55 ms | pitch: n  68, 50 % at  12 ms, 90 % at  30 ms, peak 1.09 at  69 ms
+step4k_steps_delay_sitl.npz                  k_steps_delay_ PID / | roll: n  72, 50 % at  14 ms, 90 % at  26 ms, peak 1.09 at  58 ms | pitch: n  71, 50 % at  15 ms, 90 % at  30 ms, peak 1.11 at  85 ms
+step4k_steps_plain_builtin.npz               k_steps_plain_ PID / | roll: n  72, 50 % at  12 ms, 90 % at  29 ms, peak 1.05 at  65 ms | pitch: n  76, 50 % at  13 ms, 90 % at  30 ms, peak 1.06 at  72 ms
+step4k_steps_plain_sitl.npz                  k_steps_plain_ PID / | roll: n  72, 50 % at  14 ms, 90 % at  32 ms, peak 1.07 at  78 ms | pitch: n  76, 50 % at  15 ms, 90 % at  33 ms, peak 1.08 at  79 ms

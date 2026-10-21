@@ -27,7 +27,23 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   TPA, thrust linear, relax cutoff, anti-gravity gain now built in sim-core 0.8.0; SupaFly is the default tune
   (Settings > World and physics > Tune); no dynamic D (SupaFly has it off). [physics §2g, review G11]
 - **Fly it:** the branch builds to https://itsblunty.github.io/Open-World-FPV-Simulator/next/ (CI on push to main or
-  main-bng8wu builds both; main stays at the root). Waiting: owner flies SupaFly on /next/ and reports the chop.
+  main-bng8wu builds both; main stays at the root). Owner flew SupaFly: "still unrealistic".
+- **Issue logs:** 7 logs attached to the Betaflight chop-bob issues (BF 3.2-4.0); in the same airflow (accelerometer
+  2-3 g after the chop, sim 2.7 g) they match the sim's wobble, 6 deg tilt and 1.5-2.5 s motor-high; the sim's peak
+  kick (111-139 deg/s) is about twice theirs (77). [evidence 2026-10-21-issue-logs]
+- **Kick:** controller vs props in the windmill band (faster windmilling prop brakes harder). 16 seeded chops: size near
+  real (SupaFly 59/88 vs 60/77), but starts 3x harder (7200 vs 2200 deg/s^2) and saturates motors (1.0 vs 0.49); no
+  measured fix found. Side finding G12: with the real 4 ms ESC dead time the sim oscillates in normal flight unless
+  inertia x2; inertia 0.0016 is an estimate. [evidence 2026-10-21-kick]
+- **Step response:** sim 50 % in 12 ms vs real 16-22 ms on the same gains; at speed sim 10 ms, real 15-31 ms; with 4 ms
+  dead time sim oscillates at speed. Model's control response too strong/fast, worst at speed. [evidence 2026-10-21-step-response]
+- **Inertia, thrust:** not the cause (inertia 0.0016 vs 0.0016-0.0019 scaled from UZH Kingfisher; thrust per command
+  matches stand data, flat with speed). Open: timing (real motor chain slower) and why the sim can't fly the real
+  delay. [evidence 2026-10-21-inertia-thrust]
+- **SITL + 4 kHz loop:** Betaflight 2026.6.2 SITL (lock-step patch, WSL ~/owfpv-sitl) on the sim physics: same chop as
+  built-in, also can't fly the real ESC delay -> physics too lively, controller cleared. sim-core `loopHz` built; game
+  flies 4 kHz by default (8 kHz option): chop accel 7100 -> 3960 deg/s^2 (real 2200). Waiting: owner flies /next/ at
+  4 kHz. Next: find the damping real quads have that the model lacks. [evidence 2026-10-21-sitl]
 - **Evidence routes:** a log of the owner's own quad in a fast chop (eRPM + GPS) compares like for like; Betaflight SITL.
 
 ## State (2026-10-20)

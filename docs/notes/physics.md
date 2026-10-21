@@ -274,3 +274,11 @@ model's control response is too strong or too fast, most of all at speed (review
 UZH's Kingfisher (752 g, 5.1-inch props, identified inertia 2.5/2.1 x 10^-3 kg m^2) scaled to the Nazgul by its parts
 gives 0.0016-0.0019 (preset 0.0016). Thrust per command: 14.4 N at full (AOS-RC 15.1 N at the same rpm), 11-18 N per
 unit of command, flat with airspeed from 0 to 40 m/s outside the windmill band. Left: timing, and a Betaflight SITL run.
+
+**Betaflight SITL and the 4 kHz loop (owner, 2026-10-21; `docs/evidence/2026-10-21-sitl/`).** Betaflight 2026.6.2 SITL,
+patched to run in lock-step with sim-core (one gyro / PID loop per physics loop, radio at 500 Hz), flies the sim's
+physics like the built-in controller: same chop (peak 64 vs 62 deg/s, tilt 6.6 deg), step response a few ms slower, and
+with the real 4 ms ESC delay it too fights (error rms 51-55 deg/s at 4 kHz, motors at full 43-65 % of the time). So the
+physics, not the controller emulation, is too lively. sim-core now runs controller and physics at the gyro rate
+(`loopHz`; game default 4 kHz, 8 kHz option): the chop's angular acceleration fell from 7 100 to 3 960 deg/s^2 (real 2 200).
+Cost: about 27 ms CPU per second of flight more at 4 kHz on the real map. Flight feel: for the owner to fly.

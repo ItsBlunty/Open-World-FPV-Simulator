@@ -339,6 +339,10 @@ export class SettingsUi {
                 h('p', { class: 'note' }, 'With it on, the pack is full again whenever you go back to the start point or onto a time trial pad.'),
                 this.slider('Arming angle', 0, 180, s.armAngle, '°', (v) => { s.armAngle = v; }, () => { host.save(); host.onFlight(); }),
                 h('p', { class: 'note' }, "Arming needs the quad within this tilt of level (Betaflight's small_angle). 180° (the default here) arms at any tilt; 25° is Betaflight's own default. Changing it restarts at the spawn point."),
+                this.field('Gyro / PID loop', this.select<string>(String(s.loopHz), [{ value: '4000', label: '4 kHz' }, { value: '8000', label: '8 kHz' }], (v) => {
+                    s.loopHz = v === '8000' ? 8000 : 4000; host.save(); host.onFlight();
+                })),
+                h('p', { class: 'note' }, "How often the flight controller reads the gyro and runs its PID loop, as on a real Betaflight board (pid_process_denom): most run 4 kHz, some 8 kHz. The physics steps at the same rate. Changing it restarts at the spawn point."),
                 ...this.tune(host, s),
                 ...this.idle(host, s),
                 h('h2', {}, 'Crashes and damage'),

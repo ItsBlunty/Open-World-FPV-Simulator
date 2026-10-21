@@ -50,8 +50,13 @@ Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb
   after `S.size`), `thrustLinear` (`thrustLinearThrottle`, `thrustLinearOutput`; pid.c thrust linearization, 0-150),
   `itermRelaxCutoff` (1-50 Hz, default 15) and `antiGravityGain` (0-250, default 80). Absent or at their defaults:
   traces as without them. No dynamic D (the built-in D is fixed). Test: `test/tune-features.test.ts`.
+- `ParamOverrides.loopHz` (`SimParams.loopHz`): the gyro / PID loop rate, 1000, 2000, 4000 or 8000 Hz (owner,
+  2026-10-21: emulate the real 4-8 kHz gyro sampling). The controller reads a fresh gyro sample and the physics advances
+  loopHz / 1000 times per 1 ms tick; every filter gain, derivative, integral and the physics step use the loop's dt
+  (dynamic idle and the I-term relax cutoff too). Ticks, logs and replays stay at 1 ms. Absent: 1000, bit for bit as
+  before. Test: `test/loop-rate.test.ts`.
 - The throttle chop out of a climb still shakes (physics-review F9); its test is a known failure.
-Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`.
+Tests: `test/motor-model.test.ts`, `test/model-inflow.test.ts`, `test/tune-features.test.ts`, `test/loop-rate.test.ts`.
 
 ## sim-core/0.7.0: wall bounces and blade strikes (2026-10-19)
 

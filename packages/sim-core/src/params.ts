@@ -45,6 +45,8 @@ export interface SimParams {
     idle: number;
     /** Betaflight's dynamic idle (dyn_idle_*), compiled for the 1 ms tick; null = off (the static idle above) */
     dynIdle: DynIdleParams | null;
+    /** controller and physics loops per second (gyro = PID loop rate): 1000, 2000, 4000 or 8000; loopHz / 1000 per tick */
+    loopHz: number;
     /** Betaflight's TPA (tpa_*), compiled; null = no attenuation (every version before sim-core/0.8.0 had none) */
     tpa: TpaParams | null;
     /** Betaflight's thrust_linear as a fraction (0-1.5); 0 = off */
@@ -313,6 +315,12 @@ export interface ParamOverrides {
     itermRelaxCutoff?: number;
     /** Betaflight's anti_gravity_gain, 0-250. Absent: 80, Betaflight's default and the fixed value before. sim-core/0.8.0 */
     antiGravityGain?: number;
+    /**
+     * Gyro and PID loop rate, Hz: 1000, 2000, 4000 or 8000 (Betaflight boards run 4 or 8 kHz). The controller reads a
+     * fresh gyro sample and the physics advances once per loop, loopHz / 1000 loops per 1 ms tick; every filter and
+     * gain follows the loop's dt. Absent: 1000, one loop per tick as before (old flights replay unchanged). sim-core/0.8.0
+     */
+    loopHz?: number;
 }
 
 /** Betaflight's TPA settings (src/main/flight/pid.c, 4.5.1), CLI units; ranges from cli/settings.c. */
@@ -366,10 +374,17 @@ function tpaOf(c: TpaConfig | undefined): TpaParams | null {
     };
 }
 
-/** Betaflight's pt1FilterGain(f, dT) (src/main/common/filter.c) for the 1 ms tick */
-function pt1Gain(fc: number): number {
+/** Betaflight's pt1FilterGain(f, dT) (src/main/common/filter.c) for the loop's dt */
+function pt1Gain(fc: number, dt: number): number {
     const rc = 1 / (2 * Math.PI * fc);
-    return 0.001 / (rc + 0.001);
+    return dt / (rc + dt);
+}
+
+/** the loop rate: 1000 (absent), 2000, 4000 or 8000 Hz */
+function loopHzOf(v: number | undefined): number {
+    if (v === undefined) return 1000;
+    if (v !== 1000 && v !== 2000 && v !== 4000 && v !== 8000) throw new RangeError(`loopHz ${v}`);
+    return v;
 }
 
 function rangeOf(v: number | undefined, dflt: number, lo: number, hi: number, name: string): number {
@@ -408,7 +423,7 @@ export interface DynIdleParams {
 /** Betaflight's defaults (pid.c resetPidProfile, 4.5) */
 export const DYN_IDLE_DEFAULTS = { p: 50, i: 50, d: 50, maxIncrease: 150, startIncrease: 50 } as const;
 
-function dynIdleOf(c: DynIdleConfig | undefined): DynIdleParams | null {
+function dynIdleOf(c: DynIdleConfig | undefined, dt: number): DynIdleParams | null {
     if (c === undefined) return null;
     const whole = (v: number, lo: number, hi: number, name: string): number => {
         if (!Number.isFinite(v)) throw new RangeError(`dynIdle.${name} ${v}`);
@@ -416,8 +431,7 @@ function dynIdleOf(c: DynIdleConfig | undefined): DynIdleParams | null {
     };
     const minRpm = whole(c.minRpm, 0, 200, 'minRpm');
     if (minRpm === 0) return null;
-    // the controller runs every 1 ms tick: Betaflight's pidGetDT() = 0.001, pidGetPidFrequency() = 1000
-    const dt = 0.001;
+    // Betaflight's pidGetDT() and pidGetPidFrequency() are the loop's: dt = 1 / loopHz
     return {
         minRps: (minRpm * 100) / 60,
         pGain: whole(c.p ?? DYN_IDLE_DEFAULTS.p, 1, 250, 'p') * 0.00015,
@@ -620,10 +634,11 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         tau: (o.tauMs ?? num(p, 'motor_tau_ms')) / 1000,
         kappa,
         idle: o.idle ?? num(p, 'motor_idle'),
-        dynIdle: dynIdleOf(o.dynIdle),
+        dynIdle: dynIdleOf(o.dynIdle, 1 / loopHzOf(o.loopHz)),
+        loopHz: loopHzOf(o.loopHz),
         tpa: tpaOf(o.tpa),
         thrustLinear: rangeOf(o.thrustLinear, 0, 0, 150, 'thrustLinear') / 100,
-        relaxK: pt1Gain(rangeOf(o.itermRelaxCutoff, 15, 1, 50, 'itermRelaxCutoff')),
+        relaxK: pt1Gain(rangeOf(o.itermRelaxCutoff, 15, 1, 50, 'itermRelaxCutoff'), 1 / loopHzOf(o.loopHz)),
         antiGravityGain: rangeOf(o.antiGravityGain, 80, 0, 250, 'antiGravityGain'),
         motorPos,
         motorYaw,
