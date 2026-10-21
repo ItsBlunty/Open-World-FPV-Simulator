@@ -1,0 +1,10 @@
+sim_original.npz                             sim original   PID sim/sim | roll: n  72, 50 % at  12 ms, 90 % at  28 ms, peak 1.05 at  66 ms | pitch: n  76, 50 % at  12 ms, 90 % at  30 ms, peak 1.06 at  74 ms
+sim_motors1.5.npz                            sim motors1.5  PID sim/sim | roll: n  72, 50 % at  12 ms, 90 % at  27 ms, peak 1.06 at  60 ms | pitch: n  76, 50 % at  12 ms, 90 % at  28 ms, peak 1.07 at  63 ms
+sim_dead2_m1.5.npz                           sim dead2_m1.5 PID sim/sim | roll: n  72, 50 % at  11 ms, 90 % at  25 ms, peak 1.06 at  50 ms | pitch: n  76, 50 % at  12 ms, 90 % at  28 ms, peak 1.07 at  67 ms
+sim_dead4_m1.5_I2.npz                        sim dead4_m1.5 PID sim/sim | roll: n  72, 50 % at  14 ms, 90 % at  25 ms, peak 1.11 at  40 ms | pitch: n  76, 50 % at  14 ms, 90 % at  26 ms, peak 1.10 at  70 ms
+sim_dead2_m1.5_I1.5.npz                      sim dead2_m1.5 PID sim/sim | roll: n  72, 50 % at  13 ms, 90 % at  25 ms, peak 1.07 at  57 ms | pitch: n  76, 50 % at  13 ms, 90 % at  27 ms, peak 1.09 at  61 ms
+sim_dead4_m1.5_I1.5.npz                      sim dead4_m1.5 PID sim/sim | roll: n  72, 50 % at  13 ms, 90 % at  23 ms, peak 1.08 at  66 ms | pitch: n  76, 50 % at  13 ms, 90 % at  24 ms, peak 1.10 at  63 ms
+sim_fast_built.npz                           sim fast_built PID sim/sim | roll: n  40, 50 % at  10 ms, 90 % at  24 ms, peak 1.08 at  54 ms | pitch: n  22, 50 % at  11 ms, 90 % at  25 ms, peak 1.09 at  53 ms
+sim_fast_dead2_m1.5.npz                      sim fast_dead2 PID sim/sim | roll: n  40, 50 % at  10 ms, 90 % at  20 ms, peak 1.11 at  49 ms | pitch: n  22, 50 % at   9 ms, 90 % at  24 ms, peak 1.15 at  41 ms
+sim_fast_dead4_m1.5.npz                      sim fast_dead4 PID sim/sim | roll: n  38, 50 % at  11 ms, 90 % at  16 ms, peak 1.36 at  58 ms | pitch: n   3, 50 % at   8 ms, 90 % at  12 ms, peak 1.51 at  54 ms
+sim_fast_dead4_m1.5_I2.npz                   sim fast_dead4 PID sim/sim | roll: n  40, 50 % at  13 ms, 90 % at  22 ms, peak 1.20 at  37 ms | pitch: n  22, 50 % at  13 ms, 90 % at  22 ms, peak 1.18 at  38 ms

@@ -264,3 +264,8 @@ chops' (2 200), and its correcting motors go to full (real 0.49). Measured motor
 load lag, the measured torque ratio, inertia x2: none fixes it. Side finding: with the real ESCs' 4 ms dead time the
 sim oscillates in ordinary flight (rms 112-135 deg/s against 2); it needs inertia x2 to fly steadily with it. The
 preset inertia (0.0016) is an estimate; no measured 5-inch inertia found.
+
+**Step response (owner's ask, 2026-10-21; `docs/evidence/2026-10-21-step-response/`).** On Betaflight's default gains the
+sim reaches 50 % of a stick move in 12 ms, real 5-inch quads in 16-22 ms; in fast flight the sim gets quicker (10 ms),
+the real ones do not (15-31 ms over 16 m/s by GPS). With the real 4 ms ESC dead time the sim oscillates at speed. The
+model's control response is too strong or too fast, most of all at speed (review G12).

@@ -406,3 +406,6 @@ Finding G12 (2026-10-21): the model has no ESC/motor dead time (about 4 ms measu
 sim's quad oscillates in ordinary flight with Betaflight's default gains, which real quads fly steadily; inertia x2
 (0.0032 kg m^2) restores it. The preset inertia 0.0016 kg m^2 is an estimate, not a measurement. Open: measure a 5-inch
 quad's inertia (bifilar pendulum) and find what else makes the loop too fast (`docs/evidence/2026-10-21-kick/` §5).
+G12 update (2026-10-21): step response (PID-Analyzer method) on the same Betaflight default gains: real quads reach
+50 % in 16-22 ms (gimbal-ghost 4.3.0 log, Roma F5 6S), the sim in 12 ms; over 16 m/s the real ones stay at 15-31 ms
+while the sim speeds up to 10 ms, and with the 4 ms dead time it oscillates there (`docs/evidence/2026-10-21-step-response/`).

@@ -1,0 +1,12 @@
+gg_log1_1.npz        GPS  0- 8 m/s | roll: n  15, 50 %  17 ms, 90 %  31 ms, peak 1.08 at 250 ms | pitch: n   9, 50 %  18 ms, 90 %  30 ms, peak 1.25 at  56 ms
+gg_log1_1.npz        GPS  8-16 m/s | roll: n  14, 50 %  19 ms, 90 %  41 ms, peak 1.15 at 144 ms | pitch: n   6, 50 %  17 ms, 90 %  30 ms, peak 1.30 at  58 ms
+gg_log1_1.npz        GPS 16-99 m/s | roll: n   8, 50 %  24 ms, 90 %  93 ms, peak 1.09 at 299 ms | pitch: n   4, 50 %  15 ms, 90 %  27 ms, peak 1.21 at  52 ms
+roma_1.npz           GPS  0- 8 m/s | roll: 0 windows | pitch: 0 windows
+roma_1.npz           GPS  8-16 m/s | roll: n  13, 50 %  15 ms, 90 %  30 ms, peak 1.06 at 276 ms | pitch: n   7, 50 %  19 ms, 90 %  40 ms, peak 1.17 at 159 ms
+roma_1.npz           GPS 16-99 m/s | roll: n   8, 50 %  23 ms, 90 %  61 ms, peak 1.02 at 256 ms | pitch: n   3, 50 %  31 ms, 90 %  59 ms, peak 1.12 at 204 ms
+roma_2.npz           GPS  0- 8 m/s | roll: n   3, 50 %  13 ms, 90 %  27 ms, peak 1.11 at  46 ms | pitch: 0 windows
+roma_2.npz           GPS  8-16 m/s | roll: n   8, 50 %  20 ms, 90 %  45 ms, peak 1.10 at 283 ms | pitch: n  17, 50 %  21 ms, 90 %  41 ms, peak 1.06 at  63 ms
+roma_2.npz           GPS 16-99 m/s | roll: n   4, 50 %  16 ms, 90 %  34 ms, peak 1.11 at 152 ms | pitch: n  11, 50 %  20 ms, 90 %  43 ms, peak 1.04 at 231 ms
+roma_3.npz           GPS  0- 8 m/s | roll: 0 windows | pitch: n   3, 50 %  15 ms, 90 %  25 ms, peak 1.24 at  41 ms
+roma_3.npz           GPS  8-16 m/s | roll: n  33, 50 %  15 ms, 90 %  29 ms, peak 1.05 at 156 ms | pitch: n  22, 50 %  19 ms, 90 %  39 ms, peak 1.12 at  73 ms
+roma_3.npz           GPS 16-99 m/s | roll: n  29, 50 %  19 ms, 90 %  65 ms, peak 1.01 at 146 ms | pitch: n   6, 50 %  18 ms, 90 %  33 ms, peak 1.08 at  53 ms
