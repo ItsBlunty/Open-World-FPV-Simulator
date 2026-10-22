@@ -6,7 +6,7 @@ import type { ShadowReach } from './render/shadow-follow';
 
 /**
  * - full: WebGPURenderer, lit physically, shadows, fisheye lenses
- * - low: Three.js's classic WebGL 2 renderer, matte materials, no shadows or lens, 650 m view
+ * - low: Three.js's classic WebGL 2 renderer, matte materials, no shadows, a cheaper lens (render/fisheye.ts), 650 m view
  * - extra: low, plus half resolution, 300 m view, no cars, people or traffic lights, no doors or signs
  * - super: extra, at a quarter resolution and a 200 m view, for no GPU at all and an old CPU
  */

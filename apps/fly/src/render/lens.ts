@@ -214,8 +214,9 @@ const PAD_TEXELS = 2;
  * Where everything goes for a lens on a screen of `width` x `height` device pixels: the picture fitted inside it with
  * black bars (owner, 2026-10-18), and each face's crop and resolution. A face gets enough pixels that one screen pixel
  * never spans less than one face texel (`oversample` times more), measured over a grid of the picture.
+ * `single`: the front face alone draws the whole picture, however far its crop must reach (low spec: fisheye.ts).
  */
-export function lensLayout(p: LensProfile, width: number, height: number, oversample = 1): LensLayout {
+export function lensLayout(p: LensProfile, width: number, height: number, oversample = 1, single = false): LensLayout {
     const half = pictureHalf(p);
     const aspect = half.x / half.y;
     const picW = width / height > aspect ? height * aspect : width;
@@ -232,10 +233,13 @@ export function lensLayout(p: LensProfile, width: number, height: number, oversa
     const box = FACES.map(() => ({ x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity, density: 0 }));
     // ~256 samples across the picture plus every edge, where the crops reach furthest
     const nx = 256, ny = Math.max(2, Math.round(nx / aspect));
+    // a ray behind the camera has no place on the front face (every lens offered stays under 80 deg off the axis)
+    const faceFor = (d: Vec3): number => (single ? (d[2] < 0 ? 0 : -1) : faceOf(d));
     const sample = (x: number, y: number): void => {
         const d = rayAt(x, y, p.k);
         if (!d) return;
-        const f = faceOf(d);
+        const f = faceFor(d);
+        if (f < 0) return;
         const [a, b] = onFace(f, d);
         const B = box[f];
         B.x0 = Math.min(B.x0, a);
@@ -244,7 +248,7 @@ export function lensLayout(p: LensProfile, width: number, height: number, oversa
         B.y1 = Math.max(B.y1, b);
         // one screen pixel right and one up, on the same face: the face texels per tangent unit that pixel needs
         const dx = rayAt(x + px, y, p.k), dy = rayAt(x, y + px, p.k);
-        if (!dx || !dy || faceOf(dx) !== f || faceOf(dy) !== f) return;
+        if (!dx || !dy || faceFor(dx) !== f || faceFor(dy) !== f) return;
         const [ax, bx] = onFace(f, dx), [ay, by] = onFace(f, dy);
         const step = Math.max(Math.abs(ax - a), Math.abs(bx - b), Math.abs(ay - a), Math.abs(by - b));
         if (step > 0) B.density = Math.max(B.density, 1 / step);

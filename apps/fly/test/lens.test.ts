@@ -79,6 +79,31 @@ describe('cube-face layout', () => {
         }
     });
 
+    it('draws every offered lens from the front face alone in the single-face layout (low spec)', () => {
+        for (const l of LENSES) {
+            const L = lensLayout(l, 1366, 768, 0.7, true);
+            expect(L.faces.map((F, i) => (F.width > 0 ? i : -1)).filter((i) => i >= 0), l.id).toEqual([0]);
+            const F = L.faces[0];
+            for (let j = 0; j <= 40; j++) {
+                for (let i = 0; i <= 40; i++) {
+                    const d = rayAt(-L.halfX + (2 * L.halfX * i) / 40, -L.halfY + (2 * L.halfY * j) / 40, l.k)!;
+                    // in front of the camera, and inside the crop
+                    expect(d[2], l.id).toBeLessThan(0);
+                    const [a, b] = onFace(0, d);
+                    expect(a).toBeGreaterThanOrEqual(F.x0);
+                    expect(a).toBeLessThanOrEqual(F.x1);
+                    expect(b).toBeGreaterThanOrEqual(F.y0);
+                    expect(b).toBeLessThanOrEqual(F.y1);
+                }
+            }
+            // ~0.7 face texels per screen pixel at the centre, where the face needs the most (screen pixels per
+            // normalised unit: 1366 / scaleX; near the axis a normalised unit is a tangent unit)
+            const ratio = F.width / (F.x1 - F.x0) / (1366 / L.scaleX);
+            expect(ratio, l.id).toBeGreaterThan(0.69);
+            expect(ratio, l.id).toBeLessThan(0.75);
+        }
+    });
+
     it('builds right-handed faces whose crops agree with their rule', () => {
         for (const F of FACES) {
             const c: Vec3 = [F.right[1] * F.up[2] - F.right[2] * F.up[1], F.right[2] * F.up[0] - F.right[0] * F.up[2], F.right[0] * F.up[1] - F.right[1] * F.up[0]];

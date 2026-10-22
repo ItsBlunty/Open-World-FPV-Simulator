@@ -73,7 +73,7 @@ const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
 const PRESET_NOTES: Record<QualityPreset | 'custom', string> = {
     high: 'Full lighting and fisheye lenses, shadows to about 250 m, full resolution.',
     medium: 'Full lighting and fisheye lenses, shadows to about 110 m, full resolution.',
-    low: 'For a weak GPU: simple lighting, no shadows or fisheye lens, 650 m view.',
+    low: 'For a weak GPU: simple lighting, no shadows, a lighter fisheye lens, 650 m view.',
     verylow: 'Simple lighting at half resolution, 300 m view, no cars, people or traffic lights.',
     super: 'For no GPU at all: quarter resolution, 200 m view, no cars, people or traffic lights.',
     custom: 'Your own mix of the details below.'
@@ -267,19 +267,20 @@ export class SettingsUi {
             camera: [
                 h('h2', {}, 'FPV camera'),
                 this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
-                isLowSpec(host.graphicsNow)
-                    ? h('p', { class: 'note' }, 'Low spec modes draw a flat camera (a fisheye lens draws the city up to five times a frame).')
-                    : h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
+                // the low spec lens is a cut-down one; say so plainly (owner, 2026-10-24: "worse on purpose")
+                ...(isLowSpec(host.graphicsNow) ? [h('p', { class: 'note' }, h('b', {}, 'Low spec fisheye. '),
+                    `In ${graphicsName(host.graphicsNow)} mode the lenses are a simplified version, worse on purpose so they run on weak machines: drawn from one wide view at lower detail, so the picture is softer, most of all at the edges. The full lenses come back in the High and Medium presets.`)] : []),
+                h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
                     h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
                         h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
                         ...LENSES.map((l) => {
                             const f = lensFov(l);
-                            return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
+                            return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°${isLowSpec(host.graphicsNow) ? ' (low spec version)' : ''}`);
                         }))),
                 // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
-                s.lens === NO_LENS || isLowSpec(host.graphicsNow)
+                s.lens === NO_LENS
                     ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })
-                    : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.`),
+                    : h('p', { class: 'note' }, `Lens calibrations from Gyroflow's lens profile database (CC0). The picture keeps the camera's shape, with black bars where it is narrower than the screen.${isLowSpec(host.graphicsNow) && host.graphicsNow !== 'low' ? ` With no GPU the fisheye costs about a third of the frame rate in ${graphicsName(host.graphicsNow)} mode: Flat is faster.` : ''}`),
             ],
             graphics: [
                 // what is drawn and how, laid out as games do (owner, 2026-10-19): a quality preset, then the details it sets;

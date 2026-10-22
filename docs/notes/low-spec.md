@@ -137,3 +137,60 @@ Super draws 88 k triangles in 38-45 draws. Screenshots: `docs/evidence/2026-10-1
 Tests: 56 files, 486 pass (new `graphics.test.ts`); typecheck clean; hashes unchanged (rendering and traffic toggles only).
 **Left open:** not tried on a real old laptop; 1 core stays under 60 in super; no automatic switch when the browser
 has no GPU (owner not asked yet: auto-switch or tip).
+
+## Low spec fisheye lens (owner, 2026-10-22): built; on main 2026-10-24
+
+**Asked:** "Is it possible to make a simple version of fisheye that is runnable on lower spec machines? Feels kinda bad
+to just have to disable fisheye lenses to fly on a cheap laptop." Then "Lets build it".
+
+**Why there was none:** the lens (`render/fisheye.ts`) was written for the WebGPURenderer (TSL), and low spec runs the
+classic WebGLRenderer; it also drew 3 cube faces a frame into 4x multisampled half-float targets.
+
+**First try, the same 3 faces in GLSL** (8-bit sRGB targets, no MSAA, 0.7 texels per screen pixel): the lens cost
+40-45 % of the frame rate everywhere (city street; probes `docs/evidence/2026-10-19-no-gpu/fps.mjs`):
+| Setup | flat | 3 faces |
+|---|---|---|
+| Low, real GPU, CPU 6x throttled | 105 | 64 |
+| Extra, no GPU (WARP), 2 cores, 4x CPU | 37 | 21 |
+| Super, same | 57 | 36 |
+| Low, SwiftShader | 13.4 | 7.4 |
+Levers (super / extra, WARP): flat at 103 deg vertical instead of 60: 57 / 35, i.e. a wider view costs nothing; lens
+without its two side faces: 57 / 36, i.e. flat speed. **The side faces were the whole cost:** each is a scene pass
+that draws every 80 m city tile it touches whole (in Super: 23 draws, 49 k triangles flat; 51 draws, 97 k with 3 faces),
+though it covers only a strip at the edges. Fewer texels per face barely helped (0.5: 41 / 27, 0.35: 41 / 27).
+
+**Built: one wide face.** `lensLayout(..., single)` puts the whole picture on the front face (every lens offered stays
+under 80 deg off the axis; the crop reaches tan 1.9-4.8). Low spec draws it once into an 8-bit sRGB target with
+mipmaps, and a GLSL pass maps each screen pixel through the lens to it (no branch round the read, so the GPU picks the
+mipmap level: the face is squeezed up to ~15x at the edges, and without mipmaps they would shimmer). Texels per screen
+pixel at the centre: 0.7 in Low, 0.5 in Extra and Super (`LOW_SPEC_OVERSAMPLE`, `NO_GPU_OVERSAMPLE`); the face is then
+~1.5-4x the screen's pixels (Ratel 2 at 1366x768 Low: 1773x1407). Full graphics keep the exact 3-face lens.
+- Near plane: each face camera's near plane is brought in to `CAMERA_NEAR / hypot(1, crop corner)`, so nothing 1 cm
+  from the lens is cut at a wide crop's corners. Without it the single face cut the quad's own frame at the bottom
+  corners (the 3-face lens also lost a sliver there; both builds now match: `city-lowspec-lens.png`, `city-full-lens.png`).
+- Settings > Camera > Lens is offered in every mode. In Extra and Super it adds "With no GPU the fisheye costs about a
+  third of the frame rate ... Flat is faster". The saved lens applies in every mode (default Ratel 2), so low spec
+  pilots now get the lens unless they pick Flat.
+
+**Measured, built game** (city street; two runs each, these probes vary by up to ~15 %):
+| Setup | flat | lens (built) |
+|---|---|---|
+| Low, real GPU, CPU 6x throttled | 98-105 | 104-105 |
+| Extra, no GPU (WARP), 2 cores, 4x CPU | 33-34 | 18-21 |
+| Super, same | 57 | 39-40 |
+| Low, SwiftShader, full resolution | 13.6 | 4.8 (at 0.7) / 7.1 (at 0.5) |
+Tried and dropped: a linear 8-bit target without mipmaps (Extra 24, Super 39-40: a small gain, with banding and
+shimmering edges). Screenshots: `docs/evidence/2026-10-22-low-spec-lens/` (`city-super-lens.png` against
+`city-super-flat.png`: blocky both ways at a quarter resolution).
+Tests: `lens.test.ts` checks the single-face layout for all 15 lenses (every ray in front and inside the crop, 0.7
+texels at the centre). 75 files, 659 pass + 1 expected fail; typecheck clean; rendering only, hashes unchanged.
+
+**Left open:** not tried on a real weak laptop; with no GPU the lens still costs about a third (Extra, Super); the
+centre is softer than in full graphics (0.7 / 0.5 texels per pixel).
+
+**On main (owner, 2026-10-24):** "Bring it over, but make sure its clear on the camera menu that this is a special
+fisheye that is worse on purpose because its low spec." Brought over from branch main-bng8wu without the physics. In
+any low spec mode Settings > Camera now opens with a "Low spec fisheye." note (a simplified version, worse on purpose,
+softer most of all at the edges; the full lenses in High and Medium), and each lens in the list ends "(low spec
+version)". Checked in headless Chrome: `menu-super.png` (super low spec, the lens drawn behind the menu), `menu-full.png`
+(full graphics: no note, no tag). 69 files, 620 tests pass; typecheck clean.

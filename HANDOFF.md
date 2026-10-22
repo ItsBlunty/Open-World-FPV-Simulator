@@ -11,6 +11,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   replay viewer built (Saved flights > Watch); a downloaded flight opens again with Saved flights > Open a flight file. [saved-flights] Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
   of 10 with reasons, listed in the replay viewer; the owner is happy with it for now (2026-10-24).
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
+  Low spec fisheye (owner; on main 2026-10-24): the lens from one wide view; free on a weak GPU, ~1/3 of the fps with
+  none; Settings > Camera says it is a simplified lens, worse on purpose, and tags each lens "(low spec version)". [low-spec]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
   300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]
@@ -75,7 +77,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 69 files, 619 tests pass (2026-10-22) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 69 files, 620 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
@@ -93,8 +95,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 ## Parked (owner, 2026-10-24)
 
 - **Throttle-chop physics:** "The physics dont solve the instability in throttle chops that I wanted": it stays on branch
-  `main-bng8wu` (sim-core/0.8.0, flyable at /next/), not merged, not worked on. HANDOFF there has its state. The branch
-  also holds the low spec fisheye (f181bc9), not on main. [physics §2g]
+  `main-bng8wu` (sim-core/0.8.0, flyable at /next/), not merged, not worked on. HANDOFF there has its state. [physics §2g]
 
 ## Next up (owner, 2026-10-24; one line each, in no set order)
 
@@ -127,8 +128,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - `?selftest` on the Pages build since map v5 / traffic v6 (Node hashes are pinned; Chrome not re-run).
 - Golden props: billboards are blank, no minimap. Renumbering props breaks saved
   collections. [collectibles]
-- Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; no
-  cheap lens; signal poles and lamps still drawn city-wide in low spec. [low-spec]
+- Low spec: not tried on a real old laptop; super stays under 60 fps on 1 core (54-55); no view-distance slider; the
+  lens costs ~1/3 of the fps with no GPU and its centre is softer; signal poles and lamps still drawn city-wide in low spec. [low-spec]
 - Time trials: saved flights keep no race results (the replay viewer shows no gates or splits); no per-gate splits; no
   ghost; no arrow or map to the pads. Creator: no undo, no clicking gates in the scene, pads not checked against
   buildings, the draft's arch has no checks. [time-trials §1h, §2c]

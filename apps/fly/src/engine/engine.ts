@@ -20,7 +20,7 @@ import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { TrialsView } from '../render/trials';
 import { FreeCam } from '../render/freecam';
-import { FisheyeView } from '../render/fisheye';
+import { FisheyeView, LOW_SPEC_OVERSAMPLE, NO_GPU_OVERSAMPLE } from '../render/fisheye';
 import { SeeThrough, blocked } from '../render/see-through';
 import { lensById } from '../render/lenses';
 import { shadowReach } from '../render/shadow-follow';
@@ -67,7 +67,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     });
 
     // The low spec modes (graphics.ts, docs/notes/low-spec.md): Three.js's classic WebGL 2 renderer, matte materials, no
-    // multisampling, no shadows, no fisheye lens, at most one device pixel per CSS pixel; extra and super low spec at a
+    // multisampling, no shadows, a cheaper fisheye lens, at most one device pixel per CSS pixel; extra and super low spec at a
     // fixed lower resolution and a nearer fog. Read once: it applies on reload.
     const kit = kitFor(init.graphics);
     const lowSpec = kit.lowSpec;
@@ -203,15 +203,17 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     scene.add(view.craft);
     /**
      * the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat.
-     * None in low spec: the lens draws the scene up to five times a frame. The flat camera's field of view applies then.
+     * Low spec has its own cheaper build of it, one wide face (owner, 2026-10-22), culled at the FPV camera's nearer far plane.
      */
-    const fisheye = gpuRenderer ? new FisheyeView() : null;
+    const fisheye = new FisheyeView({
+        lowSpec, far: view.camera.far, oversample: !lowSpec ? 1 : kit.graphics === 'low' ? LOW_SPEC_OVERSAMPLE : NO_GPU_OVERSAMPLE
+    });
     const bufferSize = new THREE.Vector2();
     const fitFisheye = (): void => {
         renderer.getDrawingBufferSize(bufferSize);
-        fisheye?.setSize(bufferSize.x, bufferSize.y);
+        fisheye.setSize(bufferSize.x, bufferSize.y);
     };
-    fisheye?.setLens(lensById(cfg.lens));
+    fisheye.setLens(lensById(cfg.lens));
     fitFisheye();
     if (params.get('cam') === 'chase') view.setMode('chase');
     /** the chase camera's see-through circle when a wall hides the quad (render/see-through.ts); same target kind as the lens faces */
@@ -473,7 +475,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     view.uptiltDeg = cfg.uptiltDeg;
                     view.fovDeg = cfg.fovDeg;
                     view.updateFov();
-                    fisheye?.setLens(lensById(cfg.lens));
+                    fisheye.setLens(lensById(cfg.lens));
                 } else if (m.what === 'flight') session.setOverrides(cfg.overrides);
                 else if (m.what === 'traffic') {
                     session.setTraffic(cfg.traffic);
@@ -727,7 +729,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
 
     /** The frame from view.camera: through the lens when there is one and `lens` says this camera has it. */
     function draw(lens: boolean): void {
-        if (lens && fisheye?.active && gpuRenderer) fisheye.render(gpuRenderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
+        if (lens && fisheye.active) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
         else {
             renderer.render(scene, view.camera);
             seeThrough.render(renderer, scene, view.camera, view.craft.position, renderer.shadowMap.enabled && gpuRenderer ? sun.light.shadow : null);
@@ -774,8 +776,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             cam.up.set(0, y === 0 ? 1 : 0, y === 0 ? 0 : -1);
             cam.lookAt(p.x + x, p.y + y, p.z + z);
             renderer.render(scene, cam);
-            // the lens faces draw into half-float multisampled targets: other pipelines than the canvas's
-            if (gpuRenderer) fisheye?.warmUp(gpuRenderer, scene, cam);
+            // the lens faces draw into their own kind of target: other pipelines than the canvas's
+            fisheye.warmUp(renderer, scene, cam);
         }
         seeThrough.warmUp(renderer, scene, cam);
         trialsView.update(session.trials.status(), 0);
