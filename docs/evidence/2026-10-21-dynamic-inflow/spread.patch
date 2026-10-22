@@ -1,0 +1,10 @@
+--- a/packages/sim-core/src/sim.ts
++++ b/packages/sim-core/src/sim.ts
+@@ -984,6 +984,7 @@
+                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
+                 T *= keep * strike[i];
++                const ka = (globalThis as any).K_ASYM; if (ka) { T *= ka[i]; Q *= ka[i]; }
+                 // the ESC loses dutyOffset of the duty (0 without esc_duty_offset: the command itself)
+                 const duty = mot.dutyOffset === 0 ? out[i] : out[i] > mot.dutyOffset ? out[i] - mot.dutyOffset : 0;
+                 const amps = (dir[i] * duty * volt - mot.ke * om) / mot.r;

@@ -1,0 +1,18 @@
+== dynamic inflow off
+original  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 9 ms, 90 % at 15 ms, peak 1.08
+original  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 15 ms, 90 % at 33 ms, peak 1.06
+original  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 12 ms, 90 % at 16 ms, peak 1.50
+original  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 17 ms, 90 % at 24 ms, peak 1.09
+supafly5  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 8 ms, 90 % at 13 ms, peak 1.19
+supafly5  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 14 ms, 90 % at 26 ms, peak 1.01
+supafly5  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 12 ms, 90 % at 15 ms, peak 1.65
+supafly5  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 16 ms, 90 % at 22 ms, peak 1.20
+== dynamic inflow 1
+original  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 8 ms, 90 % at 15 ms, peak 1.04
+original  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 15 ms, 90 % at 34 ms, peak 1.06
+original  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 11 ms, 90 % at 15 ms, peak 1.39
+original  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 16 ms, 90 % at 25 ms, peak 1.06
+supafly5  delay 0 (0 loops) FF on : setpoint 75 deg/s, 50 % at 8 ms, 90 % at 13 ms, peak 1.13
+supafly5  delay 0 (0 loops) FF off: setpoint 75 deg/s, 50 % at 13 ms, 90 % at 28 ms, peak 1.02
+supafly5  delay 4 (16 loops) FF on : setpoint 75 deg/s, 50 % at 11 ms, 90 % at 14 ms, peak 1.53
+supafly5  delay 4 (16 loops) FF off: setpoint 75 deg/s, 50 % at 15 ms, 90 % at 22 ms, peak 1.10

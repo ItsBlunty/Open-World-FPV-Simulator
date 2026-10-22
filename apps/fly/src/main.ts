@@ -91,6 +91,9 @@ function overrides(): ParamOverrides {
     tuneOverrides(settings.tune, o);
     // gyro / PID loop rate (owner 2026-10-21): the controller and physics run at the board's rate, 4 kHz by default
     o.loopHz = settings.loopHz;
+    // dynamic inflow (owner 2026-10-21, review G13): the props' induced airflow lags rpm changes; sim-core ignores it under
+    // classic physics
+    o.dynamicInflow = true;
     // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own;
     // dynamic idle needs the quad's prop size (dynIdleMinRpm, the game's own suggestion), its minimum is the setting's
     if (settings.dynIdle && dynIdleMinRpm !== null) {

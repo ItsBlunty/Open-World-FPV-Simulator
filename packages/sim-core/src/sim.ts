@@ -308,6 +308,15 @@ const BLADE_GAUSS_W = [0.3478548451374538, 0.6521451548625461, 0.652145154862546
 const BLADE_STALL = 15 * DEG2RAD;
 const BLADE_STALL_FULL = 25 * DEG2RAD;
 const BLADE_CD90 = 1.2;
+/**
+ * Dynamic inflow (sim-core/0.8.0, review G13; ParamOverrides.dynamicInflow): each prop's induced velocity v lags its steady
+ * value v_qs as Pitt and Peters' uniform inflow mode, dv/dt = (v_qs - v) / tau with tau = K_M R / (2 V_m): K_M = 8 / (3 pi),
+ * an impermeable disc's apparent mass, and V_m the mass-flow velocity through the disc, here sqrt(in-plane^2 + (axial +
+ * v)^2) (D. A. Peters, NASA N88-27156, read in full 2026-10-21: tau = 0.42 R / V_m). Below DIN_VMIN the velocity is held at it,
+ * so a prop barely moving air still settles [numerical choice: 1 m/s, tau 27 ms on a 5-inch prop].
+ */
+const DIN_KM_HALF = 4 / (3 * Math.PI);
+const DIN_VMIN = 1;
 /** bisection halvings of the rotor inflow (closedLoads): 2^-32 of the bracket, far below what changes the thrust [numerical choice] */
 const INFLOW_STEPS = 32;
 const CRASH_ANG_DAMP = 3; // 1/s, tumbling craft (props stopped, ducts dragging) [estimate]
@@ -392,6 +401,8 @@ export class Sim {
     /** first state slot of the ESC dead-time buffer, and the delayed commands the physics flies (escDelayed) */
     private readonly escBase: number;
     private readonly escOut: Float64Array;
+    /** first state slot of dynamic inflow's induced velocities (4, m/s), after the ESC buffer; only with p.dynamicInflow */
+    private readonly dinBase: number;
     /** the loop: h = 1 / loopHz seconds, nLoop = loopHz / 1000 loops per 1 ms tick, and the filter gains for it */
     private readonly h: number;
     private readonly nLoop: number;
@@ -427,7 +438,9 @@ export class Sim {
         // the ESC's dead time (p.escDelayLoops): the commands of the last loops, oldest first, 4 per loop after the other slots
         this.escBase = base;
         this.escOut = new Float64Array(4);
-        this.s = new Float64Array(base + 4 * p.escDelayLoops);
+        // dynamic inflow (p.dynamicInflow): each prop's induced velocity, 4 slots after the ESC buffer
+        this.dinBase = base + 4 * p.escDelayLoops;
+        this.s = new Float64Array(this.dinBase + (p.dynamicInflow ? 4 : 0));
         this.world = world;
         this.nS = p.spheres.length / 4;
         this.c0 = new Float64Array(this.nS * 3);
@@ -942,9 +955,27 @@ export class Sim {
                 let T: number;
                 let Q: number;
                 if (om > 0) {
-                    T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz);
+                    T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz, 0);
                     Q = this.propQ;
+                    if (p.dynamicInflow) {
+                        // the induced velocity lags its steady value (DIN_KM_HALF); the blades meet the lagging airflow
+                        const k = this.dinBase + i;
+                        const v0 = s[k];
+                        const ua = this.propUy + v0, up = this.propSide;
+                        let vm = Math.sqrt(up * up + ua * ua);
+                        if (vm < DIN_VMIN) vm = DIN_VMIN;
+                        const tau = (DIN_KM_HALF * inflow.radius) / vm;
+                        const v = v0 + ((this.propVqs - v0) * this.h) / (tau + this.h);
+                        s[k] = v;
+                        const sh = v - this.propVqs;
+                        if (sh !== 0) {
+                            T = this.propLoads(inflow, i, om, bvx, bvy, bvz, wx, wy, wz, sh);
+                            Q = this.propQ;
+                        }
+                    }
                 } else {
+                    // a stopped or backwards prop drives no air of its own: dynamic inflow's induced velocity settles to 0
+                    if (p.dynamicInflow) s[this.dinBase + i] = 0;
                     // backwards (turtle mode) or stopped: thrust from the rotor speed alone at REVERSE_THRUST, and the
                     // static torque against the rotation
                     T = -REVERSE_THRUST * tmax * wa * wa;
@@ -1139,8 +1170,14 @@ export class Sim {
      * reversed flow over the retreating blades cancels it). Past INFLOW_RATIO_MAX along the axis (a slow prop in a fast
      * axial airflow) the loads come from windmillLoads (air from in front) or bladeLoads (from behind) instead, blended in
      * up to INFLOW_BLADE_FULL.
+     *
+     * Dynamic inflow (p.dynamicInflow, DIN_KM_HALF): with sh 0 the steady loads, and the steady induced velocity in
+     * propVqs (the closed form's li U where it has one, else Glauert's momentum on the loads with the air from in front,
+     * glauertV; 0 with it from behind); with sh != 0 the loads when the induced velocity is sh off that: the closed
+     * form's li moved by sh / U, the other ranges at the axial airflow uy + sh (an induced velocity adds to it). The
+     * range is picked from the unshifted airflow, so the shift never switches it.
      */
-    private propLoads(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number): number {
+    private propLoads(f: RotorInflow, i: number, omega: number, bvx: number, bvy: number, bvz: number, wx: number, wy: number, wz: number, sh = 0): number {
         const mp = this.p.motorPos;
         const mx = mp[i * 3], mz = mp[i * 3 + 2];
         // w x (mx, 0, mz) = (wy mz, wz mx - wx mz, -wy mx)
@@ -1149,16 +1186,60 @@ export class Sim {
         const uz = bvz - wy * mx;
         const tip = omega * f.radius;
         const along = (uy < 0 ? -uy : uy) / tip;
+        const side = Math.sqrt(ux * ux + uz * uz);
+        const ue = uy + sh;
+        let t: number;
+        this.propLi = 0;
         // past the edge: the measured windmill curves with the air from in front, blade-element theory from behind
-        if (along >= INFLOW_BLADE_FULL) return uy > 0 ? this.windmillLoads(f, tip, uy) : this.bladeLoads(f, omega, uy);
-        const t = this.closedLoads(f, tip, uy, Math.sqrt(ux * ux + uz * uz));
-        if (along <= INFLOW_RATIO_MAX) return t;
-        const q = this.propQ;
-        const b = (along - INFLOW_RATIO_MAX) / (INFLOW_BLADE_FULL - INFLOW_RATIO_MAX);
-        const tb = uy > 0 ? this.windmillLoads(f, tip, uy) : this.bladeLoads(f, omega, uy);
-        this.propQ = q + (this.propQ - q) * b;
-        return t + (tb - t) * b;
+        if (along >= INFLOW_BLADE_FULL) {
+            t = uy > 0 ? this.windmillLoads(f, tip, ue) : this.bladeLoads(f, omega, ue);
+        } else {
+            t = this.closedLoads(f, tip, uy, side, sh);
+            if (along > INFLOW_RATIO_MAX) {
+                const q = this.propQ;
+                const b = (along - INFLOW_RATIO_MAX) / (INFLOW_BLADE_FULL - INFLOW_RATIO_MAX);
+                const tb = uy > 0 ? this.windmillLoads(f, tip, ue) : this.bladeLoads(f, omega, ue);
+                this.propQ = q + (this.propQ - q) * b;
+                t = t + (tb - t) * b;
+            }
+        }
+        if (sh === 0 && this.p.dynamicInflow) {
+            this.propUy = uy;
+            this.propSide = side;
+            this.propVqs = this.propLi > 0 ? this.propLi * tip : uy > 0 ? this.glauertV(f, t, uy, side) : 0;
+        }
+        return t;
     }
+
+    /**
+     * The induced velocity (m/s, positive along the push) that Glauert's momentum theory gives thrust t with axial airflow
+     * uy > 0 (from in front) and in-plane airflow side: t = 2 rho A v sqrt(side^2 + (uy + v)^2), on the branch v >= -uy / 2
+     * (where the air through the disk is still slowed less than halfway; a windmilling prop's drag stays well inside it),
+     * held at its end; INFLOW_STEPS halvings.
+     */
+    private glauertV(f: RotorInflow, t: number, uy: number, side: number): number {
+        const k = 2 * this.p.rho * f.area;
+        let lo = -0.5 * uy;
+        let hi = 0;
+        if (t >= 0) { lo = 0; hi = t / (k * uy); }
+        else {
+            const e = uy + lo;
+            if (k * lo * Math.sqrt(side * side + e * e) >= t) return lo;
+        }
+        for (let n = 0; n < INFLOW_STEPS; n++) {
+            const v = (lo + hi) * 0.5;
+            const e = uy + v;
+            if (k * v * Math.sqrt(side * side + e * e) > t) hi = v; else lo = v;
+        }
+        return (lo + hi) * 0.5;
+    }
+
+    /** dynamic inflow's inputs from the last propLoads with sh 0: axial and in-plane airflow and steady induced velocity, m/s */
+    private propUy = 0;
+    private propSide = 0;
+    private propVqs = 0;
+    /** the closed form's induced inflow ratio of its last call (0 past zero thrust and outside its range) */
+    private propLi = 0;
 
     /**
      * A prop turning slower than the air entering it from in front (sim-core/0.8.0, physics-review F10): NACA's measured
@@ -1176,9 +1257,10 @@ export class Sim {
 
     /**
      * Gill and D'Andrea's closed form (the documentation of propLoads) at tip speed `tip`, axial airflow uy and in-plane
-     * airflow `side`, m/s: thrust returned, torque in this.propQ.
+     * airflow `side`, m/s: thrust returned, torque in this.propQ. With sh != 0 (dynamic inflow, propLoads) the induced
+     * velocity is sh off the steady one: li + sh / U where the steady li is positive, else the loads at uy + sh.
      */
-    private closedLoads(f: RotorInflow, tip: number, uy: number, side: number): number {
+    private closedLoads(f: RotorInflow, tip: number, uy: number, side: number, sh: number): number {
         const lc = uy / tip;
         let mu = side / tip;
         if (mu > INFLOW_RATIO_MAX) mu = INFLOW_RATIO_MAX;
@@ -1196,7 +1278,12 @@ export class Sim {
             const s = lc + li;
             if (4 * li * Math.sqrt(mu2 + s * s) > ct0 - ad * li) hi = li; else lo = li;
         }
-        const li = (lo + hi) * 0.5;
+        let li = (lo + hi) * 0.5;
+        if (sh !== 0) {
+            if (!(li > 0)) return this.closedLoads(f, tip, uy + sh, side, 0);
+            li += sh / tip;
+        }
+        this.propLi = li;
         const ct = ct0 - ad * li;
         const lam = lc + li;
         const dl = lam - f.theta;

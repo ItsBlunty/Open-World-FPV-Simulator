@@ -328,3 +328,12 @@ dynamic stall changes nothing (its flow settles in 0.3 ms); dynamic inflow puts 
 quasi-steady (a lead; the lags tried before had the wrong sign). That lead in a scratch sim with the 4 ms delay: the
 owner's chop on Betaflight defaults 95 / 141 -> 64 / 98 deg/s (real ~60 / 77), SupaFly 163 / 206 -> 132 / 171. Next:
 dynamic inflow done properly in sim-core (a lag on the induced velocity, hover included), then the delay; CFD not needed yet.
+
+**Dynamic inflow built (owner: "1", 2026-10-21; `docs/evidence/2026-10-21-dynamic-inflow/`).** sim-core
+`ParamOverrides.dynamicInflow` (on in the game): Pitt-Peters' uniform inflow mode, each prop's induced velocity lags its
+steady value with tau = 0.42 R / V_m (Peters); steady loads unchanged, off is bit for bit. Hover rpm step: thrust
+overshoots 1.3-1.5x and settles in a few ms (frozen-inflow theory 1.54); in the chop it leads quasi-steady (12-23 % of
+the change; the unsteady BEM 7-13 %). Without the ESC dead time the chop barely changes (owner's flight 40 -> 37 deg/s).
+With the 4 ms dead time: Betaflight defaults 95 / 141 -> 64 / 99 (real ~60 / 77), SupaFly 163 / 206 -> 132 / 173. CPU
++2.5 ms per second of flight. The dead time is still out of the game: the owner's call after flying. Flight feel: for the
+owner to fly (thrust answers rpm changes a touch harder at first).

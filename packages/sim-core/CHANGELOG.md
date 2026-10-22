@@ -50,6 +50,14 @@ Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb
   after `S.size`), `thrustLinear` (`thrustLinearThrottle`, `thrustLinearOutput`; pid.c thrust linearization, 0-150),
   `itermRelaxCutoff` (1-50 Hz, default 15) and `antiGravityGain` (0-250, default 80). Absent or at their defaults:
   traces as without them. No dynamic D (the built-in D is fixed). Test: `test/tune-features.test.ts`.
+- `ParamOverrides.dynamicInflow` (`SimParams.dynamicInflow`, review G13; owner 2026-10-21): each prop's induced velocity
+  lags its steady value, Pitt and Peters' uniform inflow mode with tau = 0.42 R / V_m (Peters, NASA N88-27156); the
+  steady value is the closed form's li U, else Glauert's momentum on the loads (air from in front), and the blades meet
+  the lagging airflow (the closed form's li moved, the windmill and blade ranges at a shifted axial airflow). Four state
+  slots after the ESC buffer; rotor inflow model only. Absent or false: bit for bit as before. A rotor-speed step in
+  hover overshoots the thrust as frozen-inflow theory says (1.5 for 11 -> 15 k rpm at once) and settles in a few ms;
+  a windmilling prop sped up leads its steady thrust. About 2.5 ms CPU more per second of flight at 4 kHz. Test:
+  `test/dynamic-inflow.test.ts`; evidence `docs/evidence/2026-10-21-dynamic-inflow/`.
 - `ParamOverrides.loopHz` (`SimParams.loopHz`): the gyro / PID loop rate, 1000, 2000, 4000 or 8000 Hz (owner,
   2026-10-21: emulate the real 4-8 kHz gyro sampling). The controller reads a fresh gyro sample and the physics advances
   loopHz / 1000 times per 1 ms tick; every filter gain, derivative, integral and the physics step use the loop's dt

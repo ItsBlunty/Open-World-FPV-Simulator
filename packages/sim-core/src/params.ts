@@ -52,6 +52,11 @@ export interface SimParams {
      * many loops ago; 0 without the field, as before (sim-core/0.8.0)
      */
     escDelayLoops: number;
+    /**
+     * dynamic inflow (sim-core/0.8.0, review G13): each prop's induced velocity lags its steady value (Pitt-Peters' uniform
+     * mode); only with the rotor inflow model. false without the override: the induced velocity follows at once, as before
+     */
+    dynamicInflow: boolean;
     /** Betaflight's TPA (tpa_*), compiled; null = no attenuation (every version before sim-core/0.8.0 had none) */
     tpa: TpaParams | null;
     /** Betaflight's thrust_linear as a fraction (0-1.5); 0 = off */
@@ -331,6 +336,12 @@ export interface ParamOverrides {
      * gain follows the loop's dt. Absent: 1000, one loop per tick as before (old flights replay unchanged). sim-core/0.8.0
      */
     loopHz?: number;
+    /**
+     * Dynamic inflow: the air each prop drives through itself takes time to follow a change of rotor speed or airspeed, so
+     * the blades meet the lagging airflow (Pitt and Peters' uniform inflow mode). Only with the rotor inflow model (not
+     * classic physics). Absent or false: off, the induced airflow follows at once, as before. sim-core/0.8.0, review G13.
+     */
+    dynamicInflow?: boolean;
 }
 
 /** Betaflight's TPA settings (src/main/flight/pid.c, 4.5.1), CLI units; ranges from cli/settings.c. */
@@ -667,6 +678,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
         dynIdle: dynIdleOf(o.dynIdle, 1 / loopHzOf(o.loopHz)),
         loopHz: loopHzOf(o.loopHz),
         escDelayLoops: Math.round((escDelayMs * loopHzOf(o.loopHz)) / 1000),
+        dynamicInflow: o.dynamicInflow === true && inflow !== null,
         // the override, else the preset's own TPA (optional field tpa, CLI units like TpaConfig; sim-core/0.8.0), else none
         tpa: tpaOf(o.tpa ?? presetTpa(p)),
         thrustLinear: rangeOf(o.thrustLinear, 0, 0, 150, 'thrustLinear') / 100,

@@ -1,0 +1,4 @@
+dynamic inflow off: 6.7 ms CPU per second of flight
+dynamic inflow on : 9.1 ms CPU per second of flight
+dynamic inflow off: 6.5 ms CPU per second of flight
+dynamic inflow on : 9.1 ms CPU per second of flight

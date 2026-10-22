@@ -1,0 +1,12 @@
+== dynamic inflow off, ESC dead time 0 ms
+supafly5   peak 40 / 62 deg/s | accel 3841 / 7281 deg/s^2 | top motor 0.80 | motor high until 1500 ms | tilt 5.0 deg
+betaflight peak 44 / 63 deg/s | accel 2589 / 4541 deg/s^2 | top motor 0.68 | motor high until 1500 ms | tilt 4.6 deg
+== dynamic inflow off, ESC dead time 4 ms
+supafly5   peak 163 / 206 deg/s | accel 19832 / 22139 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 5.4 deg
+betaflight peak 95 / 141 deg/s | accel 10095 / 13984 deg/s^2 | top motor 0.90 | motor high until 1500 ms | tilt 5.5 deg
+== dynamic inflow 1, ESC dead time 0 ms
+supafly5   peak 37 / 59 deg/s | accel 3041 / 6201 deg/s^2 | top motor 0.76 | motor high until 1500 ms | tilt 5.0 deg
+betaflight peak 42 / 59 deg/s | accel 2463 / 3712 deg/s^2 | top motor 0.65 | motor high until 1500 ms | tilt 4.7 deg
+== dynamic inflow 1, ESC dead time 4 ms
+supafly5   peak 132 / 173 deg/s | accel 15801 / 18345 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 4.8 deg
+betaflight peak 64 / 99 deg/s | accel 9122 / 12912 deg/s^2 | top motor 0.88 | motor high until 1500 ms | tilt 3.4 deg
