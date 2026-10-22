@@ -454,3 +454,6 @@ blade-element model (OpenFAST's Oye dynamic inflow and dynamic stall) of the Naz
 on a 5-inch blade (0.3 ms) and dynamic inflow leads the thrust by about 0.7 ms in the chop; a stand-in lead calms the
 delayed chop (owner's flight, Betaflight defaults 95 -> 64 deg/s, real ~60). Open: build it properly
 (`docs/evidence/2026-10-21-unsteady-bem/`).
+G13 update (2026-10-21, built): sim-core `dynamicInflow` (Pitt-Peters uniform mode, tau = 0.42 R / V_m), on in the game;
+with the 4 ms dead time the owner's chop on Betaflight defaults is 64 / 99 deg/s (real ~60 / 77), SupaFly 132 / 173
+(`docs/evidence/2026-10-21-dynamic-inflow/`). Closed, unless flying shows otherwise.
