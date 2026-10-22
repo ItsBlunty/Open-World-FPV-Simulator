@@ -310,3 +310,13 @@ deg/s at 20-40 m/s); SupaFly with dynamic idle about twice that, and with the hu
 delay reaches 50 % at 12 ms with overshoot 1.5-1.65 (real 6S quads on near-default gains 16-22 ms, well damped), and more
 lag only adds overshoot: for its gains the Nazgul has too much authority per command (review G12). Nothing changed; the
 delay stays out until that is found (the owner's inertia swing test, `diff all` and a chop log with eRPM would settle it).
+
+**The authority gap checked with real Betaflight (owner's choice "1": public data first, 2026-10-21;
+`docs/evidence/2026-10-21-authority/`).** Public logs gave no usable authority number (250 Hz, rare big moves). Betaflight
+SITL on today's Nazgul with the 4 ms dead time flies normal flight calmly (tracking 7-13 deg/s, 50 % at 13-15 ms,
+overshoot 8-13 %, near real quads' 16-22 ms); the old preset gave 51-61 deg/s. The 1.5-1.65 overshoot of the previous
+entry came from an instant stick step into the built-in feedforward. So the authority gap is withdrawn. Without TPA both
+controllers shake through a full-throttle punch-out at 30-40 m/s with the delay; Betaflight's default TPA cures it. The
+chop through real Betaflight with the delay and default TPA: 117 / 172 deg/s (built-in 95 / 138), real ~60 / 77. Left:
+the chop alone, about 2x the real kick; open question is how a prop pushed back over the band's hump in a few ms
+behaves (steady-state data cannot show it).
