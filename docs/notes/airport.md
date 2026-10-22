@@ -78,3 +78,37 @@ overview; 120 fps there (capped), no console errors.
 planes don't react to the quad; arrivals appear out of nowhere 4.26 km west (past the fog, but a quad flying out there
 sees them); hangar doors are always open; no runway or apron lights; the medics never come back out; waits for a tug can
 be several minutes on the apron; frame cost not measured on a weak machine; the airport has no golden props.
+
+## 2h. The small planes' city tours (owner, 2026-10-22): air v2, built, waiting for the owner
+
+**Asked:** "Make the smaller planes fly around the city so the players can chase and fly around them." Owner's answers:
+the Cub, the 172 and the SR22; a sightseeing loop over the city and park after take-off, then back to land (in place of
+leaving east); low, about 100-150 m (real rules want about 300 m over the tallest building; lower is better for chasing).
+
+**Built (`packages/traffic/src/air.ts` `TOURS`, `tour()`, `bankTurn()`, `flyTo()`; `air-path.ts` `dubins()`).** The three
+never leave now: each plane's day is exactly AIR_DAY and has no hidden part.
+- After lift-off it climbs straight ahead to 100 m [estimate], then takes the shortest way (a Dubins path: turn, straight,
+  turn) round to the west end of its racetrack's north straight, climbing to its tour height.
+- Racetracks flown with left turns: the north straight westbound along z -420 (Cub), -300 (172), -180 (SR22), each over its
+  own band of the city (z -81 to -499); the south straight 2 r further south; the west turn about x -300. Heights 110,
+  130, 150 m (20 m apart, as a tower would give each its own altitude; the helicopter cruises at 70-84 m).
+- Speeds [estimates: sightseeing at reduced power, below the cruise speeds Wikipedia gives, read 2026-10-22: J-3 65 kn,
+  172R 122 kn, SR22 G5 183 kn]: Cub 65 kn (33 m/s), 172 90 kn (46 m/s), SR22 110 kn (57 m/s). Turns at 30 deg bank
+  [estimate], so r = v^2 / (g tan 30): 197, 378, 565 m. Roll in and out over 3 s (10 deg/s) on the turn's own arc.
+- The laps fill the time to its next arrival exactly: n laps with their straights stretched (about 600 m: 25 laps for
+  the Cub's half hour), so a lap's place is fixed by the tick (replays).
+- It leaves the last lap at the north straight's west end and flies level at its tour height to where the 3 deg glide
+  path is at that height (1.8 / 2.2 / 2.6 km before the threshold), slowing to its approach speed, and lands as before
+  (the runway booked from 1.2 km out, as every arrival). The other seven still appear 4.26 km out and leave east.
+- AIR_VERSION 2 (the world hash's `|air/2`): flights saved with airport traffic before this no longer open.
+
+**Evidence** (`docs/evidence/2026-10-22-city-tours/`, `probe.mjs`: headless Chrome, WebGPU, dev server): `0-plan.svg` (the
+three tracks over the day on a plan), `1-cub-chase.png`, `1-c172-chase.png`, `1-sr22-chase.png` (each from 45 m behind,
+over the city), `2-cub-from-street.png` (the Cub over the x 0 road); 106 fps, no console errors. `pnpm test` 75 files,
+660 pass + 1 expected fail; new in `air.test.ts`: the three's days are exactly AIR_DAY, every leg starts where the last
+ended (the last where the first starts), never hidden, over the city at their tour height for over 300 s of the day
+(Cub 1008 s, 172 494 s, SR22 385 s). The day's no-clash test and the clear-of-buildings test pass with the tours.
+`air-sound.test.ts`'s silent-when-away check uses the King Air now (the Cub is never away). Self-test hashes unchanged
+(the airport is off in them).
+
+**Left open:** the planes still ignore the quad (no avoiding, no wake); the tour paths are the same every day.

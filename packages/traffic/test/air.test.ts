@@ -1,10 +1,11 @@
 // The airport's day (air.ts): it builds, it repeats, every mover is where the tick says (replays), no two movers ever
-// touch, the planes stay clear of the level's geometry, and a quad gets hit and pushed by a taxiing plane.
+// touch, the planes stay clear of the level's geometry, the small planes tour the city, and a quad gets hit and pushed
+// by a taxiing plane.
 
 import { describe, expect, it } from 'vitest';
 import { buildFirstMap } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { AIR_DAY, AirTraffic, AirWorld, newAirPlace } from '../src/index';
+import { AIR_DAY, AirTraffic, AirWorld, TOURS, newAirPlace, placeOnLeg } from '../src/index';
 import type { AirMover, AirPlace } from '../src/index';
 
 const level = buildFirstMap();
@@ -102,6 +103,33 @@ describe('the airport', () => {
             }
         });
         expect([...hits.entries()].map(([k, v]) => `${k}: ${v}`)).toEqual([]);
+    });
+
+    it('flies the Cub, the 172 and the SR22 round the city all day between their stops, on an unbroken path', () => {
+        const p = newAirPlace(), q = newAirPlace();
+        for (const i of air.planes) {
+            const m = air.movers[i], tour = TOURS[m.type!.kind];
+            if (!tour) continue;
+            const legs = m.legs;
+            // its day is exactly the airport's, and each leg starts where the last ended (the last where the first starts)
+            expect(legs[legs.length - 1].t1 - legs[0].t0).toBeCloseTo(AIR_DAY, 9);
+            for (let k = 0; k < legs.length; k++) {
+                placeOnLeg(legs[k === 0 ? legs.length - 1 : k - 1], legs[k === 0 ? legs.length - 1 : k - 1].t1, p);
+                placeOnLeg(legs[k], legs[k].t0, q);
+                expect(Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z)).toBeLessThan(1e-6);
+            }
+            // never hidden; over the city (x -489 to 489, z -499 to -81) at its tour height for minutes
+            let over = 0;
+            for (let t = 0; t < AIR_DAY; t += 1) {
+                air.place(i, t * 1000, p);
+                expect(p.hidden).toBe(false);
+                if (p.x > -489 && p.x < 489 && p.z > -499 && p.z < -81) {
+                    over++;
+                    expect(p.y).toBeCloseTo(tour.y, 6);
+                }
+            }
+            expect(over).toBeGreaterThan(300);
+        }
     });
 
     it('puts every mover at the same place for the same tick, built again', () => {
