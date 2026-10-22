@@ -15,14 +15,14 @@
 
 import type { Airport, AircraftKind, Level } from '@owfpv/maps';
 import { datan, dcos, dsin } from '@owfpv/sim-core';
-import { DEG, Itin, legAt, newAirPlace, placeOnLeg } from './air-path';
+import { DEG, Itin, dubins, legAt, newAirPlace, placeOnLeg } from './air-path';
 import type { AirPlace, Leg } from './air-path';
 import { AIRCRAFT, HELI, SITTER, STRETCHER, TOW_BAR, TUG, TUG_HALF, WALKER } from './air-shapes';
 import type { AirShape, AircraftType } from './air-shapes';
 import { DT } from './model';
 
 /** Bumped with any change that moves an airport mover or changes a shape: part of the world hash (replays). */
-export const AIR_VERSION = 1;
+export const AIR_VERSION = 2;
 /** The airport's day: everything repeats this often, s (ten arrivals and ten departures: a runway movement every 2.5 min) */
 export const AIR_DAY = 3000;
 
@@ -43,6 +43,36 @@ export const SCHEDULE: AirSchedule = {
     pc12: { arrive: 2400, stay: 330 },
     caravan: { arrive: 2700, stay: 300 }
 };
+/**
+ * The small planes' sightseeing tours over the city (owner, 2026-10-22: "Make the smaller planes fly around the city so
+ * the players can chase and fly around them"; the Cub, the 172 and the SR22, 100-150 m up, landing again after it): after
+ * take-off each climbs straight ahead, turns back and flies laps of its own racetrack over the city at its own height,
+ * then intercepts the glide path level (as a real approach does) and lands. Its tour fills the time until its next
+ * arrival, so it never leaves. Speeds [estimates: sightseeing at reduced power, below the cruise speeds Wikipedia gives:
+ * J-3 65 kn, 172R 122 kn, SR22 G5 183 kn; read 2026-10-22]; heights 20 m apart keep them clear of each other where their
+ * racetracks cross (as a tower would give each its own altitude); turns at 30 deg bank [estimate].
+ */
+export type Tour = { v: number; y: number; zN: number };
+export const TOURS: Partial<Record<AircraftKind, Tour>> = {
+    cub: { v: 65 * 0.514444, y: 110, zN: -420 },
+    c172: { v: 90 * 0.514444, y: 130, zN: -300 },
+    sr22: { v: 110 * 0.514444, y: 150, zN: -180 }
+};
+/**
+ * The racetracks, flown with left turns: the north straight westbound along z = zN, each over its own band of the city
+ * (z -81 to -499), the south one 2 r further south (wider for the faster planes); the west turn about x -300, the
+ * straights about 600 m long (the city's width with the turns)
+ */
+const TOUR_XW = -300;
+const TOUR_S = 600;
+const TOUR_BANK = 30 * DEG;
+/** a departure on a tour climbs straight ahead to this height before it turns [estimate], m */
+const TOUR_TURN_Y = 100;
+/** pitch in level flight, deg [estimate]; roll in and out of a turn over this long, s [estimate: 10 deg/s] */
+const CRUISE_PITCH = 2;
+const ROLL_T = 3;
+const G = 9.81;
+
 /** The helicopter's two trips to the hospital a day: when it starts its rotors, s into the day */
 export const HELI_TRIPS = [300, 1800];
 
@@ -212,6 +242,60 @@ function cruise(it: Itin, len: number, vMax: number, vEnd: number, o: { rev?: bo
     it.straight(len * 0.3, vMax, o).straight(len * 0.4, vMax, o).straight(len * 0.3, vEnd, o);
 }
 
+/**
+ * A coordinated turn of `angle` rad (+ right) on radius r: rolling in over its first part to the bank its speed asks for
+ * (tan bank = v^2 / g r), holding it, rolling out over its last part (ROLL_T s each, less and shallower in a short turn).
+ * The speed goes to vEnd at a constant acceleration and the height to o.y, linearly, along the way.
+ */
+function bankTurn(it: Itin, r: number, angle: number, vEnd: number, o: { y?: number; th?: number } = {}): void {
+    const len = r * (angle < 0 ? -angle : angle);
+    if (len < 0.01) return;
+    const v0 = it.v, y0 = it.y, y1 = o.y ?? y0;
+    const vm = (v0 + vEnd) / 2;
+    let bank = datan((vm * vm) / (G * r));
+    let roll = ROLL_T * vm;
+    if (2 * roll > len) { bank = (bank * len) / (2 * roll); roll = len / 2; }
+    const side = angle < 0 ? -1 : 1;
+    const parts: [number, number][] = [[roll, side * bank], [len - 2 * roll, side * bank], [roll, 0]];
+    let s = 0;
+    for (const [d, ph] of parts) {
+        if (d < 0.01) continue;
+        s += d;
+        const v = Math.sqrt(v0 * v0 + ((vEnd * vEnd - v0 * v0) * s) / len);
+        it.turn(r, (side * d) / r, v, { y: y0 + ((y1 - y0) * s) / len, ph, th: o.th });
+    }
+}
+
+/**
+ * Fly from where `it` is to (x, z) heading (hx, hz) the shortest way on turns of radius r and a straight (dubins),
+ * arriving at speed vEnd (a constant acceleration) and height yEnd: the height changes over the first `climbLen` m
+ * (0: all of the way), level flight after. Power e on the way; thEnd the pitch at the end (else level flight's).
+ */
+function flyTo(it: Itin, x: number, z: number, hx: number, hz: number, r: number, vEnd: number, yEnd: number, climbLen: number, e: number, thEnd?: number): void {
+    const d = dubins(it.x, it.z, it.hx, it.hz, x, z, hx, hz, r);
+    const l1 = r * (d.a1 < 0 ? -d.a1 : d.a1), l3 = r * (d.a2 < 0 ? -d.a2 : d.a2), total = l1 + d.len + l3;
+    const v0 = it.v, y0 = it.y;
+    const cl = climbLen > 0 && climbLen < total ? climbLen : total;
+    const vAt = (s: number): number => Math.sqrt(v0 * v0 + ((vEnd * vEnd - v0 * v0) * s) / total);
+    const yAt = (s: number): number => (s >= cl ? yEnd : y0 + ((yEnd - y0) * s) / cl);
+    const climbTh = datan((yEnd - y0) / cl) + CRUISE_PITCH * DEG, levelTh = CRUISE_PITCH * DEG;
+    const thAt = (s: number): number => (s >= cl - 0.01 ? levelTh : climbTh);
+    let s = 0;
+    if (l1 > 0.01) { s += l1; bankTurn(it, r, d.a1, vAt(s), { y: yAt(s), th: thAt(s) }); }
+    if (d.len > 0.01) {
+        const sEnd = s + d.len;
+        // the straight split where the height change ends
+        if (cl > s + 0.01 && cl < sEnd - 0.01) {
+            it.straight(cl - s, vAt(cl), { y: yEnd, th: climbTh, e, ph: 0 });
+            s = cl;
+        }
+        it.straight(sEnd - s, vAt(sEnd), { y: yAt(sEnd), th: thAt(sEnd), e, ph: 0 });
+        s = sEnd;
+    }
+    if (l3 > 0.01) bankTurn(it, r, d.a2, vEnd, { y: yEnd, th: thEnd ?? levelTh });
+    it.set({ e, ph: 0 });
+}
+
 export class AirTraffic {
     readonly movers: AirMover[] = [];
     readonly airport: Airport;
@@ -248,7 +332,7 @@ export class AirTraffic {
         for (const a of arrivals) {
             const legs = this.ground(a.type, a.it.itin, tugJobs, a.it.touchdown);
             this.planes.push(this.movers.length);
-            this.movers.push({ kind: 'plane', shape: a.type.shape, type: a.type, look: this.movers.length, legs, rest: restAt(0, -1000, 0, 1, 0, true), vmax: a.type.perf.vclimb * 1.2 });
+            this.movers.push({ kind: 'plane', shape: a.type.shape, type: a.type, look: this.movers.length, legs, rest: restAt(0, -1000, 0, 1, 0, true), vmax: Math.max(a.type.perf.vclimb, TOURS[a.type.kind]?.v ?? 0) * 1.2 });
         }
         ap.tugs.forEach((p, k) => {
             const rest = restAt(p.x, ap.pave, p.z, 0, 1, false);
@@ -271,19 +355,22 @@ export class AirTraffic {
     // ---------------------------------------------------------------- planes
 
     /**
-     * A plane's arrival, from 3.5 km out to its first turn off the runway: the 3 deg glide at its approach speed, the
-     * flare, the touchdown, the nose lowered, the roll braking to turn speed and the first turn onto the exit it can make
+     * A plane's arrival, from 4.26 km out (a tour's: where it meets the glide path) to its first turn off the runway: the
+     * 3 deg glide at its approach speed, the flare, the touchdown, the nose lowered, the roll braking to turn speed and the first turn onto the exit it can make
      * (past its bay, so it never taxis back east). Returns the itinerary and the runway's busy time (from 2 km out until
      * off the runway).
      */
     private arrival(type: AircraftType): { itin: Itin; start: number; end: number; touchdown: number } {
         const ap = this.airport, R = ap.runway, p = type.perf;
         const y = ap.pave, tg = dsin(GLIDE) / dcos(GLIDE);
-        const x0 = R.threshold - APPROACH_FROM;
+        // a plane on a tour joins the glide path where it is at the tour's height; the others appear far out
+        const tour = TOURS[type.kind];
+        const from = tour ? (tour.y - y - TCH) / tg : APPROACH_FROM;
+        const x0 = R.threshold - from;
         const hAt = (x: number): number => y + TCH + (R.threshold - x) * tg;
         // it starts out of sight so that it is LANDING_FROM m out at its time in the schedule
         const start = this.schedule[type.kind].arrive;
-        const t0 = start - (APPROACH_FROM - LANDING_FROM) / p.vapp;
+        const t0 = start - (from - LANDING_FROM) / p.vapp;
         const it = new Itin(x0, R.z, 1, 0, hAt(x0), { th: p.pitchApp * DEG, e: 0.45, g: 1, t: t0 });
         it.jump(x0, R.z, 1, 0, hAt(x0), p.vapp);
         // on the glide path to the flare's start
@@ -393,9 +480,11 @@ export class AirTraffic {
         out(it);
         if (go < it.t) throw new Error(`the ${type.perf.name} misses its runway slot`);
         it.wait(go - it.t);
-        this.departure(type, it);
+        const tour = TOURS[type.kind];
+        this.departure(type, it, !tour);
         this.events.push({ kind: type.kind, touchdown, liftoff: go + dep.liftoff });
         if (it.t - it.legs[0].t0 > AIR_DAY - 30) throw new Error(`the ${type.perf.name}'s day is longer than the airport's`);
+        if (tour) this.tour(type, tour, it, it.legs[0], it.legs[0].t0 + AIR_DAY);
         return it.legs;
     }
 
@@ -403,7 +492,7 @@ export class AirTraffic {
      * From the hold on taxiway A: onto the entry, line up on runway 09, the take-off roll, rotation, the climb out east and
      * away. Returns how long the runway is busy from the start (until it is 150 m up) and when it lifts off, from the start.
      */
-    private departure(type: AircraftType, it: Itin): { busy: number; liftoff: number } {
+    private departure(type: AircraftType, it: Itin, away = true): { busy: number; liftoff: number } {
         const ap = this.airport, p = type.perf, r = ap.turnR, R = ap.runway, y = ap.pave;
         const t0 = it.t;
         it.straight(it.x - (ap.entryX + r), TURN, { e: 0.3 });
@@ -430,11 +519,51 @@ export class AirTraffic {
         const d1 = (p.vclimb * p.vclimb - p.vlof * p.vlof) / acc;
         it.straight(d1, p.vclimb, { y: y + d1 * tg * 0.6, th: p.pitchClimb * DEG, g: p.retract ? 0 : 1 });
         const busy = liftoff + DEPARTED_AFTER;
+        if (!away) return { busy, liftoff };
         // climbing on to the height it leaves at, then on east out of sight
         it.straight((AWAY_Y - it.y) / tg, p.vclimb, { y: AWAY_Y, th: (gamma / DEG + 3) * DEG });
         const toGo = AWAY_X - it.x;
         if (toGo > 1) it.straight(toGo, p.vclimb, { th: 3 * DEG, e: 0.8 });
         return { busy, liftoff };
+    }
+
+    /**
+     * A small plane's tour, from its first climb after lift-off until `end`, when it must be where its next arrival starts
+     * (`next`, that arrival's first leg, a day later): straight ahead to TOUR_TURN_Y, round to E, the west end of its
+     * racetrack's north straight, climbing to its tour height; laps (their straights stretched so they fill the time
+     * exactly); the way to the arrival's start, level at the tour's height, slowing to its approach speed.
+     */
+    private tour(type: AircraftType, tour: Tour, it: Itin, next: Leg, end: number): void {
+        const p = type.perf, y = this.airport.pave;
+        const r = (tour.v * tour.v) / ((G * dsin(TOUR_BANK)) / dcos(TOUR_BANK));
+        const zA = tour.zN;
+        // climbing on straight ahead, then the way round to E
+        const gamma = datan(p.roc / Math.sqrt(p.vclimb * p.vclimb - p.roc * p.roc));
+        const tg = dsin(gamma) / dcos(gamma);
+        if (y + TOUR_TURN_Y > it.y + 1) it.straight((y + TOUR_TURN_Y - it.y) / tg, p.vclimb, { y: y + TOUR_TURN_Y, th: (gamma / DEG + 3) * DEG, e: 0.8 });
+        flyTo(it, TOUR_XW, zA, -1, 0, r, tour.v, tour.y, (tour.y - it.y) / tg, 0.65);
+        // the way from E to the arrival's start, and how long it takes (a dry run)
+        const out = (t: Itin): void => flyTo(t, next.ax, next.az, next.dx, next.dz, r, p.vapp, next.y0, 0, 0.45, next.th0);
+        const dry = new Itin(TOUR_XW, zA, -1, 0, tour.y, { t: 0 });
+        dry.jump(TOUR_XW, zA, -1, 0, tour.y, tour.v);
+        out(dry);
+        // n laps with straights S long at the tour's speed, filling the time left exactly
+        const left = end - dry.t - it.t;
+        const turnLen = Math.PI * r;
+        const n = Math.max(1, Math.round((left * tour.v) / (2 * TOUR_S + 2 * turnLen)));
+        const S = ((left * tour.v) / n - 2 * turnLen) / 2;
+        if (S < 100 || S > 2 * TOUR_S) throw new Error(`the ${p.name}'s tour has no room: ${n} laps of ${S.toFixed(0)} m straights`);
+        for (let k = 0; k < n; k++) {
+            bankTurn(it, r, -Math.PI, tour.v);
+            it.straight(S, tour.v);
+            bankTurn(it, r, -Math.PI, tour.v);
+            it.straight(S, tour.v);
+        }
+        out(it);
+        // its next arrival starts at `end`: put the last leg's end on it (rounding)
+        const last = it.legs[it.legs.length - 1];
+        if (Math.abs(last.t1 - end) > 1e-6) throw new Error(`the ${p.name}'s tour ends ${(last.t1 - end).toFixed(6)} s off`);
+        last.t1 = end;
     }
 
     // ---------------------------------------------------------------- the helicopter

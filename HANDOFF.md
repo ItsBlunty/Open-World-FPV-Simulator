@@ -67,18 +67,20 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   three hangars, a tower with open cab windows and controllers, terminal; ten planes (Cub to ATR 72) land, are pushed into
   their hangar by a tug, pulled out and take off again; the EC135 air ambulance flies to "City General Hospital"'s roof pad
   where medics wheel a stretcher in; all solid; Settings > World > Airport traffic. [airport §2d]
+  City tours (owner, air v2): the Cub, 172 and SR22 never leave: after take-off each flies laps of its own racetrack over
+  the city (110 / 130 / 150 m, 65 / 90 / 110 kn, 30 deg turns) until it lands again. [airport §2h]
   Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
   the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
   Sound > Trains and airport. [sound §2e]
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 69 files, 618 tests pass in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 69 files, 619 tests pass (2026-10-22) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d31e59ea…` (traffic v9: vehicle shapes, trailers, vendors; the trains v3)
   - map v21 `2c689a96…` (544 196 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `AIR_VERSION` 1, `GRADE_VERSION` 1.
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 10, `TRAIN_VERSION` 3, `AIR_VERSION` 2, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -164,10 +166,13 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 27. **Motor idle:** stick down, roll and flip: the props should now be heard revving. Then Settings > World and physics >
    Motor idle: try the idle slider, then Dynamic idle on (3400 rpm): drops, dives, zero-throttle flips, hang time
    inverted. Feels like your quad? Want your own values instead? [physics §2f]
+28. **City tours:** spawn "Park" or "City street" with Airport traffic on: the Cub (110 m), 172 (130 m) and SR22 (150 m)
+   lap the city all day except their landings and hangar stops. Chase them: heights, speeds and turns right? Want them
+   lower, slower, or on other routes? Plan: `docs/evidence/2026-10-22-city-tours/0-plan.svg`. [airport §2h]
 
 ## Left open (not started)
 
-- Airport: props and rotors not solid; planes ignore the quad; arrivals appear 4.26 km out; medics
+- Airport: props and rotors not solid; planes ignore the quad; arrivals (not the touring three) appear 4.26 km out; medics
   never come back out; tug waits can be minutes; no lights; frame cost not measured on a weak machine. [airport §2d]
 - **Sound:** no hit sounds in replays; no car sounds; British whistle wanted?; mix levels, rush chop and loudness
   exponents are estimates; nothing heard by Claude, only measured; aircraft: no rollout, reverse or brake sounds, one engine place per twin. [sound §1n, §2e]

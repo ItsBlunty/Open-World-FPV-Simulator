@@ -325,3 +325,42 @@ export function frame(hx: number, hz: number, th: number, ph: number, out: AirPl
     s[0] = rx * cp - px * sp; s[1] = -py * sp; s[2] = rz * cp - pz * sp;
     u[0] = px * cp + rx * sp; u[1] = py * cp; u[2] = pz * cp + rz * sp;
 }
+
+/**
+ * The shortest way from a place and heading to another on turns of radius r and one straight between them (a Dubins
+ * path of the turn-straight-turn kind: left or right first, left or right last). Turn angles + right, - left, rad.
+ */
+export function dubins(x: number, z: number, hx: number, hz: number, X: number, Z: number, HX: number, HZ: number, r: number): { a1: number; len: number; a2: number } {
+    const TAU = 2 * Math.PI;
+    /** the sweep from heading angle a to b turning on side s (+1 right: the angle grows), in [0, 2 pi) times s */
+    const sweep = (a: number, b: number, s: number): number => {
+        let d = s * (b - a);
+        d -= Math.floor(d / TAU) * TAU;
+        if (d > TAU - 1e-9) d = 0;
+        return s * d;
+    };
+    const al = datan2(hz, hx), be = datan2(HZ, HX);
+    let best = { a1: 0, len: 0, a2: 0 }, bestL = Infinity;
+    for (const s1 of [1, -1]) for (const s2 of [1, -1]) {
+        // the turns' centres: on the right (-hz, hx) of a right turn, the left of a left one
+        const c1x = x - s1 * r * hz, c1z = z + s1 * r * hx;
+        const c2x = X - s2 * r * HZ, c2z = Z + s2 * r * HX;
+        const dx = c2x - c1x, dz = c2z - c1z, d2 = dx * dx + dz * dz;
+        let th: number, len: number;
+        if (s1 === s2) {
+            if (d2 < 1e-12) continue;
+            th = datan2(dz, dx);
+            len = Math.sqrt(d2);
+        } else {
+            // the crossing tangent: D = L u + 2 s2 r R(u), R a quarter turn to the right
+            if (d2 < 4 * r * r) continue;
+            len = Math.sqrt(d2 - 4 * r * r);
+            th = datan2(dz, dx) - datan2(2 * s2 * r, len);
+        }
+        const a1 = sweep(al, th, s1), a2 = sweep(th, be, s2);
+        const L = r * ((a1 < 0 ? -a1 : a1) + (a2 < 0 ? -a2 : a2)) + len;
+        if (L < bestL) { bestL = L; best = { a1, len, a2 }; }
+    }
+    if (bestL === Infinity) throw new Error('no Dubins path');
+    return best;
+}

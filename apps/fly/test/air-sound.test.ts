@@ -132,12 +132,12 @@ describe('the audio frame\'s airport block', () => {
     });
 
     it('makes a hidden mover silent', () => {
-        // the day's first seconds: the Cub (due at 300 s) is still away
+        // the day's first seconds: the King Air (due at 1200 s) is still away (the Cub tours the city all day)
         const a = new Float32Array(A.size);
         putAir(a, air, 1000);
         for (let i = 0; i < a[A.nAir]; i++) {
             const o = A.air + i * AF.size;
-            if (AIR_SOUNDS[a[o + AF.kind]] === 'cub') expect(a[o + AF.e]).toBe(0);
+            if (AIR_SOUNDS[a[o + AF.kind]] === 'kingair') expect(a[o + AF.e]).toBe(0);
         }
     });
 });
