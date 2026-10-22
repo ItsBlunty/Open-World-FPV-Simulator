@@ -19,8 +19,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **ESC dead time checked (2026-10-21):** the band matches measured small-prop data. With the 4 ms delay, real Betaflight
   (SITL) flies normal flight calmly on today's Nazgul (50 % at 13-15 ms, real 16-22), so no authority gap; TPA is needed
   at full throttle. Left: the chop alone, 117/172 deg/s through real Betaflight vs real ~60/77: how a prop behaves pushed
-  back over the band's hump in a few ms. The delay stays out until then. Also: ceiling contact rocks with the delay (F4).
-  [physics §2g, evidence 2026-10-21-esc-delay, 2026-10-21-authority]
+  back over the band's hump in a few ms. Modelled (unsteady BEM): dynamic stall negligible; dynamic inflow, missing in
+  the sim (G13), leads thrust ~0.7 ms and calms the delayed chop (Betaflight defaults 95 -> 64 deg/s, real ~60). Next:
+  build dynamic inflow properly in sim-core, then add the delay; CFD only if that falls short. Also: ceiling contact
+  rocks with the delay (F4). [physics §2g, evidence 2026-10-21-esc-delay, -authority, -unsteady-bem]
 - **Tools:** Betaflight 2026.6.2 SITL in lock-step (WSL ~/owfpv-sitl, patch and bridge in docs/evidence/2026-10-21-sitl);
   public logs and replays in docs/evidence/2026-10-2*; Chris Rosser's stand spreadsheet is the owner's (not committed).
 - **Owner's quad would settle it:** `diff all`, a swing test for inertia, a blackbox log with rpm of a fast chop.

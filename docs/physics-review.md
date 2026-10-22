@@ -449,3 +449,8 @@ G12 / F9 update (2026-10-21, real Betaflight): Betaflight SITL on today's Nazgul
 flight (tracking 7-13 deg/s, 50 % at 13-15 ms), so G12's authority gap is withdrawn (the overshoot above came from an instant
 stick step). The chop through real Betaflight with the dead time and its default TPA is 117 / 172 deg/s (built-in 95 / 138,
 real ~60 / 77): F9 narrows to a prop pushed back over the band's hump in a few ms (`docs/evidence/2026-10-21-authority/`).
+Finding G13 (2026-10-21): the model has no dynamic inflow (the induced velocity follows rpm at once). An unsteady
+blade-element model (OpenFAST's Oye dynamic inflow and dynamic stall) of the Nazgul prop shows dynamic stall is negligible
+on a 5-inch blade (0.3 ms) and dynamic inflow leads the thrust by about 0.7 ms in the chop; a stand-in lead calms the
+delayed chop (owner's flight, Betaflight defaults 95 -> 64 deg/s, real ~60). Open: build it properly
+(`docs/evidence/2026-10-21-unsteady-bem/`).

@@ -1,0 +1,14 @@
+== thrust lead 0 ms (T + lead dT/dt), 4 ms ESC dead time
+supafly5   peak 163 / 206 deg/s | accel 19832 / 22139 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 5.4 deg
+betaflight peak 95 / 141 deg/s | accel 10095 / 13984 deg/s^2 | top motor 0.90 | motor high until 1500 ms | tilt 5.5 deg
+betaflight delay 4 level V 20: peak   36 /   48 deg/s | top motor 0.34
+betaflight delay 4 level V 40: peak   66 /   96 deg/s | top motor 0.78
+betaflight delay 4 climb V 20: peak   53 /   74 deg/s | top motor 0.57
+betaflight delay 4 climb V 40: peak   65 /   91 deg/s | top motor 0.76
+== thrust lead 0.7 ms (T + lead dT/dt), 4 ms ESC dead time
+supafly5   peak 132 / 171 deg/s | accel 15509 / 18138 deg/s^2 | top motor 1.00 | motor high until 1500 ms | tilt 3.6 deg
+betaflight peak 64 / 98 deg/s | accel 9025 / 12769 deg/s^2 | top motor 0.88 | motor high until 1500 ms | tilt 3.4 deg
+betaflight delay 4 level V 20: peak   35 /   47 deg/s | top motor 0.33
+betaflight delay 4 level V 40: peak   63 /   91 deg/s | top motor 0.76
+betaflight delay 4 climb V 20: peak   51 /   71 deg/s | top motor 0.56
+betaflight delay 4 climb V 40: peak   62 /   87 deg/s | top motor 0.73

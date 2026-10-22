@@ -1,0 +1,40 @@
+--- a/packages/sim-core/src/sim.ts
++++ b/packages/sim-core/src/sim.ts
+@@ -765,6 +765,7 @@
+         const di = p.dynIdle;
+         if (di) {
+             lo = this.dynIdle(di, thrStick);
++            const trc = (globalThis as any).K_TRACE; if (trc) trc.lo = lo;
+             // Betaflight (mixer.c mixTable): a 1 % throttle offset at zero stick while dynamic idle is on
+             if (thr < 0.01) thr = 0.01;
+         }
+@@ -855,6 +856,7 @@
+         iTerm = iTerm < 0 ? 0 : iTerm > maxInc ? maxInc : iTerm;
+         s[S_DYN.dynI] = iTerm;
+         const inc = pTerm + iTerm + dTerm;
++        const trd = (globalThis as any).K_TRACE; if (trd) { trd.dyn = [minRps, err, pTerm, iTerm, dTerm]; }
+         return inc < 0 ? 0 : inc > maxInc ? maxInc : inc;
+     }
+ 
+@@ -952,7 +954,11 @@
+                 }
+                 // a surface over the intake (prop strike) or the rotor's own wake (prop wash) takes thrust, not the blades'
+                 // drag: a starved or washed rotor still needs its torque (a rotor in its wake needs as much power or more)
++                { const g = globalThis as any; if (g.K_LAG > 0) { if (!g.lagT) { g.lagT = [T, T, T, T]; } const al = 1 - Math.exp(-this.h / g.K_LAG); g.lagT[i] += (T - g.lagT[i]) * al; T = g.lagT[i]; } }
++                { const g = globalThis as any; if (g.K_LEAD > 0) { if (!g.leadT) { g.leadT = [T, T, T, T]; } const tq = T; T = T + g.K_LEAD * (T - g.leadT[i]) / this.h; g.leadT[i] = tq; } }
+                 T *= keep * strike[i];
++                const ka = (globalThis as any).K_ASYM; if (ka) { T *= ka[i]; Q *= ka[i]; }
++                const tr = (globalThis as any).K_TRACE; if (tr) { tr.om[i] = om; tr.T[i] = T; tr.Q[i] = Q; tr.bvy = bvy; tr.duty[i] = out[i]; }
+                 // the ESC loses dutyOffset of the duty (0 without esc_duty_offset: the command itself)
+                 const duty = mot.dutyOffset === 0 ? out[i] : out[i] > mot.dutyOffset ? out[i] - mot.dutyOffset : 0;
+                 const amps = (dir[i] * duty * volt - mot.ke * om) / mot.r;
+@@ -1167,7 +1173,8 @@
+      * No crossflow (as the tests). Thrust returned, torque (positive against the rotation) in this.propQ.
+      */
+     private windmillLoads(f: RotorInflow, tip: number, uy: number): number {
+-        const x = ((f.theta * tip) / uy) * WINDMILL_X0;
++        let x = ((f.theta * tip) / uy) * WINDMILL_X0;
++        if ((globalThis as any).K_FLAT && x < 0.85) x = 0.85;
+         const R = f.radius;
+         const k = this.p.rho * uy * uy * 4 * R * R * f.kWindmill;
+         this.propQ = k * 2 * R * tableAt(WINDMILL_QC, WINDMILL_DX, x);

@@ -320,3 +320,11 @@ controllers shake through a full-throttle punch-out at 30-40 m/s with the delay;
 chop through real Betaflight with the delay and default TPA: 117 / 172 deg/s (built-in 95 / 138), real ~60 / 77. Left:
 the chop alone, about 2x the real kick; open question is how a prop pushed back over the band's hump in a few ms
 behaves (steady-state data cannot show it).
+
+**The fast chop modelled: unsteady blade-element momentum (owner: "try 1 and then move the CFD if it's not satisfactory",
+2026-10-21; `docs/evidence/2026-10-21-unsteady-bem/`).** A wind-turbine-style model of the Nazgul prop (OpenFAST's Oye
+dynamic stall and Oye dynamic inflow) whose steady curve matches the measured band shape. At the chop's own rpm rates:
+dynamic stall changes nothing (its flow settles in 0.3 ms); dynamic inflow puts the thrust about 0.7 ms ahead of
+quasi-steady (a lead; the lags tried before had the wrong sign). That lead in a scratch sim with the 4 ms delay: the
+owner's chop on Betaflight defaults 95 / 141 -> 64 / 98 deg/s (real ~60 / 77), SupaFly 163 / 206 -> 132 / 171. Next:
+dynamic inflow done properly in sim-core (a lag on the induced velocity, hover included), then the delay; CFD not needed yet.
