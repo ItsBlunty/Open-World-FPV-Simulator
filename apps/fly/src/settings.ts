@@ -75,6 +75,13 @@ export interface Settings {
     quad: QuadId;
     /** gyro / PID loop rate, Hz: 4000 (default, owner 2026-10-21: as real Betaflight boards) or 8000; sim-core loopHz */
     loopHz: 4000 | 8000;
+    /**
+     * the ESC's dead time (sim-core escDelayMs ESC_DELAY_MS): off by default; a switch to compare (owner, 2026-10-21: "Could
+     * we add it as a toggle so I could compare?")
+     */
+    escDelay: boolean;
+    /** dynamic inflow (sim-core dynamicInflow): on by default (owner 2026-10-21); a switch to compare */
+    dynamicInflow: boolean;
     /** dyn_idle_max_increase (0.1 % steps, 10-255, default 150) and dyn_idle_start_increase (10-255, default 50) */
     dynIdleMaxIncrease: number;
     dynIdleStartIncrease: number;
@@ -139,6 +146,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     tune: DEFAULT_TUNE,
     quad: DEFAULT_QUAD,
     loopHz: 4000,
+    escDelay: false,
+    dynamicInflow: true,
     dynIdleMaxIncrease: DYN_IDLE_DEFAULTS.maxIncrease,
     dynIdleStartIncrease: DYN_IDLE_DEFAULTS.startIncrease,
     dynIdleP: DYN_IDLE_DEFAULTS.p,
@@ -209,6 +218,8 @@ export function loadSettings(): Settings {
         out.dynIdleMinRpm = whole(s.dynIdleMinRpm, 10, 200) ?? out.dynIdleMinRpm;
     }
     if (s.loopHz === 4000 || s.loopHz === 8000) out.loopHz = s.loopHz;
+    if (typeof s.escDelay === 'boolean') out.escDelay = s.escDelay;
+    if (typeof s.dynamicInflow === 'boolean') out.dynamicInflow = s.dynamicInflow;
     if (isQuadId(s.quad)) out.quad = s.quad;
     out.dynIdleMaxIncrease = whole(s.dynIdleMaxIncrease, 10, 255) ?? out.dynIdleMaxIncrease;
     out.dynIdleStartIncrease = whole(s.dynIdleStartIncrease, 10, 255) ?? out.dynIdleStartIncrease;

@@ -337,3 +337,5 @@ the change; the unsteady BEM 7-13 %). Without the ESC dead time the chop barely 
 With the 4 ms dead time: Betaflight defaults 95 / 141 -> 64 / 99 (real ~60 / 77), SupaFly 163 / 206 -> 132 / 173. CPU
 +2.5 ms per second of flight. The dead time is still out of the game: the owner's call after flying. Flight feel: for the
 owner to fly (thrust answers rpm changes a touch harder at first).
+Switches to compare (owner: "Could we add it as a toggle so I could compare?", 2026-10-21): Settings > World and physics >
+"ESC delay" (off by default; sim-core `escDelayMs` = 4, the measured dead time) and "Dynamic inflow" (on by default).

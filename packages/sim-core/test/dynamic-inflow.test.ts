@@ -69,6 +69,16 @@ describe('dynamic inflow (Pitt-Peters uniform mode)', () => {
         expect(dy[29]).toBeCloseTo(qs[29], 3);
     });
 
+    it('escDelayMs overrides the preset ESC dead time (the game switch); absent keeps the preset one', () => {
+        expect(compileParams(NAZGUL, { loopHz: 4000 }).escDelayLoops).toBe(0);
+        expect(compileParams(NAZGUL, { loopHz: 4000, escDelayMs: 4 }).escDelayLoops).toBe(16);
+        const withField = plainPreset('nazgulf5v3-6s');
+        withField.fields.esc_delay_ms = { value: 4, source: 'test' } as never;
+        expect(compileParams(withField, { loopHz: 4000 }).escDelayLoops).toBe(16);
+        expect(compileParams(withField, { loopHz: 4000, escDelayMs: 0 }).escDelayLoops).toBe(0);
+        expect(() => compileParams(NAZGUL, { escDelayMs: 25 })).toThrow();
+    });
+
     it('flights with it replay to the same state', () => {
         const fly = () => {
             const sim = new Sim(compileParams(NAZGUL, { loopHz: 4000, dynamicInflow: true }), null);

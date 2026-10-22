@@ -73,6 +73,9 @@ const preset = QUADS[settings.quad].preset;
 const selftestPreset = nazgul as unknown as PresetJson;
 const presetRates = compileParams(preset).rates;
 const presetIdle = compileParams(preset).idle;
+/** the ESC's dead time when the "ESC delay" switch is on, ms [measured: 4 ms from motor command to rpm in NeuroBEM's
+ * Betaflight blackbox telemetry, docs/evidence/2026-10-20-motor-lag/] */
+const ESC_DELAY_MS = 4;
 /** dynamic idle's minimum (x 100 rpm) the game picks for this quad from its props; null: the preset has no prop size */
 const presetProp = (preset as unknown as { fields: Record<string, { value: unknown }> }).fields.prop_diameter_mm?.value;
 const dynIdleMinRpm = typeof presetProp === 'number' ? autoDynIdleMinRpm(presetProp) : null;
@@ -92,8 +95,10 @@ function overrides(): ParamOverrides {
     // gyro / PID loop rate (owner 2026-10-21): the controller and physics run at the board's rate, 4 kHz by default
     o.loopHz = settings.loopHz;
     // dynamic inflow (owner 2026-10-21, review G13): the props' induced airflow lags rpm changes; sim-core ignores it under
-    // classic physics
-    o.dynamicInflow = true;
+    // classic physics. On by default, a switch to compare
+    if (settings.dynamicInflow) o.dynamicInflow = true;
+    // the ESC's dead time (owner 2026-10-21): off by default, a switch to compare
+    if (settings.escDelay) o.escDelayMs = ESC_DELAY_MS;
     // motor idle (owner 2026-10-20): Betaflight's dynamic idle, or the static idle when it differs from the quad's own;
     // dynamic idle needs the quad's prop size (dynIdleMinRpm, the game's own suggestion), its minimum is the setting's
     if (settings.dynIdle && dynIdleMinRpm !== null) {

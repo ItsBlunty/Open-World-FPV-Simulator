@@ -58,6 +58,8 @@ Traces change under both models (re-pinned flight `9002c3fa…`, classic `6cadfb
   hover overshoots the thrust as frozen-inflow theory says (1.5 for 11 -> 15 k rpm at once) and settles in a few ms;
   a windmilling prop sped up leads its steady thrust. About 2.5 ms CPU more per second of flight at 4 kHz. Test:
   `test/dynamic-inflow.test.ts`; evidence `docs/evidence/2026-10-21-dynamic-inflow/`.
+- `ParamOverrides.escDelayMs` (0-20): the ESC dead time in place of the preset's `esc_delay_ms`; absent, the preset's
+  (0 without the field). The game's "ESC delay" switch (owner, 2026-10-21). Test: `test/dynamic-inflow.test.ts`.
 - `ParamOverrides.loopHz` (`SimParams.loopHz`): the gyro / PID loop rate, 1000, 2000, 4000 or 8000 Hz (owner,
   2026-10-21: emulate the real 4-8 kHz gyro sampling). The controller reads a fresh gyro sample and the physics advances
   loopHz / 1000 times per 1 ms tick; every filter gain, derivative, integral and the physics step use the loop's dt

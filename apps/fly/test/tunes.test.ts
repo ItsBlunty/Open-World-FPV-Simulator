@@ -64,6 +64,16 @@ describe('tunes', () => {
         expect(loadSettings().loopHz).toBe(4000);
     });
 
+    it('ESC delay off and dynamic inflow on by default (owner 2026-10-21), both kept when switched', () => {
+        expect(DEFAULT_SETTINGS.escDelay).toBe(false);
+        expect(DEFAULT_SETTINGS.dynamicInflow).toBe(true);
+        withStorage({ version: 1, escDelay: true, dynamicInflow: false });
+        expect(loadSettings().escDelay).toBe(true);
+        expect(loadSettings().dynamicInflow).toBe(false);
+        withStorage({ version: 1, escDelay: 'yes' });
+        expect(loadSettings().escDelay).toBe(false);
+    });
+
     it('quads: the Nazgul by default, the UZH Kingfisher kept when chosen; each quad compiles with every tune', () => {
         expect(DEFAULT_SETTINGS.quad).toBe('nazgul');
         withStorage({ version: 1, quad: 'kingfisher' });

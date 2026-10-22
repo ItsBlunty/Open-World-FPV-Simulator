@@ -342,6 +342,11 @@ export interface ParamOverrides {
      * classic physics). Absent or false: off, the induced airflow follows at once, as before. sim-core/0.8.0, review G13.
      */
     dynamicInflow?: boolean;
+    /**
+     * The ESC's dead time, ms (0-20), in place of the preset's esc_delay_ms: the motors act on the command of that many ms
+     * ago. Absent: the preset's (0 without the field), as before. The game's "ESC delay" switch (owner, 2026-10-21).
+     */
+    escDelayMs?: number;
 }
 
 /** Betaflight's TPA settings (src/main/flight/pid.c, 4.5.1), CLI units; ranges from cli/settings.c. */
@@ -647,7 +652,7 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     // the ESC (sim-core/0.8.0): duty it loses (esc_duty_offset) and its dead time (esc_delay_ms); absent: 0, as before
     const dutyOffset = optNum(p, 'esc_duty_offset', 0);
     if (!(dutyOffset >= 0 && dutyOffset <= 0.2)) throw new Error(`preset ${p.id}: esc_duty_offset ${dutyOffset} outside 0-0.2`);
-    const escDelayMs = optNum(p, 'esc_delay_ms', 0);
+    const escDelayMs = o.escDelayMs ?? optNum(p, 'esc_delay_ms', 0);
     if (!(escDelayMs >= 0 && escDelayMs <= 20)) throw new Error(`preset ${p.id}: esc_delay_ms ${escDelayMs} outside 0-20`);
     const motor = inflow ? motorOf(kv, rpmFrac, vNom, kappa, tmaxMotorNom, dutyOffset) : null;
     // with rotor inflow the props unload at speed themselves, so the vertical drag area is the frame's own; the
