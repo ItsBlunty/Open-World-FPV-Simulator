@@ -1,0 +1,12 @@
+roma_1.npz                   DIATONE ROMA F5  |u|>=0.15 | roll: tau  2 ms, k   57014 deg/s^2 per unit, r 0.50, n 94 | pitch: tau  8 ms, k   30074 deg/s^2 per unit, r 0.26, n 210
+roma_2.npz                   DIATONE ROMA F5  |u|>=0.15 | roll: tau 30 ms, k  -13956 deg/s^2 per unit, r -0.32, n 134 | pitch: tau  0 ms, k   30378 deg/s^2 per unit, r 0.44, n 900
+roma_3.npz                   DIATONE ROMA F5  |u|>=0.15 | roll: tau  6 ms, k   12781 deg/s^2 per unit, r 0.65, n 59 | pitch: tau  0 ms, k   21479 deg/s^2 per unit, r 0.31, n 178
+gg_log1_1.npz                                 |u|>=0.15 | roll: tau 17 ms, k    8493 deg/s^2 per unit, r 0.68, n 266 | pitch: tau  0 ms, k     780 deg/s^2 per unit, r 0.18, n 901
+roma_1.npz                   DIATONE ROMA F5  |u|>=0.25 | roll: tau 14 ms, k  190317 deg/s^2 per unit, r 0.67, n 62 | pitch: tau  0 ms, k    8500 deg/s^2 per unit, r 0.20, n 99
+roma_2.npz                   DIATONE ROMA F5  |u|>=0.25 | roll: tau 30 ms, k  -12028 deg/s^2 per unit, r -0.30, n 109 | pitch: tau  0 ms, k   28058 deg/s^2 per unit, r 0.40, n 214
+roma_3.npz                   DIATONE ROMA F5  |u|>=0.25 | roll: too few samples | pitch: too few samples
+gg_log1_1.npz                                 |u|>=0.25 | roll: too few samples | pitch: too few samples
+roma_1.npz                   DIATONE ROMA F5  |u|>=0.35 | roll: tau 20 ms, k  268567 deg/s^2 per unit, r 0.89, n 53 | pitch: tau 26 ms, k     618 deg/s^2 per unit, r 0.19, n 53
+roma_2.npz                   DIATONE ROMA F5  |u|>=0.35 | roll: tau 30 ms, k  -12639 deg/s^2 per unit, r -0.37, n 99 | pitch: tau  0 ms, k   27811 deg/s^2 per unit, r 0.39, n 182
+roma_3.npz                   DIATONE ROMA F5  |u|>=0.35 | roll: too few samples | pitch: too few samples
+gg_log1_1.npz                                 |u|>=0.35 | roll: too few samples | pitch: too few samples

@@ -16,11 +16,11 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Betaflight's default TPA. [physics §2g]
 - **Where it stands:** chop now closest to real logs (SupaFly peak 40/62 deg/s, 3840 deg/s^2, top motor 0.80; real
   ~60/77, 2200, 0.49). Step response 10-11 ms (real 16-22). Waiting: owner flies /next/. [evidence 2026-10-21-aos-motor]
-- **ESC dead time checked (2026-10-21):** the band is not too strong (its shape matches measured small-prop data; real
-  eRPM logs show it). With the 4 ms delay Betaflight's defaults chop near real logs, SupaFly with dynamic idle about 2x,
-  and stick steps overshoot (1.5-1.65 at 12 ms; real 16-22 ms, damped). Open: the Nazgul's authority per command is too
-  high for real gains (G12); the delay stays out until that is found. Also: the ceiling contact rocks with the delay
-  (0.5 mm thrust loss step, F4). [physics §2g, evidence 2026-10-21-esc-delay]
+- **ESC dead time checked (2026-10-21):** the band matches measured small-prop data. With the 4 ms delay, real Betaflight
+  (SITL) flies normal flight calmly on today's Nazgul (50 % at 13-15 ms, real 16-22), so no authority gap; TPA is needed
+  at full throttle. Left: the chop alone, 117/172 deg/s through real Betaflight vs real ~60/77: how a prop behaves pushed
+  back over the band's hump in a few ms. The delay stays out until then. Also: ceiling contact rocks with the delay (F4).
+  [physics §2g, evidence 2026-10-21-esc-delay, 2026-10-21-authority]
 - **Tools:** Betaflight 2026.6.2 SITL in lock-step (WSL ~/owfpv-sitl, patch and bridge in docs/evidence/2026-10-21-sitl);
   public logs and replays in docs/evidence/2026-10-2*; Chris Rosser's stand spreadsheet is the owner's (not committed).
 - **Owner's quad would settle it:** `diff all`, a swing test for inertia, a blackbox log with rpm of a fast chop.

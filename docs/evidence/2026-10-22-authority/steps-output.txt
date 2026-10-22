@@ -1,0 +1,16 @@
+now_fast_delay_builtin.csv         tracking error rms  14.7 p99    60 deg/s | motors at full  5.2 % of the time | speed median 30.8 m/s
+now_fast_delay_sitl.csv            tracking error rms   7.1 p99    28 deg/s | motors at full  0.5 % of the time | speed median 30.4 m/s
+now_fast_plain_builtin.csv         tracking error rms   3.2 p99    11 deg/s | motors at full  0.0 % of the time | speed median 30.8 m/s
+now_fast_plain_sitl.csv            tracking error rms   4.4 p99    16 deg/s | motors at full  0.0 % of the time | speed median 30.4 m/s
+now_steps_delay_builtin.csv        tracking error rms  15.6 p99    68 deg/s | motors at full 34.1 % of the time | speed median 26.6 m/s
+now_steps_delay_sitl.csv           tracking error rms  12.9 p99    57 deg/s | motors at full 29.1 % of the time | speed median 25.9 m/s
+now_steps_plain_builtin.csv        tracking error rms   9.1 p99    43 deg/s | motors at full 27.3 % of the time | speed median 26.2 m/s
+now_steps_plain_sitl.csv           tracking error rms  11.3 p99    50 deg/s | motors at full 26.7 % of the time | speed median 25.9 m/s
+now_fast_delay_builtin.npz                   ast_delay_buil PID / | roll: n  40, 50 % at  11 ms, 90 % at  20 ms, peak 1.13 at  55 ms | pitch: n  22, 50 % at  10 ms, 90 % at  19 ms, peak 1.17 at  47 ms
+now_fast_delay_sitl.npz                      ast_delay_sitl PID / | roll: n  40, 50 % at  13 ms, 90 % at  26 ms, peak 1.11 at  60 ms | pitch: n  22, 50 % at  14 ms, 90 % at  30 ms, peak 1.13 at  75 ms
+now_fast_plain_builtin.npz                   ast_plain_buil PID / | roll: n  40, 50 % at  12 ms, 90 % at  24 ms, peak 1.10 at  53 ms | pitch: n  22, 50 % at  12 ms, 90 % at  25 ms, peak 1.11 at  53 ms
+now_fast_plain_sitl.npz                      ast_plain_sitl PID / | roll: n  40, 50 % at  14 ms, 90 % at  30 ms, peak 1.12 at  72 ms | pitch: n  22, 50 % at  15 ms, 90 % at  32 ms, peak 1.12 at  71 ms
+now_steps_delay_builtin.npz                  teps_delay_bui PID / | roll: n  72, 50 % at  12 ms, 90 % at  25 ms, peak 1.07 at  55 ms | pitch: n  76, 50 % at  13 ms, 90 % at  27 ms, peak 1.08 at  54 ms
+now_steps_delay_sitl.npz                     teps_delay_sit PID / | roll: n  72, 50 % at  14 ms, 90 % at  28 ms, peak 1.08 at  86 ms | pitch: n  76, 50 % at  15 ms, 90 % at  31 ms, peak 1.10 at  81 ms
+now_steps_plain_builtin.npz                  teps_plain_bui PID / | roll: n  72, 50 % at  13 ms, 90 % at  28 ms, peak 1.06 at  62 ms | pitch: n  76, 50 % at  14 ms, 90 % at  30 ms, peak 1.08 at  66 ms
+now_steps_plain_sitl.npz                     teps_plain_sit PID / | roll: n  72, 50 % at  15 ms, 90 % at  32 ms, peak 1.07 at  75 ms | pitch: n  76, 50 % at  16 ms, 90 % at  33 ms, peak 1.09 at  78 ms

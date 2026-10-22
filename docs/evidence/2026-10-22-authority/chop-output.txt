@@ -1,0 +1,12 @@
+== chopd4 (chopd: TPA off in both; tpad: Betaflight's default TPA in both; d4/d0: ESC dead time ms)
+sitl     n 16 | speed at chop 35.7 m/s | peak rate median 229 max 240 deg/s | accel median 27635 max 28512 deg/s^2 | top motor median 1.00 | motor > 15 % until 1500 ms | tilt 5.8 deg
+builtin  n 16 | speed at chop 34.8 m/s | peak rate median 166 max 170 deg/s | accel median 22779 max 23684 deg/s^2 | top motor median 1.00 | motor > 15 % until 1500 ms | tilt 5.7 deg
+real, 11 centred chops (Betaflight 3.2-4.0 issue logs): peak ~60 max 77 deg/s, accel median 2200 max 3700 deg/s^2, top motor 0.49, motor high 1.5-2.5 s, tilt 6 deg
+== chopd0 (chopd: TPA off in both; tpad: Betaflight's default TPA in both; d4/d0: ESC dead time ms)
+sitl     n 16 | speed at chop 42.2 m/s | peak rate median 46 max 62 deg/s | accel median 2703 max 4592 deg/s^2 | top motor median 0.71 | motor > 15 % until 1500 ms | tilt 3.9 deg
+builtin  n 16 | speed at chop 42.1 m/s | peak rate median 44 max 64 deg/s | accel median 2565 max 4624 deg/s^2 | top motor median 0.70 | motor > 15 % until 1500 ms | tilt 4.3 deg
+real, 11 centred chops (Betaflight 3.2-4.0 issue logs): peak ~60 max 77 deg/s, accel median 2200 max 3700 deg/s^2, top motor 0.49, motor high 1.5-2.5 s, tilt 6 deg
+== tpad4 (chopd: TPA off in both; tpad: Betaflight's default TPA in both; d4/d0: ESC dead time ms)
+sitl     n 16 | speed at chop 42.3 m/s | peak rate median 117 max 172 deg/s | accel median 10952 max 16267 deg/s^2 | top motor median 0.95 | motor > 15 % until 1500 ms | tilt 5.7 deg
+builtin  n 16 | speed at chop 42.2 m/s | peak rate median 95 max 138 deg/s | accel median 10059 max 14318 deg/s^2 | top motor median 0.93 | motor > 15 % until 1500 ms | tilt 5.4 deg
+real, 11 centred chops (Betaflight 3.2-4.0 issue logs): peak ~60 max 77 deg/s, accel median 2200 max 3700 deg/s^2, top motor 0.49, motor high 1.5-2.5 s, tilt 6 deg

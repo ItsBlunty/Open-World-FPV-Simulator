@@ -445,3 +445,7 @@ its lost authority. With the 4 ms dead time, Betaflight's defaults chop near the
 m/s) but SupaFly with dynamic idle gives about twice the real kick, and a stick step overshoots 1.5-1.65 at 12 ms (real
 16-22 ms, well damped); adding lag makes it worse. The open item is G12's: the Nazgul's authority per command is too high
 for real gains. The dead time stays out (`docs/evidence/2026-10-21-esc-delay/`).
+G12 / F9 update (2026-10-21, real Betaflight): Betaflight SITL on today's Nazgul flies the 4 ms dead time calmly in normal
+flight (tracking 7-13 deg/s, 50 % at 13-15 ms), so G12's authority gap is withdrawn (the overshoot above came from an instant
+stick step). The chop through real Betaflight with the dead time and its default TPA is 117 / 172 deg/s (built-in 95 / 138,
+real ~60 / 77): F9 narrows to a prop pushed back over the band's hump in a few ms (`docs/evidence/2026-10-21-authority/`).

@@ -1,0 +1,14 @@
+# Betaflight 2026.6.2 SITL set to the sim's built-in "original" tune (Betaflight 4.5 defaults, D fixed at its peak
+# 40/46 as the built-in controller has no dynamic D, no TPA), acro, airmode always on, arm on AUX1, any angle.
+feature -GPS
+feature -TELEMETRY
+map AETR1234
+aux 0 0 0 1700 2100 0 0
+aux 1 28 0 900 2100 0 0
+set small_angle = 180
+set d_roll = 40
+set d_pitch = 46
+set d_max_roll = 40
+set d_max_pitch = 46
+set tpa_rate = 0
+save
