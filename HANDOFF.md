@@ -74,6 +74,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
   the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
   Sound > Trains and airport. [sound §2e]
+  No GPU (owner): a browser drawing in software drops to Super low by itself with a warning box saying why (acceleration
+  off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
   Ultra preset (owner): shadows to 1000 m on a 16384² map (~1 GB) where the GPU allows; shadow depth range fixed (a
   dark wedge on the ground from high up). [browsers-input-performance §2j]
   Semis pull away slower (traffic v11, owner): 0.095 g for 3 s then 0.047 g, as measured trucks; they keep off the
@@ -81,7 +83,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 69 files, 623 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 69 files, 625 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d157f30a…` (traffic v11: semis' acceleration and turns; the trains v3)
@@ -104,10 +106,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 ## Next up (owner, 2026-10-24; one line each, in no set order)
 
 1. **Crane:** it turns, picks up and drops boxes round the worksite; an operator sits in its cab. [map §0q]
-2. **No GPU:** drop to super low spec by itself, with a tip saying why (no GPU found, or the browser's hardware
-   acceleration off, if the two can be told apart). [low-spec]
-3. **Airport:** solid propellers and rotors; airport lights. [airport §2d]
-4. **Replay radio controls:** finish and try them (roll to wind, pitch to play / pause). [replay-viewer]
+2. **Airport:** solid propellers and rotors; airport lights. [airport §2d]
+3. **Replay radio controls:** finish and try them (roll to wind, pitch to play / pause). [replay-viewer]
 
 ## Waiting for the owner
 
@@ -119,6 +119,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 4. **Motor idle:** the idle slider and Dynamic idle (3400 rpm): drops, dives, zero-throttle flips. Feels like your quad? [physics §2f]
 5. **Semis:** spawn "City street", watch semis pull away at a green (slower than cars now) and turn. Right? [traffic §2i]
 6. **Ultra preset:** Settings > Graphics > Ultra, fly high over the city: shadows far enough, fps OK? [browsers-input-performance §2j]
+7. **No GPU:** turn Chrome's "Use graphics acceleration when available" off, relaunch, open the game: Super low and the
+   warning box? Text clear? Turn it on again: back to your level? [low-spec §2k]
 
 ## Left open (not started)
 
@@ -188,7 +190,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
 | `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
-| `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements |
+| `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements; §2k: no GPU, super low by itself |
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |

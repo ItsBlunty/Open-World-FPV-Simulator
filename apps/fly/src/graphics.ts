@@ -51,6 +51,33 @@ export function graphicsFromParam(v: string | null): GraphicsLevel | null {
 }
 
 /**
+ * Whether the browser draws in software, with no graphics card (owner, 2026-10-24: "drop to super low spec by itself").
+ * `caveatOk`: a WebGL context asked with failIfMajorPerformanceCaveat was given, which the browser refuses when it would
+ * draw slowly; `name` the renderer it names (WEBGL_debug_renderer_info). Chrome with hardware acceleration off on Windows
+ * names "Microsoft Basic Render Driver" (WARP) and refuses the context (measured 2026-10-24, docs/notes/low-spec.md §2k);
+ * SwiftShader and Mesa's llvmpipe / softpipe are the software drawers elsewhere. No WebGL at all: false (nothing to switch to).
+ */
+export function drawsInSoftware(name: string | null, caveatOk: boolean): boolean {
+    if (name === null) return false;
+    return !caveatOk || /swiftshader|basic render driver|llvmpipe|softpipe|software (rasterizer|renderer)/i.test(name);
+}
+
+/**
+ * The graphics level to run this visit, and the setting's new values, from the saved level, what it was before a
+ * switch for no GPU (null: no switch), and whether the browser draws in software now. The first visit with no GPU
+ * drops to super low spec and remembers the level it had; a later visit with a GPU puts that level back unless the
+ * pilot has chosen another since. While still with no GPU, the pilot's own choice stands.
+ */
+export function noGpuSwitch(saved: GraphicsLevel, from: GraphicsLevel | null, software: boolean): { graphics: GraphicsLevel; from: GraphicsLevel | null; changed: 'down' | 'back' | null } {
+    if (software) {
+        if (from === null && saved !== 'super') return { graphics: 'super', from: saved, changed: 'down' };
+        return { graphics: saved, from, changed: null };
+    }
+    if (from === null) return { graphics: saved, from, changed: null };
+    return saved === 'super' ? { graphics: from, from: null, changed: 'back' } : { graphics: saved, from: null, changed: null };
+}
+
+/**
  * The quality presets at the top of Settings > Graphics, as games have them (owner, 2026-10-19): Ultra (2026-10-24), High
  * and Medium draw with the full renderer and differ in how far the shadows reach; Low, Very low and Super low are the three low spec
  * levels. Any other mix of the details under them is "custom".

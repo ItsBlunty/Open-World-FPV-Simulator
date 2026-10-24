@@ -136,7 +136,7 @@ Super draws 88 k triangles in 38-45 draws. Screenshots: `docs/evidence/2026-10-1
 `city-super.png` (blocky, and thin lattice like the crane breaks up at a quarter resolution), `settings-super.png`.
 Tests: 56 files, 486 pass (new `graphics.test.ts`); typecheck clean; hashes unchanged (rendering and traffic toggles only).
 **Left open:** not tried on a real old laptop; 1 core stays under 60 in super; no automatic switch when the browser
-has no GPU (owner not asked yet: auto-switch or tip).
+has no GPU (built since: §2k).
 
 ## Low spec fisheye lens (owner, 2026-10-22): built; on main 2026-10-24
 
@@ -197,3 +197,33 @@ version)". Checked in headless Chrome: `menu-super.png` (super low spec, the len
 Owner: "This is not clear at all. It looks like simple explainer text." Now a warning box under the Lens list (amber
 border and tint, "⚠ LOW SPEC FISHEYE: LOWER QUALITY ON PURPOSE", "This is not the real lens ... For the real fisheye, set
 Graphics to High or Medium"), the row label "Lens (low spec)" in amber, each lens "LOW SPEC · <name>". Shots re-taken.
+
+## 2k. No GPU: super low spec by itself, with a tip (owner, 2026-10-24): built, waiting for the owner
+
+**Asked (Next up):** "drop to super low spec by itself, with a tip saying why (no GPU found, or the browser's hardware
+acceleration off, if the two can be told apart)".
+
+**Can they be told apart? No, not from a page.** Measured on this PC (headless Chrome 155, `gpuprobe` in the session
+scratchpad, not kept): with the GPU the renderer reads "ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Ti ...)" and a WebGL 2
+context asked with `failIfMajorPerformanceCaveat: true` is given; with `--disable-gpu` (the same as Chrome's "Use
+graphics acceleration when available" off, §0v) it reads "ANGLE (Microsoft, Microsoft Basic Render Driver ...)" and
+that context is refused; with the software rasterizer off as well there is no WebGL at all. A Windows PC with no
+working display driver draws with the same Microsoft Basic Render Driver, so the page sees the same thing either way.
+The tip names both causes and where the switch is.
+
+**Built:** `graphics.ts` `drawsInSoftware(name, caveatOk)`: software when the browser refuses the fast-only context, or
+names SwiftShader, Basic Render Driver, llvmpipe, softpipe or a software rasterizer; no WebGL: false.
+`noGpuSwitch(saved, from, software)`: the first visit drawing in software saves Super low and remembers the level it
+had (`Settings.noGpuFrom`); while still with no GPU the pilot's own choice stands (no second switch); a visit with a GPU
+again puts the remembered level back if the setting is still Super low, else keeps the pilot's pick. Not with
+`?lowspec` (it says a level for the visit). `main.ts` checks before the renderer is picked. The tip: an amber warning box
+on the title card and at the top of Settings > Graphics (there with the driver's name); a plain box "Graphics card found
+again. Back to ..." on the title card of the visit that switches back.
+
+**Evidence** (`docs/evidence/2026-10-24-no-gpu/`, `probe.mjs`, one headless Chrome profile three times): acceleration
+off: engine "WebGL 2, super low spec", saved `graphics: super, noGpuFrom: full`, box shown (`1-...-title.png`,
+`1-...-settings.png`); off again: unchanged; on again: "WebGPU", saved `graphics: full, noGpuFrom: null`, the "found
+again" box (`3-gpu-again-title.png`). 625 tests pass (new in `graphics.test.ts`); typecheck clean.
+
+**Left open:** not tried on a PC with no GPU driver, on Edge, or on Mac / Linux; a GPU on Chrome's blocklist also draws
+in software and gets the same tip.

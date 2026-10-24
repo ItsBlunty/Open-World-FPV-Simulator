@@ -91,6 +91,11 @@ export interface Settings {
      * is the same in all of them. Applies on reload (docs/notes/low-spec.md). Was `lowSpec: boolean` before 2026-10-19.
      */
     graphics: GraphicsLevel;
+    /**
+     * the graphics level before the game dropped to super low spec by itself because the browser had no GPU (graphics.ts
+     * noGpuSwitch; owner, 2026-10-24), null when it has not
+     */
+    noGpuFrom: GraphicsLevel | null;
     /** sound on or off (audio/audio.ts; the M key too) */
     sound: boolean;
     /**
@@ -136,6 +141,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     shadowReach: 'near',
     renderScale: 1,
     graphics: 'full',
+    noGpuFrom: null,
     sound: true,
     volume: 80,
     quadVolume: 100,
@@ -205,6 +211,7 @@ export function loadSettings(): Settings {
         const v = s[k];
         if (typeof v === 'number' && v >= 0 && v <= 100) out[k] = Math.round(v);
     }
+    if (isGraphicsLevel(s.noGpuFrom)) out.noGpuFrom = s.noGpuFrom;
     if (isGraphicsLevel(s.graphics)) out.graphics = s.graphics;
     // the old low spec switch (2026-10-18): on means low spec
     else if ((s as { lowSpec?: unknown }).lowSpec === true) out.graphics = 'low';

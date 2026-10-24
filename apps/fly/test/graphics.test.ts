@@ -2,7 +2,7 @@
 // what each low spec mode draws (owner, 2026-10-19: three low spec modes).
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { QUALITY_PRESETS, applyPreset, cheaper, cheaperPreset, graphicsFromParam, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../src/graphics';
+import { QUALITY_PRESETS, applyPreset, cheaper, cheaperPreset, drawsInSoftware, graphicsFromParam, noGpuSwitch, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../src/graphics';
 import type { GraphicsChoice } from '../src/graphics';
 import { kitFor } from '../src/render/kit';
 import { DEFAULT_SETTINGS, loadSettings } from '../src/settings';
@@ -106,5 +106,32 @@ describe('quality presets', () => {
         // a custom full-graphics mix: the first low spec preset
         expect(cheaperPreset({ ...base(), renderScale: 0.6 })).toBe('low');
         expect(cheaperPreset({ ...base(), graphics: 'low', renderScale: 0.6 })).toBe('verylow');
+    });
+});
+
+describe('no GPU: super low spec by itself (owner, 2026-10-24)', () => {
+    it('tells software drawing from a GPU', () => {
+        // measured on this PC (headless Chrome 155): with a GPU, and with --disable-gpu (hardware acceleration off)
+        expect(drawsInSoftware('ANGLE (NVIDIA, NVIDIA GeForce RTX 4070 Ti (0x00002782) Direct3D11 vs_5_0 ps_5_0, D3D11)', true)).toBe(false);
+        expect(drawsInSoftware('ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)', false)).toBe(true);
+        expect(drawsInSoftware('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)', true)).toBe(true);
+        expect(drawsInSoftware('llvmpipe (LLVM 15.0.7, 256 bits)', true)).toBe(true);
+        // the browser refusing a fast-only context is enough, whatever it names
+        expect(drawsInSoftware('ANGLE (Intel, Intel(R) HD Graphics 3000)', false)).toBe(true);
+        // no WebGL at all: nothing to switch to
+        expect(drawsInSoftware(null, false)).toBe(false);
+    });
+
+    it('drops to super once, remembers the level, and puts it back when a GPU is found', () => {
+        expect(noGpuSwitch('full', null, true)).toEqual({ graphics: 'super', from: 'full', changed: 'down' });
+        // still no GPU: stays, and a level the pilot picks since stands
+        expect(noGpuSwitch('super', 'full', true)).toEqual({ graphics: 'super', from: 'full', changed: null });
+        expect(noGpuSwitch('low', 'full', true)).toEqual({ graphics: 'low', from: 'full', changed: null });
+        // a GPU again: back to full; or the pilot's own pick kept
+        expect(noGpuSwitch('super', 'full', false)).toEqual({ graphics: 'full', from: null, changed: 'back' });
+        expect(noGpuSwitch('low', 'full', false)).toEqual({ graphics: 'low', from: null, changed: null });
+        // super chosen by the pilot: nothing to do either way
+        expect(noGpuSwitch('super', null, true)).toEqual({ graphics: 'super', from: null, changed: null });
+        expect(noGpuSwitch('full', null, false)).toEqual({ graphics: 'full', from: null, changed: null });
     });
 });

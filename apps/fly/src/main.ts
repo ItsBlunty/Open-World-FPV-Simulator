@@ -47,7 +47,7 @@ import type { EditorState, EngineMsg, EngineReport, EngineSettings, HudSnapshot,
 import { ReportUi } from './ui/report-ui';
 import { ErrorLog } from './report';
 import type { PageReport } from './report';
-import { PRESET_NAMES, cheaperPreset, graphicsFromParam, isLowSpec, trafficAllowed } from './graphics';
+import { PRESET_NAMES, cheaperPreset, drawsInSoftware, graphicsFromParam, graphicsName, isLowSpec, noGpuSwitch, trafficAllowed } from './graphics';
 import { AudioEngine } from './audio/audio';
 import type { SoundLevels } from './audio/audio';
 import { bladesOf } from './audio/quad-sound';
@@ -145,6 +145,36 @@ function attachMouse(c: HTMLCanvasElement): void {
 }
 
 // ---------------------------------------------------------------- engine
+
+/** The GPU the browser names, read once from a throwaway WebGL context (null when it will not say). */
+let gpuName: string | null | undefined;
+/** whether the browser gave a WebGL context that refuses to draw slowly (failIfMajorPerformanceCaveat): it has a GPU */
+let gpuFast = true;
+function gpu(): string | null {
+    if (gpuName !== undefined) return gpuName;
+    try {
+        const gl = document.createElement('canvas').getContext('webgl2') ?? document.createElement('canvas').getContext('webgl');
+        const ext = gl?.getExtension('WEBGL_debug_renderer_info');
+        gpuName = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : null;
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+        const fast = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+        gpuFast = fast !== null;
+        fast?.getExtension('WEBGL_lose_context')?.loseContext();
+    } catch {
+        gpuName = null;
+    }
+    return gpuName;
+}
+
+// No GPU (owner, 2026-10-24): the first visit that draws in software drops to super low spec by itself and says why;
+// a visit with a GPU again puts the old level back (graphics.ts noGpuSwitch). Not when ?lowspec says a level.
+const softwareGpu = drawsInSoftware(gpu(), gpuFast);
+const noGpu = graphicsFromParam(params.get('lowspec')) === null ? noGpuSwitch(settings.graphics, settings.noGpuFrom, softwareGpu) : null;
+if (noGpu && (noGpu.graphics !== settings.graphics || noGpu.from !== settings.noGpuFrom)) {
+    settings.graphics = noGpu.graphics;
+    settings.noGpuFrom = noGpu.from;
+    saveSettings(settings);
+}
 
 // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
 // the graphics level too (it picks the renderer); ?lowspec, ?lowspec=extra, ?lowspec=super or ?lowspec=0 say one for this visit
@@ -807,21 +837,6 @@ async function openFlightFile(file: File): Promise<{ id: number } | { error: str
     return { id: flight.id };
 }
 
-/** The GPU the browser names, read once from a throwaway WebGL context (null when it will not say). */
-let gpuName: string | null | undefined;
-function gpu(): string | null {
-    if (gpuName !== undefined) return gpuName;
-    try {
-        const gl = document.createElement('canvas').getContext('webgl2') ?? document.createElement('canvas').getContext('webgl');
-        const ext = gl?.getExtension('WEBGL_debug_renderer_info');
-        gpuName = gl ? String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : null;
-        gl?.getExtension('WEBGL_lose_context')?.loseContext();
-    } catch {
-        gpuName = null;
-    }
-    return gpuName;
-}
-
 /** The engine's state for a report, or null if it does not answer within 2 s (still starting, or failed). */
 function engineReport(): Promise<EngineReport | null> {
     if (!engineReady) return Promise.resolve(null);
@@ -875,6 +890,24 @@ const isFirefox = /firefox\//i.test(navigator.userAgent);
 let helpOpen = false;
 
 /** Firefox is shelved (docs/decisions.md, owner 2026-10-18); other browsers without WebHID only lose the direct USB path */
+/**
+ * Why this visit runs in super low spec by itself, on the title card and in Settings > Graphics (owner, 2026-10-24: "with
+ * a tip saying why"), or that a GPU was found again. A page can't tell hardware acceleration switched off from a computer
+ * with no working GPU driver: on Windows both draw with the same software driver (docs/notes/low-spec.md §2k).
+ */
+function noGpuNotice(inSettings = false): HTMLElement | null {
+    if (noGpu?.changed === 'back' && !inSettings) {
+        return h('div', { class: 'callout' }, h('strong', {}, 'Graphics card found again. '),
+            `Back to ${graphicsName(graphicsNow)}, as you had it before the game switched to super low spec for you.`);
+    }
+    if (!softwareGpu || graphicsNow !== 'super' || settings.noGpuFrom === null) return null;
+    return h('div', { class: 'callout-warn' },
+        h('div', { class: 'callout-title' }, '⚠ No graphics card in use: super low graphics'),
+        h('div', {}, `This browser is drawing on the processor instead of a graphics card${gpuName && inSettings ? ` (it reports "${gpuName}")` : ''}, so the game switched to Super low: quarter resolution, 200 m view, no traffic, to keep it smooth.`),
+        h('div', {}, "Either the browser's hardware acceleration is off ('Use graphics acceleration when available': Chrome's Settings > System, Edge's Settings > System and performance; then relaunch), or this computer has no working graphics driver. A web page cannot tell which."),
+        h('div', {}, `When a graphics card is in use again, the game goes back to ${graphicsName(settings.noGpuFrom)} by itself.${inSettings ? '' : ' To choose yourself: Settings > Graphics.'}`));
+}
+
 function browserNotice(hidOk: boolean): HTMLElement | null {
     if (isFirefox) {
         return h('div', { class: 'callout' },
@@ -993,6 +1026,7 @@ function credits(): HTMLElement {
 /** what the page adds to the Settings tabs (settings-ui.ts): everything the old main menu held that was not a screen */
 function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
     const hidOk = HidSource.supported();
+    if (tab === 'graphics' && where === 'top') return [noGpuNotice(true)];
     if (tab === 'radio') return where === 'top' ? [browserNotice(hidOk), ...controllerSection(hidOk)] : controlsSection();
     if (tab === 'about' && where === 'top') {
         return [
@@ -1033,6 +1067,7 @@ function renderMenu(): void {
             h('h1', { class: 'game-title' }, 'Open World FPV Simulator'),
             h('p', { class: 'muted' }, '5" freestyle in an open city'),
             browserNotice(HidSource.supported()),
+            noGpuNotice(),
             h('div', { class: 'title-radio' }, radioStatus()),
             startPoint(),
             menuButtons(h('button', { class: 'primary', onclick: startFlying }, 'Start flying')),
