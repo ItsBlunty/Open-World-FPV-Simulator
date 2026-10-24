@@ -12,7 +12,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   of 10 with reasons, listed in the replay viewer; the owner is happy with it for now (2026-10-24).
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
   Low spec fisheye (owner; on main 2026-10-24): the lens from one wide view; free on a weak GPU, ~1/3 of the fps with
-  none; Settings > Camera says it is a simplified lens, worse on purpose, and tags each lens "(low spec version)". [low-spec]
+  none; Settings > Camera shows an amber "lower quality on purpose" warning box and "LOW SPEC ·" on each lens. [low-spec]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
   300 / 200 m view; super holds 60 fps with no GPU on 2 cores. [low-spec]

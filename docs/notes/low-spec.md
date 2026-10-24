@@ -194,3 +194,6 @@ any low spec mode Settings > Camera now opens with a "Low spec fisheye." note (a
 softer most of all at the edges; the full lenses in High and Medium), and each lens in the list ends "(low spec
 version)". Checked in headless Chrome: `menu-super.png` (super low spec, the lens drawn behind the menu), `menu-full.png`
 (full graphics: no note, no tag). 69 files, 620 tests pass; typecheck clean.
+Owner: "This is not clear at all. It looks like simple explainer text." Now a warning box under the Lens list (amber
+border and tint, "⚠ LOW SPEC FISHEYE: LOWER QUALITY ON PURPOSE", "This is not the real lens ... For the real fisheye, set
+Graphics to High or Medium"), the row label "Lens (low spec)" in amber, each lens "LOW SPEC · <name>". Shots re-taken.

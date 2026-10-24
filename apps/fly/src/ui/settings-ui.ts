@@ -267,16 +267,21 @@ export class SettingsUi {
             camera: [
                 h('h2', {}, 'FPV camera'),
                 this.slider('Camera uptilt', 0, 60, s.uptiltDeg, '°', (v) => { s.uptiltDeg = v; host.onCamera(); host.save(); }),
-                // the low spec lens is a cut-down one; say so plainly (owner, 2026-10-24: "worse on purpose")
-                ...(isLowSpec(host.graphicsNow) ? [h('p', { class: 'note' }, h('b', {}, 'Low spec fisheye. '),
-                    `In ${graphicsName(host.graphicsNow)} mode the lenses are a simplified version, worse on purpose so they run on weak machines: drawn from one wide view at lower detail, so the picture is softer, most of all at the edges. The full lenses come back in the High and Medium presets.`)] : []),
-                h('div', { class: 'row' }, h('span', { style: 'width:150px' }, 'Lens'),
+                h('div', { class: 'row' }, isLowSpec(host.graphicsNow)
+                    ? h('span', { style: 'width:150px', class: 'warn' }, 'Lens (low spec)')
+                    : h('span', { style: 'width:150px' }, 'Lens'),
                     h('select', { onchange: (e: Event) => { s.lens = (e.target as HTMLSelectElement).value; host.onCamera(); host.save(); this.build(); } },
                         h('option', { value: NO_LENS, selected: s.lens === NO_LENS }, 'Flat (no fisheye), field of view below'),
                         ...LENSES.map((l) => {
                             const f = lensFov(l);
-                            return h('option', { value: l.id, selected: s.lens === l.id }, `${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°${isLowSpec(host.graphicsNow) ? ' (low spec version)' : ''}`);
+                            return h('option', { value: l.id, selected: s.lens === l.id }, `${isLowSpec(host.graphicsNow) ? 'LOW SPEC · ' : ''}${l.label}: ${Math.round(f.h)}° x ${Math.round(f.v)}°`);
                         }))),
+                // the low spec lens is a cut-down one: a warning box, not a note, so nobody takes it for the real
+                // lens (owner, 2026-10-24: "worse on purpose because its low spec"; a plain note was "not clear at all")
+                ...(isLowSpec(host.graphicsNow) ? [h('div', { class: 'callout-warn' },
+                    h('div', { class: 'callout-title' }, '⚠ Low spec fisheye: lower quality on purpose'),
+                    h('div', {}, 'This is not the real lens. It is a cheap stand-in so a weak computer can still fly with a fisheye: blurrier, most of all at the edges.'),
+                    h('div', {}, 'For the real fisheye, set Graphics to High or Medium.'))] : []),
                 // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
                 s.lens === NO_LENS
                     ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })

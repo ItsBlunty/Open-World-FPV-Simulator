@@ -91,6 +91,9 @@ table.rates input { width: 76px; }
 #hud .cross { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(255,255,255,0.55); border-radius: 50%; }
 #hud .bottom { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 13px; color: #ddd; }
 .warn { color: #ffcc4d; }
+/* a warning that must not read as explainer text (the low spec fisheye) */
+.callout-warn { margin: 8px 0 12px; padding: 10px 12px; border: 2px solid #ffcc4d; border-radius: 6px; background: rgba(255, 204, 77, 0.12); color: var(--text); font-size: 14px; line-height: 1.45; }
+.callout-warn .callout-title { color: #ffcc4d; font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
 .section-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 8px; }
 .section-head h2 { margin: 0; flex: 1; }
 .gear-btn { display: inline-flex; align-items: center; gap: 8px; }
