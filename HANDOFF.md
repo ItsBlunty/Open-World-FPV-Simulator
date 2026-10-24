@@ -3,7 +3,11 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## Active: throttle-chop bobble and flight feel (owner, 2026-10-20) — start here [physics §2g, physics-review F9, F10, G12]
+## Parked: throttle-chop bobble and flight feel (owner, 2026-10-20) [physics §2g, physics-review F9, F10, G12]
+
+- **Parked (owner, 2026-10-24):** "The physics dont solve the instability in throttle chops that I wanted, so for now
+  we will leave that in \"next\" and not work on it." The rest of the game moves on from `main`: its HANDOFF.md is the
+  current one (the waiting list and Next up there replace this file's lists).
 
 - **Issue:** a quad chopped to zero throttle at speed should hold attitude with motors near idle; the sim bobbled and
   fought (PID vs props in the windmill-brake band). Owner wants proper physics, no bandaids.
