@@ -63,6 +63,8 @@ export class ReplayUi {
     private readonly left = h('div', { class: 'stick' }, h('div', { class: 'dot' }));
     private readonly right = h('div', { class: 'stick' }, h('div', { class: 'dot' }));
     private readonly time = h('span', { class: 'replay-time' });
+    /** the radio winding the replay: which way and how fast (empty while it is not) */
+    private readonly wind = h('span', { class: 'replay-wind' });
     private readonly bar = h('div', { class: 'replay-bar' });
     private readonly scrub = h('input', { type: 'range', class: 'replay-scrub', 'aria-label': 'Position in the flight' });
     private readonly playBtn = h('button', { class: 'primary replay-play' });
@@ -176,7 +178,7 @@ export class ReplayUi {
             h('div', { class: 'seg' }, ...items.map((it) => h('button', { class: it.id === cur ? 'on' : '', onclick: () => { set(it.id); this.buildControls(); } }, it.label)));
         const radio = host.hasRadio
             ? h('label', { class: 'muted', title: 'Roll past half way winds the replay (right forward, left back). Pitch pushed past 80 % plays or pauses.' },
-                h('input', { type: 'checkbox', checked: this.radioOn, onchange: (e: Event) => { this.radioOn = (e.target as HTMLInputElement).checked; if (!this.radioOn) host.ctl({ shuttle: 0 }); } }),
+                h('input', { type: 'checkbox', checked: this.radioOn, onchange: (e: Event) => { this.radioOn = (e.target as HTMLInputElement).checked; if (!this.radioOn) { host.ctl({ shuttle: 0 }); this.winding(0); } this.buildControls(); } }),
                 ' Radio controls')
             : null;
         clear(this.el,
@@ -185,13 +187,16 @@ export class ReplayUi {
             this.trickList,
             h('div', { class: 'replay-panel' },
                 this.status,
-                h('div', { class: 'row tight' }, this.playBtn, this.time, this.bar),
+                h('div', { class: 'row tight' }, this.playBtn, this.time, this.wind, this.bar),
                 h('div', { class: 'row tight' },
                     h('span', { class: 'muted' }, 'Speed'), pick(this.speed, SPEEDS.map((s) => ({ id: s, label: `${s}x` })), (v) => { this.speed = v; host.ctl({ speed: v }); }),
                     h('span', { class: 'muted' }, 'Camera'), pick(this.cam, CAMS, (v) => this.setCam(v)),
                     h('span', { class: 'muted' }, 'Path'), pick(this.path, PATHS, (v) => { this.path = v; host.ctl({ path: v }); }),
                     radio, h('span', { class: 'spacer' }),
                     h('button', { onclick: () => host.exit() }, 'Back to flights')),
+                this.radioOn
+                    ? h('div', { class: 'note' }, 'Radio controls: roll right past half way winds forward, left winds back, faster the further you push (up to 8x). Pitch pushed all the way, forward or back, plays or pauses; let it come back to centre before the next push. Throttle and yaw do nothing.')
+                    : null,
                 h('div', { class: 'note' }, this.cam === 'free'
                     ? 'Free camera: click to steer with the mouse, W A S D move, Space / E up, Q down, Shift faster.'
                     : 'Space play / pause · ← → 5 s · C camera · Esc back. The spotter stands behind the quad, or where the free camera was.')));
@@ -202,6 +207,11 @@ export class ReplayUi {
         this.cam = c;
         this.host?.ctl({ cam: c });
         this.buildControls();
+    }
+
+    /** The radio winds the replay at `shuttle` flight seconds a second (0: it does not): shown beside the clock. */
+    winding(shuttle: number): void {
+        this.wind.textContent = shuttle === 0 ? '' : `${shuttle > 0 ? '▶▶' : '◀◀'} ${Math.abs(shuttle).toFixed(1)}x`;
     }
 
     togglePlay(): void {

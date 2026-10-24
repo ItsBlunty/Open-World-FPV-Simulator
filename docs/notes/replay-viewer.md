@@ -47,3 +47,21 @@ tried with a real radio. No crash marks seen in the browser (damage is off by de
 
 **Later (2026-10-18):** the owner looked at it: "looks good for now", radio controls to be tried later. The viewer now
 also lists the grader's tricks (`freestyle-grading.md` §11).
+
+## Radio controls finished and tried (owner, 2026-10-24: Next up "finish and try them")
+
+**Finished:** the controls were built (2026-10-18) but only in a hover tooltip, with nothing on screen while winding.
+Now, with Radio controls ticked, a line under the panel says what each stick does; while the roll stick winds, the
+clock is followed by "▶▶ 2.4x" or "◀◀ 8.0x" (amber). Fixed: turning the box off and on again with the roll stick held
+did not wind until the stick moved (the page still thought it had sent that speed); the viewer's own stop now counts as
+the last speed sent. The box still starts off for each replay (owner, 2026-10-18).
+
+**Tried end to end** (`docs/evidence/2026-10-24-replay-radio/probe.mjs`, headless Chrome, dev server): a stand-in radio
+(a fake 8-axis gamepad through `navigator.getGamepads`, with a saved mode 2 profile, picked up as "ready (Mode 2)"),
+flown 12 s, then Flight replay > Watch, paused, box ticked. Playhead per step: jitter (roll 0.4, pitch 0.7, yaw 0.3)
+nothing; roll right 0.75 for 2 s 0:00.3 -> 0:05.1 at 2.4x (expected 2.4x); roll left full 1 s back to 0:00.0 at 8.0x;
+pitch full forward plays, held 1.5 s no second toggle, full back pauses; box off: roll does nothing; box on again with
+roll held: winds at 8x. No console errors. Shots: `1-radio-on-paused.png`, `2-winding-forward.png`,
+`3-winding-back.png`. 625 tests pass; typecheck clean.
+
+**Left open:** not tried with the owner's real radio (a gamepad stand-in, not WebHID).

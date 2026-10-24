@@ -362,6 +362,7 @@ function onRaw(f: RawFrame): void {
         if (r.shuttle !== sentShuttle) {
             sentShuttle = r.shuttle;
             send({ type: 'replay-ctl', shuttle: r.shuttle });
+            replayUi.winding(r.shuttle);
         }
         return;
     }
@@ -772,7 +773,8 @@ async function watchSaved(id: number): Promise<void> {
     flightsUi.hide();
     replayStarted = false;
     replayUi.begin({
-        ctl: (m) => send({ type: 'replay-ctl', ...m }),
+        // the viewer's own stop (radio controls off) is the last shuttle sent too, so the stick counts again when back on
+        ctl: (m) => { if (m.shuttle !== undefined) sentShuttle = m.shuttle; send({ type: 'replay-ctl', ...m }); },
         exit: closeReplay,
         hasRadio: profile !== null,
         stickMode: profile?.stickMode ?? settings.stickMode

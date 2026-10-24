@@ -74,6 +74,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
   the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
   Sound > Trains and airport. [sound §2e]
+  Replay radio controls finished (owner): the controls written out, the wind speed shown; tried with a stand-in radio. [replay-viewer]
   No GPU (owner): a browser drawing in software drops to Super low by itself with a warning box saying why (acceleration
   off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
   Ultra preset (owner): shadows to 1000 m on a 16384² map (~1 GB) where the GPU allows; shadow depth range fixed (a
@@ -92,7 +93,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
-  the replay viewer (radio controls not tried yet); on 2026-10-24: the city pass, golden props (count and 1 m reach),
+  the replay viewer; on 2026-10-24: the city pass, golden props (count and 1 m reach),
   grader v1, low spec modes, chase see-through, railway, flight files, forest and yard, graphics layout, title card and
   defaults, map joined up, time trials, course creator, sound (no device picker, the American chime stays), battery
   (sag without drain, as now), shadows, people, vehicles, Duga (facing the city), respawns, airport, aircraft sounds,
@@ -107,7 +108,6 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 1. **Crane:** it turns, picks up and drops boxes round the worksite; an operator sits in its cab. [map §0q]
 2. **Airport:** solid propellers and rotors; airport lights. [airport §2d]
-3. **Replay radio controls:** finish and try them (roll to wind, pitch to play / pause). [replay-viewer]
 
 ## Waiting for the owner
 
@@ -121,6 +121,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 6. **Ultra preset:** Settings > Graphics > Ultra, fly high over the city: shadows far enough, fps OK? [browsers-input-performance §2j]
 7. **No GPU:** turn Chrome's "Use graphics acceleration when available" off, relaunch, open the game: Super low and the
    warning box? Text clear? Turn it on again: back to your level? [low-spec §2k]
+8. **Replay radio controls:** Flight replay > Watch, tick Radio controls: roll winds, a full pitch push plays / pauses.
+   Thresholds and speeds right on your radio? [replay-viewer]
 
 ## Left open (not started)
 
@@ -189,7 +191,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |
-| `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control |
+| `replay-viewer.md` | §0u: watching a saved flight: the track, cameras, path line, timeline, radio control; radio controls finished and tried (2026-10-24) |
 | `low-spec.md` | §0v: low spec mode for weak GPUs: where frame time went, the classic renderer, tiles, measurements; §2k: no GPU, super low by itself |
 | `feedback.md` | §0w: the Report screen: GitHub issue links, the report format, the game state it carries |
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
