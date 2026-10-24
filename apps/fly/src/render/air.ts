@@ -31,7 +31,7 @@ const PROP_RATE = 60;
 const SETTLE_BELOW = 0.1;
 const SETTLE_RATE = 3;
 
-function paint(g: THREE.BufferGeometry, c: number): THREE.BufferGeometry {
+export function paint(g: THREE.BufferGeometry, c: number): THREE.BufferGeometry {
     const col = new THREE.Color(c);
     const n = g.getAttribute('position').count;
     const a = new Float32Array(n * 3);
@@ -40,7 +40,7 @@ function paint(g: THREE.BufferGeometry, c: number): THREE.BufferGeometry {
     return g;
 }
 
-function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+export function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
     return mergeGeometries(parts.map((g) => {
         const n = g.index ? g.toNonIndexed() : g;
         if (n.getAttribute('uv')) n.deleteAttribute('uv');
@@ -51,7 +51,7 @@ function merge(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
 const Y = new THREE.Vector3(0, 1, 0);
 
 /** A part's geometry in the mover's frame (x = f ahead, y = u up, z = s to the right). */
-function partGeometry(p: APart, seg: (full: number, low: number) => number): THREE.BufferGeometry {
+export function partGeometry(p: APart, seg: (full: number, low: number) => number): THREE.BufferGeometry {
     if (p.kind === 'cap') {
         const a = new THREE.Vector3(...p.a), b = new THREE.Vector3(...p.b);
         const d = b.clone().sub(a);
@@ -82,6 +82,8 @@ function colourOf(m: AirMover, role: Role): number {
         case 'tug': return TUG_YELLOW;
         case 'stretcher': return MATTRESS;
         case 'person': return m.kind === 'sitter' ? SHIRTS[m.look % SHIRTS.length] : MEDIC;
+        // the crane's (render/crane.ts colours its own; none at the airport)
+        case 'crane': case 'ballast': case 'crate': case 'rope': return STRUT;
     }
 }
 

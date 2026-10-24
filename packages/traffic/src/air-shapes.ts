@@ -19,7 +19,9 @@ import { DEG } from './air-path';
 const tanD = (a: number): number => dsin(a * DEG) / dcos(a * DEG);
 
 /** What a part is, for the drawing's colours (the collision treats them all alike). */
-export type Role = 'body' | 'trim' | 'wing' | 'tail' | 'engine' | 'gear' | 'glass' | 'strut' | 'skid' | 'mast' | 'person' | 'stretcher' | 'tug';
+export type Role = 'body' | 'trim' | 'wing' | 'tail' | 'engine' | 'gear' | 'glass' | 'strut' | 'skid' | 'mast' | 'person' | 'stretcher' | 'tug'
+    // the tower crane's (crane.ts): its painted steel, ballast, crates and ropes
+    | 'crane' | 'ballast' | 'crate' | 'rope';
 
 /** A solid part: a capsule from a to b of radius r, or a box of half sizes e about c with axes R (rows: its f, u, s axes). */
 export interface APart {
@@ -33,6 +35,8 @@ export interface APart {
     R: [number, number, number, number, number, number, number, number, number];
     /** gear that folds away after take-off: solid only while the mover's gear is down */
     gear: boolean;
+    /** a rope (the crane's hoist rope): a capsule hanging straight down from a, its place's `len` long (b is its longest) */
+    rope?: boolean;
 }
 
 /** A propeller or rotor as laid out: its hub, radius, blades and the axis it turns about ('f' a prop, 'u' a main rotor, 's' a tail rotor). */

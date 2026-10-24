@@ -7,3 +7,4 @@ export * from './trials';
 export * from './vendors';
 export * from './duga';
 export * from './airport';
+export * from './crane';

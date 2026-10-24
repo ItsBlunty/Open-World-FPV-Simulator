@@ -12,8 +12,8 @@ import type { ContactWorld, ParamOverrides, PresetJson, RespawnPolicy, Sim } fro
 import { courseFromFile, levelSha256, spawnPose } from '@owfpv/maps';
 import type { CourseFile, Level, SpawnPoint, TimeTrial } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { AirWorld, TrafficWorld, TrainWorld, makeAir, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
-import type { AirTraffic, TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
+import { AirWorld, TrafficWorld, TrainWorld, makeAir, makeCrane, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
+import type { AirTraffic, TowerCrane, TrafficConfig, TrafficModel, Train } from '@owfpv/traffic';
 import { SimClock } from './simclock';
 import { Collector } from './collect';
 import { TrialRunner } from './trials';
@@ -63,11 +63,15 @@ export interface SessionOptions {
 
 const NO_TRAFFIC: TrafficConfig = { cars: false, people: false, signals: false };
 
-/** The collision the sim flies in: the level's mesh, with the cars and people (or null), the trains and the airport's traffic (or null) moving in it. */
-export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, trains: readonly Train[], air: AirTraffic | null = null): ContactWorld {
+/**
+ * The collision the sim flies in: the level's mesh, with the cars and people (or null), the trains, the airport's traffic
+ * (or null) and the tower crane (or null: a level without one) moving in it.
+ */
+export function worldWith(mesh: ContactWorld, traffic: TrafficModel | null, trains: readonly Train[], air: AirTraffic | null = null, crane: TowerCrane | null = null): ContactWorld {
     let w = traffic ? new TrafficWorld(mesh, traffic) : mesh;
     for (const t of trains) w = new TrainWorld(w, t);
     if (air) w = new AirWorld(w, air);
+    if (crane) w = new AirWorld(w, crane);
     return w;
 }
 
@@ -92,6 +96,8 @@ export class FlightSession {
     private trafficNow: TrafficModel | null = null;
     private trainsNow: Train[] = [];
     private airNow: AirTraffic | null = null;
+    /** the tower crane at work (always, on a level that has one: map v23) */
+    readonly crane: TowerCrane | null;
     private contactWorld: ContactWorld;
     /** the collision without the courses' own solids (map, traffic, trains), and those solids */
     private innerWorld!: ContactWorld;
@@ -110,6 +116,7 @@ export class FlightSession {
 
     constructor(o: SessionOptions) {
         this.level = o.level;
+        this.crane = makeCrane(o.level.crane);
         this.world = o.world ?? new MeshContactWorld(o.level.collision);
         this.preset = o.preset;
         this.overrides = o.overrides ?? {};
@@ -164,7 +171,7 @@ export class FlightSession {
 
     /** What the collision hash in each life header is: the level's, with the traffic and the courses' solids folded in. */
     get collisionSha256(): string {
-        return withCourses(worldSha256(this.levelSha256, this.trafficCfg), this.solids);
+        return withCourses(worldSha256(this.levelSha256, this.trafficCfg, this.crane !== null), this.solids);
     }
 
     /** Every time trial course, the map's first, then the custom ones (TrialRunner's course numbers). */
@@ -208,7 +215,7 @@ export class FlightSession {
         this.solids = buildCourseSolids(this.allCourses);
         this.noteCourses();
         this.layer = 0;
-        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow);
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow, this.crane);
         this.contactWorld = courseWorld(this.innerWorld, this.solids, 0);
         this.trials = this.newTrials();
         const sim = lifeSim(compileParams(this.preset, this.overrides), this.contactWorld);
@@ -245,7 +252,7 @@ export class FlightSession {
         this.trafficNow = makeTraffic(this.level, c);
         this.trainsNow = makeTrains(this.level, c.train);
         this.airNow = makeAir(this.level, c.air);
-        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow);
+        this.innerWorld = worldWith(this.world, this.trafficNow, this.trainsNow, this.airNow, this.crane);
         this.layer = 0;
         return courseWorld(this.innerWorld, this.solids, 0);
     }

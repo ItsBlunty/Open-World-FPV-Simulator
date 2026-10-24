@@ -65,10 +65,12 @@ export interface AirPlace {
     /** how far along its leg's way it has gone since the leg began, m (wheels turning) and its speed, m/s */
     run: number;
     v: number;
+    /** a rope part's length (air-shapes.ts APart rope: the crane's hoist rope), m; 0 for the rest */
+    len: number;
 }
 
 export function newAirPlace(): AirPlace {
-    return { x: 0, y: -1000, z: 0, f: [1, 0, 0], u: [0, 1, 0], s: [0, 0, 1], e: 0, g: 1, hidden: true, run: 0, v: 0 };
+    return { x: 0, y: -1000, z: 0, f: [1, 0, 0], u: [0, 1, 0], s: [0, 0, 1], e: 0, g: 1, hidden: true, run: 0, v: 0, len: 0 };
 }
 
 /** The state an itinerary is at: where, heading (unit), height, speed, attitude, power, gear, time. */

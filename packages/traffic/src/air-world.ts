@@ -12,8 +12,7 @@ import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
 import { DT } from './model';
 import { newAirPlace } from './air-path';
 import type { AirPlace } from './air-path';
-import type { APart, Prop } from './air-shapes';
-import type { AirTraffic } from './air';
+import type { APart, AirShape, Prop } from './air-shapes';
 import { boxNear } from './world';
 import type { Near } from './world';
 
@@ -21,9 +20,21 @@ import type { Near } from './world';
 const SWEEP_STEPS = 32;
 const SWEEP_EPS = 1e-4;
 
+/**
+ * Rigid movers placed from the tick alone: the airport's (air.ts AirTraffic), the tower crane's (crane.ts). Each has a
+ * shape in its own frame (air-shapes.ts parts and props) and a top speed for its contacts' reach.
+ */
+export interface MoverSet {
+    readonly movers: readonly { readonly shape: AirShape; readonly vmax: number }[];
+    /** the fastest any mover goes, m/s */
+    readonly maxSpeed: number;
+    /** mover i's place at `tick` (ms) into out */
+    place(i: number, tick: number, out: AirPlace): void;
+}
+
 export class AirWorld implements ContactWorld {
     readonly inner: ContactWorld;
-    readonly air: AirTraffic;
+    readonly air: MoverSet;
     private tick = 0;
     private placed = -1;
     private placed1 = -1;
@@ -32,7 +43,7 @@ export class AirWorld implements ContactWorld {
     private readonly near: Near = { d: 0, nx: 0, ny: 0, nz: 0 };
     private readonly hits: number[] = [];
 
-    constructor(inner: ContactWorld, air: AirTraffic) {
+    constructor(inner: ContactWorld, air: MoverSet) {
         this.inner = inner;
         this.air = air;
         this.p0 = air.movers.map(newAirPlace);
@@ -149,7 +160,9 @@ export class AirWorld implements ContactWorld {
         const ls = dx * s[0] + dy * s[1] + dz * s[2];
         let nf: number, nu: number, ns: number;
         if (pt.kind === 'cap') {
-            const [af, au, as] = pt.a, [bf, bu, bs] = pt.b;
+            const [af, au, as] = pt.a;
+            let bf = pt.b[0], bu = pt.b[1], bs = pt.b[2];
+            if (pt.rope) { bf = af; bu = au - pl.len; bs = as; }
             const ef = bf - af, eu = bu - au, es = bs - as;
             const ee = ef * ef + eu * eu + es * es;
             let t = ee > 0 ? ((lf - af) * ef + (lu - au) * eu + (ls - as) * es) / ee : 0;

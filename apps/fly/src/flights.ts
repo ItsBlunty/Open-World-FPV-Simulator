@@ -11,7 +11,7 @@ import type { ContactWorld, Life, LifeHeader, LifeSnapshot, PresetJson, ReplayDe
 import { courseFromFile, levelSha256 } from '@owfpv/maps';
 import type { CourseFile, Level } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { makeAir, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
+import { makeAir, makeCrane, makeTraffic, makeTrains, worldSha256 } from '@owfpv/traffic';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { FlightSession } from './session';
 import { worldWith } from './session';
@@ -148,7 +148,7 @@ function courseSetsOf(flight: Pick<Flight, 'courses'>, level: Level): { files: C
 export function collisionFor(h: LifeHeader, levelSha: string, level: Level, flight: Pick<Flight, 'courses'> = {}): LifeCollision {
     const sha = h.collisionSha256;
     for (const { files, solids } of courseSetsOf(flight, level)) {
-        const c = TRAFFIC_CONFIGS.find((x) => withCourses(worldSha256(levelSha, x), solids) === sha);
+        const c = TRAFFIC_CONFIGS.find((x) => withCourses(worldSha256(levelSha, x, level.crane !== null), solids) === sha);
         if (c) return { traffic: { ...c }, courses: files, solids };
     }
     throw new Error(`no collision of this build matches the flight's (${String(sha).slice(0, 12)}…): the map, traffic or courses changed since`);
@@ -163,7 +163,7 @@ export function trafficConfigFor(h: LifeHeader, levelSha: string, level: Level, 
 export function lifeDeps(flight: Flight, s: SavedLife, level: Level, levelSha: string, mesh: MeshContactWorld): ReplayDeps {
     if (!LOG_FORMATS.includes(s.header.format)) throw new Error(`log format ${s.header.format} is not one this sim-core reads`);
     const c = collisionFor(s.header, levelSha, level, flight);
-    const inner = worldWith(mesh, makeTraffic(level, c.traffic), makeTrains(level, c.traffic.train), makeAir(level, c.traffic.air));
+    const inner = worldWith(mesh, makeTraffic(level, c.traffic), makeTrains(level, c.traffic.train), makeAir(level, c.traffic.air), makeCrane(level.crane));
     // one world per solid layer (a course's race gates), as the life's world records and header ask
     const byLayer = new Map<number, ContactWorld>();
     const at = (layer: number): ContactWorld => {

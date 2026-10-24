@@ -83,7 +83,7 @@ slewing unit at 47.45 m), a 50 m jib (a listed length), 13.4 m counter-jib, 7 ba
 the jib's section (1.6 m wide, 1.8 m deep triangle, 2.5 m Warren panels), the cab, the 4.5 m foundation block's
 height. The trolley sits 20 m out with the hook block on two rope falls down to 30 m (above the 24 m steel frame); the
 rope is 5 cm thick (real ~16 mm, estimate) so it shows and is solid. New `LevelBuilder.bar` (a square bar between any
-two points) and a `crane` material (yellow). It is still: no slewing (a moving crane needs it in the traffic-style
+two points) and a `crane` material (yellow). It was still (it works since map v23, §2n): no slewing (a moving crane needs it in the traffic-style
 moving-surface world; not built).
 
 **Names and doors (`first-map.ts building`, `builder.ts` `Building`, `Door`).** Each of the 112 city buildings gets a
@@ -376,3 +376,42 @@ than v19, which cost nothing measurable).
 
 **Evidence:** `pnpm typecheck` clean, `pnpm test`: 63 files, 568 tests pass, including the Duga tests (lane along each
 face, straight through a bay, real sizes). Map v20 hash `b5d0a3a5...`. No screenshots this time.
+
+## 2n. The tower crane at work (owner, 2026-10-24): map v23, crane v1, built, waiting for the owner
+
+**Asked:** "Yes, crane should turn and pickup and drop boxes around the worksite, Put a little guy in the crane tower
+working as well." (decisions.md, 2026-10-24)
+
+**Built.** The map keeps the tower and its foundation (`first-map.ts towerCrane`) and records the site (`Level.crane`,
+`packages/maps/src/crane.ts`: the tower's axis, the slewing ring at 47.45 m, six crate places, the clearance height).
+Everything above the slewing ring moves (`packages/traffic/src/crane.ts` TowerCrane, placed from the tick alone):
+- *Movers:* the turning part (slewing platform, the cab now hollow and glazed in front and on its outer side with the
+  operator sitting in it looking along the jib, the 50 m lattice jib, the counter-jib, winch, cabinet and ballast: the
+  same members as before), the trolley with its two falls of rope (a rope part as long as the hook is far below: new
+  `APart.rope` and `AirPlace.len`), the hook with four slings solid and drawn only while a crate hangs on them, and five
+  crates (1.6 x 1.0 x 1.2 m timber, [estimate]).
+- *Work:* six places, three on the ground in free cells of the steel frame (not under a deck, between its beams) and
+  three on its top deck, in turn; each job takes the crate in the place after the empty one into it (ground to deck or
+  deck to ground): swing and run the trolley over it at the clearance height (the crate's bottom 3.2 m over the deck),
+  lower, 10 s to sling it, lift, swing, lower, 8 s to unhook, lift [waits: estimates]. 30 jobs and every crate is back:
+  a day of 4100 s (68 min), then it repeats.
+- *Speeds* (Liebherr 172 EC-B 8 Litronic FEM data sheet, "Antriebe / Driving units", read 2026-10-24): slewing up to
+  0.8 rpm, trolley up to 100 m/min, hoist up to 86 m/min (the 24 kW hoist with 0.5 t; 16 m/min with 8 t); every move eases
+  in and out with its fastest moment at the data sheet's top speed. The jib takes the short way round.
+- *Solid:* the movers are in the collision as the airport's are (`AirWorld`, now over any `MoverSet`), so the jib, a
+  crate on the hook or the rope shoves the quad as it moves. Always on (no setting); the world hash adds `|crane/1` on a
+  level with a crane (flights saved before map v23 no longer open).
+- *Drawn* (`apps/fly/src/render/crane.ts`): from the same parts, in the map's crane yellow, the glass see-through, the
+  ropes stretched to their length, the operator a bean person with eyes (as the tower's controllers).
+
+**Evidence.** `packages/traffic/test/crane.test.ts`: the day comes round to the same places; nothing moves faster than
+its top speed (every 0.1 s); every crate in a place of its own, the carried one 2 m under the hook; the jib, counter-jib,
+rope, hook, slings and crates clear of the buildings and the frame all day (sampled every 1 s, every 1 m along each
+member); a quad fits through each of the jib's first ten panels; the operator is in a hollow cab; a point in the jib is
+pushed out and moves with it. Headless Chrome (`docs/evidence/2026-10-24-crane/probe.mjs`): `1-slewing-with-crate.jpg`
+(a crate on its slings over the frame, crates on the top deck), `2-lowering-into-frame.jpg` (the hook block and ropes
+going down between the beams), `3-cab-operator.jpg` (the operator through the cab's glass). Map re-pinned `a9474d27…`
+(545 792 triangles: the turning part left it). 635 tests pass; typecheck clean.
+
+**Left open:** the operator sits still; no crane sounds; the rope doesn't swing; the crane doesn't stop for the quad;
+the crates all look alike.

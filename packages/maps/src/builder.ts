@@ -9,6 +9,7 @@ import { sha256Hex } from '@owfpv/sim-core';
 import type { TimeTrial } from './trials';
 import type { Vendor } from './vendors';
 import type { Airport } from './airport';
+import type { CraneSite } from './crane';
 
 export const MATERIALS = [
     'grass', 'asphalt', 'sidewalk', 'path', 'concrete', 'concrete-dark', 'brick', 'plaster', 'glass',
@@ -146,6 +147,8 @@ export interface Level {
     vendors: Vendor[];
     /** the airport and the hospital helipad (map v21; where the planes and the helicopter go: not part of the collision), or null */
     airport: Airport | null;
+    /** the tower crane's site (map v23: its turning part is packages/traffic's, not part of the collision), or null */
+    crane: CraneSite | null;
 }
 
 /**
@@ -218,6 +221,7 @@ export class LevelBuilder {
     readonly trials: TimeTrial[] = [];
     readonly vendors: Vendor[] = [];
     airport: Airport | null = null;
+    crane: CraneSite | null = null;
 
     private push(m: Material, ...v: number[][]): void {
         let a = this.tris.get(m);
@@ -439,7 +443,7 @@ export class LevelBuilder {
         }
         return { id, version, name, halfSize, parts, collision, triangleCount: n / 9, spawns: this.spawns.slice(), blocks: this.blocks.slice(),
             buildings: this.buildings.slice(), doors: this.doors.slice(), collectibles: this.collectibles.slice(), railway: this.railway,
-            trials: this.trials.slice(), vendors: this.vendors.slice(), airport: this.airport };
+            trials: this.trials.slice(), vendors: this.vendors.slice(), airport: this.airport, crane: this.crane };
     }
 }
 

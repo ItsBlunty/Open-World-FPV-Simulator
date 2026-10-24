@@ -16,6 +16,7 @@ import type { WoodSpot } from './woods';
 import { CITY_EDGE, YARD_ROAD, links } from './links';
 import { industrial } from './yard';
 import { timeTrials } from './trials';
+import type { CraneSite } from './crane';
 import { vendors } from './vendors';
 import { duga } from './duga';
 import { HOSPITAL, PAVE, airport } from './airport';
@@ -45,8 +46,9 @@ export const MAP_ID = 'mixed-1';
  * carried 600 m further east under its far end, the border trees cleared from its approach, and the hospital's rooftop
  * helipad on the building that was the Cobalt Hotel (owner, 2026-10-20)
  * 22: the airport's lights: runway and taxiway edge lights, end and threshold lights, the PAPI on solid fixtures (owner, 2026-10-24)
+ * 23: the tower crane turns: its jib, cab, trolley and hook leave the map for packages/traffic crane.ts (owner, 2026-10-24)
  */
-export const MAP_VERSION = 22;
+export const MAP_VERSION = 23;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
@@ -616,18 +618,25 @@ function construction(b: LevelBuilder, x0: number, z0: number): void {
         // a few decks of planks, on the beams (map v14: 1 cm up, so the columns' feet do not flicker in their underside)
         if (k % 2 === 0) b.box('wood', x0 + 6, y + 0.01, z0 + 6, x0 + 26, y + 0.11, z0 + 26);
     }
-    towerCrane(b, x0 + 31, z0 + 31);
+    // the crates' places (map v23): three free cells on the ground inside the frame (not under a deck, between its beams) and
+    // three on the top deck, in turn, so the crane moves each crate between the ground and the deck; a crate's bottom stays
+    // 3.2 m over the top deck while it slews [estimate]
+    const site = towerCrane(b, x0 + 31, z0 + 31);
+    const ground = 0.15, deck = 0.15 + levels * 4 + 0.11;
+    site.spots = [[51, ground, 31], [21, deck, 11], [41, ground, 11], [11, deck, 11], [21, ground, 51], [11, deck, 21]]
+        .map(([x, y, z]) => [x0 + x, y, z0 + z]);
+    site.clear = deck + 3.2;
+    b.crane = site;
 }
 
 /**
- * A flat-top tower crane, after the Liebherr 172 EC-B 8 Litronic (Liebherr's FEM technical data sheet,
- * "172 EC-B 8 Litronic", read 2026-10-18): a 16 EC tower of 1.6 x 1.6 m sections 3.9 m long, a 50 m jib (one of
- * its listed jib lengths), a 13.4 m counter-jib, and for that jib 7 ballast blocks of 3150 x 1180 x 280 mm
- * (2.5 t each). Member sizes, the jib's cross-section and the cab are estimates; the hoist rope is drawn 5 cm
- * thick (a real one is about 16 mm [estimate]) so it shows on screen and in the collision.
- * Every member is a real bar with gaps between, so the quad can fly through the lattice.
+ * A flat-top tower crane's tower, after the Liebherr 172 EC-B 8 Litronic (Liebherr's FEM technical data sheet,
+ * "172 EC-B 8 Litronic", read 2026-10-18): a 16 EC tower of 1.6 x 1.6 m sections 3.9 m long, on its foundation. Its
+ * turning part (the slewing platform, cab, 50 m jib, 13.4 m counter-jib and ballast, trolley, rope and hook) is
+ * packages/traffic crane.ts since map v23. Member sizes are estimates. Every member is a real bar with gaps between, so
+ * the quad can fly through the lattice.
  */
-function towerCrane(b: LevelBuilder, cx: number, cz: number): void {
+function towerCrane(b: LevelBuilder, cx: number, cz: number): CraneSite {
     const SEC = 3.9; // tower section length, m
     const N = 12; // sections: the slewing unit sits at 0.65 + 46.8 m
     const HW = 0.8; // half the tower's width
@@ -650,61 +659,8 @@ function towerCrane(b: LevelBuilder, cx: number, cz: number): void {
             b.bar('crane', [cx + ax, up ? y : y + SEC, cz + az], [cx + bx, up ? y + SEC : y, cz + bz], BR);
         }
     }
-    // the slewing unit, with the operator's cab on the jib's right: a painted box with a big front window looking
-    // along the jib, side windows and a floor window, as tower crane cabs have
-    b.block('crane', cx, cz, 2.4, 2.4, top, 1.0);
-    const sy = top + 1.0;
-    b.box('crane', cx + 0.3, top + 0.2, cz + 1.2, cx + 2.1, top + 2.6, cz + 2.9);
-    b.box('glass', cx + 2.1, top + 0.5, cz + 1.3, cx + 2.16, top + 2.45, cz + 2.8, FACE.nx);
-    b.box('glass', cx + 0.9, top + 1.2, cz + 2.9, cx + 1.95, top + 2.4, cz + 2.95, FACE.nz);
-    b.box('crane', cx + 0.25, top + 2.6, cz + 1.15, cx + 2.3, top + 2.75, cz + 2.95);
-    // the jib along +x: a triangular lattice 1.6 m wide and 1.8 m deep [estimates], panels of 2.5 m. The trolley
-    // runs on the two bottom chords.
-    const L = 50, P = 2.5, JW = 0.8, JD = 1.8;
-    const j0 = cx + 1.2;
-    const lo = (x: number, side: number): number[] => [x, sy, cz + side * JW];
-    const hi = (x: number): number[] => [x, sy + JD, cz];
-    b.bar('crane', lo(j0, -1), lo(cx + L, -1), CH);
-    b.bar('crane', lo(j0, 1), lo(cx + L, 1), CH);
-    b.bar('crane', hi(j0), hi(cx + L - 1), CH);
-    // a Warren truss in each sloping face (bottom chord node, top chord node half a panel on, next bottom node),
-    // a strut and a diagonal across the bottom face every panel
-    const tip = cx + L;
-    for (let x = j0; x < tip - 0.01; x += P) {
-        const xn = Math.min(x + P, tip), xh = Math.min(x + P / 2, tip - 1);
-        b.bar('crane', lo(x, -1), lo(x, 1), BR);
-        b.bar('crane', lo(x, -1), lo(xn, 1), BR);
-        for (const side of [-1, 1]) {
-            b.bar('crane', lo(x, side), hi(xh), BR);
-            b.bar('crane', hi(xh), lo(xn, side), BR);
-        }
-    }
-    b.bar('crane', lo(tip, -1), lo(tip, 1), BR);
-    b.bar('crane', lo(tip, -1), hi(tip - 1), BR);
-    b.bar('crane', lo(tip, 1), hi(tip - 1), BR);
-    // the counter-jib along -x: two box beams 2 m apart with a walkway between, the hoist winch, and the
-    // ballast hanging at its end
-    const C = 13.4;
-    const c1 = cx - 1.2, c0 = cx - C;
-    for (const side of [-1, 1]) b.box('crane', c0, sy, cz + side * 1.0 - 0.12, c1, sy + 0.45, cz + side * 1.0 + 0.12);
-    for (let x = c0; x <= c1; x += 2.4) b.box('crane', x, sy, cz - 0.88, x + 0.12, sy + 0.2, cz + 0.88);
-    b.box('metal', c0 + 1, sy + 0.2, cz - 0.4, c1 - 0.5, sy + 0.24, cz + 0.4); // walkway grating
-    for (const side of [-1, 1]) b.box('crane', c0 + 1, sy + 1.1, cz + side * 1.0 - 0.03, c1, sy + 1.16, cz + side * 1.0 + 0.03); // hand rails
-    for (let x = c0 + 1; x <= c1; x += 3) for (const side of [-1, 1]) b.box('crane', x, sy + 0.45, cz + side * 1.0 - 0.03, x + 0.06, sy + 1.1, cz + side * 1.0 + 0.03);
-    b.box('metal', cx - 6.5, sy + 0.24, cz - 0.7, cx - 4.5, sy + 1.4, cz + 0.7); // hoist winch
-    b.box('metal', cx - 3.8, sy + 0.24, cz - 0.7, cx - 2.6, sy + 2.0, cz - 0.1); // switch cabinet
-    for (let k = 0; k < 7; k++) {
-        const x = c0 + 0.1 + k * 0.29;
-        b.box('concrete', x, sy + 0.45 - 3.15, cz - 0.59, x + 0.28, sy + 0.45, cz + 0.59);
-    }
-    // the trolley 20 m out on the jib, its hook block hanging on two falls of rope above the steel frame
-    const tx = cx + 20, hook = 30;
-    b.box('crane', tx - 0.9, sy - 0.5, cz - 0.95, tx + 0.9, sy, cz + 0.95);
-    for (const dx of [-0.3, 0.3]) b.bar('metal', [tx + dx, sy - 0.5, cz], [tx + dx, hook + 1.1, cz], 0.05);
-    b.box('crane', tx - 0.5, hook + 0.3, cz - 0.2, tx + 0.5, hook + 1.1, cz + 0.2);
-    b.box('metal', tx - 0.06, hook - 0.3, cz - 0.06, tx + 0.06, hook + 0.3, cz + 0.06);
-    b.box('metal', tx - 0.06, hook - 0.42, cz - 0.06, tx + 0.3, hook - 0.3, cz + 0.06);
-    b.box('metal', tx + 0.24, hook - 0.42, cz - 0.06, tx + 0.3, hook - 0.15, cz + 0.06);
+    // the slewing ring at the top: from here up it turns (packages/traffic crane.ts, map v23)
+    return { x: cx, z: cz, ring: top, spots: [], clear: 0 };
 }
 
 /**

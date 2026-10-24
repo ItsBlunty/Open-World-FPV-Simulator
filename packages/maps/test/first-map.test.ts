@@ -143,12 +143,14 @@ describe('first map', () => {
         expect(world.queryRay(140.25, 5, -120.5, 0, -1, 0, 5)!.y).toBeCloseTo(3.35, 6);
     });
 
-    it('builds the tower crane as open lattice: a quad fits through the tower and the jib', () => {
+    it('builds the tower of the crane as open lattice: a quad fits through it (its turning part: traffic crane.ts)', () => {
         // the construction block: x0 = -71, z0 = -241; the crane's tower at x0 + 31, z0 + 31
         const cx = -40, cz = -210;
         const top = 0.65 + 12 * 3.9;
-        // the slewing unit's top, straight over the tower
-        expect(world.queryRay(cx, 100, cz, 0, -1, 0, 100)!.y).toBeCloseTo(top + 1, 6);
+        // map v23: the crane's site, its slewing ring at the tower's top; six places for its crates
+        expect(level.crane).toMatchObject({ x: cx, z: cz });
+        expect(level.crane!.ring).toBeCloseTo(top, 9);
+        expect(level.crane!.spots.length).toBe(6);
         const out = { x: 0, y: 0, z: 0 };
         const quad = 0.25; // a 5-inch quad with its props, m
         // the tower is hollow, and every section's south face has room for the quad to pass through it
@@ -161,18 +163,6 @@ describe('first map', () => {
             }
             expect(gaps, `section ${s}`).toBeGreaterThan(0);
         }
-        // the jib: a ray down through each of its first ten panels' bottom face finds a gap to the ground or the
-        // steel frame (the bottom face's diagonal leaves room either side of it)
-        const sy = top + 1;
-        for (let k = 0; k < 10; k++) {
-            const x = cx + 1.2 + 2.5 * k + 0.6;
-            if (Math.abs(x - (cx + 20)) < 1.5) continue; // the trolley
-            const hit = world.queryRay(x, sy + 0.3, cz + 0.4, 0, -1, 0, 30);
-            expect(hit === null || hit.y < sy - 1, `jib panel ${k}`).toBe(true);
-        }
-        // the hook hangs on its rope above the frame (24.15 m): straight under the trolley the first thing is the
-        // hook block's top
-        expect(world.queryRay(cx + 20, sy - 0.6, cz + 0.1, 0, -1, 0, 30)!.y).toBeCloseTo(31.1, 6);
     });
 
     it('names every city building and gives it a street door with no sill', () => {
@@ -341,7 +331,7 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '1635f46480c3761e6b93f3b08078039d85498eae4539dd6d76f4f0e818b6a4bb';
+const PINNED = 'a9474d27016f5075d162c50d9a863f6829b5cfdf2ac50d5b8137a49d609580c2';
 
 describe('the Duga radar (map v20)', () => {
     const level = buildFirstMap();
