@@ -341,7 +341,7 @@ describe('first map', () => {
     });
 });
 
-const PINNED = '2c689a96d17848119a9d047a167572fb056142dc1daeb48b0e24642cdcbb0067';
+const PINNED = '1635f46480c3761e6b93f3b08078039d85498eae4539dd6d76f4f0e818b6a4bb';
 
 describe('the Duga radar (map v20)', () => {
     const level = buildFirstMap();
@@ -462,5 +462,29 @@ describe('the airport (map v21)', () => {
         expect(ap.hospitalPad.y).toBeCloseTo(h!.top + 0.3, 6);
         expect(world.queryRay(ap.hospitalPad.x, 100, ap.hospitalPad.z, 0, -1, 0, 200)!.y).toBeCloseTo(ap.hospitalPad.y, 3);
         expect(level.buildings.some((b) => b.name === 'Cobalt Hotel')).toBe(false);
+    });
+});
+
+describe('the airport lights (map v22)', () => {
+    const ap = buildFirstMap().airport!;
+    const R = ap.runway;
+
+    it('stand off the runway, the taxiway and the apron, with every kind there', () => {
+        const paved = (x: number, z: number): boolean =>
+            (x >= R.x0 && x <= R.x1 && Math.abs(z - R.z) <= R.hw) || (x >= R.x0 && x <= R.x1 && Math.abs(z - ap.taxiZ) <= 7.5);
+        const ground = ap.lights.filter((l) => !l.beacon);
+        expect(ground.filter((l) => paved(l.x, l.z))).toEqual([]);
+        const kinds = new Set(ap.lights.map((l) => (l.papi !== undefined ? 'papi' : l.beacon ? 'beacon' : `${l.colour}${l.face ? ' faced' : ''}`)));
+        expect([...kinds].sort()).toEqual(['beacon', 'blue', 'green faced', 'papi', 'red faced', 'white']);
+    });
+
+    it('puts the PAPI on the left of runway 09 where the 3 deg path meets it, inner unit 3.5 deg to outer 2.5', () => {
+        const papi = ap.lights.filter((l) => l.papi !== undefined);
+        expect(papi.map((l) => +l.papi!.toFixed(2))).toEqual([3.5, 3.17, 2.83, 2.5]);
+        // left of a plane heading east is north, -z; 286 m past the threshold (15 m up at the threshold, 3 deg)
+        for (const l of papi) {
+            expect(l.z).toBeLessThan(R.z - R.hw - 14);
+            expect(l.x).toBeCloseTo(R.threshold + 15 / Math.tan((3 * Math.PI) / 180), 0);
+        }
     });
 });

@@ -91,6 +91,21 @@ export interface Bay {
     hangar: number;
 }
 
+/**
+ * A light of the airport (map v22, owner 2026-10-24: "airport lights"): drawn only, on a solid fixture (airportLights()).
+ * `face`: the way it shines (seen only from that side), null all round; `papi`: a PAPI unit, white seen from above this
+ * angle (deg) and red below; `beacon`: the tower's rotating beacon.
+ */
+export interface AirportLight {
+    x: number;
+    y: number;
+    z: number;
+    colour: 'white' | 'green' | 'red' | 'blue';
+    face: [number, number] | null;
+    papi?: number;
+    beacon?: boolean;
+}
+
 /** Where the planes, tugs and the helicopter go (Level.airport). y of a pad is its surface. */
 export interface Airport {
     pave: number;
@@ -111,6 +126,8 @@ export interface Airport {
     hospitalDoor: { out: [number, number, number]; in: [number, number, number] };
     /** the controllers' seats in the tower cab: where each sits (the seat's top) and which way they face */
     seats: { x: number; y: number; z: number; hx: number; hz: number }[];
+    /** the runway's and taxiway's lights, the PAPI and the beacon (map v22) */
+    lights: AirportLight[];
 }
 
 /**
@@ -145,6 +162,7 @@ export function airport(b: LevelBuilder, hospitalRoof: number, windowed: Windowe
         tugs.push({ x: x1 + 9, z: APRON.z1 - 2 });
     });
     const seats = tower(b);
+    const lights = airportLights(b);
     windowed(b, 'facade-glass', TERMINAL.x0, TERMINAL.z0, TERMINAL.x1, TERMINAL.z1, 2);
     landside(b);
     heliPad(b);
@@ -166,7 +184,8 @@ export function airport(b: LevelBuilder, hospitalRoof: number, windowed: Windowe
         heliPad: { x: HELI_PAD.x, y: PAVE, z: HELI_PAD.z },
         hospitalPad: { x: H.pad.x, y: top + H.pad.deck, z: H.pad.z },
         hospitalDoor: { out: [S.x0 - 1.5, top, dz], in: [S.x0 + 2, top, dz] },
-        seats
+        seats,
+        lights
     };
 }
 
@@ -413,6 +432,86 @@ function tower(b: LevelBuilder): { x: number; y: number; z: number; hx: number; 
     seats.push({ x: x1 - t - 1.5, y: fy + 0.45, z: z - 1, hx: 1, hz: 0 });
     b.box('metal', x1 - t - 1.75, fy, z - 1.25, x1 - t - 1.25, fy + 0.45, z - 0.75, FACE.bottom);
     return seats;
+}
+
+// ---------------------------------------------------------------- lights (map v22)
+
+/** An elevated light's fixture: a post and a glass head, its lamp's centre this high [estimate: about 40 cm] */
+const LAMP_Y = 0.34;
+/** A runway or taxiway edge light stands this far off the paved edge [estimate] */
+const EDGE_OFF = 1.5;
+/** Edge lights at most this far apart, m: at most 200 ft, 61 m, between lights in a line (Transport Canada, quoted in Wikipedia's "Runway") */
+const EDGE_GAP = 60;
+/**
+ * The PAPI (Wikipedia, "Precision approach path indicator", read 2026-10-24): four units on the left of the runway at the
+ * point the glide path meets it, 9 m apart, the inner one 15 m off the runway's edge; their red to white angles for a 3 deg
+ * path from the inner unit 3.50, 3.17, 2.83, 2.50 deg (3 deg 30', 3 deg 10', 2 deg 50', 2 deg 30'). The planes' glide path
+ * (packages/traffic air.ts) crosses the threshold 15 m up at 3 deg: it meets the runway 286 m past the threshold.
+ */
+const PAPI = { x: RUNWAY.threshold + 15 / Math.tan((3 * Math.PI) / 180), inner: 15, gap: 9, angles: [3.5, 3 + 10 / 60, 2 + 50 / 60, 2.5] };
+
+/**
+ * The airport's lights, after the FAA's Aeronautical Information Manual ch. 2 sec. 1 (read 2026-10-24): runway edge lights
+ * white; the lights marking each end of the runway red toward the runway and green outward; taxiway edge lights blue; the
+ * land airport's beacon white and green, 24 to 30 flashes a minute (render/airport-lights.ts). Runway 09's displaced
+ * threshold gets four green lights a side shining toward the approach [estimate: as the end lights' "pair of four lights
+ * on each side", Wikipedia's "Runway"]. The fixtures are solid; the glow is drawn. Gaps where an exit, the entry or the
+ * apron joins the pavement.
+ */
+function airportLights(b: LevelBuilder): AirportLight[] {
+    const R = RUNWAY, T = TAXIWAY, out: AirportLight[] = [];
+    const fixture = (x: number, z: number): void => {
+        b.prism('metal', x, z, 0, LAMP_Y - 0.05, 0.03, 4);
+        b.prism('frosted', x, z, LAMP_Y - 0.06, LAMP_Y + 0.06, 0.06, 6);
+    };
+    const light = (x: number, z: number, colour: AirportLight['colour'], face: [number, number] | null = null): void => {
+        out.push({ x, y: LAMP_Y, z, colour, face });
+    };
+    // where pavement joins the runway's south side and the taxiway's north side: the exits and the entry (pavement())
+    const joined = (x: number): boolean => x < ENTRY_X + TURN_R + 15 + 2 || EXITS.some((e) => x > e - TURN_R - 9 && x < e + 9.5);
+    const along = (x0: number, x1: number): number[] => {
+        const n = Math.ceil((x1 - x0) / EDGE_GAP);
+        return Array.from({ length: n + 1 }, (_, k) => x0 + ((x1 - x0) * k) / n);
+    };
+    for (const x of along(R.x0 + 2, R.x1 - 2)) {
+        for (const z of [R.z - R.hw - EDGE_OFF, R.z + R.hw + EDGE_OFF]) {
+            if (z > R.z && joined(x)) continue;
+            fixture(x, z);
+            light(x, z, 'white');
+        }
+    }
+    // each end: a row across, red toward the runway, green outward; just off the pavement
+    for (const [x, inward] of [[R.x0 - 1, 1], [R.x1 + 1, -1]] as const) {
+        for (let z = R.z - R.hw + 1.5; z <= R.z + R.hw - 1.5 + 1e-9; z += 3) {
+            fixture(x, z);
+            light(x, z, 'red', [inward, 0]);
+            light(x, z, 'green', [-inward, 0]);
+        }
+    }
+    // runway 09's displaced threshold: four green a side, out from the edges, toward the approach
+    for (const side of [-1, 1]) {
+        for (let k = 0; k < 4; k++) {
+            const z = R.z + side * (R.hw + EDGE_OFF + 1.5 * (k + 1));
+            fixture(R.threshold, z);
+            light(R.threshold, z, 'green', [-1, 0]);
+        }
+    }
+    // taxiway A: blue edges (the south side only east of the apron)
+    for (const x of along(R.x0 + 2, R.x1 - 2)) {
+        const n = T.z - T.hw - 1, s = T.z + T.hw + 1;
+        if (!joined(x)) { fixture(x, n); light(x, n, 'blue'); }
+        if (x > APRON.x1 + 5) { fixture(x, s); light(x, s, 'blue'); }
+    }
+    // the PAPI: housings on a plinth [estimate: 1 m wide, 0.6 m deep, the lamp 0.65 m up], the lamps facing the approach
+    PAPI.angles.forEach((deg, k) => {
+        const z = R.z - R.hw - PAPI.inner - 0.5 - k * PAPI.gap, x = PAPI.x;
+        b.box('metal', x - 0.25, 0, z - 0.4, x + 0.25, 0.42, z + 0.4);
+        b.box('metal', x - 0.3, 0.4, z - 0.5, x + 0.3, 0.9, z + 0.5);
+        out.push({ x: x - 0.31, y: 0.65, z, colour: 'white', face: [-1, 0], papi: deg });
+    });
+    // the beacon on the tower's mast (tower(): the lamp box on its top)
+    out.push({ x: TOWER.x + 2.5, y: TOWER.floor + TOWER.roof + 5.65, z: TOWER.z + 2.5, colour: 'white', face: null, beacon: true });
+    return out;
 }
 
 // ---------------------------------------------------------------- terminal side, pads, windsock

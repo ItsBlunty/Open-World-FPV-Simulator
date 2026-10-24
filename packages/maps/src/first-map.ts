@@ -44,8 +44,9 @@ export const MAP_ID = 'mixed-1';
  * 21: the airport east of the railway (runway, taxiways, apron, three hangars, the tower, terminal, heliport), the grass
  * carried 600 m further east under its far end, the border trees cleared from its approach, and the hospital's rooftop
  * helipad on the building that was the Cobalt Hotel (owner, 2026-10-20)
+ * 22: the airport's lights: runway and taxiway edge lights, end and threshold lights, the PAPI on solid fixtures (owner, 2026-10-24)
  */
-export const MAP_VERSION = 21;
+export const MAP_VERSION = 22;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;

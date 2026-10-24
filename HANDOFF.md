@@ -74,6 +74,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Aircraft sounds (owner): synthesised props, exhaust, turbine whine, the jet's roar, the EC135's rotor and Fenestron,
   the tugs' diesels, from real prop speeds and blade counts; four voices for the loudest, Doppler, distance; Settings >
   Sound > Trains and airport. [sound §2e]
+  Airport props and lights (owner, air v3, map v22): turning props and rotors are solid discs, stopped ones solid blades;
+  runway, end, threshold and taxiway lights, a PAPI that reads your glide path, the tower's beacon. [airport §2l, §2m]
   Replay radio controls finished (owner): the controls written out, the wind speed shown; tried with a stand-in radio. [replay-viewer]
   No GPU (owner): a browser drawing in software drops to Super low by itself with a warning box saying why (acceleration
   off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
@@ -84,12 +86,12 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 69 files, 625 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 69 files, 629 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d157f30a…` (traffic v11: semis' acceleration and turns; the trains v3)
-  - map v21 `2c689a96…` (544 196 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 21, `TRAFFIC_VERSION` 11, `TRAIN_VERSION` 3, `AIR_VERSION` 2, `GRADE_VERSION` 1.
+  - map v22 `1635f464…` (547 780 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 22, `TRAFFIC_VERSION` 11, `TRAIN_VERSION` 3, `AIR_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -107,7 +109,6 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 ## Next up (owner, 2026-10-24; one line each, in no set order)
 
 1. **Crane:** it turns, picks up and drops boxes round the worksite; an operator sits in its cab. [map §0q]
-2. **Airport:** solid propellers and rotors; airport lights. [airport §2d]
 
 ## Waiting for the owner
 
@@ -123,10 +124,14 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    warning box? Text clear? Turn it on again: back to your level? [low-spec §2k]
 8. **Replay radio controls:** Flight replay > Watch, tick Radio controls: roll winds, a full pitch push plays / pauses.
    Thresholds and speeds right on your radio? [replay-viewer]
+9. **Airport props and lights:** fly into a taxiing plane's prop and a parked one's blades; should a hit throw the quad
+   harder (a real blade strike)? Fly the approach to runway 09 and watch the PAPI (2 red 2 white on the path), the
+   beacon on the tower, the runway and taxiway lights. Right? Approach lights or apron floodlights wanted? [airport §2l, §2m]
 
 ## Left open (not started)
 
-- Airport: planes ignore the quad; arrivals (not the touring three) appear 4.26 km out; medics
+- Airport: a prop hit bounces as a wall (no blade-strike throw); SR22 and Cub props under 7 in / 9 in of ground room; no
+  approach, centreline or apron lights; planes ignore the quad; arrivals (not the touring three) appear 4.26 km out; medics
   never come back out; tug waits can be minutes; frame cost not measured on a weak machine. [airport §2d]
 - **Sound:** no hit sounds in replays; no car sounds; mix levels, rush chop and loudness
   exponents are estimates; nothing heard by Claude, only measured; aircraft: no rollout, reverse or brake sounds, one engine place per twin. [sound §1n, §2e]
@@ -197,7 +202,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `railway.md` | §0y: the first railway and the steam train; §0z: round the whole map, the viaduct, open coaches; §1a: the city walkway, people taking the train, the second train |
 | `freestyle-grading.md` | §0s: how sims, games, judges grade freestyle; trick definitions; §11 the grader v1 |
 | `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes; §2e: the airport's sounds |
-| `airport.md` | §2d: the airport (runway, taxiways, hangars, tower, terminal), the hospital pad, the ten planes, tugs, the air ambulance and medics, the schedule and runway booking, its collision and drawing |
+| `airport.md` | §2d: the airport (runway, taxiways, hangars, tower, terminal), the hospital pad, the ten planes, tugs, the air ambulance and medics, the schedule and runway booking, its collision and drawing; §2h: city tours; §2l: solid props and rotors; §2m: airport lights, PAPI, beacon |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN; §2c: the course creator, course files, race gates, solid layers, adding a course to the game |
 
 Owner decisions: `docs/decisions.md`.

@@ -19,6 +19,7 @@ import { AirView } from '../render/air';
 import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { TrialsView } from '../render/trials';
+import { AirportLightsView } from '../render/airport-lights';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView, LOW_SPEC_OVERSAMPLE, NO_GPU_OVERSAMPLE } from '../render/fisheye';
 import { SeeThrough, blocked } from '../render/see-through';
@@ -114,6 +115,9 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const airView = new AirView(kit);
     airView.rebuild(session.air);
     scene.add(airView.group);
+    /** the airport's runway, taxiway, PAPI and beacon lights (the map's, there whether its traffic is on or not) */
+    const lightsView = level.airport ? new AirportLightsView(level.airport.lights, kit) : null;
+    if (lightsView) scene.add(lightsView.group);
     const buildingsView = new BuildingsView(level, kit);
     scene.add(buildingsView.group);
     session.collector.setTaken(init.collection[level.id] ?? []);
@@ -270,7 +274,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let replayAir: AirTraffic | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, lightsView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -394,6 +398,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         trafficView.update(tick, view.camera.position);
         drawTrains(r.tick);
         airView.update(r.tick);
+        lightsView?.update(view.camera.position, r.tick / 1000);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
         chaseCircle(r.cam === 'chase', dt);
@@ -721,6 +726,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         trafficView.update(session.sim.tick, view.camera.position);
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
+        lightsView?.update(view.camera.position, session.sim.tick / 1000);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
         chaseCircle(!freeCam.active && view.mode === 'chase', dt);
@@ -772,6 +778,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         trafficView.update(session.sim.tick);
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
+        lightsView?.update(view.camera.position, session.sim.tick / 1000);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);
         // a gate outline, its see-through copy and the next one shown, so their materials are built now too

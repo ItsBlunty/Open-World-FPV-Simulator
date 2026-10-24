@@ -76,7 +76,7 @@ overview; 120 fps there (capped), no console errors.
 
 **Left open:** (sound added: `docs/notes/sound.md` §2e) props and rotors are not solid (a quad flies through them);
 planes don't react to the quad; arrivals appear out of nowhere 4.26 km west (past the fog, but a quad flying out there
-sees them); hangar doors are always open; no runway or apron lights; the medics never come back out; waits for a tug can
+sees them); hangar doors are always open; no runway or apron lights (runway lights since §2m); the medics never come back out; waits for a tug can
 be several minutes on the apron; frame cost not measured on a weak machine; the airport has no golden props.
 
 ## 2h. The small planes' city tours (owner, 2026-10-22): air v2, built, waiting for the owner
@@ -133,3 +133,31 @@ ended (the last where the first starts), never hidden, over the city at their to
   each); props and rotors (a turning one's rim, a stopped one's blade tips) clear of buildings, trees and ground all day.
   627 pass; typecheck clean. AIR_VERSION 3: flights saved with airport traffic before this no longer open.
 - *Left open:* a hit doesn't throw the quad as a real blade strike would (owner to say); props not tried in a browser.
+
+## 2m. Airport lights (owner, 2026-10-24: Next up "airport lights"): map v22, built
+
+Sources read in full: the FAA's Aeronautical Information Manual ch. 2 sec. 1, "Airport Lighting Aids" (colours, ends,
+taxiways, beacon flash rate); Wikipedia's "Precision approach path indicator" (PAPI layout and angles); the lighting
+part of Wikipedia's "Runway" (edge-light spacing: Transport Canada's 200 ft, 61 m, at most).
+- *Lights (`packages/maps/src/airport.ts` airportLights, 134 in all):* runway edge lights white, every 58 m, 1.5 m off
+  both edges (gaps where the exits and the entry join the south side); each runway end a row across, every 3 m, red
+  toward the runway and green outward; runway 09's displaced threshold four green a side shining toward the approach
+  [estimate: no source read for displaced thresholds]; taxiway A's edges blue (the south side east of the apron only);
+  the PAPI: four units on the north (left) side where the planes' 3 deg path meets the runway (286 m past the threshold;
+  "about 300 m" in the source), 9 m apart, the inner one 15 m off the edge, red to white at 3.50 / 3.17 / 2.83 / 2.50 deg
+  from the inner unit; the beacon on the tower's mast, white and green, 27 flashes a minute (the AIM: 24 to 30).
+- *Solid:* each edge, end and threshold light is a fixture on the grass: a 3 cm post and a frosted glass head, the lamp
+  34 cm up [estimate]; each PAPI unit a housing (1 x 0.6 x 0.5 m) on a plinth [estimate]. 547 780 triangles (+3 584).
+- *Drawn (`apps/fly/src/render/airport-lights.ts`):* unlit and unfogged, as real lights carry through haze; past 30 m a
+  lamp is drawn larger with distance so it stays a few pixels across; a one-way light is a half ball facing its way. A PAPI
+  unit is white seen from above its angle and red from below, from the camera's place each frame; the beacon's white and
+  green beams turn at 13.5 rpm and flash while one sweeps within 6 deg of the camera. Always on (day too), with or without
+  airport traffic.
+- *Evidence (`docs/evidence/2026-10-24-airport-lights/`, headless Chrome, WebGPU):* 400 m out on the planes' path the
+  PAPI reads RRWW (inner to outer: on path), 25 m above it WWWW, 12 m below RRRR; beacon flashes at 0.49 G, 2.70 W, 4.93 G,
+  7.15 W, 9.38 G s (every 2.22 s: 27 a minute, colours alternating). Shots: `approach-on-path.jpg`,
+  `runway-from-west-end.jpg` (green end row and threshold bars, white edges, red far end, blue taxiway), `papi-close.jpg`.
+  New map test (lights off the pavement, every kind there, the PAPI's place and angles); re-pinned map `1635f464…`; the
+  planes' clearance test passes with the fixtures. 629 tests pass; typecheck clean.
+- *Left open:* no approach lighting system, centreline or touchdown-zone lights (the AIM: on precision runways); no
+  apron floodlights; lights don't dim by day or night (there is no night yet).
