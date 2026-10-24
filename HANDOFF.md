@@ -3,13 +3,13 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## State (2026-10-20)
+## State (2026-10-24)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
   sim-core/0.6.0). M3 started (owner): 56 golden props to collect, built. Freestyle grading researched and answered (owner). Saved flights built (replay check passes in Chrome and Node);
   replay viewer built (Saved flights > Watch); a downloaded flight opens again with Saved flights > Open a flight file. [saved-flights] Grader v1 built: flips, rolls, power loops, split-S, dives, marked out
-  of 10 with reasons, listed in the replay viewer; next: calibrate it with the owner's flying, then challenges.
+  of 10 with reasons, listed in the replay viewer; the owner is happy with it for now (2026-10-24).
   Low spec mode built (Settings > Graphics, or `?lowspec`): classic WebGL renderer, same physics. [low-spec §0v]
   Report screen built (menu > Report or suggest): opens a GitHub issue with the game's state. [feedback §0w]
   Extra and super low spec built (Settings > Graphics, `?lowspec=extra|super`): no traffic, half / quarter resolution,
@@ -84,97 +84,42 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
-  the replay viewer (radio controls not tried yet).
+  the replay viewer (radio controls not tried yet); on 2026-10-24: the city pass, golden props (count and 1 m reach),
+  grader v1, low spec modes, chase see-through, railway, flight files, forest and yard, graphics layout, title card and
+  defaults, map joined up, time trials, course creator, sound (no device picker, the American chime stays), battery
+  (sag without drain, as now), shadows, people, vehicles, Duga (facing the city), respawns, airport, aircraft sounds,
+  city tours. The owner will ask for more on time trials, the creator and traffic; no new roads for now.
+
+## Parked (owner, 2026-10-24)
+
+- **Throttle-chop physics:** "The physics dont solve the instability in throttle chops that I wanted": it stays on branch
+  `main-bng8wu` (sim-core/0.8.0, flyable at /next/), not merged, not worked on. HANDOFF there has its state. The branch
+  also holds the low spec fisheye (f181bc9), not on main. [physics §2g]
+
+## Next up (owner, 2026-10-24; one line each, in no set order)
+
+1. **Crane:** it turns, picks up and drops boxes round the worksite; an operator sits in its cab. [map §0q]
+2. **No GPU:** drop to super low spec by itself, with a tip saying why (no GPU found, or the browser's hardware
+   acceleration off, if the two can be told apart). [low-spec]
+3. **Ultra graphics preset:** above High, shadows to 1000 m, for GPUs with more VRAM. [camera §1e, §1d]
+4. **Semis:** accelerate more slowly than cars. [traffic §1t]
+5. **Airport:** solid propellers and rotors; airport lights. [airport §2d]
+6. **Replay radio controls:** finish and try them (roll to wind, pitch to play / pause). [replay-viewer]
 
 ## Waiting for the owner
 
-1. **Rotor inflow (sim-core/0.6.0):** fly punch-outs, fast forward flight, dives, a flat throttle-cut drop (now
-   26 m/s instead of 16), then tick Settings > Physics > Classic physics and compare. [physics §0p]
-2. **City pass (map v5):** look at the crane (it's solid lattice, you can fly through it), the building names and
-   doors. Questions: should the crane turn? Are the names OK (real-sounding only, or more jokes)? How many walkers
-   should go in (25 % of block-side walks now)? [map §0q]
-3. **Golden props (map v6):** hunt some (Esc > Collection lists them by number). Is 1 m pickup reach
-   right? Are the frosted shelters too easy or too hard to see through? More props, harder spots? [collectibles §0r]
-4. **Replay radio controls** (owner: later): tick "Radio controls" in the viewer, roll to wind, pitch to play / pause.
-5. **Grader v1 calibration:** fly flips, rolls, power loops (around something and in the open), split-S and dives, some
-   clean, some sloppy, then Esc > Flight replay > Watch and read the trick list. Do the marks rank them as you would? Which
-   reasons are wrong or missing? Thresholds are guesses until then. [freestyle-grading §11]
-6. **Low spec modes:** fly `?lowspec`, `?lowspec=extra` and `?lowspec=super` (or Settings > Graphics and reload),
-   ideally on an old laptop with graphics acceleration off. View distances OK? Quarter resolution too blocky? Should
-   the game switch to super by itself when the browser has no GPU, or just show a tip? [low-spec]
-7. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, and look at the filled-in issue
-   (create it or not). Is the format right? Anything missing for replicating bugs? [feedback §0w]
-8. **Chase see-through circle:** now upright (it was upside down on WebGPU) and larger (about two thirds of the screen
-   high). Fly the chase camera (C) behind buildings and trees: size, edge softness and fade OK? Spotter camera too? [camera §0x]
-9. **Railway and train:** spawn at "City station", "Fields station" or "Railway tunnel"; fly under a coach, through
-   its windows and down its aisle, under the viaduct. Pull-away and stops feel real? Smoke OK? The train passes a spot
-   every 3.9 min now (two trains). Watch people board at the city station; enough of them (35 % at the garden)? [railway §1a]
-10. **Wall hits (sim-core/0.7.0):** fly into walls and pillars at speed, level and nose down, throttle held and cut;
-   lean a prop on a wall; blip into the bando ceiling. Bounce strong enough, too much? Motors stall as on your quad?
-   Landings should feel as before. Turtle on an edge now flips with roll too. [contacts §1b]
-11. **Opening a flight file:** Esc > Flight replay > Download one, delete it, then Open a flight file… (or drop the file on
-   the screen) and Watch it. [saved-flights]
-12. **Forest and yard (map v10):** spawn "Forest track": fly the thickets, the open woods, under and through the big
-   trees' crowns, under the fallen tree on the track. Then "Industrial yard": the container lanes, the open boxes, the
-   conveyor gallery, under the hopper bins. Watch the fps counter in the forest (245 k to 422 k triangles, not measured).
-   Dense enough? Trees right? Were the "stumps" the hay bales? [map §1c]
-13. **Graphics presets and shadow distance:** Settings > Graphics: is the preset layout clear? Fly High (shadows to 250 m)
-   and Shadows "to about 500 m": pop-in gone? 500 m too soft close up? Watch the fps (not measured). [camera §1e, §1d]
-14. **Title card and pause menu:** pick Start at on the title card, fly, Esc > Back to main menu, pick another, fly. Then
-   Settings > Help and about: Default settings (keeps your radio setup, props, times, flights: right?) and Clear all data
-   (forgets all of it). [camera §1f, §1k]
-15. **Map joined up (map v11):** fly the city's edge, the yard road and its level crossing to the yard gate, the bando
-   driveway, the park paths to the forest, the power line (wires are solid: try threading them), the station forecourt.
-   Feels complete? Wires visible enough at speed (3.5 cm)? Cars on the roads out next? [map §1g]
-16. **Time trials (map v12):** spawn "Park", "Bando (front)" or "Industrial yard", find the checkered arch, land on its
-   pad, race. Choices made without you, to confirm: gates count either way through; R restarts the race on the pad,
-   Esc > Leave time trial ends it; the next gate is outlined (seen faintly through walls), the one after dim; the Time
-   Trials screen lists every gate. Courses right (yard too hard, park wires too tight)? Want split times, more courses?
-   Gates and pad markers clear enough now? Pad size right? [time-trials §1h-§1j]
-
-17. **Sound:** fly with headphones, FPV and chase (C): still tinny, echoey or static? Ambience at 50 % right? Train
-   sounds and whistle (American chime: OK?). Latency: try Chrome playing straight to a wired output instead of
-   Voicemeeter / Bluetooth and say if the lag goes. Want an output-device picker (needs a microphone permission)?
-   Crackle gone after §1s? Sound still feels late? [sound §1n, §1s]
-18. **Battery and THROTTLE DOWN:** Settings > World > Physics > Battery simulation: off (default) the pack never drains
-   but still sags on a punch: right, or no sag either? Race a time trial with the throttle up after accepting: THROTTLE
-   DOWN shows until it is under 5 %. [time-trials §1o]
-19. **Shadows, people, flicker:** look at shadow feet (poles, trees, the quad on the ground), people at the city's
-   crossings and on the sidewalks, the yard's container stacks, the warehouse and the bando driveway. Ring gone? Still
-   people inside each other (they still pass through people standing)? Any flicker left, and where? [§1r, §1p, §1q]
-20. **Vehicles and vendors:** spawn "City street": look at the mix, fly into an open trailer and under one, land on a
-   pickup's load, find the carts (park by the fountain, tree plazas, the station garden's cross path). Mix right? Trailers follow the lane through turns (real ones
-   cut inside; the corners are too tight): OK? Semis accelerate like cars: slower? People buying at the carts? [traffic §1t]
-21. **Duga radar (map v20):** spawn "Duga radar", look at it from the city and close in front, fly between the rows of
-   dipoles and along the face under the pipes, round the towers and end masts. One dipole per bay now (in front of each tower,
-   then mid-bay): count and length (0.7 of a bay, read off your photo) right? Row spacing and pipe shape right? Faces the city (the real one faces away from its buildings): OK? Watch the fps there. [map §1u, §1w, §1x, §2a]
-22. **Respawns and cars:** crash over a city street with cars and let it rewind: it should never put you in or on a car.
-   A quad that still ends up inside one is pushed out the shortest way (low in the body: under the car). [traffic §1z]
-23. **Arming angle:** arm tilted and on its back (turtle switch off: motors spin forward), then set Settings > World >
-   Physics > Arming angle to 25 and check it refuses past 25 and the TILTED hint shows. [contacts §2b]
-24. **Course creator:** Esc > Course creator > New course: P for the pad, G openings, B race gates (mouse wheel moves the
-   white frame), fly a line first with Tab, Save and race it. Race gates should be solid only in the race. Is it simple
-   enough? Keys right? Then Propose for the game, signed in to GitHub: does the new-file page open filled in (not checked
-   signed in)? Send me a course file and I'll add it to the game. [time-trials §2c]
-25. **Airport:** spawn "Airport (apron)": watch a landing (the day repeats every 50 min, an arrival every 5), fly into a
-   hangar, into the tower by its foot door and up the shaft or through a cab window; spawn "Hospital roof" (the helicopter
-   lands about 9 min and 34 min into a flight). Plane mix, sizes, speeds right? Approach low enough over the park? Taxi and
-   tow speeds? Want solid props, lights? [airport §2d]
-26. **Aircraft sounds:** spawn "Airport (apron)" with headphones, chase or free camera and FPV: watch a landing, a tug
-   push, a take-off, the helicopter at "Hospital roof". Close enough? Volume OK against the quad (Settings > Sound >
-   Trains and airport)? Recordings: `docs/evidence/2026-10-20-air-sound/*.webm`. [sound §2e]
-27. **Motor idle:** stick down, roll and flip: the props should now be heard revving. Then Settings > World and physics >
-   Motor idle: try the idle slider, then Dynamic idle on (3400 rpm): drops, dives, zero-throttle flips, hang time
-   inverted. Feels like your quad? Want your own values instead? [physics §2f]
-28. **City tours:** spawn "Park" or "City street" with Airport traffic on: the Cub (110 m), 172 (130 m) and SR22 (150 m)
-   lap the city all day except their landings and hangar stops. Chase them: heights, speeds and turns right? Want them
-   lower, slower, or on other routes? Plan: `docs/evidence/2026-10-22-city-tours/0-plan.svg`. [airport §2h]
+1. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, look at the
+   filled-in issue. Format right? Anything missing for replicating bugs? [feedback §0w]
+2. **Wall hits (sim-core/0.7.0):** fly into walls at speed, lean a prop on a wall, blip the bando ceiling. Bounce right?
+   Motors stall as on your quad? [contacts §1b]
+3. **Arming angle:** set it to 25 and check it refuses past 25 with the TILTED hint. [contacts §2b]
+4. **Motor idle:** the idle slider and Dynamic idle (3400 rpm): drops, dives, zero-throttle flips. Feels like your quad? [physics §2f]
 
 ## Left open (not started)
 
-- Airport: props and rotors not solid; planes ignore the quad; arrivals (not the touring three) appear 4.26 km out; medics
-  never come back out; tug waits can be minutes; no lights; frame cost not measured on a weak machine. [airport §2d]
-- **Sound:** no hit sounds in replays; no car sounds; British whistle wanted?; mix levels, rush chop and loudness
+- Airport: planes ignore the quad; arrivals (not the touring three) appear 4.26 km out; medics
+  never come back out; tug waits can be minutes; frame cost not measured on a weak machine. [airport §2d]
+- **Sound:** no hit sounds in replays; no car sounds; mix levels, rush chop and loudness
   exponents are estimates; nothing heard by Claude, only measured; aircraft: no rollout, reverse or brake sounds, one engine place per twin. [sound §1n, §2e]
 
 - Freestyle grading: Matty flip, Rubik's cube, yaw spins, orbit not built; challenges (spots, pars, stars, ghost)
@@ -196,18 +141,16 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   model); sound between idle and hover not measured; "(to read)" claims in the review are not
   yet checked against their sources. [physics]
 - Traffic: saved flights with traffic from v9 no longer open; the crash toast's "back N s" doesn't know a car will push the rewind further back; train vehicles not checked for the inside-a-car trap. [traffic §1z]
-- Damage is shelved, off by default. Before bringing it back, ask the owner what a 5" survives. [contacts §0a]
+- Damage is shelved, off by default (owner, 2026-10-24: not a concern now). Before bringing it back, ask what a 5" survives. [contacts §0a]
 - Reverse prop thrust 0.73 is an estimate from a 7" test. Wall restitution measured at 1.85 m/s only (its fall-off
   with speed is an estimate); blade-strike brake time is an estimate; no sideways prop-strike kick, no broken props;
   saved flights from 0.6.0 that touched something no longer check as matching. [contacts §1b, physics F6]
 - People: walk through people standing (waiting, platform) and briefly through each other at corners; no sidestep. [traffic §1p]
 - Vehicles: cost +0.55 ms full / +0.3 ms low spec on this PC (toy cars: +0.4 / under 0.1), not tried on a weak laptop; trailers don't off-track; no semis with signals off; vendors serve nobody. [traffic §1t]
-- Traffic: mean car speed 1.81 m/s with left-turn arrows; left-turn pockets or green waves if the owner wants faster
-  traffic. Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
-- Map v11: no cars on the roads out; level-crossing lights and barriers don't react to the train; no lights at the yard
+- Traffic: mean car speed 1.81 m/s with left-turn arrows; left alone until the owner asks (2026-10-24). Cars don't react to the quad. Turning traffic on in Settings may hitch once (its meshes aren't warmed). [traffic]
+- Map v11: no cars on the roads out (owner: none for now); level-crossing lights and barriers don't react to the train; no lights at the yard
   road's T. [map §1g]
-- Map: frame time after the 5x triangle count (map v4) and the forest (v10) not measured; no tree LOD in low spec; slab undersides render very dark; the crane
-  doesn't move; no interiors; the car park, plaza and parking blocks have no names or doors. [map]
+- Map: frame time after the 5x triangle count (map v4) and the forest (v10) not measured; no tree LOD in low spec; slab undersides render very dark; no interiors; the car park, plaza and parking blocks have no names or doors. [map]
 - Loading glTF levels into `MeshContactWorld` (needed when CC0 assets replace the blockout); the Boxer's HID
   descriptor as a test fixture. [foundation]
 - Shelved with Firefox: render-worker stutter cause, the remaining GC stutter, `?selftest` in Firefox. The measuring
@@ -247,8 +190,5 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `sound.md` | §1l: the sound: rotor model and its calibration, trains, ambience, sources, what is unchecked; §1m: fixes for late, tinny, echoey, static sound, low latency, ambience slider; §1n: Chrome's latency limits, the owner's audio setup; §1s: the ramp crackle, how Chrome applies parameter changes; §2e: the airport's sounds |
 | `airport.md` | §2d: the airport (runway, taxiways, hangars, tower, terminal), the hospital pad, the ten planes, tugs, the air ambulance and medics, the schedule and runway booking, its collision and drawing |
 | `time-trials.md` | §1h: the three courses and their gates, the start arch and pad, the race on sim ticks, the offer, the saved times; §1i: clearer gates, pad markers; §1j: bigger pads, LAND HERE TO START; §1o: battery switch, full pack, THROTTLE DOWN; §2c: the course creator, course files, race gates, solid layers, adding a course to the game |
-
-
-
 
 Owner decisions: `docs/decisions.md`.
