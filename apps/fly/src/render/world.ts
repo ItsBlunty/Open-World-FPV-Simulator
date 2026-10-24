@@ -343,11 +343,14 @@ export class Sun {
 
     /**
      * Centre the shadow square on p when p has moved far enough from its centre (shadowNeedsRecentre), in whole shadow
-     * texels so the shadows of things that stand still land on the same texels after the move.
+     * texels so the shadows of things that stand still land on the same texels after the move. Along the sun's view the
+     * square is centred on the ground p looks down on along the sun's rays (the same square across the view), so the
+     * ground stays inside the shadow camera's depth range however high p is: centred on p, ground past the range drew as
+     * shadow, a huge dark block from 600 m up (owner, 2026-10-24).
      */
     follow(p: THREE.Vector3): void {
         const texel = (2 * this.half) / this.light.shadow.mapSize.x;
-        this.c.copy(p).applyMatrix4(this.toLight);
+        this.c.copy(p).addScaledVector(SUN_DIR, -Math.max(0, p.y) / SUN_DIR.y).applyMatrix4(this.toLight);
         if (!shadowNeedsRecentre(this.centre, this.c)) return;
         (this.centre ??= new THREE.Vector3()).copy(this.c);
         this.c.x = Math.round(this.c.x / texel) * texel;

@@ -109,7 +109,7 @@ export interface GraphicsChoice {
     shadows: boolean;
     shadowReach: ShadowReach;
     viewDistance: ViewDistance;
-    /** the volumetric clouds (render/clouds.ts), full graphics only */
+    /** the clouds (render/clouds.ts), full graphics only */
     clouds: boolean;
     renderScale: number;
 }
@@ -120,10 +120,10 @@ export interface GraphicsChoice {
  */
 export const PRESETS: Readonly<Record<QualityPreset, Readonly<Partial<GraphicsChoice>> & { graphics: GraphicsLevel }>> = {
     // (owner, 2026-10-24) for GPUs with more memory: shadows to 1000 m (render/shadow-follow.ts); the view to 6 km, High's
-    // to 3 km, and volumetric clouds in both (owner, 2026-10-24); Medium without them until they are tried on weaker GPUs
+    // to 3 km (owner, 2026-10-24); clouds in all three (cheap stylised puffs, owner 2026-10-24)
     ultra: { graphics: 'full', shadows: true, shadowReach: 'ultra', viewDistance: 'farthest', clouds: true, renderScale: 1 },
     high: { graphics: 'full', shadows: true, shadowReach: 'far', viewDistance: 'far', clouds: true, renderScale: 1 },
-    medium: { graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', clouds: false, renderScale: 1 },
+    medium: { graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', clouds: true, renderScale: 1 },
     low: { graphics: 'low', renderScale: 1 },
     // extra and super low spec fix their own resolution (render/kit.ts), so the slider's value does not matter there
     verylow: { graphics: 'extra' },

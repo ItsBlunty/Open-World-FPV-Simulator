@@ -79,8 +79,8 @@ const VIEW_DISTANCE_LABELS: Record<ViewDistance, string> = {
 
 /** What each preset is, under the preset box */
 const PRESET_NOTES: Record<QualityPreset | 'custom', string> = {
-    ultra: 'Full lighting and fisheye lenses, shadows to about 1000 m (about 1 GB of graphics memory for them), 6 km view, volumetric clouds, full resolution. For strong GPUs.',
-    high: 'Full lighting and fisheye lenses, shadows to about 250 m, 3 km view, volumetric clouds, full resolution.',
+    ultra: 'Full lighting and fisheye lenses, shadows to about 1000 m (about 1 GB of graphics memory for them), 6 km view, full resolution. For strong GPUs.',
+    high: 'Full lighting and fisheye lenses, shadows to about 250 m, 3 km view, full resolution.',
     medium: 'Full lighting and fisheye lenses, shadows to about 110 m, 1.6 km view, full resolution.',
     low: 'For a weak GPU: simple lighting, no shadows, a lighter fisheye lens, 650 m view.',
     verylow: 'Simple lighting at half resolution, 300 m view, no cars, people or traffic lights.',
@@ -227,7 +227,7 @@ export class SettingsUi {
                 ? this.field('Clouds', h('span', { class: 'note' }, 'None with this renderer'))
                 : this.field('Clouds', this.select<'on' | 'off'>(s.clouds ? 'on' : 'off', [
                     { value: 'off', label: 'Off' },
-                    { value: 'on', label: 'Volumetric (costs GPU time where they fill the view)' }
+                    { value: 'on', label: 'On' }
                 ], (v) => { s.clouds = v === 'on'; changed(); })),
             host.graphicsNow !== s.graphics && !host.graphicsPending()
                 ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)

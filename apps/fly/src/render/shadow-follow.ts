@@ -49,8 +49,10 @@ export const SHADOW_REACH_M: Record<ShadowReach, number> = { near: 110, far: 250
 /**
  * How far up-sun the shadow camera stands from the square's centre, m (its depth range is twice this). The ground across
  * a square of half side `half` lies up to 0.72 half either way along the sun's view (the sun is 54 deg up; render/world.ts
- * SUN_DIR), the ground under a camera h up 0.81 h further, and the square moves after 100 m along it: room for a camera
- * 400 m up. Ground past the range drew as shadowed: with farthest's old 600 m, a dark wedge from 350 m up (2026-10-24).
+ * SUN_DIR), anything h up 0.81 h nearer the sun, and the square moves after 100 m along it: room for whatever stands up to
+ * 400 m up. The square is centred on the ground under the camera along the sun's rays (world.ts Sun.follow), so a camera
+ * higher still keeps the ground in range. Ground past the range drew as shadowed: a dark wedge from 350 m up with
+ * farthest's old 600 m, and from any reach above about 600 m before the square was centred on the ground (2026-10-24).
  */
 export function shadowDepth(half: number): number {
     return Math.max(600, Math.ceil(0.72 * half + 0.81 * 400 + RECENTRE_DEPTH_M + 50));

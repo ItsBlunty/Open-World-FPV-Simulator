@@ -70,7 +70,7 @@ describe('graphics levels', () => {
 });
 
 describe('quality presets', () => {
-    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', clouds: false, renderScale: 1 });
+    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', clouds: true, renderScale: 1 });
 
     it('the default settings are Medium', () => {
         expect(presetOf(DEFAULT_SETTINGS)).toBe('medium');
@@ -87,22 +87,21 @@ describe('quality presets', () => {
         }
     });
 
-    it('High is Medium with shadows to 250 m, a 3 km view and clouds', () => {
+    it('High is Medium with shadows to 250 m and a 3 km view', () => {
         const c = base();
         expect(presetOf(c)).toBe('medium');
         c.shadowReach = 'far';
         expect(presetOf(c)).toBe('custom');
         c.viewDistance = 'far';
-        expect(presetOf(c)).toBe('custom');
-        c.clouds = true;
         expect(presetOf(c)).toBe('high');
+        c.clouds = false;
+        expect(presetOf(c)).toBe('custom');
     });
 
     it('Ultra (owner, 2026-10-24) is High with shadows to 1000 m and a 6 km view, and suggests High when slow', () => {
         const c = base();
         c.shadowReach = 'ultra';
         c.viewDistance = 'farthest';
-        c.clouds = true;
         expect(presetOf(c)).toBe('ultra');
         expect(cheaperPreset(c)).toBe('high');
         expect(QUALITY_PRESETS[0]).toBe('ultra');

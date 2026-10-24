@@ -20,7 +20,7 @@ import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { TrialsView } from '../render/trials';
 import { AirportLightsView } from '../render/airport-lights';
-import { CloudsView } from '../render/clouds';
+import { CloudsView, IN_CLOUD_COLOUR, cloudFog } from '../render/clouds';
 import { CraneView } from '../render/crane';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView, LOW_SPEC_OVERSAMPLE, NO_GPU_OVERSAMPLE } from '../render/fisheye';
@@ -103,18 +103,26 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const maxTexture: number = gpuBackend?.device?.limits.maxTextureDimension2D ?? (gpuBackend?.gl?.getParameter(0x0d33 /* MAX_TEXTURE_SIZE */) as number | undefined) ?? 4096;
     const reachShadows = (): void => sun.setReach(shadowReach(cfg.shadowReach, maxTexture));
     reachShadows();
-    /** full graphics' fog from the View distance setting (the low spec kits keep their own), and the clouds on or off */
-    const viewFog = (): void => {
-        if (cloudsView) cloudsView.group.visible = cfg.clouds;
-        if (lowSpec || !(scene.fog instanceof THREE.Fog)) return;
-        const f = VIEW_DISTANCES[cfg.viewDistance];
-        scene.fog.near = f.near;
-        scene.fog.far = f.far;
-    };
-    /** the clouds (full graphics only: low spec sees no further than its fog, clouds.ts); the setting shows or hides them */
+    /** the clouds (full graphics only, clouds.ts); the setting shows or hides them */
     const cloudsView = lowSpec ? null : new CloudsView();
     if (cloudsView) scene.add(cloudsView.group);
-    viewFog();
+    const skyColour = (scene.background as THREE.Color).clone();
+    const cloudColour = new THREE.Color(IN_CLOUD_COLOUR);
+    /**
+     * Full graphics' fog, each frame: the View distance setting's (the low spec kits keep their own), closing in and
+     * turning white as the camera flies into a cloud, the sky behind with it (clouds.ts cloudFog).
+     */
+    const viewFog = (): void => {
+        if (lowSpec || !cloudsView || !(scene.fog instanceof THREE.Fog)) return;
+        cloudsView.group.visible = cfg.clouds;
+        const f = VIEW_DISTANCES[cfg.viewDistance];
+        const w = cloudsView.whiteout(view.camera.position);
+        const g = cloudFog(w, f.near, f.far);
+        scene.fog.near = g.near;
+        scene.fog.far = g.far;
+        scene.fog.color.copy(skyColour).lerp(cloudColour, w);
+        (scene.background as THREE.Color).copy(scene.fog.color);
+    };
     scene.add(levelGroup(level, kit));
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
@@ -416,7 +424,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(r.tick);
         airView.update(r.tick);
         lightsView?.update(view.camera.position, r.tick / 1000);
-        cloudsView?.update(view.camera.position, r.tick / 1000);
+        viewFog();
         craneView.update(r.tick);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
@@ -747,7 +755,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
-        cloudsView?.update(view.camera.position, session.sim.tick / 1000);
+        viewFog();
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
@@ -801,7 +809,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
-        cloudsView?.update(view.camera.position, session.sim.tick / 1000);
+        viewFog();
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);

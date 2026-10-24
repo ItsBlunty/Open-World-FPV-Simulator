@@ -8,7 +8,6 @@ import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
-import { CLOUD_R } from './clouds';
 
 const X = new THREE.Vector3(1, 0, 0);
 /**
@@ -19,8 +18,8 @@ const X = new THREE.Vector3(1, 0, 0);
  */
 export const CAMERA_NEAR = 0.01;
 
-/** Full graphics' far plane, m: past the clouds' rim (clouds.ts), so the longest view (graphics.ts VIEW_DISTANCES) is drawn */
-export const FULL_FAR = CLOUD_R + 1000;
+/** Full graphics' far plane, m: past the longest view's fog (graphics.ts VIEW_DISTANCES, 6 km) and the clouds' field */
+export const FULL_FAR = 12000;
 
 /** Vertical FOV for a horizontal FOV at an aspect ratio (Three.js cameras take the vertical one). */
 export function verticalFov(hDeg: number, aspect: number): number {

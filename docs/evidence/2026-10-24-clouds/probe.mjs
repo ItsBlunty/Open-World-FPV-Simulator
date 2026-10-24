@@ -1,6 +1,7 @@
-// Volumetric clouds (owner, 2026-10-24: "3d pillowy clouds"; "lets test volumetric for performance") and the View
-// distance, checked in headless Chrome (WebGPU; ?webgl for WebGL 2) against the dev server on :5173.
-// Screenshots: from the park looking up and to the horizon, over the city from 120 m, a close crop of cloud edges.
+// Stylised clouds (owner, 2026-10-24: "lower stylized clouds, that players can go up and fly through. Make them cloud
+// the vision like flying in a cloud would really do"), checked in headless Chrome (WebGPU; ?webgl for WebGL 2) against
+// the dev server on :5173. Screenshots: from the park looking up and to the horizon, over the city from 120 m, and
+// flying level into the biggest puff over the map from 40 m out to 20 m in (the fog read back).
 // node docs/evidence/2026-10-24-clouds/probe.mjs [?webgl]
 import { spawn } from 'node:child_process'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
 const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
@@ -41,10 +42,14 @@ for (const [n, v] of Object.entries({ 'park-up': [0, 2, 200, 0, 35], 'park-horiz
   await cam(...v); await sleep(1500); await shot(`${n}${tag}`);
 }
 if (!q) {
-  // cloud edges at 3x: the grain the march's jitter leaves
-  await cam(-600, 120, 0, 90, -6); await sleep(1000);
-  const s = await cdp('Page.captureScreenshot', { format: 'png', clip: { x: 560, y: 40, width: 300, height: 200, scale: 3 } });
-  fs.writeFileSync(path.join(here, 'edges-3x.png'), Buffer.from(s.result.data, 'base64')); console.log('wrote edges-3x.png');
+  // into the biggest puff over the map, level, along +x: from 40 m outside its edge to 20 m inside
+  const f = JSON.parse(await js(`__fly.ask('const ps = fly.cloudsView.puffs.filter((p) => Math.abs(p.x - 300) < 2300 && Math.abs(p.z) < 2000); const p = ps.reduce((a, b) => b.r > a.r ? b : a); return JSON.stringify(p)')`));
+  console.log('puff', f.x.toFixed(0), f.y.toFixed(0), f.z.toFixed(0), 'r', f.r.toFixed(0));
+  for (const d of [-40, -8, -2, 4, 20]) {
+    await cam(f.x - f.r + d, f.y, f.z, 90, 0); await sleep(1200);
+    console.log(`${d} m in: fog`, await js(`__fly.ask('return JSON.stringify([Math.round(fly.scene.fog.near), Math.round(fly.scene.fog.far)])')`));
+    await shot(`into-cloud-${d < 0 ? 'out' : 'in'}${Math.abs(d)}m${tag}`);
+  }
 }
 console.log(logs.length ? logs.join('\n') : 'no console errors');
 ws.close(); proc.kill();

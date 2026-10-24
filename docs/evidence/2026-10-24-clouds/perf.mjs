@@ -1,5 +1,4 @@
-// Volumetric clouds (owner, 2026-10-24: "3d pillowy clouds"; "lets test volumetric for performance") and the View
-// distance, checked in headless Chrome (WebGPU; ?webgl for WebGL 2) against the dev server on :5173.
+// Stylised clouds (owner, 2026-10-24: "lower stylized clouds, that players can go up and fly through"), checked in headless Chrome (WebGPU; ?webgl for WebGL 2) against the dev server on :5173.
 // GPU time per frame with the clouds hidden and shown, at three views: n frames drawn back to back as the engine draws
 // them, waited for on the GPU. node docs/evidence/2026-10-24-clouds/perf.mjs <dpr 1|2> <lens ids, comma separated>
 import { spawn } from 'node:child_process'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
@@ -43,7 +42,8 @@ for (const lens of (process.argv[3] ?? 'none').split(',')) {
   await js(`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Start flying' && b.offsetParent)?.click(); 1`);
   await sleep(2500);
   console.log('lens', lens, await js('innerWidth + "x" + innerHeight'), await js(`__fly.ask('return fly.renderer.getPixelRatio()')`));
-  for (const [n, v] of Object.entries({ up: [0, 2, 200, 0, 35], horizon: [0, 2, 200, 200, 4], city: [-600, 120, 0, 90, -6] })) {
+  console.log('puffs', await js(`__fly.ask('return fly.cloudsView.puffs.length')`));
+  for (const [n, v] of Object.entries({ up: [0, 2, 200, 0, 35], horizon: [0, 2, 200, 200, 4], city: [-600, 120, 0, 90, -6], 'among-clouds': [0, 250, 400, 30, 0] })) {
     await cam(...v); await sleep(800);
     const ms = [];
     for (const on of [false, true, false, true]) {

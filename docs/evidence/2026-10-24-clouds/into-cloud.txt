@@ -1,0 +1,7 @@
+puff 698 295 -802 r 62
+-40 m in: fog [400,3000]
+-8 m in: fog [224,282]
+-2 m in: fog [33,22]
+4 m in: fog [0,14]
+20 m in: fog [0,14]
+no console errors

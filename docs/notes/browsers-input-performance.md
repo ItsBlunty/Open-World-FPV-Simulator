@@ -318,36 +318,41 @@ plain grass out to 10 km round it (`first-map.ts FAR_GROUND`, four quads, 8 tria
 look horrible, they should be 3d pillowy clouds, not some repeating 2d pattern." Asked: volumetric (realistic, costlier)
 or piles of balls (stylised, cheap)? "lets test volumetric for performance."
 
-**Volumetric clouds** (`render/clouds.ts`, `render/cloud-texture.ts`), after Schneider (SIGGRAPH 2015, Horizon Zero
-Dawn) and Hillaire (SIGGRAPH 2016, Frostbite). Fair-weather cumulus between 1500 and 2800 m, ray-marched per pixel:
-- Noise made once at load from fixed seeds (every visit the same sky; ~0.2 s in Node): a 256² coverage map (where clouds
-  stand and how tall they grow, one map per 20 km) and a 64³ shape volume, inside-out Worley at 4/8/16 cells carving value
-  noise (the billows; one volume per 3 km, sampled again per 700 m to erode the edges). Both wrap, so they tile.
-- Density: coverage over ~50 % of the sky, a flat base and rounded tops that stand higher where the cover is thicker,
-  the billows eating into thin cover (Schneider's remap).
-- Light: 64 steps along the view, 4 samples towards the sun at each (25-360 m), Beer's law, Henyey-Greenstein phase
-  (forward 0.65, back -0.25), the powder effect, a weaker second extinction for light scattered many times
-  (Wrenninge), skylight bluish at the tops and grey at the base. Extinction 0.025/m in the thick [estimate].
-- The layer bends down round a 60 km "planet", as flight sims' layers do, so clouds reach the horizon (a flat layer
-  meets a level view only at infinity); 5 km off it is 200 m lower. Drawn to 20 km, fading into the haze from 3 km and out
-  from 14 km. The volume is a dome round the camera drawn from inside, so anything nearer hides it by the depth test.
-- Each pixel starts its march at a random fraction of a step (a pixel hash; interleaved gradient noise drew diagonal
-  hatching), which turns banding into fine grain at the edges (`edges-3x.png`). No temporal smoothing.
-- They stay put over the ground and drift with a 6 m/s wind [estimate] from the sim tick (replays show the same sky).
-- Settings > Graphics > Clouds (Off / Volumetric), live; on in Ultra and High, off in Medium until tried on weaker GPUs.
-  Full graphics only. Settings saved before get clouds where their shadows match Ultra or High.
+**Clouds, second try: volumetric (dropped).** Ray-marched cumulus 1.5-2.8 km up after Schneider (Horizon Zero Dawn)
+and Hillaire (Frostbite), ~1 ms a frame at 1080p on the RTX 4070 Ti. Owner: "The clouds are way too high. Make lower
+stylized clouds, that players can go up and fly through. Make them cloud the vision like flying in a cloud would really
+do, instead of the weird cutout view thing that happens." (Its code is in git at f90db45 if wanted again.)
 
-**Cost** (`perf.mjs`, `perf.txt`; headless Chrome, WebGPU, RTX 4070 Ti, 1904x929; the same frames drawn 60 times with the
-clouds hidden and shown, timed to the GPU finishing). At dpr 1 the frame is CPU-bound and the clouds hide in it (+0.9 ms
-looking up into them, ~0 elsewhere, with or without the fisheye). At dpr 2 (4x the pixels, GPU-bound): looking up +4.0 ms,
-at the horizon +2.2, over the city +1.7; with the Caddx Ratel 2 fisheye +4.9 / +3.7 / +3.1. So on this GPU at 1080p about
-1-1.2 ms with the lens. A GPU four times slower would pay about 4-5 ms a frame with the lens: fine at 60 fps, a lot at 144.
-WebGL 2 (`?webgl`) draws them the same (`*-webgl.jpg`).
+**Stylised clouds** (`render/cloud-puffs.ts`, `render/clouds.ts`). Cumulus as heaps of soft white balls, low enough to
+climb to:
+- Placed from a fixed seed on a jittered 650 m grid round the map's middle out to 6 km, a cloud in 45 % of cells
+  (1699 puffs): each 90-260 m long, half to two thirds as wide, its middle heaped up a third to a half of its length, two
+  or three smaller puffs on top. Bases 180-280 m (stylised: real fair-weather bases are 1-2 km up); a test checks the
+  lowest puff clears the tallest thing the map builds by more than 10 m. Puffs 0.78 as tall as wide.
+- One instanced mesh (a 32x20 sphere, ~2.1 M triangles, one draw), lit physically like the map with a blue-grey glow
+  so their shaded sides stay light, fogged with the map. No shadows; not solid (clouds aren't). They don't move.
+- Inside a cloud: each frame the camera's depth in the nearest puff (`insideDepth`) sets a whiteout, from 4 m outside
+  the puff to full 12 m inside. The scene fog closes in (its distances blended in proportion, from the View distance's
+  down to 14 m) and turns cloud-white (0xdfe5ec), the sky behind with it, so the edge never shows as a cutout: the puff
+  fills the view, then the view greys over. Measured going in along +x into a 62 m puff (`into-cloud.txt`): 40 m out the
+  view's own fog (400 / 3000 m at High), 8 m out 224 / 282 m (a neighbouring puff is nearer), 2 m out 33 / 22 m, 4 m in
+  and deeper 0 / 14 m.
+- Settings > Graphics > Clouds (Off / On), live, on in Ultra, High and Medium (default on). Full graphics only.
 
-Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs: from the park up and to the horizon, over the city from 120 m,
-the edges at 3x; WebGPU and WebGL 2; no console errors). Tests: `clouds.test.ts` (same every time, cover, tiling, lumps),
-`graphics.test.ts` (preset views and clouds, old settings keep their preset).
+**Cost** (`perf.mjs`, `perf.txt`; RTX 4070 Ti at dpr 2, 3808x1858, the same frames drawn 60 times with the clouds hidden
+and shown): within ±0.15 ms everywhere (up at them, the horizon, over the city, among them at 250 m), with or without
+the fisheye. Not measured on a weak GPU, where 2 M triangles could tell.
 
-Open: not tried on a weak GPU; could march at half resolution if too slow; edge grain (no temporal smoothing); the clouds
-cast no shadows on the ground; the quad can fly into them (they draw as fog round it, untested); one sky (no weather or time of day);
-the far grass is plain (no fields or hills past 2 km); none in low spec.
+**The shadow block from high up** (owner's screenshot, 2026-10-24: "there is a shadow big ... it makes a giant
+rectangle shadow"). The shadow camera's depth range was centred on the camera and has room for 400 m: from ~600 m up
+the ground fell past it and drew as shadowed, a straight-edged dark block growing with height. Now the square is
+centred, along the sun's view, on the ground the camera looks down on along the sun's rays (`world.ts Sun.follow`; the
+same square across the view), so the ground stays in range at any height. Evidence `docs/evidence/2026-10-24-shadow-high/`
+(Ultra from 300, 1200, 2500 m; Medium from 1200 m): no block, shadows still drawn below.
+
+Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs: from the park up and to the horizon, over the city from 120 m, flying
+into one; WebGPU and WebGL 2 `*-webgl.jpg`; no console errors). Tests: `clouds.test.ts`
+(same every time, how many and where, clear of the map, depth in a puff, the fog inside), `graphics.test.ts`.
+
+Open: clouds cast no shadows; they don't drift; puffs overlap with hard creases (stylised); not tried on a weak GPU;
+none in low spec; the far grass is plain (no fields or hills past 2 km).
