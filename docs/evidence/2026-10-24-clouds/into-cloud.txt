@@ -1,8 +1,15 @@
 puff 2501 308 849 r 77
 -40 m in: fog [400,3000]
+wrote into-cloud-out40m.jpg
 -8 m in: fog [191,181]
+wrote into-cloud-out8m.jpg
 -2 m in: fog [45,26]
+wrote into-cloud-out2m.jpg
 4 m in: fog [0,14]
+wrote into-cloud-in4m.jpg
 20 m in: fog [0,14]
+wrote into-cloud-in20m.jpg
 in cloud at 1337 299 -182 r 21 runway 373 m off; fog [0,14]
+wrote lights-from-in-cloud.jpg
+cloud -1100 271 1172 its shadow along the sun at -938 1063
 no console errors

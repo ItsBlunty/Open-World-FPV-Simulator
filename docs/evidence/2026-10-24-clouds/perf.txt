@@ -1,30 +1,30 @@
 lens none 1904x929 1
 puffs 2237
-drift update 0.195 ms
-up: no clouds 1.16 ms, clouds 1.19 ms, +0.04 ms
-horizon: no clouds 1.13 ms, clouds 1.14 ms, +0.01 ms
-city: no clouds 1.53 ms, clouds 1.52 ms, +-0.01 ms
-among-clouds: no clouds 1.38 ms, clouds 1.43 ms, +0.06 ms
+drift update 0.174 ms
+up: no clouds 1.19 ms, clouds 1.34 ms, +0.16 ms
+horizon: no clouds 1.16 ms, clouds 1.30 ms, +0.15 ms
+city: no clouds 1.48 ms, clouds 1.62 ms, +0.14 ms
+among-clouds: no clouds 1.35 ms, clouds 1.49 ms, +0.14 ms
 lens caddx-ratel-2 1904x929 1
 puffs 2237
-drift update 0.176 ms
-up: no clouds 3.84 ms, clouds 3.99 ms, +0.14 ms
-horizon: no clouds 3.50 ms, clouds 3.66 ms, +0.16 ms
-city: no clouds 4.01 ms, clouds 4.13 ms, +0.12 ms
-among-clouds: no clouds 3.97 ms, clouds 4.05 ms, +0.08 ms
+drift update 0.185 ms
+up: no clouds 4.05 ms, clouds 4.16 ms, +0.11 ms
+horizon: no clouds 3.51 ms, clouds 3.79 ms, +0.28 ms
+city: no clouds 4.17 ms, clouds 4.46 ms, +0.29 ms
+among-clouds: no clouds 4.21 ms, clouds 4.59 ms, +0.39 ms
 no console errors
 lens none 1904x929 2
 puffs 2237
-drift update 0.220 ms
-up: no clouds 1.17 ms, clouds 1.28 ms, +0.12 ms
-horizon: no clouds 1.12 ms, clouds 1.25 ms, +0.13 ms
-city: no clouds 1.55 ms, clouds 1.55 ms, +-0.00 ms
-among-clouds: no clouds 1.31 ms, clouds 1.41 ms, +0.10 ms
+drift update 0.169 ms
+up: no clouds 0.96 ms, clouds 1.09 ms, +0.13 ms
+horizon: no clouds 0.99 ms, clouds 1.18 ms, +0.19 ms
+city: no clouds 1.26 ms, clouds 1.51 ms, +0.26 ms
+among-clouds: no clouds 1.25 ms, clouds 1.39 ms, +0.14 ms
 lens caddx-ratel-2 1904x929 2
 puffs 2237
-drift update 0.168 ms
-up: no clouds 3.81 ms, clouds 3.93 ms, +0.13 ms
-horizon: no clouds 3.58 ms, clouds 3.70 ms, +0.12 ms
-city: no clouds 3.95 ms, clouds 4.15 ms, +0.20 ms
-among-clouds: no clouds 3.89 ms, clouds 4.07 ms, +0.18 ms
+drift update 0.166 ms
+up: no clouds 2.91 ms, clouds 3.12 ms, +0.21 ms
+horizon: no clouds 2.71 ms, clouds 3.12 ms, +0.41 ms
+city: no clouds 3.04 ms, clouds 3.40 ms, +0.35 ms
+among-clouds: no clouds 3.81 ms, clouds 4.46 ms, +0.65 ms
 no console errors

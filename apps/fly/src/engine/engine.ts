@@ -105,7 +105,11 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     reachShadows();
     /** the clouds (full graphics only, clouds.ts); the setting shows or hides them */
     const cloudsView = lowSpec ? null : new CloudsView();
-    if (cloudsView) scene.add(cloudsView.group);
+    if (cloudsView) {
+        scene.add(cloudsView.group);
+        // the sun's light cut where the clouds' shadows fall (clouds.ts)
+        cloudsView.shade(sun.light);
+    }
     const skyColour = (scene.background as THREE.Color).clone();
     const cloudColour = new THREE.Color(IN_CLOUD_COLOUR);
     /**
@@ -774,6 +778,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
 
     /** The frame from view.camera: through the lens when there is one and `lens` says this camera has it. */
     function draw(lens: boolean): void {
+        // the clouds' shadow map first, where they are this frame
+        if (gpuRenderer) cloudsView?.drawShadow(gpuRenderer);
         if (lens && fisheye.active) fisheye.render(renderer, scene, view.camera, renderer.shadowMap.enabled ? sun.light.shadow : null);
         else {
             renderer.render(scene, view.camera);
@@ -819,6 +825,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         // a gate outline, its see-through copy and the next one shown, so their materials are built now too
         trialsView.update({ phase: 'racing', course: 0, hold: 1, toGo: null, throttleUp: false, ms: 0, gate: 0, gates: 0 }, 0);
         sun.follow(p);
+        if (gpuRenderer) cloudsView?.drawShadow(gpuRenderer);
         for (const [x, y, z] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) {
             // looking straight up or down, the camera's up must not be along the view
             cam.up.set(0, y === 0 ? 1 : 0, y === 0 ? 0 : -1);

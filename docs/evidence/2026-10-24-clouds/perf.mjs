@@ -30,7 +30,7 @@ const cam = (x, y, z, h, p) => js(`__fly.ask('const c = fly.freeCam; if (!c.acti
 // GPU time per frame: n frames drawn back to back as the engine draws them (draw: the lens if on), waited for on the GPU
 // the clouds shown or hidden inside the timed task itself (the engine sets them from the setting every frame)
 const time = async (n, on) => {
-  await js(`__fly.ask('globalThis.__t = null; const d = fly.renderer.backend.device; (async () => { const draw = () => { fly.cloudsView.group.visible = ${on}; fly.fisheye.active ? fly.fisheye.render(fly.renderer, fly.scene, fly.view.camera, fly.sun.light.shadow) : fly.renderer.render(fly.scene, fly.view.camera); }; draw(); await d.queue.onSubmittedWorkDone(); const t0 = performance.now(); for (let i = 0; i < ${n}; i++) draw(); await d.queue.onSubmittedWorkDone(); globalThis.__t = (performance.now() - t0) / ${n}; })(); return 1')`);
+  await js(`__fly.ask('globalThis.__t = null; const d = fly.renderer.backend.device; (async () => { const draw = () => { fly.cloudsView.group.visible = ${on}; fly.cloudsView.drawShadow(fly.renderer); fly.fisheye.active ? fly.fisheye.render(fly.renderer, fly.scene, fly.view.camera, fly.sun.light.shadow) : fly.renderer.render(fly.scene, fly.view.camera); }; draw(); await d.queue.onSubmittedWorkDone(); const t0 = performance.now(); for (let i = 0; i < ${n}; i++) draw(); await d.queue.onSubmittedWorkDone(); globalThis.__t = (performance.now() - t0) / ${n}; })(); return 1')`);
   for (let i = 0; i < 100; i++) { const v = await js('globalThis.__t'); if (v !== null && v !== undefined) return v; await sleep(100); }
 };
 

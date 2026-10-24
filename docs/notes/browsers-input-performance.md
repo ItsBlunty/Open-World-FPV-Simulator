@@ -329,8 +329,17 @@ climb to:
   (2237 puffs): each 90-260 m long, half to two thirds as wide, its middle heaped up a third to a half of its length, two
   or three smaller puffs on top. Bases 180-280 m (stylised: real fair-weather bases are 1-2 km up); a test checks the
   lowest puff clears the tallest thing the map builds by more than 10 m. Puffs 0.78 as tall as wide.
-- One instanced mesh (a 32x20 sphere, ~2.8 M triangles, one draw), lit physically like the map with a blue-grey glow
-  so their shaded sides stay light, fogged with the map. No shadows; not solid (clouds aren't).
+- One instanced mesh (a 32x20 sphere, ~2.8 M triangles, one draw), shaded by their own light (white facing the sun,
+  blue-grey away from it), fogged with the map. Not solid (clouds aren't).
+- Their shadows (owner: "they should cast shadows like real clouds"). Each frame the puffs, as coarse 10x6 balls sharing
+  their matrices, are drawn white on black from the sun (orthographic, along SUN_DIR) into a 1024² map covering the whole
+  13 km field (~19 m texels). Every lit surface looks along the sun's rays into it (five taps 1.5 texels apart: soft
+  edges) and the sun's light on it is cut by 80 % under a cloud [estimate], through the sun light's colour node (Three.js
+  AnalyticLightNode reads `light.colorNode`), so the sky's light still reaches the shade. Nothing above 280-430 m is
+  shaded (the quad over the clouds). Not through the sun's shadow map: that reaches only 110-1000 m round the camera.
+  The clouds don't use the scene's light because each lies in its own shadow in that map. `shadow-side.jpg` (a cloud and
+  its shadow), `shadow-low.jpg` (the probe aims at where the sun's ray through the cloud meets the ground: the shadow is
+  there), `shadows-from-900m.jpg`; WebGL 2 the same.
 - They drift (owner: "The clouds should be moving across the sky"): 5 m/s east and 2 m/s south [estimate: fair-weather
   cumulus drift at 5-10 m/s], from the sim's time, so a replay has the same sky at the same moment. Each cloud moves
   whole round the square and comes back on the far side, shrinking to nothing over the last 1200 m before the edge and
@@ -349,9 +358,10 @@ climb to:
   setHaze, each frame). `lights-from-in-cloud.jpg`: from deep in a cloud 370 m off the runway, none show.
 
 **Cost** (`perf.mjs`, `perf.txt`; RTX 4070 Ti, 1904x929 at dpr 1 and 2, the same frames drawn 60 times with the clouds
-hidden and shown inside the timed task; a first run toggled them outside it, where the engine turned them back on each
-frame, and measured nothing): drawing them +0.0-0.13 ms without the lens, +0.08-0.2 ms with the fisheye; moving them
-each frame 0.17-0.22 ms of CPU. Not measured on a weak GPU, where 2.8 M triangles could tell.
+and their shadow pass hidden and shown inside the timed task; a first run toggled them outside it, where the engine turned
+them back on each frame, and measured nothing): with shadows +0.13-0.26 ms without the lens, +0.11-0.65 ms with the
+fisheye (the most among the clouds); moving them each frame 0.17-0.19 ms of CPU. The shadow lookups run on every lit
+surface even with the clouds off (strength 0). Not measured on a weak GPU, where 2.8 M triangles could tell.
 
 **The shadow block from high up** (owner's screenshot, 2026-10-24: "there is a shadow big ... it makes a giant
 rectangle shadow"). The shadow camera's depth range was centred on the camera and has room for 400 m: from ~600 m up
@@ -364,5 +374,5 @@ Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs: from the park up and to 
 into one; WebGPU and WebGL 2 `*-webgl.jpg`; no console errors). Tests: `clouds.test.ts`
 (same every time, how many and where, clear of the map, depth in a puff, the fog inside), `graphics.test.ts`.
 
-Open: clouds cast no shadows; the wind is fixed (no setting); puffs overlap with hard creases (stylised); not tried on a weak GPU;
+Open: cloud shadows are 80 % [estimate], soft at ~19 m texels and cast by coarse balls; clouds don't shade each other; the wind is fixed (no setting); puffs overlap with hard creases (stylised); not tried on a weak GPU;
 none in low spec; the far grass is plain (no fields or hills past 2 km).

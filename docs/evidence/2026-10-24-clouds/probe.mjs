@@ -3,7 +3,7 @@
 // the dev server on :5173. Screenshots: from the park looking up and to the horizon, over the city from 120 m, and
 // flying level into the biggest puff over the map from 40 m out to 20 m in (the fog read back); the airport's lights from
 // inside the puff nearest the runway's middle and from 30 m up off its west end (hazed: owner, 2026-10-24); the same view
-// 20 s apart (the clouds drift).
+// 20 s apart (the clouds drift); a cloud and its shadow, and the shadows from 900 m up.
 // node docs/evidence/2026-10-24-clouds/probe.mjs [?webgl]
 import { spawn } from 'node:child_process'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
 const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
@@ -66,6 +66,15 @@ if (!q) {
   await shot(`lights-from-in-cloud${tag}`);
   await cam(300, 30, 40, 90, -3); await sleep(1500);
   await shot(`lights-from-west${tag}`);
+  // a cloud's shadow (owner, 2026-10-24: "they should cast shadows like real clouds"): the biggest cloud south of the
+  // city, from the side with its shadow, and low over the ground looking at where the shadow should fall
+  const sun = [-300, 500, 200].map((v, _, a) => v / Math.hypot(...a));
+  const sc = JSON.parse(await js(`__fly.ask('const ps = fly.cloudsView.puffs.filter((p) => p.r > 25 && Math.abs(p.x - 300) < 1500 && p.z > 0 && p.z < 1500); const p = ps.reduce((a, b) => b.r > a.r ? b : a); return JSON.stringify(p)')`));
+  const g = [sc.x - sun[0] * sc.y / sun[1], 0, sc.z - sun[2] * sc.y / sun[1]];
+  console.log('cloud', sc.x.toFixed(0), sc.y.toFixed(0), sc.z.toFixed(0), 'its shadow along the sun at', g[0].toFixed(0), g[2].toFixed(0));
+  await lookAt(g[0] + 350, 60, g[2] + 350, (g[0] + sc.x) / 2, sc.y * 0.35, (g[2] + sc.z) / 2); await sleep(1500); await shot('shadow-side');
+  await lookAt(g[0] - 250, 15, g[2] + 120, g[0], 0, g[2]); await sleep(1500); await shot('shadow-low');
+  await cam(300, 900, 900, 0, -55); await sleep(1500); await shot('shadows-from-900m');
   // the clouds drift: the same view 20 s apart
   await cam(0, 150, 400, 30, 12); await sleep(1500);
   await shot('drift-0s');
