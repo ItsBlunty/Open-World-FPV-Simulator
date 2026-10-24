@@ -8,7 +8,7 @@
 import * as THREE from 'three/webgpu';
 import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
-import { SHADOW_REACHES, shadowNeedsRecentre } from './shadow-follow';
+import { SHADOW_REACHES, shadowDepth, shadowNeedsRecentre } from './shadow-follow';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
 
@@ -298,17 +298,14 @@ export class Sun {
     private centre: THREE.Vector3 | null = null;
     /** half the side of the shadowed square round the camera, m (setReach) */
     private half: number = SHADOW_REACHES.near.half;
+    /** how far up-sun the shadow camera stands, m (shadowDepth) */
+    private depth = 600;
 
     constructor(scene: THREE.Scene) {
         const l = new THREE.DirectionalLight(0xfff4e0, 2.2);
         l.castShadow = true;
         const cam = l.shadow.camera;
         cam.near = 1;
-        cam.far = 1200; // from 600 m up-sun to well below the ground under the camera
-        // The bias is in the shadow camera's depth, which spans its whole 1199 m range: -0.0002 moved every shadow about
-        // 24 cm towards the sun, so a lit ring showed round the foot of anything standing on the ground before its shadow
-        // began (owner, 2026-10-19). -0.00001 is 1.2 cm; the normal bias (setReach, scaled to the texel) keeps off acne.
-        l.shadow.bias = -0.00001;
         scene.add(l, l.target);
         this.light = l;
         this.setReach(SHADOW_REACHES.near);
@@ -327,6 +324,14 @@ export class Sun {
         // the sampling point moved off the surface by most of a shadow texel (6 cm near and far, 12 cm farthest), enough to
         // keep sloped faces free of acne and little enough that a shadow still starts where its object stands
         l.shadow.normalBias = 0.7 * (2 * r.half) / r.map;
+        // from `depth` m up-sun to as far below the square's centre (shadow-follow.ts shadowDepth)
+        this.depth = shadowDepth(r.half);
+        cam.near = 1;
+        cam.far = 2 * this.depth;
+        // The bias is in the shadow camera's depth, which spans its whole range: -0.0002 of 1199 m moved every shadow about
+        // 24 cm towards the sun, so a lit ring showed round the foot of anything standing on the ground before its shadow
+        // began (owner, 2026-10-19). Now 1.2 cm at any range; the normal bias (above, scaled to the texel) keeps off acne.
+        l.shadow.bias = -0.012 / (cam.far - cam.near);
         cam.left = -r.half;
         cam.right = r.half;
         cam.top = r.half;
@@ -349,7 +354,7 @@ export class Sun {
         this.c.y = Math.round(this.c.y / texel) * texel;
         this.c.applyMatrix4(this.fromLight);
         this.light.target.position.copy(this.c);
-        this.light.position.copy(this.c).addScaledVector(SUN_DIR, 600);
+        this.light.position.copy(this.c).addScaledVector(SUN_DIR, this.depth);
     }
 }
 

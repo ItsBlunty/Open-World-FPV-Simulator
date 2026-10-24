@@ -51,13 +51,13 @@ export function graphicsFromParam(v: string | null): GraphicsLevel | null {
 }
 
 /**
- * The quality presets at the top of Settings > Graphics, as games have them (owner, 2026-10-19): High and Medium draw
- * with the full renderer and differ in how far the shadows reach; Low, Very low and Super low are the three low spec
+ * The quality presets at the top of Settings > Graphics, as games have them (owner, 2026-10-19): Ultra (2026-10-24), High
+ * and Medium draw with the full renderer and differ in how far the shadows reach; Low, Very low and Super low are the three low spec
  * levels. Any other mix of the details under them is "custom".
  */
-export type QualityPreset = 'high' | 'medium' | 'low' | 'verylow' | 'super';
+export type QualityPreset = 'ultra' | 'high' | 'medium' | 'low' | 'verylow' | 'super';
 
-export const QUALITY_PRESETS: readonly QualityPreset[] = ['high', 'medium', 'low', 'verylow', 'super'];
+export const QUALITY_PRESETS: readonly QualityPreset[] = ['ultra', 'high', 'medium', 'low', 'verylow', 'super'];
 
 /** The settings a preset sets (a subset of Settings, so this file needs no DOM or storage). */
 export interface GraphicsChoice {
@@ -69,6 +69,8 @@ export interface GraphicsChoice {
 
 /** What each preset sets. The low spec levels draw no shadows, so their presets leave the shadow choices as they were. */
 export const PRESETS: Readonly<Record<QualityPreset, Readonly<Partial<GraphicsChoice>> & { graphics: GraphicsLevel }>> = {
+    // (owner, 2026-10-24) for GPUs with more memory: shadows to 1000 m (render/shadow-follow.ts)
+    ultra: { graphics: 'full', shadows: true, shadowReach: 'ultra', renderScale: 1 },
     high: { graphics: 'full', shadows: true, shadowReach: 'far', renderScale: 1 },
     medium: { graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 },
     low: { graphics: 'low', renderScale: 1 },
@@ -78,7 +80,7 @@ export const PRESETS: Readonly<Record<QualityPreset, Readonly<Partial<GraphicsCh
 };
 
 export const PRESET_NAMES: Record<QualityPreset | 'custom', string> = {
-    high: 'High', medium: 'Medium', low: 'Low', verylow: 'Very low', super: 'Super low', custom: 'Custom'
+    ultra: 'Ultra', high: 'High', medium: 'Medium', low: 'Low', verylow: 'Very low', super: 'Super low', custom: 'Custom'
 };
 
 /** The preset these settings are, or 'custom'. */

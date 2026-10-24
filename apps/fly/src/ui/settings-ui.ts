@@ -66,11 +66,13 @@ const TABS: { id: SettingsTab; label: string }[] = [
 const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
     near: 'To about 110 m',
     far: 'To about 250 m (4x the shadow memory)',
-    farthest: 'To about 500 m (softer up close, 4x the shadow memory)'
+    farthest: 'To about 500 m (softer up close, 4x the shadow memory)',
+    ultra: 'To about 1000 m (softer up close, 16x the shadow memory: about 1 GB)'
 };
 
 /** What each preset is, under the preset box */
 const PRESET_NOTES: Record<QualityPreset | 'custom', string> = {
+    ultra: 'Full lighting and fisheye lenses, shadows to about 1000 m (about 1 GB of graphics memory for them), full resolution. For strong GPUs.',
     high: 'Full lighting and fisheye lenses, shadows to about 250 m, full resolution.',
     medium: 'Full lighting and fisheye lenses, shadows to about 110 m, full resolution.',
     low: 'For a weak GPU: simple lighting, no shadows, a lighter fisheye lens, 650 m view.',

@@ -73,7 +73,13 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const lowSpec = kit.lowSpec;
     // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
     // and Three.js falls back to normal depth without it
-    const gpuRenderer = lowSpec ? null : new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true });
+    // the Ultra preset's shadow map is 16384² (render/shadow-follow.ts); WebGPU gives 8192 unless asked for more, so ask for
+    // what the adapter has, up to that (the adapter asked for as Three.js asks for its own, so it is the same one)
+    type Gpu = { requestAdapter(o: object): Promise<{ limits: { maxTextureDimension2D: number } } | null> };
+    const gpu = (navigator as { gpu?: Gpu }).gpu;
+    const adapter = lowSpec || params.has('webgl') || !gpu ? null : await gpu.requestAdapter({ featureLevel: 'compatibility' }).catch(() => null);
+    const requiredLimits = adapter ? { maxTextureDimension2D: Math.min(16384, adapter.limits.maxTextureDimension2D) } : undefined;
+    const gpuRenderer = lowSpec ? null : new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true, requiredLimits });
     const renderer = gpuRenderer ?? new WebGLRenderer({ canvas, antialias: false, reversedDepthBuffer: true });
     let size = { width: init.width, height: init.height, dpr: init.dpr };
     const pixelRatio = (): number => Math.min(size.dpr, lowSpec ? 1 : 2) * (kit.resolution ?? cfg.renderScale);

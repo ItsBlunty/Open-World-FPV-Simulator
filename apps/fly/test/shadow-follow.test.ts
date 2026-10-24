@@ -2,7 +2,7 @@
 // every frame made Firefox stutter; docs/notes/browsers-input-performance.md §0l).
 
 import { describe, expect, it } from 'vitest';
-import { RECENTRE_DEPTH_M, RECENTRE_M, SHADOW_REACHES, SHADOW_REACH_IDS, isShadowReach, shadowNeedsRecentre, shadowReach } from '../src/render/shadow-follow';
+import { RECENTRE_DEPTH_M, RECENTRE_M, SHADOW_REACHES, SHADOW_REACH_IDS, isShadowReach, shadowDepth, shadowNeedsRecentre, shadowReach } from '../src/render/shadow-follow';
 
 describe('shadow square recentring', () => {
     const c = { x: 10, y: -5, z: 300 };
@@ -29,10 +29,10 @@ describe('shadow reach', () => {
         expect(SHADOW_REACHES.near).toEqual({ half: 120, map: 4096 });
     });
 
-    it('reaches further with each step, never blurrier than 13 cm a texel', () => {
+    it('reaches further with each step, never blurrier than 13 cm a texel (on a GPU with 16384² textures)', () => {
         let last = 0;
         for (const id of SHADOW_REACH_IDS) {
-            const r = shadowReach(id, 8192);
+            const r = shadowReach(id, 16384);
             expect(r.half - RECENTRE_M).toBeGreaterThan(last);
             expect((2 * r.half) / r.map).toBeLessThan(0.13);
             last = r.half - RECENTRE_M;
@@ -42,6 +42,20 @@ describe('shadow reach', () => {
     it('keeps the map within the GPU largest texture', () => {
         expect(shadowReach('far', 4096).map).toBe(4096);
         expect(shadowReach('far', 16384).map).toBe(8192);
+        // ultra (owner, 2026-10-24): 16384² where the GPU allows it, else 8192² (25 cm texels)
+        expect(shadowReach('ultra', 16384)).toEqual({ half: 1016, map: 16384 });
+        expect(shadowReach('ultra', 8192).map).toBe(8192);
+    });
+
+    it('stands the shadow camera far enough up-sun for the whole square under a camera 400 m up, at every reach', () => {
+        // the sun 54 deg up (render/world.ts SUN_DIR): the square's edge lies cot(54) half along the view, the ground under
+        // a camera h up sin(54) h further, and the square moves after 100 m along it
+        const sunUp = Math.asin(500 / Math.hypot(300, 500, 200));
+        for (const id of SHADOW_REACH_IDS) {
+            const half = SHADOW_REACHES[id].half;
+            expect(shadowDepth(half)).toBeGreaterThan(half / Math.tan(sunUp) + 400 * Math.sin(sunUp) + RECENTRE_DEPTH_M);
+            expect(shadowDepth(half)).toBeGreaterThanOrEqual(600);
+        }
     });
 
     it('accepts only known reaches from storage', () => {

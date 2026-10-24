@@ -271,3 +271,29 @@ Fix: bias -0.00001 (1.2 cm); the normal bias now follows the texel, 0.7 x texel 
 starts at the foot). An extreme bias (-0.004) moved the shadow metres off, so the runtime value does reach the shader.
 At the farthest reach no acne was seen on facades, roads or the bando's floors (screenshots not kept). Not checked:
 the low spec renderer (it has no shadows), Firefox.
+
+## 2j. Ultra graphics preset, shadows to 1000 m (owner, 2026-10-24): built, waiting for the owner
+
+**Asked (Next up):** an Ultra preset above High, shadows to 1000 m, for GPUs with more VRAM.
+
+**Built:** Settings > Graphics > Quality preset now starts with **Ultra** (full renderer, 100 %, shadows "To about 1000 m");
+the Shadows box has that step too. `SHADOW_REACHES.ultra`: a 2032 m square (half 1016) on a 16384² map, 12.4 cm texels
+(as farthest's 12 cm), about 1 GB of shadow depth (16x near). WebGPU hands out 8192² textures unless asked, so the
+engine asks the adapter (the same options Three.js uses: `featureLevel: 'compatibility'`) for its largest, up to 16384,
+as `requiredLimits`; a GPU that has no more gets 8192² (25 cm texels, soft). When slow, the tip suggests High.
+
+**Fixed on the way (all reaches):** the shadow camera stood 600 m up-sun with a 1200 m depth range. Ground outside it
+drew as shadowed, so from 350 m up with shadows to 500 m a large dark wedge covered the fields (shot before the fix
+read in the probe, not kept). `shadowDepth(half)` now gives room for the square's edge (0.72 half along the sun's
+view), a camera 400 m up, and the 100 m recentring: near 600 m, far 654, farthest 834, ultra 1206. The depth bias is
+now 1.2 cm whatever the range (it was -0.00001 of the range).
+
+**Evidence** (`docs/evidence/2026-10-24-ultra-shadows/`, headless Chrome, WebGPU, `probe.mjs`): the engine read back
+map 16384, half 1016, depth range 2412 m (the device's texture limit 16384 on this PC);
+`ultra-1000m.jpg` and `farthest-500m-fixed.jpg` from 350 m up west of the yard (the city, park and airport shaded on
+Ultra; no wedge on either now); `city-500-vs-1000.png` (from 120 m over the park looking north: the city 400-800 m away
+differs, 1.5 mean pixel difference vs 0.2 for the park). Settings text checked in the built-in browser. 623 tests
+pass (new: ultra in `graphics.test.ts`, `shadow-follow.test.ts`); typecheck clean.
+
+**Left open:** frame time and memory on Ultra not measured (headless Chrome caps at 120 fps); not tried on a GPU with
+less memory (a failed 1 GB allocation was not tested).

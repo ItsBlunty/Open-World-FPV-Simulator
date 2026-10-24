@@ -83,6 +83,14 @@ describe('quality presets', () => {
         expect(presetOf(c)).toBe('high');
     });
 
+    it('Ultra (owner, 2026-10-24) is High with shadows to 1000 m, and suggests High when slow', () => {
+        const c = base();
+        c.shadowReach = 'ultra';
+        expect(presetOf(c)).toBe('ultra');
+        expect(cheaperPreset(c)).toBe('high');
+        expect(QUALITY_PRESETS[0]).toBe('ultra');
+    });
+
     it('changing a detail makes it custom; low spec presets ignore the shadow choice', () => {
         expect(presetOf({ ...base(), renderScale: 0.8 })).toBe('custom');
         expect(presetOf({ ...base(), shadows: false })).toBe('custom');

@@ -25,7 +25,10 @@ export function shadowNeedsRecentre(centre: { x: number; y: number; z: number } 
 export const SHADOW_REACHES = {
     near: { half: 120, map: 4096 },
     far: { half: 250, map: 8192 },
-    farthest: { half: 500, map: 8192 }
+    farthest: { half: 500, map: 8192 },
+    // (owner, 2026-10-24: "Ultra ... shadows to 1000 m, for GPUs with more VRAM") farthest's 12 cm texels twice as far: a
+    // 16384² depth map, ~1 GB, where the GPU allows one (else 8192², 25 cm)
+    ultra: { half: 1016, map: 16384 }
 } as const;
 export type ShadowReach = keyof typeof SHADOW_REACHES;
 export const SHADOW_REACH_IDS = Object.keys(SHADOW_REACHES) as ShadowReach[];
@@ -41,4 +44,14 @@ export function shadowReach(reach: ShadowReach, maxTexture: number): { half: num
 }
 
 /** How far each reach draws shadows, round metres, as the settings name it (the square's half side less up to 16 m). */
-export const SHADOW_REACH_M: Record<ShadowReach, number> = { near: 110, far: 250, farthest: 500 };
+export const SHADOW_REACH_M: Record<ShadowReach, number> = { near: 110, far: 250, farthest: 500, ultra: 1000 };
+
+/**
+ * How far up-sun the shadow camera stands from the square's centre, m (its depth range is twice this). The ground across
+ * a square of half side `half` lies up to 0.72 half either way along the sun's view (the sun is 54 deg up; render/world.ts
+ * SUN_DIR), the ground under a camera h up 0.81 h further, and the square moves after 100 m along it: room for a camera
+ * 400 m up. Ground past the range drew as shadowed: with farthest's old 600 m, a dark wedge from 350 m up (2026-10-24).
+ */
+export function shadowDepth(half: number): number {
+    return Math.max(600, Math.ceil(0.72 * half + 0.81 * 400 + RECENTRE_DEPTH_M + 50));
+}
