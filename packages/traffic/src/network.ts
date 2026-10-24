@@ -55,6 +55,15 @@ const V_ROAD = 13.9;
 
 /** IDM: max acceleration, comfortable braking, jam gap, time headway; braking a car will use to stop on yellow [estimates] */
 const IDM_A = 1.5;
+/**
+ * (traffic v11) A semi's most acceleration (owner, 2026-10-24: "accelerate more slowly than cars"), m/s^2: measured
+ * tractor-trailers pulling away from a stop average 0.095 g for the first 3 s, then 0.047 g to 12 s (Danaher, Donaldson
+ * and McDonough, SAE 2019-01-0411, all with a trailer; tabled again in SAE 2020-01-0882 Appendix C). The first phase
+ * ends near the speed it reaches in its 3 s, SEMI_V1 m/s.
+ */
+const SEMI_A1 = 0.095 * 9.81;
+const SEMI_A2 = 0.047 * 9.81;
+const SEMI_V1 = SEMI_A1 * 3;
 const IDM_B = 2.5;
 const IDM_S0 = 2;
 const IDM_T = 1.2;
@@ -929,8 +938,15 @@ export class NetTraffic implements TrafficModel {
                 const u = draw(this.rngCar, i) % 100;
                 if (straight !== undefined && u < 60) pick = straight;
                 else {
+                    // (traffic v11) a semi keeps off the 6 m right turns while it has another way (as trucks keep to
+                    // truck routes): its trailer's tail swings into the opposing lane there (traffic.md §2i)
+                    // (half of its right turns go straight on instead, half left where there is one)
                     const turns = mv.filter((m) => m !== straight);
-                    pick = turns[draw(this.rngCar, i) % turns.length];
+                    const ok = this.shapes[i].kind !== 'semi' ? turns : turns.filter((m) => this.elems[m].group % 2 === 0);
+                    const k = draw(this.rngCar, i);
+                    if (ok.length === turns.length) pick = turns[k % turns.length];
+                    else if (ok.length && (straight === undefined || k % 2 === 0)) pick = ok[(k >>> 1) % ok.length];
+                    else pick = straight ?? turns[k % turns.length];
                 }
             }
             c[o + C_NEXT] = pick;
@@ -1094,10 +1110,11 @@ export class NetTraffic implements TrafficModel {
         const vn = this.elems[c[o + C_NEXT]].vmax;
         const lim = Math.sqrt(vn * vn + 2 * IDM_B * Math.max(0, el.len - s));
         if (lim < v0) v0 = lim;
-        const sStar = IDM_S0 + Math.max(0, v * IDM_T + (v * (v - vl)) / (2 * Math.sqrt(IDM_A * IDM_B)));
+        const aMax = this.shapes[i].kind !== 'semi' ? IDM_A : v < SEMI_V1 ? SEMI_A1 : SEMI_A2;
+        const sStar = IDM_S0 + Math.max(0, v * IDM_T + (v * (v - vl)) / (2 * Math.sqrt(aMax * IDM_B)));
         const g = gap > 0.1 ? gap : 0.1;
         const r = v / v0, q = sStar / g;
-        const a = IDM_A * (1 - r * r * r * r - q * q);
+        const a = aMax * (1 - r * r * r * r - q * q);
         return a < ACC_MIN ? ACC_MIN : a;
     }
 

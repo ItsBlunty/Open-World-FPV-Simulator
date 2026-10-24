@@ -16,7 +16,8 @@ export const DT = 0.001;
 /** 8: people keep apart (follow, wait for each other at meeting paths), a spot each at the kerb when waiting to cross */
 /** 9: cars, saloons, SUVs, vans, pickups with loads and semis with trailers, each its own shape (vehicles.ts); vendors (owner 2026-10-20) */
 /** 10: a vehicle's boxes are one solid: a point inside it is pushed out of the whole vehicle (traffic.md §1z) */
-export const TRAFFIC_VERSION = 10;
+/** 11: semis accelerate as measured tractor-trailers do, slower than cars (traffic.md §2i) */
+export const TRAFFIC_VERSION = 11;
 
 export interface TrafficConfig {
     cars: boolean;

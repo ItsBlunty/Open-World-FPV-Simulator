@@ -521,6 +521,42 @@ describe('the traffic world', () => {
     });
 });
 
+describe('semis pulling away (traffic v11, traffic.md §2i)', () => {
+    it('accelerate as measured tractor-trailers do (0.095 g for 3 s, then 0.047 g), cars faster', () => {
+        const net = new NetTraffic(level, { ...ALL, signals: true });
+        const cars = net.movers.map((m, i) => (m.kind === 'car' ? i : -1)).filter((i) => i >= 0);
+        const semi = new Set(cars.filter((i) => net.movers[i].shape!.kind === 'semi'));
+        const v = new Map<number, number>(), from = new Map<number, number>();
+        // each kind's most acceleration, and the speeds reached 3 s and 12 s after leaving a stop
+        const most = { semi: 0, car: 0 };
+        const at3 = { semi: [] as number[], car: [] as number[] }, at12 = { semi: [] as number[], car: [] as number[] };
+        net.at(0);
+        for (const i of cars) v.set(i, net.inspect(i).v);
+        for (let k = 1; k <= 4800; k++) { // 4 min at 20 Hz
+            net.at(k * 50);
+            for (const i of cars) {
+                const vi = net.inspect(i).v, kind = semi.has(i) ? 'semi' : 'car';
+                most[kind] = Math.max(most[kind], (vi - v.get(i)!) / 0.05);
+                v.set(i, vi);
+                if (vi < 0.01) { from.set(i, k); continue; }
+                const f = from.get(i);
+                if (f === undefined) continue;
+                if (k - f === 60) at3[kind].push(vi);
+                if (k - f === 240) { at12[kind].push(vi); from.delete(i); }
+            }
+        }
+        const top = (a: number[]): number => Math.max(...a);
+        console.log(`most acceleration: semis ${most.semi.toFixed(2)}, cars ${most.car.toFixed(2)} m/s^2; fastest 3 s from a stop: semis ${top(at3.semi).toFixed(2)}, cars ${top(at3.car).toFixed(2)} m/s; 12 s: semis ${top(at12.semi).toFixed(2)} (${at12.semi.length} starts), cars ${top(at12.car).toFixed(2)}`);
+        expect(most.semi).toBeLessThanOrEqual(0.095 * 9.81 + 1e-9);
+        expect(most.car).toBeGreaterThan(1.3);
+        expect(at3.semi.length).toBeGreaterThan(5);
+        // 3 s at 0.095 g at most is 2.8 m/s; the measured average then reaches 2.8 + 9 s at 0.047 g = 6.9 m/s by 12 s
+        expect(top(at3.semi)).toBeLessThanOrEqual(0.095 * 9.81 * 3 + 0.05);
+        expect(top(at12.semi)).toBeLessThanOrEqual(0.095 * 9.81 * 3 + 0.047 * 9.81 * 9 + 0.05);
+        expect(top(at3.car)).toBeGreaterThan(top(at3.semi) + 1);
+    });
+});
+
 describe('people keeping apart (traffic v8)', () => {
     it('over ten minutes: people seldom touch, none stands inside another, no walker is stuck', () => {
         const t = new NetTraffic(level, { cars: true, people: true, signals: true, train: true });

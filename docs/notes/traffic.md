@@ -171,7 +171,7 @@ semi 10. Sizes are typical ones, marked [estimate] in the code, except the US tr
   a car needs to leave a junction (a semi enters only when its whole length but the last 4 m fits past the box);
   `boxClear` also waits for a tail (a trailer) still in the junction; people wait for a vehicle's tail, not its middle,
   to clear their crossing; a follower on a sibling movement keeps seeing a semi until its trailer is past the split.
-  Every vehicle has the same acceleration and speeds as before (a real loaded semi accelerates slower: not modelled).
+  Every vehicle has the same acceleration and speeds as before (semis slower since traffic v11, §2i).
   The kinds come from their own draw sequence (3 draws per vehicle, the third seeds a semi's pallets), so the cars'
   speeds and routes draw as before. Signals off (loops): no semis (their corners are 5 m round, 3 m off the kerb).
 
@@ -310,3 +310,25 @@ under a 1.5 m car goes to 1.75 m; with nothing moving the start is the spawn as 
 train tests. The crash toast's "back N s" (`preview()`) does not know where the cars will be at the respawn, so it can
 say less than the rewind goes. Not checked: whether the train's vehicles have stacked boxes that could trap a quad as the
 SUV did.
+
+## 2i. Semis pull away slower than cars (owner, 2026-10-24): traffic v11, built, waiting for the owner to look
+
+Owner (Next up, 2026-10-24): semis "accelerate more slowly than cars". Source, read in full: Danaher, Donaldson and
+McDonough, "Acceleration of Left Turning Heavy Trucks", SAE 2020-01-0882 (104 trucks filmed from a drone at three Denver
+junctions); its Appendix C re-tables their straight-line "two phase" model (SAE 2019-01-0411, 268 tests from eight
+papers): tractor-trailers from a stop average 0.095 g (+-0.028) for the first 3 s, then 0.047 g (+-0.015) from 3 to
+12 s; empty 0.100 / 0.057 g, fully loaded 0.083 / 0.044 g (automated gearboxes). The turning trucks matched it and
+rarely passed 15 mph in the junction.
+- *Model (`network.ts`):* a semi's IDM maximum acceleration is 0.93 m/s^2 (0.095 g) until 2.8 m/s (the speed 3 s of it
+  reaches), then 0.46 m/s^2 (0.047 g); cars keep 1.5 m/s^2 [estimate]. Braking, speeds and turns as before. All semis use
+  the average with a trailer (the load is not told apart).
+- *Right turns:* slower semis were still turning right when opposing traffic came through on the same green, and on
+  the city's 6 m right turns a 53 ft trailer's tail (3 m behind the axles, which follow the lane, §1t) swings 1.7 m
+  into the opposing lane: the 10-minute test found one semi overlapping an oncoming flatbed. Semis now keep off a right
+  turn where they have another way (half go straight on, half left), as trucks keep to routes they can turn on; one
+  with no other way still turns right. Rule kept: cars only follow their lights.
+- *Evidence:* new test "semis pulling away" (4 min, 28 starts): semis' most acceleration 0.93 m/s^2, fastest 3 s from a
+  stop 2.79 m/s (measured average 2.8), 12 s 6.33 m/s (measured average 6.9; the IDM eases off near the wanted speed);
+  cars 1.50 m/s^2, 4.48 and 10.54 m/s. 10-minute network: overlaps 0, red runs 0, crossers near cars 0, boxes in the
+  level 0, mean speed 1.79 m/s. `pnpm test` 69 files, 621 pass; typecheck clean. Re-pinned traffic self-test
+  `d157f30a…`. Saved flights with traffic from v10 no longer open (the world hash changed). Not looked at in a browser.
