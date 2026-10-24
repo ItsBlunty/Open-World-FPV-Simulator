@@ -112,3 +112,24 @@ ended (the last where the first starts), never hidden, over the city at their to
 (the airport is off in them).
 
 **Left open:** the planes still ignore the quad (no avoiding, no wake); the tour paths are the same every day.
+
+## 2l. Solid propellers and rotors (owner, 2026-10-24: Next up "solid propellers and rotors"): air v3, built
+
+- *What is solid (`air-shapes.ts` Prop, `air-world.ts`):* while a mover's engine turns (power above 0) each prop or rotor
+  is a solid disc, its radius and as thick as its blade's chord (the drawing's: 12 % of the radius, 6 % for a main rotor,
+  at least 8 cm), moving with the mover; stopped, each blade is a box (radius long, 3 cm thick, chord wide) at the angle
+  the prop always stops at (`propRest`: no blade straight down; a 2-blade prop level, 4 in an X, odd counts one blade
+  up). The drawing turns a prop on to the next rest angle and stops it there once its power is under 0.1, so the blades
+  drawn stopped are the blades the quad hits. A hit bounces as off a wall moving with the plane: the blade's own speed
+  (a tip at ~250 m/s) is not in it, and nothing breaks (damage is off). The helicopter's main rotor (10.2 m) and its
+  Fenestron count the same way.
+- *Found on the way:* the King Air's 2.68 m props reached 8 cm into the runway, the Baron's cleared it by 7 cm: wing
+  engines now sit at least 7 in (0.178 m) clear, the rule for a nose-wheel plane level on its gear (14 CFR 25.925(a),
+  read 2026-10-24). Not changed (their whole fuselage would move): the SR22's prop clears by 0.160 m, the Cub's by 0.025 m
+  level (a tail-wheel plane needs 9 in in its level take-off attitude; on its tail wheel it sits nose up).
+- *Tests (`air.test.ts`):* every prop has its rest blades, a parked prop's blade tips are over 0.1 m off the ground, every
+  prop clears the ground level, wing props by 7 in; for each plane, a point 0.7 out on a stopped blade is pushed out and
+  one between two blades is not, and the same point between the blades is pushed out while the engine runs (over 5 planes
+  each); props and rotors (a turning one's rim, a stopped one's blade tips) clear of buildings, trees and ground all day.
+  627 pass; typecheck clean. AIR_VERSION 3: flights saved with airport traffic before this no longer open.
+- *Left open:* a hit doesn't throw the quad as a real blade strike would (owner to say); props not tried in a browser.

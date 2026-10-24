@@ -22,7 +22,8 @@ import type { AirShape, AircraftType } from './air-shapes';
 import { DT } from './model';
 
 /** Bumped with any change that moves an airport mover or changes a shape: part of the world hash (replays). */
-export const AIR_VERSION = 2;
+/** 3 (2026-10-24): props and rotors solid (a disc turning, blades stopped); the King Air's and Baron's nacelles raised to clear the ground */
+export const AIR_VERSION = 3;
 /** The airport's day: everything repeats this often, s (ten arrivals and ten departures: a runway movement every 2.5 min) */
 export const AIR_DAY = 3000;
 

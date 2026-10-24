@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildFirstMap } from '@owfpv/maps';
 import { MeshContactWorld } from '@owfpv/world-mesh';
-import { AIR_DAY, AirTraffic, AirWorld, TOURS, newAirPlace, placeOnLeg } from '../src/index';
-import type { AirMover, AirPlace } from '../src/index';
+import { AIR_DAY, AirTraffic, AirWorld, HELI, TOURS, bladeAxes, newAirPlace, placeOnLeg, propRest } from '../src/index';
+import type { AirMover, AirPlace, Prop } from '../src/index';
 
 const level = buildFirstMap();
 
@@ -75,7 +75,7 @@ describe('the airport', () => {
         expect([...clashes.entries()].map(([k, t]) => `${k} at ${t} s`)).toEqual([]);
     });
 
-    it('keeps the planes, the tugs and the helicopter clear of the buildings, the trees and the ground', () => {
+    it('keeps the planes, the tugs and the helicopter (props and rotors too) clear of the buildings, the trees and the ground', () => {
         const mesh = new MeshContactWorld(level.collision);
         const ps = newAirPlace();
         const out = new Float64Array(8 * 4);
@@ -97,6 +97,22 @@ describe('the airport', () => {
                         if (mesh.contacts(x, y, z, r * 0.9, out, 8) > 0) {
                             const k = m.type?.kind ?? m.kind;
                             if (!hits.has(k)) hits.set(k, `${pt.role} at ${t} s (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`);
+                        }
+                    }
+                }
+                // the props and rotors (solid since 2026-10-24): a turning one's rim, a stopped one's blade tips
+                for (const pr of m.shape.props) {
+                    for (let k = 0; k < 8; k++) {
+                        const a = ps.e > 0 ? (2 * Math.PI * k) / 8 : propRest(pr.blades) + (2 * Math.PI * k) / pr.blades;
+                        if (ps.e === 0 && k >= pr.blades) break;
+                        const d = bladeAxes(pr.axis, a).d;
+                        const q = [0, 1, 2].map((j) => pr.p[j] + d[j] * pr.r);
+                        const x = ps.x + q[0] * ps.f[0] + q[1] * ps.u[0] + q[2] * ps.s[0];
+                        const y = ps.y + q[0] * ps.f[1] + q[1] * ps.u[1] + q[2] * ps.s[1];
+                        const z = ps.z + q[0] * ps.f[2] + q[1] * ps.u[2] + q[2] * ps.s[2];
+                        if (mesh.contacts(x, y, z, 0.03, out, 8) > 0) {
+                            const kind = m.type?.kind ?? m.kind;
+                            if (!hits.has(kind + ' prop')) hits.set(kind + ' prop', `${pr.axis} ${ps.e > 0 ? 'disc' : 'blade'} at ${t} s (${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)})`);
                         }
                     }
                 }
@@ -164,5 +180,69 @@ describe('the airport', () => {
         const n = world.contacts(x, y, z, 0.05, out, 8, vel);
         expect(n).toBeGreaterThan(0);
         expect(Math.hypot(vel[0], vel[1], vel[2])).toBeGreaterThan(2);
+    });
+
+    it('has solid props and rotors (owner, 2026-10-24): parked blades clear of the ground', () => {
+        const shapes = [...new Set(air.movers.map((m) => m.shape))];
+        let n = 0;
+        for (const sh of shapes) for (const pr of sh.props) {
+            expect(pr.rest.length).toBe(pr.blades);
+            if (pr.axis !== 'f') continue;
+            // the lowest blade tip, with half the chord, over the ground the mover stands on
+            const low = Math.min(...pr.rest.map((b) => b.c[1] - Math.abs(b.R[1]) * b.e[0] - Math.abs(b.R[7]) * b.e[2]));
+            expect(low, `a prop at ${pr.p.join(', ')}`).toBeGreaterThan(0.1);
+            n++;
+        }
+        expect(n).toBeGreaterThan(10);
+        // sitting level, every prop's disc clears the ground; wing engines' by 7 in (14 CFR 25.925(a))
+        for (const m of air.movers) for (const pr of m.shape.props) {
+            if (pr.axis !== 'f') continue;
+            expect(pr.p[1] - pr.r, `${m.type?.kind}`).toBeGreaterThan(0);
+            if (Math.abs(pr.p[2]) > 0.5) expect(pr.p[1] - pr.r, `${m.type?.kind} wing prop`).toBeGreaterThanOrEqual(7 * 0.0254 - 1e-9);
+        }
+        // the rest angle: a 2-blade prop stops level, a 4-blade one in an X
+        expect(bladeAxes('f', propRest(2)).d.map((v) => Math.round(v * 1e9) / 1e9)).toEqual([0, 0, 1]);
+        expect(Math.abs(bladeAxes('f', propRest(4)).d[1])).toBeCloseTo(Math.SQRT1_2, 9);
+        expect(HELI.props.map((p) => p.axis)).toEqual(['u', 's']);
+    });
+
+    it('is solid on the blades only of a stopped prop, and across the whole disc of a turning one', () => {
+        const world = new AirWorld(new MeshContactWorld(level.collision), air);
+        const p = newAirPlace();
+        /** the world point at radius k r of prop pr of mover i, angle a about its axis, as placed */
+        const at = (q: AirPlace, pr: Prop, a: number, k: number): [number, number, number] => {
+            const d = bladeAxes(pr.axis, a).d;
+            const lf = pr.p[0] + d[0] * k * pr.r, lu = pr.p[1] + d[1] * k * pr.r, ls = pr.p[2] + d[2] * k * pr.r;
+            return [0, 1, 2].map((j) => [q.x, q.y, q.z][j] + q.f[j] * lf + q.u[j] * lu + q.s[j] * ls) as [number, number, number];
+        };
+        const o = { x: 0, y: 0, z: 0 };
+        let stopped = 0, turning = 0;
+        for (const i of air.planes) {
+            const pr = air.movers[i].shape.props[0];
+            if (!pr) continue;
+            const rest = propRest(pr.blades), half = Math.PI / pr.blades;
+            let gotStop = false, gotTurn = false;
+            for (let t = 0; t < AIR_DAY && !(gotStop && gotTurn); t += 7) {
+                air.place(i, t * 1000, p);
+                if (p.hidden || p.y > 1) continue;
+                if (!gotStop && p.e === 0) {
+                    world.at(t * 1000);
+                    const q = world.placeOf(i);
+                    // on a blade, 0.7 of the way out: inside; between two blades: clear
+                    expect(world.pushOut(...at(q, pr, rest, 0.7), 0.01, o), `plane ${i} blade at ${t} s`).toBe(true);
+                    expect(world.pushOut(...at(q, pr, rest + half, 0.7), 0.01, o), `plane ${i} gap at ${t} s`).toBe(false);
+                    gotStop = true; stopped++;
+                }
+                if (!gotTurn && p.e > 0.5) {
+                    world.at(t * 1000);
+                    const q = world.placeOf(i);
+                    // between the blades' rest places, in the disc: inside now
+                    expect(world.pushOut(...at(q, pr, rest + half, 0.7), 0.01, o), `plane ${i} disc at ${t} s`).toBe(true);
+                    gotTurn = true; turning++;
+                }
+            }
+        }
+        expect(stopped).toBeGreaterThan(5);
+        expect(turning).toBeGreaterThan(5);
     });
 });

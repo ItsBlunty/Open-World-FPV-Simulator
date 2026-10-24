@@ -6,7 +6,7 @@
 
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { newAirPlace } from '@owfpv/traffic';
+import { BLADE_THICK, newAirPlace, propRest } from '@owfpv/traffic';
 import type { APart, AirMover, AirPlace, AirTraffic, Role } from '@owfpv/traffic';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
@@ -24,6 +24,12 @@ const SHIRTS = [0xffffff, 0x5ab4ff, 0xffd84d, 0xb38cff];
 const MATTRESS = 0xf0f0f0;
 /** props turn at this many radians per second at full power [drawing: fast enough to blur into the disc] */
 const PROP_RATE = 60;
+/**
+ * Below this power a prop turns on to the next of its rest angles (air-shapes.ts propRest, where its stopped blades are
+ * solid) and stops there, at least SETTLE_RATE rad/s, so the blades drawn stopped are the blades the quad hits.
+ */
+const SETTLE_BELOW = 0.1;
+const SETTLE_RATE = 3;
 
 function paint(g: THREE.BufferGeometry, c: number): THREE.BufferGeometry {
     const col = new THREE.Color(c);
@@ -84,6 +90,9 @@ interface PropView {
     disc: THREE.Mesh;
     axis: 'f' | 'u' | 's';
     angle: number;
+    /** its rest angle and the angle between its blades, rad */
+    rest: number;
+    step: number;
 }
 
 interface MoverView {
@@ -158,14 +167,15 @@ export class AirView {
                 holder.add(spin);
                 const disc = new THREE.Mesh(new THREE.CircleGeometry(pr.r, seg(24, 12)).rotateX(-Math.PI / 2), discMat);
                 holder.add(disc);
-                const chord = Math.max(0.08, pr.r * (pr.axis === 'u' ? 0.06 : 0.12));
                 for (let k = 0; k < pr.blades; k++) {
-                    const blade = new THREE.Mesh(new THREE.BoxGeometry(pr.r, 0.03, chord).translate(pr.r / 2, 0, 0), bladeMat);
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(pr.r, BLADE_THICK, pr.chord).translate(pr.r / 2, 0, 0), bladeMat);
                     blade.rotation.y = (2 * Math.PI * k) / pr.blades;
                     spin.add(blade);
                 }
                 g.add(pivot);
-                props.push({ pivot: spin, disc, axis: pr.axis, angle: 0 });
+                const rest = propRest(pr.blades);
+                spin.rotation.y = rest;
+                props.push({ pivot: spin, disc, axis: pr.axis, angle: rest, rest, step: (2 * Math.PI) / pr.blades });
             }
             // navigation lights: red on the left wingtip, green on the right, a red beacon on top [usual]
             let beacon: THREE.Mesh | null = null;
@@ -207,7 +217,14 @@ export class AirView {
             v.group.matrixWorldNeedsUpdate = true;
             if (v.gear) v.gear.visible = p.g >= 0.5;
             for (const pr of v.props) {
-                pr.angle = (pr.angle + p.e * PROP_RATE * dt) % (2 * Math.PI);
+                if (p.e >= SETTLE_BELOW) pr.angle = (pr.angle + p.e * PROP_RATE * dt) % (2 * Math.PI);
+                else {
+                    // on to the next rest angle ahead, and stop there
+                    const k = Math.ceil((pr.angle - pr.rest) / pr.step - 1e-9);
+                    const to = pr.rest + k * pr.step;
+                    pr.angle = Math.min(to, pr.angle + Math.max(p.e * PROP_RATE, SETTLE_RATE) * dt);
+                    if (pr.angle >= to) pr.angle = to % (2 * Math.PI);
+                }
                 pr.pivot.rotation.y = pr.angle;
                 // a spinning prop blurs into its disc; a main rotor's long blades still show turning
                 pr.pivot.visible = p.e < 0.5 || pr.axis === 'u';

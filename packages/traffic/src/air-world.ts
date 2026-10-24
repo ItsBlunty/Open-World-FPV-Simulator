@@ -2,7 +2,9 @@
 // Each mover's parts (air-shapes.ts: capsules and boxes in its own frame) are where the mover is at the current tick;
 // contacts() reports a touched point's velocity from where that point of the mover is one tick later, so a taxiing plane
 // shoves the quad and one sat on a wing rides along. A hidden mover (a plane away, a medic inside) is not there, nor is a
-// folded gear.
+// folded gear. After its parts come its props and rotors (air-shapes.ts Prop): while its engine turns (power above 0) each
+// is a solid disc as thick as its blade's chord, moving with the mover (a hit bounces as off a wall: the blades' own speed
+// is not in it); stopped, each blade is a box where it stops.
 //
 // Determinism: only + - * / and Math.sqrt here (air.ts places the movers).
 
@@ -10,7 +12,7 @@ import type { ContactOut, ContactWorld } from '@owfpv/sim-core';
 import { DT } from './model';
 import { newAirPlace } from './air-path';
 import type { AirPlace } from './air-path';
-import type { APart } from './air-shapes';
+import type { APart, Prop } from './air-shapes';
 import type { AirTraffic } from './air';
 import { boxNear } from './world';
 import type { Near } from './world';
@@ -69,16 +71,75 @@ export class AirWorld implements ContactWorld {
         return h;
     }
 
-    /** Part k of mover i nearest the point, into this.near; false: no such part (a folded gear answers d = Infinity). */
+    /**
+     * Part k of mover i nearest the point, into this.near; false: no such part (a folded gear answers d = Infinity). Past
+     * the parts, k is a prop or rotor: its disc while the engine turns, else the nearest of its stopped blades.
+     */
     private nearest(i: number, k: number, x: number, y: number, z: number): boolean {
-        const parts = this.air.movers[i].shape.parts;
-        if (k >= parts.length) return false;
-        const pt = parts[k];
+        const sh = this.air.movers[i].shape, parts = sh.parts;
         const pl = this.p0[i];
+        const out = this.near;
+        if (k >= parts.length) {
+            const pr = sh.props[k - parts.length];
+            if (!pr) return false;
+            if (pl.e > 0) {
+                this.discNear(pl, pr, x, y, z);
+                return true;
+            }
+            let d = Infinity, nx = 0, ny = 1, nz = 0;
+            for (const b of pr.rest) {
+                this.partNear(pl, b, x, y, z);
+                if (out.d < d) { d = out.d; nx = out.nx; ny = out.ny; nz = out.nz; }
+            }
+            out.d = d; out.nx = nx; out.ny = ny; out.nz = nz;
+            return true;
+        }
+        this.partNear(pl, parts[k], x, y, z);
+        return true;
+    }
+
+    /** A turning prop's disc (radius r, as thick as its chord, about its axis n) nearest the point, into this.near. */
+    private discNear(pl: AirPlace, pr: Prop, x: number, y: number, z: number): void {
+        const out = this.near;
+        const dx = x - pl.x, dy = y - pl.y, dz = z - pl.z;
+        const f = pl.f, u = pl.u, s = pl.s;
+        // the point from the hub, in the mover's frame
+        const qf = dx * f[0] + dy * f[1] + dz * f[2] - pr.p[0];
+        const qu = dx * u[0] + dy * u[1] + dz * u[2] - pr.p[1];
+        const qs = dx * s[0] + dy * s[1] + dz * s[2] - pr.p[2];
+        const n = pr.n, h = pr.chord / 2;
+        // along the axis, and across it (rho from the hub in the disc's plane)
+        const a = qf * n[0] + qu * n[1] + qs * n[2];
+        const pf = qf - a * n[0], pu = qu - a * n[1], ps = qs - a * n[2];
+        const rho = Math.sqrt(pf * pf + pu * pu + ps * ps);
+        const sa = a < 0 ? -1 : 1;
+        const da = (a < 0 ? -a : a) - h, dr = rho - pr.r;
+        let nf: number, nu: number, ns: number;
+        if (da > 0 || dr > 0) {
+            // outside: from the nearest point of the rim or a face
+            const va = da > 0 ? da : 0, vr = dr > 0 ? dr : 0;
+            const l = Math.sqrt(va * va + vr * vr);
+            const wa = (sa * va) / l, wr = rho > 1e-12 ? vr / l / rho : 0;
+            nf = n[0] * wa + pf * wr; nu = n[1] * wa + pu * wr; ns = n[2] * wa + ps * wr;
+            out.d = l;
+        } else if (da >= dr || rho < 1e-12) {
+            nf = n[0] * sa; nu = n[1] * sa; ns = n[2] * sa;
+            out.d = da;
+        } else {
+            nf = pf / rho; nu = pu / rho; ns = ps / rho;
+            out.d = dr;
+        }
+        out.nx = nf * f[0] + nu * u[0] + ns * s[0];
+        out.ny = nf * f[1] + nu * u[1] + ns * s[1];
+        out.nz = nf * f[2] + nu * u[2] + ns * s[2];
+    }
+
+    /** Part pt of a mover placed at pl nearest the point, into this.near. */
+    private partNear(pl: AirPlace, pt: APart, x: number, y: number, z: number): void {
         const out = this.near;
         if (pt.gear && pl.g < 0.5) {
             out.d = Infinity; out.nx = 0; out.ny = 1; out.nz = 0;
-            return true;
+            return;
         }
         // the point in the mover's frame
         const dx = x - pl.x, dy = y - pl.y, dz = z - pl.z;
@@ -114,7 +175,6 @@ export class AirWorld implements ContactWorld {
         out.nx = nf * f[0] + nu * u[0] + ns * s[0];
         out.ny = nf * f[1] + nu * u[1] + ns * s[1];
         out.nz = nf * f[2] + nu * u[2] + ns * s[2];
-        return true;
     }
 
     /** Velocity of mover i's point (x, y, z) (taken as fixed to it), m/s: where that point is one tick later. */

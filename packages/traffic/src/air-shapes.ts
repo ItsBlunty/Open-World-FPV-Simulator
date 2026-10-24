@@ -1,7 +1,8 @@
 // The airport's movers' shapes (air.ts): ten planes, the air ambulance helicopter, the tugs, the people. Each is a set of
 // solid parts in its own frame (f ahead, u up, s to its right, origin at its main gear on the ground): capsules (the
 // fuselages, nacelles, people) and boxes (wings, tails, gear), so the collision is the shape that is drawn. Props and
-// rotors are drawn only: their discs are not solid.
+// rotors (owner, 2026-10-24: "solid propellers and rotors"): a turning one is a solid disc, as it is drawn; a stopped one
+// its blades at the angle it always stops at (PROP_REST: the drawing settles there as it stops).
 //
 // Sizes and speeds: the length, span and height of each type, and where noted its stall speed, climb rate and take-off and
 // landing distances, are from its Wikipedia article's specifications (read 2026-10-20) or the sources named on it;
@@ -34,12 +35,65 @@ export interface APart {
     gear: boolean;
 }
 
-/** A propeller or rotor (drawn only): its hub, radius, blades and the axis it turns about ('f' a prop, 'u' a main rotor, 's' a tail rotor). */
-export interface Prop {
+/** A propeller or rotor as laid out: its hub, radius, blades and the axis it turns about ('f' a prop, 'u' a main rotor, 's' a tail rotor). */
+export interface PropSpec {
     p: [number, number, number];
     r: number;
     blades: number;
     axis: 'f' | 'u' | 's';
+}
+
+/** A propeller or rotor, solid (air-world.ts): a disc while it turns, its blades where it stops while it does not. */
+export interface Prop extends PropSpec {
+    /** the blade's chord (the drawing's), m: the disc's thickness */
+    chord: number;
+    /** the axis it turns about, in the mover's frame */
+    n: [number, number, number];
+    /** its blades stopped at PROP_REST: boxes as the drawing's (r long, 3 cm thick, chord wide) */
+    rest: APart[];
+}
+
+/**
+ * The least room between a prop and the ground, m: 7 in, the rule for a plane with a nose wheel, "with the landing gear
+ * statically deflected and in the level take-off, or taxiing attitude" (14 CFR 25.925(a)); used for the wing engines.
+ */
+const PROP_GROUND = 7 * 0.0254;
+
+/** A blade's thickness, m (the drawing's) */
+export const BLADE_THICK = 0.03;
+
+/**
+ * The angle a prop or rotor stops at, radians, as the drawing turns it (render/air.ts: blade k at rest + 2 pi k / n about
+ * its axis): no blade straight down, so a parked prop is clear of the ground: an even count in an X (a 2-blade prop
+ * level), an odd count with a blade straight up.
+ */
+export function propRest(blades: number): number {
+    return Math.PI + (blades % 2 === 0 ? Math.PI / blades : 0);
+}
+
+/**
+ * A blade's direction (from the hub out) and its chord's direction, in the mover's frame, at angle a about the prop's
+ * axis: the drawing's blade (+x of its spin group, turned a about +y, then the holder onto the axis) worked through.
+ */
+export function bladeAxes(axis: PropSpec['axis'], a: number): { d: [number, number, number]; c: [number, number, number] } {
+    const ca = dcos(a), sa = dsin(a);
+    // in the spin group: blade (ca, 0, -sa), chord (sa, 0, ca); the holder maps it onto the mover's (f, u, s)
+    if (axis === 'f') return { d: [0, -ca, -sa], c: [0, -sa, ca] }; // holder: z turned -90 deg (x -> -u, y -> f)
+    if (axis === 's') return { d: [ca, sa, 0], c: [sa, -ca, 0] }; // holder: x turned 90 deg (y -> s, z -> -u)
+    return { d: [ca, 0, -sa], c: [sa, 0, ca] };
+}
+
+function finishProp(p: PropSpec): Prop {
+    const chord = Math.max(0.08, p.r * (p.axis === 'u' ? 0.06 : 0.12));
+    const n: [number, number, number] = p.axis === 'f' ? [1, 0, 0] : p.axis === 'u' ? [0, 1, 0] : [0, 0, 1];
+    const rest: APart[] = [];
+    for (let k = 0; k < p.blades; k++) {
+        const { d, c } = bladeAxes(p.axis, propRest(p.blades) + (2 * Math.PI * k) / p.blades);
+        const h = p.r / 2;
+        rest.push(box('engine', [p.p[0] + d[0] * h, p.p[1] + d[1] * h, p.p[2] + d[2] * h], [h, BLADE_THICK / 2, chord / 2],
+            [d[0], d[1], d[2], n[0], n[1], n[2], c[0], c[1], c[2]]));
+    }
+    return { ...p, chord, n, rest };
 }
 
 export interface AirShape {
@@ -64,7 +118,8 @@ function box(role: Role, c: [number, number, number], e: [number, number, number
     return { kind: 'box', role, a: [0, 0, 0], b: [0, 0, 0], r: 0, c, e, R, gear };
 }
 
-function shape(parts: APart[], props: Prop[]): AirShape {
+function shape(parts: APart[], specs: PropSpec[]): AirShape {
+    const props = specs.map(finishProp);
     let reach = 0, nose = -Infinity, tail = Infinity, half = 0;
     const see = (f: number, u: number, s: number, pad: number): void => {
         reach = Math.max(reach, Math.sqrt(f * f + u * u + s * s) + pad);
@@ -162,7 +217,7 @@ function plane(sp: PlaneSpec): AirShape {
     const hc = (ht.root + ht.tip) / 2;
     parts.push(box('tail', [F(ht.X + hc / 2), hy, 0], [hc / 2, 0.08, ht.span / 2]));
     // engines and props
-    const props: Prop[] = [];
+    const props: PropSpec[] = [];
     for (const en of sp.engines) {
         if (en.at === 'nose') {
             props.push({ p: [F(-0.15), yc, 0], r: en.prop, blades: en.blades, axis: 'f' });
@@ -173,7 +228,9 @@ function plane(sp: PlaneSpec): AirShape {
             const s = sign * en.s;
             if (en.at === 'wing') {
                 // hung under a high wing, or sitting on a low one's top
-                const ny = w.high ? u0 - t / 2 - en.r * 0.6 : u0 + t / 2 + en.r * 0.3;
+                // (air v3) at least PROP_GROUND between the prop and the ground, sitting level: the King Air's 2.68 m props
+                // went 8 cm into the runway (found when props became solid, 2026-10-24)
+                const ny = Math.max(w.high ? u0 - t / 2 - en.r * 0.6 : u0 + t / 2 + en.r * 0.3, en.prop + PROP_GROUND);
                 parts.push(cap('engine', [F(en.X0 + en.r), ny, s], [F(en.X1 - en.r), ny, s], en.r));
                 props.push({ p: [F(en.X0 - 0.15), ny, s], r: en.prop, blades: en.blades, axis: 'f' });
             } else {
