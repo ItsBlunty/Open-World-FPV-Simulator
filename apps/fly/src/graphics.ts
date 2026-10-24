@@ -78,6 +78,23 @@ export function noGpuSwitch(saved: GraphicsLevel, from: GraphicsLevel | null, so
 }
 
 /**
+ * How far full graphics sees (owner, 2026-10-24: "longer view distance at ultra and high"): the distance fog's start and
+ * where it hides everything, m. Near is the view full graphics always had; the map's grass reaches 10 km (packages/maps
+ * first-map.ts FAR_GROUND), past farthest's haze from anywhere on the map. The low spec levels keep their own (render/kit.ts).
+ */
+export const VIEW_DISTANCES = {
+    near: { near: 250, far: 1600 },
+    far: { near: 400, far: 3000 },
+    farthest: { near: 600, far: 6000 }
+} as const;
+export type ViewDistance = keyof typeof VIEW_DISTANCES;
+export const VIEW_DISTANCE_IDS = Object.keys(VIEW_DISTANCES) as ViewDistance[];
+
+export function isViewDistance(v: unknown): v is ViewDistance {
+    return typeof v === 'string' && Object.hasOwn(VIEW_DISTANCES, v);
+}
+
+/**
  * The quality presets at the top of Settings > Graphics, as games have them (owner, 2026-10-19): Ultra (2026-10-24), High
  * and Medium draw with the full renderer and differ in how far the shadows reach; Low, Very low and Super low are the three low spec
  * levels. Any other mix of the details under them is "custom".
@@ -91,15 +108,20 @@ export interface GraphicsChoice {
     graphics: GraphicsLevel;
     shadows: boolean;
     shadowReach: ShadowReach;
+    viewDistance: ViewDistance;
     renderScale: number;
 }
 
-/** What each preset sets. The low spec levels draw no shadows, so their presets leave the shadow choices as they were. */
+/**
+ * What each preset sets. The low spec levels draw no shadows and keep their own view, so their presets leave the shadow
+ * and view choices as they were.
+ */
 export const PRESETS: Readonly<Record<QualityPreset, Readonly<Partial<GraphicsChoice>> & { graphics: GraphicsLevel }>> = {
-    // (owner, 2026-10-24) for GPUs with more memory: shadows to 1000 m (render/shadow-follow.ts)
-    ultra: { graphics: 'full', shadows: true, shadowReach: 'ultra', renderScale: 1 },
-    high: { graphics: 'full', shadows: true, shadowReach: 'far', renderScale: 1 },
-    medium: { graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 },
+    // (owner, 2026-10-24) for GPUs with more memory: shadows to 1000 m (render/shadow-follow.ts); the view to 6 km, High's
+    // to 3 km (owner, 2026-10-24)
+    ultra: { graphics: 'full', shadows: true, shadowReach: 'ultra', viewDistance: 'farthest', renderScale: 1 },
+    high: { graphics: 'full', shadows: true, shadowReach: 'far', viewDistance: 'far', renderScale: 1 },
+    medium: { graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', renderScale: 1 },
     low: { graphics: 'low', renderScale: 1 },
     // extra and super low spec fix their own resolution (render/kit.ts), so the slider's value does not matter there
     verylow: { graphics: 'extra' },

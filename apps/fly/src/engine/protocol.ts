@@ -12,7 +12,7 @@ import type { CourseFile } from '@owfpv/maps';
 import type { EditorOp } from '../course-editor';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
-import type { GraphicsLevel } from '../graphics';
+import type { GraphicsLevel, ViewDistance } from '../graphics';
 import type { Track } from '../replay';
 import type { ShadowReach } from '../render/shadow-follow';
 import type { TrialEvent, TrialStatus } from '../trials';
@@ -30,6 +30,8 @@ export interface EngineSettings {
     renderScale: number;
     /** how far the sun's shadows reach (render/shadow-follow.ts) */
     shadowReach: ShadowReach;
+    /** how far full graphics sees (graphics.ts VIEW_DISTANCES) */
+    viewDistance: ViewDistance;
     overrides: ParamOverrides;
     traffic: TrafficConfig;
     spawn: string;

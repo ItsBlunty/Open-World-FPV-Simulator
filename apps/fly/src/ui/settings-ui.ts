@@ -12,8 +12,8 @@ import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
 import type { Child } from './dom';
-import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, applyPreset, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
-import type { GraphicsLevel, QualityPreset } from '../graphics';
+import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, VIEW_DISTANCE_IDS, applyPreset, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
+import type { GraphicsLevel, QualityPreset, ViewDistance } from '../graphics';
 import { SHADOW_REACH_IDS } from '../render/shadow-follow';
 import type { ShadowReach } from '../render/shadow-follow';
 
@@ -70,11 +70,18 @@ const SHADOW_REACH_LABELS: Record<ShadowReach, string> = {
     ultra: 'To about 1000 m (softer up close, 16x the shadow memory: about 1 GB)'
 };
 
+/** The View distance box's choices (graphics.ts VIEW_DISTANCES) */
+const VIEW_DISTANCE_LABELS: Record<ViewDistance, string> = {
+    near: 'To about 1.6 km',
+    far: 'To about 3 km',
+    farthest: 'To about 6 km'
+};
+
 /** What each preset is, under the preset box */
 const PRESET_NOTES: Record<QualityPreset | 'custom', string> = {
-    ultra: 'Full lighting and fisheye lenses, shadows to about 1000 m (about 1 GB of graphics memory for them), full resolution. For strong GPUs.',
-    high: 'Full lighting and fisheye lenses, shadows to about 250 m, full resolution.',
-    medium: 'Full lighting and fisheye lenses, shadows to about 110 m, full resolution.',
+    ultra: 'Full lighting and fisheye lenses, shadows to about 1000 m (about 1 GB of graphics memory for them), 6 km view, full resolution. For strong GPUs.',
+    high: 'Full lighting and fisheye lenses, shadows to about 250 m, 3 km view, full resolution.',
+    medium: 'Full lighting and fisheye lenses, shadows to about 110 m, 1.6 km view, full resolution.',
     low: 'For a weak GPU: simple lighting, no shadows, a lighter fisheye lens, 650 m view.',
     verylow: 'Simple lighting at half resolution, 300 m view, no cars, people or traffic lights.',
     super: 'For no GPU at all: quarter resolution, 200 m view, no cars, people or traffic lights.',
@@ -211,6 +218,11 @@ export class SettingsUi {
                     { value: 'off', label: 'Off' },
                     ...SHADOW_REACH_IDS.map((r) => ({ value: r, label: SHADOW_REACH_LABELS[r] }))
                 ], (v) => { s.shadows = v !== 'off'; if (v !== 'off') s.shadowReach = v; changed(); })),
+            isLowSpec(s.graphics)
+                ? this.field('View distance', h('span', { class: 'note' }, 'Set by this renderer'))
+                : this.field('View distance', this.select<ViewDistance>(s.viewDistance,
+                    VIEW_DISTANCE_IDS.map((v) => ({ value: v, label: VIEW_DISTANCE_LABELS[v] })),
+                    (v) => { s.viewDistance = v; changed(); })),
             host.graphicsNow !== s.graphics && !host.graphicsPending()
                 ? h('p', { class: 'note' }, `This visit runs in ${graphicsName(host.graphicsNow)} mode: the page address says so (?lowspec).`)
                 : null,

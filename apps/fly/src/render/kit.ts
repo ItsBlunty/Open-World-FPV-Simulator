@@ -6,6 +6,7 @@
 // only: nothing here reaches the sim.
 
 import * as THREE from 'three/webgpu';
+import { VIEW_DISTANCES } from '../graphics';
 import type { GraphicsLevel } from '../graphics';
 
 /** Fog from `near` to `far`, m; in low spec the camera sees no further than `far` (view.ts), so what lies past it is not drawn. */
@@ -14,7 +15,8 @@ export interface Fog {
     far: number;
 }
 
-export const FULL_FOG: Fog = { near: 250, far: 1600 };
+/** Full graphics' fog to start with; the View distance setting sets it (graphics.ts VIEW_DISTANCES, engine.ts) */
+export const FULL_FOG: Fog = VIEW_DISTANCES.near;
 /** Low spec mode's fog, m: nearer than the full kit's */
 export const LOW_SPEC_FOG: Fog = { near: 160, far: 650 };
 /** Extra low spec: the city out to 300 m (owner, 2026-10-19) */

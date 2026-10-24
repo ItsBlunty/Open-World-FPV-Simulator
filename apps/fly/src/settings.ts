@@ -8,8 +8,8 @@ import type { RadioProfile, StickMode } from '@owfpv/input';
 import { DYN_IDLE_DEFAULTS, copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
-import { isGraphicsLevel } from './graphics';
-import type { GraphicsLevel } from './graphics';
+import { isGraphicsLevel, isViewDistance } from './graphics';
+import type { GraphicsLevel, ViewDistance } from './graphics';
 import { isShadowReach } from './render/shadow-follow';
 import type { ShadowReach } from './render/shadow-follow';
 
@@ -84,6 +84,8 @@ export interface Settings {
     shadows: boolean;
     /** how far the sun's shadows reach (render/shadow-follow.ts SHADOW_REACHES; owner, 2026-10-19). Applies live. */
     shadowReach: ShadowReach;
+    /** how far full graphics sees before the haze hides it (graphics.ts VIEW_DISTANCES; owner, 2026-10-24). Applies live. */
+    viewDistance: ViewDistance;
     /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
     renderScale: number;
     /**
@@ -139,6 +141,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     air: true,
     shadows: true,
     shadowReach: 'near',
+    viewDistance: 'near',
     renderScale: 1,
     graphics: 'full',
     noGpuFrom: null,
@@ -204,6 +207,9 @@ export function loadSettings(): Settings {
     if (typeof s.air === 'boolean') out.air = s.air;
     if (typeof s.shadows === 'boolean') out.shadows = s.shadows;
     if (isShadowReach(s.shadowReach)) out.shadowReach = s.shadowReach;
+    if (isViewDistance(s.viewDistance)) out.viewDistance = s.viewDistance;
+    // saved before the setting (2026-10-24): the view the preset with these shadows has now, so Ultra and High stay themselves
+    else out.viewDistance = out.shadowReach === 'ultra' ? 'farthest' : out.shadowReach === 'far' ? 'far' : 'near';
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     if (typeof s.sound === 'boolean') out.sound = s.sound;
     if (typeof s.soundLowLatency === 'boolean') out.soundLowLatency = s.soundLowLatency;

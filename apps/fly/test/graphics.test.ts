@@ -2,8 +2,8 @@
 // what each low spec mode draws (owner, 2026-10-19: three low spec modes).
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { QUALITY_PRESETS, applyPreset, cheaper, cheaperPreset, drawsInSoftware, graphicsFromParam, noGpuSwitch, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../src/graphics';
-import type { GraphicsChoice } from '../src/graphics';
+import { PRESETS, QUALITY_PRESETS, VIEW_DISTANCES, VIEW_DISTANCE_IDS, applyPreset, cheaper, cheaperPreset, drawsInSoftware, graphicsFromParam, noGpuSwitch, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../src/graphics';
+import type { GraphicsChoice, QualityPreset } from '../src/graphics';
 import { kitFor } from '../src/render/kit';
 import { DEFAULT_SETTINGS, loadSettings } from '../src/settings';
 
@@ -38,6 +38,17 @@ describe('graphics levels', () => {
         expect(loadSettings().graphics).toBe('full');
     });
 
+    it('keeps a saved Ultra or High preset itself when the view distance came in', () => {
+        withStorage({ version: 1, graphics: 'full', shadows: true, shadowReach: 'ultra', renderScale: 1 });
+        expect(presetOf(loadSettings())).toBe('ultra');
+        withStorage({ version: 1, graphics: 'full', shadows: true, shadowReach: 'far', renderScale: 1 });
+        expect(presetOf(loadSettings())).toBe('high');
+        withStorage({ version: 1, graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 });
+        expect(presetOf(loadSettings())).toBe('medium');
+        withStorage({ version: 1, shadowReach: 'ultra', viewDistance: 'near' });
+        expect(loadSettings().viewDistance).toBe('near');
+    });
+
     it('turns traffic off in extra and super low spec only', () => {
         expect([trafficAllowed('full'), trafficAllowed('low'), trafficAllowed('extra'), trafficAllowed('super')]).toEqual([true, true, false, false]);
         expect([isLowSpec('full'), isLowSpec('low'), isLowSpec('super')]).toEqual([false, true, true]);
@@ -59,7 +70,7 @@ describe('graphics levels', () => {
 });
 
 describe('quality presets', () => {
-    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 });
+    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', renderScale: 1 });
 
     it('the default settings are Medium', () => {
         expect(presetOf(DEFAULT_SETTINGS)).toBe('medium');
@@ -76,16 +87,19 @@ describe('quality presets', () => {
         }
     });
 
-    it('High is Medium with shadows to 250 m', () => {
+    it('High is Medium with shadows to 250 m and a 3 km view', () => {
         const c = base();
         expect(presetOf(c)).toBe('medium');
         c.shadowReach = 'far';
+        expect(presetOf(c)).toBe('custom');
+        c.viewDistance = 'far';
         expect(presetOf(c)).toBe('high');
     });
 
-    it('Ultra (owner, 2026-10-24) is High with shadows to 1000 m, and suggests High when slow', () => {
+    it('Ultra (owner, 2026-10-24) is High with shadows to 1000 m and a 6 km view, and suggests High when slow', () => {
         const c = base();
         c.shadowReach = 'ultra';
+        c.viewDistance = 'farthest';
         expect(presetOf(c)).toBe('ultra');
         expect(cheaperPreset(c)).toBe('high');
         expect(QUALITY_PRESETS[0]).toBe('ultra');
@@ -97,10 +111,20 @@ describe('quality presets', () => {
         expect(presetOf({ ...base(), graphics: 'low', shadows: false })).toBe('low');
         expect(presetOf({ ...base(), graphics: 'low', renderScale: 0.7 })).toBe('custom');
         expect(presetOf({ ...base(), graphics: 'super', renderScale: 0.5 })).toBe('super');
+        expect(presetOf({ ...base(), graphics: 'low', viewDistance: 'farthest' })).toBe('low');
+        expect(presetOf({ ...base(), viewDistance: 'far' })).toBe('custom');
+    });
+
+    it('sees further at High and Ultra (owner, 2026-10-24: "longer view distance at ultra and high")', () => {
+        const fog = (p: QualityPreset): number => VIEW_DISTANCES[PRESETS[p].viewDistance!].far;
+        expect([fog('medium'), fog('high'), fog('ultra')]).toEqual([1600, 3000, 6000]);
+        // Medium keeps the view full graphics always had
+        expect(kitFor('full').fog).toEqual(VIEW_DISTANCES.near);
+        for (const v of VIEW_DISTANCE_IDS) expect(VIEW_DISTANCES[v].near).toBeLessThan(VIEW_DISTANCES[v].far);
     });
 
     it('suggests the next cheaper preset, none past super low', () => {
-        expect(cheaperPreset({ ...base(), shadowReach: 'far' })).toBe('medium');
+        expect(cheaperPreset({ ...base(), shadowReach: 'far', viewDistance: 'far' })).toBe('medium');
         expect(cheaperPreset(base())).toBe('low');
         expect(cheaperPreset({ ...base(), graphics: 'super' })).toBeNull();
         // a custom full-graphics mix: the first low spec preset

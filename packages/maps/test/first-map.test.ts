@@ -331,7 +331,8 @@ describe('first map', () => {
     });
 });
 
-const PINNED = 'a9474d27016f5075d162c50d9a863f6829b5cfdf2ac50d5b8137a49d609580c2';
+// map v24: the far grass to 10 km (owner, 2026-10-24: longer view distance)
+const PINNED = '9afdca435090801afbb4ab484095741b644b193c5b756d2dc8c529d92a12f66b';
 
 describe('the Duga radar (map v20)', () => {
     const level = buildFirstMap();

@@ -124,7 +124,7 @@ const sound = new AudioEngine(soundLevels(), {
 for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sound.unlock(), { capture: true });
 
 function engineSettings(): EngineSettings {
-    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
+    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, viewDistance: settings.viewDistance, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
 }
 
 // ---------------------------------------------------------------- keys, mouse, free-fly camera (state)
@@ -1209,7 +1209,7 @@ const SLOW_FPS = 30;
 /** Running slowly for 5 s of flying: point at the next cheaper quality preset (none past super low), once a visit. */
 function hintLowSpec(fps: number): void {
     // the preset to suggest, from what this visit runs with (a change waiting for a reload does not count)
-    const next = cheaperPreset({ graphics: graphicsNow, shadows: shadowsOn, shadowReach: settings.shadowReach, renderScale: settings.renderScale });
+    const next = cheaperPreset({ graphics: graphicsNow, shadows: shadowsOn, shadowReach: settings.shadowReach, viewDistance: settings.viewDistance, renderScale: settings.renderScale });
     if (slowHinted || !next || sentPaused !== false || replayUi.open) {
         slowSince = null;
         return;

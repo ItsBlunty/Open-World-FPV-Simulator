@@ -81,6 +81,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Replay radio controls finished (owner): the controls written out, the wind speed shown; tried with a stand-in radio. [replay-viewer]
   No GPU (owner): a browser drawing in software drops to Super low by itself with a warning box saying why (acceleration
   off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
+  Clouds and view distance (owner, map v24): fair-weather cumulus 1500 m up, drifting; Settings > Graphics > View
+  distance, Medium 1.6 km, High 3 km, Ultra 6 km; grass out to 10 km so the view ends in haze. [browsers-input-performance §2o]
   Ultra preset (owner): shadows to 1000 m on a 16384² map (~1 GB) where the GPU allows; shadow depth range fixed (a
   dark wedge on the ground from high up). [browsers-input-performance §2j]
   Semis pull away slower (traffic v11, owner): 0.095 g for 3 s then 0.047 g, as measured trucks; they keep off the
@@ -88,12 +90,12 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 70 files, 635 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 71 files, 641 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d157f30a…` (traffic v11: semis' acceleration and turns; the trains v3)
-  - map v23 `a9474d27…` (545 792 triangles, `packages/maps/test/first-map.test.ts`)
-- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 23, `CRANE_VERSION` 1, `TRAFFIC_VERSION` 11, `TRAIN_VERSION` 3, `AIR_VERSION` 3, `GRADE_VERSION` 1.
+  - map v24 `9afdca43…` (545 800 triangles, `packages/maps/test/first-map.test.ts`)
+- **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 24, `CRANE_VERSION` 1, `TRAFFIC_VERSION` 11, `TRAIN_VERSION` 3, `AIR_VERSION` 3, `GRADE_VERSION` 1.
 - **Browsers:** Chrome / Edge only. Firefox is shelved (owner): don't check it until the rest is done.
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
@@ -131,6 +133,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    beacon on the tower, the runway and taxiway lights. Right? Approach lights or apron floodlights wanted? [airport §2l, §2m]
 10. **Crane:** spawn "City street", find the construction site: watch a crate go up, over and down; fly under the jib,
    through it, into a crate's way; look at the operator through the cab glass. Speeds and waits right? Crane sounds? [map §2n]
+11. **Clouds and view distance:** High and Ultra, climb over the city: far enough, fps OK? Clouds' look, height (1500 m),
+   cover and drift right? Wanted in low spec too? [browsers-input-performance §2o]
 
 ## Left open (not started)
 
@@ -196,7 +200,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §2n: the crane at work; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes; §2a: one dipole per bay |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV; §2i: semis' acceleration, right turns |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
-| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range |
+| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range; §2o: clouds, view distance, the far grass |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |

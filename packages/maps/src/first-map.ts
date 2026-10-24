@@ -47,13 +47,19 @@ export const MAP_ID = 'mixed-1';
  * helipad on the building that was the Cobalt Hotel (owner, 2026-10-20)
  * 22: the airport's lights: runway and taxiway edge lights, end and threshold lights, the PAPI on solid fixtures (owner, 2026-10-24)
  * 23: the tower crane turns: its jib, cab, trolley and hook leave the map for packages/traffic crane.ts (owner, 2026-10-24)
+ * 24: grass carried out to 10 km round the map, for the longer view at High and Ultra (owner, 2026-10-24)
  */
-export const MAP_VERSION = 23;
+export const MAP_VERSION = 24;
 const HALF = 500;
 /** how far the ground reaches, so the horizon is not a cliff edge */
 const GROUND = 2000;
 /** (map v21) how far the grass reaches east, past the runway's far end at x 2060 */
 const GROUND_EAST = 2600;
+/**
+ * (map v24) how far plain grass reaches round all that, m: past the Ultra preset's 6 km view (apps/fly render/kit.ts) from
+ * anywhere on the map, so the view ends in haze and not at the ground's edge
+ */
+const FAR_GROUND = 10000;
 
 export function buildFirstMap(): Level {
     const b = new LevelBuilder();
@@ -122,6 +128,12 @@ function ground(b: LevelBuilder): void {
     b.floor('grass', -200, 120, G, 420);
     b.floor('grass', -G, 420, G, G);
     b.floor('grass', G, -G, GROUND_EAST, G);
+    // the far grass, round the rectangle above in four pieces
+    const F = FAR_GROUND;
+    b.floor('grass', -F, -F, F, -G);
+    b.floor('grass', -F, G, F, F);
+    b.floor('grass', -F, -G, -G, G);
+    b.floor('grass', GROUND_EAST, -G, F, G);
 }
 
 /** (map v21) The city building that becomes the hospital: renamed, and its roof's height for the helipad. */

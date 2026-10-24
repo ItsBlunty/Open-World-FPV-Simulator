@@ -8,6 +8,7 @@ import * as THREE from 'three/webgpu';
 import { S } from '@owfpv/sim-core';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
+import { CLOUD_R } from './clouds';
 
 const X = new THREE.Vector3(1, 0, 0);
 /**
@@ -17,6 +18,9 @@ const X = new THREE.Vector3(1, 0, 0);
  * it (owner, 2026-10-17). Depth precision out to the far plane comes from the reversed depth buffer (main.ts).
  */
 export const CAMERA_NEAR = 0.01;
+
+/** Full graphics' far plane, m: past the clouds' rim (clouds.ts), so the longest view (graphics.ts VIEW_DISTANCES) is drawn */
+export const FULL_FAR = CLOUD_R + 1000;
 
 /** Vertical FOV for a horizontal FOV at an aspect ratio (Three.js cameras take the vertical one). */
 export function verticalFov(hDeg: number, aspect: number): number {
@@ -36,7 +40,7 @@ export class CraftView {
     private chaseInit = false;
 
     constructor(kit: Kit = FULL_KIT) {
-        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, kit.lowSpec ? kit.fog.far + 10 : 5000);
+        this.camera = new THREE.PerspectiveCamera(90, 16 / 9, CAMERA_NEAR, kit.lowSpec ? kit.fog.far + 10 : FULL_FAR);
         this.craft = craftModel(kit);
     }
 

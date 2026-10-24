@@ -297,3 +297,34 @@ pass (new: ultra in `graphics.test.ts`, `shadow-follow.test.ts`); typecheck clea
 
 **Left open:** frame time and memory on Ultra not measured (headless Chrome caps at 120 fps); not tried on a GPU with
 less memory (a failed 1 GB allocation was not tested).
+
+## 2o. Clouds and a longer view at High and Ultra (owner, 2026-10-24): built, waiting for the owner
+
+Owner: "add clouds, set longer view distance at ultra and high."
+
+**View distance.** Full graphics always saw to the fog's end at 1600 m (from 250 m). Now a setting, Settings > Graphics >
+View distance (applies live), that the presets set: Medium 1.6 km (as before), High 3 km (fog from 400 m), Ultra 6 km
+(from 600 m) (`graphics.ts VIEW_DISTANCES`). The low spec levels keep their own short views ("Set by this renderer").
+Settings saved before it get the view their preset now has (shadows Ultra → 6 km, Far → 3 km), so a saved Ultra or High
+still reads as itself, not Custom. Full graphics' far plane went from 5 km to 15 km (`view.ts FULL_FAR`, past the clouds).
+Nothing else culled by distance in full graphics (one mesh per material for the whole map), so a longer view costs no
+extra draws, only fill; 120 fps (the cap) at all three in headless Chrome on this PC.
+
+**Ground.** The map's grass ended 2 km out (2.6 km east), which a 3-6 km view would show as an edge. Map v24 carries
+plain grass out to 10 km round it (`first-map.ts FAR_GROUND`, four quads, 8 triangles more: 545 800), solid like the rest.
+
+**Clouds** (`render/clouds.ts`, `render/cloud-texture.ts`). A sheet of fair-weather cumulus 1500 m up (cumulus bases sit
+at 1-2 km on a summer day), about 30 % cover. Its picture is made once at load (~0.3 s in Node, 1024², fixed seed: every
+visit the same sky): fractal value noise on a wrapping lattice, warped so the clouds don't line up with it, white at the
+edges and blue-grey where thick (a cumulus base in its own shade). One picture covers 8 km and tiles. The sheet is a disc
+of 14 km radius round the camera, fading out from 4 km, so the clouds meet the sky at the horizon; the picture stays put
+over the ground and drifts with a 6 m/s wind from the sim tick (replays show the same sky), so flying under a cloud passes
+it. Not fogged. Full graphics only: the low spec renderers' far planes (200-660 m) end far short of 1500 m.
+
+Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs, headless Chrome WebGPU): the clouds from the park up and to the
+horizon; the same view east from 120 m over the city's west edge at Medium, High, Ultra (fog read back 250/1600,
+400/3000, 600/6000); no console errors. Tests: `clouds.test.ts` (same every time, cover, tiles without a seam, white edges
+and grey bases), `graphics.test.ts` (preset views, old settings keep their preset).
+
+Open: clouds cast no shadows and have no sides (flat from below, and seen flat from above 1500 m); one sky (no weather or
+time of day); the far grass is plain (no fields or hills past 2 km); clouds not in low spec; fps not measured on a weak GPU at 6 km.

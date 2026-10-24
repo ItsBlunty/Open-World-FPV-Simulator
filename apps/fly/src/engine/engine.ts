@@ -20,6 +20,7 @@ import { BuildingsView } from '../render/buildings';
 import { CollectiblesView } from '../render/collectibles';
 import { TrialsView } from '../render/trials';
 import { AirportLightsView } from '../render/airport-lights';
+import { CloudsView } from '../render/clouds';
 import { CraneView } from '../render/crane';
 import { FreeCam } from '../render/freecam';
 import { FisheyeView, LOW_SPEC_OVERSAMPLE, NO_GPU_OVERSAMPLE } from '../render/fisheye';
@@ -27,7 +28,7 @@ import { SeeThrough, blocked } from '../render/see-through';
 import { lensById } from '../render/lenses';
 import { shadowReach } from '../render/shadow-follow';
 import { kitFor } from '../render/kit';
-import { graphicsName } from '../graphics';
+import { VIEW_DISTANCES, graphicsName } from '../graphics';
 import { HUD_HZ } from './protocol';
 import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
@@ -73,7 +74,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     // fixed lower resolution and a nearer fog. Read once: it applies on reload.
     const kit = kitFor(init.graphics);
     const lowSpec = kit.lowSpec;
-    // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 5 km; WebGL 2 needs EXT_clip_control,
+    // reversed depth: precise depth from the 1 cm near plane (view.ts CAMERA_NEAR) to 15 km (view.ts FULL_FAR); WebGL 2 needs EXT_clip_control,
     // and Three.js falls back to normal depth without it
     // the Ultra preset's shadow map is 16384² (render/shadow-follow.ts); WebGPU gives 8192 unless asked for more, so ask for
     // what the adapter has, up to that (the adapter asked for as Three.js asks for its own, so it is the same one)
@@ -102,7 +103,18 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const maxTexture: number = gpuBackend?.device?.limits.maxTextureDimension2D ?? (gpuBackend?.gl?.getParameter(0x0d33 /* MAX_TEXTURE_SIZE */) as number | undefined) ?? 4096;
     const reachShadows = (): void => sun.setReach(shadowReach(cfg.shadowReach, maxTexture));
     reachShadows();
+    /** full graphics' fog from the View distance setting (the low spec kits keep their own) */
+    const viewFog = (): void => {
+        if (lowSpec || !(scene.fog instanceof THREE.Fog)) return;
+        const f = VIEW_DISTANCES[cfg.viewDistance];
+        scene.fog.near = f.near;
+        scene.fog.far = f.far;
+    };
+    viewFog();
     scene.add(levelGroup(level, kit));
+    /** the clouds (full graphics only: low spec sees no further than its fog, clouds.ts) */
+    const cloudsView = lowSpec ? null : new CloudsView();
+    if (cloudsView) scene.add(cloudsView.group);
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);
@@ -278,7 +290,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let replayAir: AirTraffic | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, lightsView, craneView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, lightsView, cloudsView, craneView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -403,6 +415,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(r.tick);
         airView.update(r.tick);
         lightsView?.update(view.camera.position, r.tick / 1000);
+        cloudsView?.update(view.camera.position, r.tick / 1000);
         craneView.update(r.tick);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
@@ -502,6 +515,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     renderer.setPixelRatio(pixelRatio());
                     fitFisheye();
                     reachShadows();
+                    viewFog();
                 }
                 else if (m.what === 'spawn') {
                     const s = level.spawns.find((x) => x.id === cfg.spawn);
@@ -732,6 +746,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
+        cloudsView?.update(view.camera.position, session.sim.tick / 1000);
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
@@ -785,6 +800,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
+        cloudsView?.update(view.camera.position, session.sim.tick / 1000);
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);
