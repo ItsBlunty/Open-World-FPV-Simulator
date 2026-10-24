@@ -28,8 +28,9 @@ await cdp('Page.navigate', { url: 'http://localhost:5173/' });
 await sleep(1500);
 const cam = (x, y, z, h, p) => js(`__fly.ask('const c = fly.freeCam; if (!c.active) c.enter(fly.view.camera); c.pos.set(${x}, ${y}, ${z}); c.yaw = ${-h * Math.PI / 180}; c.pitch = ${p * Math.PI / 180}; return 1')`);
 // GPU time per frame: n frames drawn back to back as the engine draws them (draw: the lens if on), waited for on the GPU
-const time = async (n) => {
-  await js(`__fly.ask('globalThis.__t = null; const d = fly.renderer.backend.device; (async () => { const draw = () => fly.fisheye.active ? fly.fisheye.render(fly.renderer, fly.scene, fly.view.camera, fly.sun.light.shadow) : fly.renderer.render(fly.scene, fly.view.camera); draw(); await d.queue.onSubmittedWorkDone(); const t0 = performance.now(); for (let i = 0; i < ${n}; i++) draw(); await d.queue.onSubmittedWorkDone(); globalThis.__t = (performance.now() - t0) / ${n}; })(); return 1')`);
+// the clouds shown or hidden inside the timed task itself (the engine sets them from the setting every frame)
+const time = async (n, on) => {
+  await js(`__fly.ask('globalThis.__t = null; const d = fly.renderer.backend.device; (async () => { const draw = () => { fly.cloudsView.group.visible = ${on}; fly.fisheye.active ? fly.fisheye.render(fly.renderer, fly.scene, fly.view.camera, fly.sun.light.shadow) : fly.renderer.render(fly.scene, fly.view.camera); }; draw(); await d.queue.onSubmittedWorkDone(); const t0 = performance.now(); for (let i = 0; i < ${n}; i++) draw(); await d.queue.onSubmittedWorkDone(); globalThis.__t = (performance.now() - t0) / ${n}; })(); return 1')`);
   for (let i = 0; i < 100; i++) { const v = await js('globalThis.__t'); if (v !== null && v !== undefined) return v; await sleep(100); }
 };
 
@@ -43,12 +44,13 @@ for (const lens of (process.argv[3] ?? 'none').split(',')) {
   await sleep(2500);
   console.log('lens', lens, await js('innerWidth + "x" + innerHeight'), await js(`__fly.ask('return fly.renderer.getPixelRatio()')`));
   console.log('puffs', await js(`__fly.ask('return fly.cloudsView.puffs.length')`));
+  // the drift's own cost each frame (CPU: every puff placed again)
+  console.log('drift update', await js(`__fly.ask('const v = fly.cloudsView; const t0 = performance.now(); for (let i = 0; i < 200; i++) v.update(100 + i / 60); return ((performance.now() - t0) / 200).toFixed(3) + " ms"')`));
   for (const [n, v] of Object.entries({ up: [0, 2, 200, 0, 35], horizon: [0, 2, 200, 200, 4], city: [-600, 120, 0, 90, -6], 'among-clouds': [0, 250, 400, 30, 0] })) {
     await cam(...v); await sleep(800);
     const ms = [];
     for (const on of [false, true, false, true]) {
-      await js(`__fly.ask('fly.cloudsView.group.visible = ${on}; return 1')`); await sleep(300);
-      ms.push(await time(60));
+      ms.push(await time(60, on));
     }
     const off = (ms[0] + ms[2]) / 2, on = (ms[1] + ms[3]) / 2;
     console.log(`${n}: no clouds ${off.toFixed(2)} ms, clouds ${on.toFixed(2)} ms, +${(on - off).toFixed(2)} ms`);

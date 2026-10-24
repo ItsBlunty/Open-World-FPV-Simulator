@@ -110,11 +110,13 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const cloudColour = new THREE.Color(IN_CLOUD_COLOUR);
     /**
      * Full graphics' fog, each frame: the View distance setting's (the low spec kits keep their own), closing in and
-     * turning white as the camera flies into a cloud, the sky behind with it (clouds.ts cloudFog).
+     * turning white as the camera flies into a cloud, the sky behind with it (clouds.ts cloudFog); the clouds where the
+     * wind has carried them at sim tick `tick`, and the airport's lights hazed with the fog.
      */
-    const viewFog = (): void => {
+    const viewFog = (tick: number): void => {
         if (lowSpec || !cloudsView || !(scene.fog instanceof THREE.Fog)) return;
         cloudsView.group.visible = cfg.clouds;
+        if (cfg.clouds) cloudsView.update(tick / 1000);
         const f = VIEW_DISTANCES[cfg.viewDistance];
         const w = cloudsView.whiteout(view.camera.position);
         const g = cloudFog(w, f.near, f.far);
@@ -122,6 +124,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         scene.fog.far = g.far;
         scene.fog.color.copy(skyColour).lerp(cloudColour, w);
         (scene.background as THREE.Color).copy(scene.fog.color);
+        lightsView?.setHaze(scene.fog.color, g.far);
     };
     scene.add(levelGroup(level, kit));
     const trafficView = new TrafficView(kit);
@@ -424,7 +427,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(r.tick);
         airView.update(r.tick);
         lightsView?.update(view.camera.position, r.tick / 1000);
-        viewFog();
+        viewFog(r.tick);
         craneView.update(r.tick);
         buildingsView.update(r.traffic, tick);
         sun.follow(view.camera.position);
@@ -524,7 +527,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     renderer.setPixelRatio(pixelRatio());
                     fitFisheye();
                     reachShadows();
-                    viewFog();
+                    viewFog(session.sim.tick);
                 }
                 else if (m.what === 'spawn') {
                     const s = level.spawns.find((x) => x.id === cfg.spawn);
@@ -755,7 +758,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
-        viewFog();
+        viewFog(session.sim.tick);
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         sun.follow(view.camera.position);
@@ -809,7 +812,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         drawTrains(session.sim.tick);
         airView.update(session.sim.tick);
         lightsView?.update(view.camera.position, session.sim.tick / 1000);
-        viewFog();
+        viewFog(session.sim.tick);
         craneView.update(session.sim.tick);
         buildingsView.update(session.traffic, session.sim.tick);
         collectView.update(0);

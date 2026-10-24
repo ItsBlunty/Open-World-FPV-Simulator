@@ -83,7 +83,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
   View distance (owner, map v24): Settings > Graphics, Medium 1.6 km, High 3 km, Ultra 6 km; grass out to 10 km. Clouds
   (owner: "lower stylized clouds ... fly through"): heaps of soft puffs 180-280 m up round the map, the view whiting out
-  inside one; Settings > Graphics > Clouds, on by default; no measurable cost here. Shadow block from high up fixed
+  inside one, drifting with the wind; airport lights hazed by the fog; Settings > Graphics > Clouds, on by default; ~0.4 ms. Shadow block from high up fixed
   (the shadow range now centred on the ground under the camera). [browsers-input-performance §2o]
   Ultra preset (owner): shadows to 1000 m on a 16384² map (~1 GB) where the GPU allows; shadow depth range fixed (a
   dark wedge on the ground from high up). [browsers-input-performance §2j]
@@ -135,8 +135,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    beacon on the tower, the runway and taxiway lights. Right? Approach lights or apron floodlights wanted? [airport §2l, §2m]
 10. **Crane:** spawn "City street", find the construction site: watch a crate go up, over and down; fly under the jib,
    through it, into a crate's way; look at the operator through the cab glass. Speeds and waits right? Crane sounds? [map §2n]
-11. **Clouds and view distance:** climb into a cloud and through it: whiteout right? Height (180-280 m), size, how many,
-   look right? Should they drift or cast shadows? fps on vs off? View far enough at High and Ultra? Shadow block gone from
+11. **Clouds and view distance:** climb into a cloud and through it: whiteout right, lights hazy enough? Height
+   (180-280 m), size, how many, drift speed (5 m/s) right? Cast shadows? fps on vs off? View far enough at High and Ultra? Shadow block gone from
    high up? [browsers-input-performance §2o]
 
 ## Left open (not started)

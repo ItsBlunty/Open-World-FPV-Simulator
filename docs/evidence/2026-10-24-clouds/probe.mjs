@@ -1,7 +1,9 @@
 // Stylised clouds (owner, 2026-10-24: "lower stylized clouds, that players can go up and fly through. Make them cloud
 // the vision like flying in a cloud would really do"), checked in headless Chrome (WebGPU; ?webgl for WebGL 2) against
 // the dev server on :5173. Screenshots: from the park looking up and to the horizon, over the city from 120 m, and
-// flying level into the biggest puff over the map from 40 m out to 20 m in (the fog read back).
+// flying level into the biggest puff over the map from 40 m out to 20 m in (the fog read back); the airport's lights from
+// inside the puff nearest the runway's middle and from 30 m up off its west end (hazed: owner, 2026-10-24); the same view
+// 20 s apart (the clouds drift).
 // node docs/evidence/2026-10-24-clouds/probe.mjs [?webgl]
 import { spawn } from 'node:child_process'; import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path';
 const here = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
@@ -43,13 +45,32 @@ for (const [n, v] of Object.entries({ 'park-up': [0, 2, 200, 0, 35], 'park-horiz
 }
 if (!q) {
   // into the biggest puff over the map, level, along +x: from 40 m outside its edge to 20 m inside
-  const f = JSON.parse(await js(`__fly.ask('const ps = fly.cloudsView.puffs.filter((p) => Math.abs(p.x - 300) < 2300 && Math.abs(p.z) < 2000); const p = ps.reduce((a, b) => b.r > a.r ? b : a); return JSON.stringify(p)')`));
+  const k = await js(`__fly.ask('const ps = fly.cloudsView.puffs; let k = 0; ps.forEach((p, i) => { if (Math.abs(p.x - 300) < 2300 && Math.abs(p.z) < 2000 && p.r > ps[k].r) k = i; }); return k')`);
+  // the clouds drift: the puff read again, and the camera placed against it, just before each look
+  const puff = async () => JSON.parse(await js(`__fly.ask('return JSON.stringify(fly.cloudsView.puffs[${k}])')`));
+  const f = await puff();
   console.log('puff', f.x.toFixed(0), f.y.toFixed(0), f.z.toFixed(0), 'r', f.r.toFixed(0));
   for (const d of [-40, -8, -2, 4, 20]) {
-    await cam(f.x - f.r + d, f.y, f.z, 90, 0); await sleep(1200);
+    const g = await puff();
+    await cam(g.x - g.r + d, g.y, g.z, 90, 0); await sleep(150);
     console.log(`${d} m in: fog`, await js(`__fly.ask('return JSON.stringify([Math.round(fly.scene.fog.near), Math.round(fly.scene.fog.far)])')`));
     await shot(`into-cloud-${d < 0 ? 'out' : 'in'}${Math.abs(d)}m${tag}`);
   }
+}
+if (!q) {
+  // the runway lights from deep in the cloud nearest the runway's middle (x 1360, z 40), looking at that middle
+  const c = JSON.parse(await js(`__fly.ask('const ps = fly.cloudsView.puffs.filter((p) => p.r > 20); const p = ps.reduce((a, b) => Math.hypot(b.x - 1360, b.z - 40) < Math.hypot(a.x - 1360, a.z - 40) ? b : a); return JSON.stringify(p)')`));
+  const lookAt = (fx, fy, fz, x, y, z) => cam(fx, fy, fz, Math.atan2(x - fx, -(z - fz)) * 180 / Math.PI, Math.atan2(y - fy, Math.hypot(x - fx, z - fz)) * 180 / Math.PI);
+  await lookAt(c.x, c.y, c.z, 1360, 0, 40); await sleep(300);
+  console.log('in cloud at', c.x.toFixed(0), c.y.toFixed(0), c.z.toFixed(0), 'r', c.r.toFixed(0), 'runway', Math.hypot(c.x - 1360, c.y, c.z - 40).toFixed(0), 'm off; fog', await js(`__fly.ask('return JSON.stringify([Math.round(fly.scene.fog.near), Math.round(fly.scene.fog.far)])')`));
+  await shot(`lights-from-in-cloud${tag}`);
+  await cam(300, 30, 40, 90, -3); await sleep(1500);
+  await shot(`lights-from-west${tag}`);
+  // the clouds drift: the same view 20 s apart
+  await cam(0, 150, 400, 30, 12); await sleep(1500);
+  await shot('drift-0s');
+  await sleep(20000);
+  await shot('drift-20s');
 }
 console.log(logs.length ? logs.join('\n') : 'no console errors');
 ws.close(); proc.kill();

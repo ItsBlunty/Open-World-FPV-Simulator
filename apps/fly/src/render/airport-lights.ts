@@ -1,11 +1,14 @@
 // The airport's lights drawn (owner, 2026-10-24: "airport lights"; the lights and their solid fixtures are the map's,
 // packages/maps airport.ts airportLights). Runway and taxiway edge lights, the runway ends' red and green, runway 09's
 // green threshold lights, the PAPI and the tower's rotating beacon. A light shines one way (`face`) or all round; each
-// keeps at least a few pixels on screen however far off it is, and none fades into the fog, as real lights carry through
-// haze. The PAPI shows each unit white or red from where the camera is, and the beacon sweeps a white and a green beam
+// keeps at least a few pixels on screen however far off it is. They fade into the haze over LIGHT_REACH times the
+// distance the scene's fog hides things in, as lights carry further through haze than what they stand on: a little
+// hazy far off, soft glows that are gone a few tens of metres off inside a cloud (owner, 2026-10-24: "you can see the
+// lights strangely well through the whiteout ... They should also be a bit hazy"); setHaze() each frame. The PAPI shows each unit white or red from where the camera is, and the beacon sweeps a white and a green beam
 // round. Drawn only, at the sim's tick: drawing never feeds back into the sim.
 
 import * as THREE from 'three/webgpu';
+import { cameraPosition, exp, float, materialColor, mix, positionWorld, uniform } from 'three/tsl';
 import type { AirportLight } from '@owfpv/maps';
 import { FULL_KIT } from './kit';
 import type { Kit } from './kit';
@@ -24,11 +27,26 @@ const PAPI_R = 0.14;
 const BEACON_RPM = 13.5;
 const BEAM = (6 * Math.PI) / 180;
 const BEACON_R = 0.3;
+/** how much further a light is seen through haze than the surfaces round it [estimate: lights in fog are seen 2-4 times as far] */
+export const LIGHT_REACH = 3;
 
-/** a light material: unlit, not fogged, its colour */
-function lampMat(kit: Kit, colour: number): THREE.Material {
+/** the haze a light fades into: its colour, and the distance over which it falls to 1/e, m (makeHaze) */
+function makeHaze() {
+    return { colour: uniform(new THREE.Color(0x9cc4e4)), reach: uniform(1e9) };
+}
+type Haze = ReturnType<typeof makeHaze>;
+
+/**
+ * A light material: unlit, its colour, not in the scene's fog. In full graphics it fades into `haze` with distance
+ * instead; low spec keeps it clear (its views are short and have no clouds).
+ */
+function lampMat(kit: Kit, colour: number, haze: Haze): THREE.Material {
     const m = kit.flat({ color: colour }) as THREE.Material & { fog: boolean };
     m.fog = false;
+    if (m instanceof THREE.MeshBasicNodeMaterial) {
+        const gone = float(1).sub(exp(positionWorld.distance(cameraPosition).div(haze.reach).negate()));
+        m.colorNode = mix(materialColor, haze.colour, gone);
+    }
     return m;
 }
 
@@ -46,6 +64,7 @@ export class AirportLightsView {
     private readonly white = new THREE.Color(COLOURS.white);
     private readonly red = new THREE.Color(COLOURS.red);
     private readonly green = new THREE.Color(COLOURS.green);
+    private readonly haze: Haze = makeHaze();
 
     constructor(lights: readonly AirportLight[], kit: Kit = FULL_KIT) {
         this.group.name = 'airport-lights';
@@ -61,7 +80,7 @@ export class AirportLightsView {
         }
         for (const [key, ls] of groups) {
             const [colour, kind] = key.split(':') as [AirportLight['colour'], string];
-            const mesh = new THREE.InstancedMesh(kind === 'lens' ? lens : ball, lampMat(kit, COLOURS[colour]), ls.length);
+            const mesh = new THREE.InstancedMesh(kind === 'lens' ? lens : ball, lampMat(kit, COLOURS[colour], this.haze), ls.length);
             mesh.frustumCulled = false; // spread along the whole runway
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             this.group.add(mesh);
@@ -70,7 +89,7 @@ export class AirportLightsView {
         const disc = new THREE.CircleGeometry(PAPI_R, kit.seg(16, 8)).rotateY(-Math.PI / 2); // facing -x, the approach
         for (const l of lights) {
             if (l.papi === undefined) continue;
-            const mat = lampMat(kit, COLOURS.white) as THREE.MeshBasicMaterial;
+            const mat = lampMat(kit, COLOURS.white, this.haze) as THREE.MeshBasicMaterial;
             const mesh = new THREE.Mesh(disc, mat);
             mesh.position.set(l.x, l.y, l.z);
             this.group.add(mesh);
@@ -78,12 +97,19 @@ export class AirportLightsView {
         }
         const b = lights.find((l) => l.beacon);
         if (b) {
-            const mat = lampMat(kit, COLOURS.white) as THREE.MeshBasicMaterial;
+            const mat = lampMat(kit, COLOURS.white, this.haze) as THREE.MeshBasicMaterial;
             const mesh = new THREE.Mesh(new THREE.SphereGeometry(BEACON_R, kit.seg(12, 8), kit.seg(8, 6)), mat);
             mesh.position.set(b.x, b.y, b.z);
             this.group.add(mesh);
             this.beacon = { mesh, light: b, mat };
         }
+    }
+
+    /** The haze the lights fade into: the scene fog's colour and where it hides everything, m (it is LIGHT_REACH times that for them). */
+    setHaze(colour: THREE.Color, fogFar: number): void {
+        this.haze.colour.value.copy(colour);
+        // the scene's linear fog hides all at fogFar; a light is 95 % gone (e^-3) at LIGHT_REACH times that
+        this.haze.reach.value = (LIGHT_REACH * fogFar) / 3;
     }
 
     /** How much larger to draw a lamp at (x, y, z) seen from `eye`, so it stays a few pixels across far off. */

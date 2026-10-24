@@ -1,13 +1,30 @@
+lens none 1904x929 1
+puffs 2237
+drift update 0.195 ms
+up: no clouds 1.16 ms, clouds 1.19 ms, +0.04 ms
+horizon: no clouds 1.13 ms, clouds 1.14 ms, +0.01 ms
+city: no clouds 1.53 ms, clouds 1.52 ms, +-0.01 ms
+among-clouds: no clouds 1.38 ms, clouds 1.43 ms, +0.06 ms
+lens caddx-ratel-2 1904x929 1
+puffs 2237
+drift update 0.176 ms
+up: no clouds 3.84 ms, clouds 3.99 ms, +0.14 ms
+horizon: no clouds 3.50 ms, clouds 3.66 ms, +0.16 ms
+city: no clouds 4.01 ms, clouds 4.13 ms, +0.12 ms
+among-clouds: no clouds 3.97 ms, clouds 4.05 ms, +0.08 ms
+no console errors
 lens none 1904x929 2
-puffs 1699
-up: no clouds 1.17 ms, clouds 1.08 ms, +-0.09 ms
-horizon: no clouds 1.04 ms, clouds 1.08 ms, +0.03 ms
-city: no clouds 1.39 ms, clouds 1.40 ms, +0.00 ms
-among-clouds: no clouds 1.26 ms, clouds 1.32 ms, +0.06 ms
+puffs 2237
+drift update 0.220 ms
+up: no clouds 1.17 ms, clouds 1.28 ms, +0.12 ms
+horizon: no clouds 1.12 ms, clouds 1.25 ms, +0.13 ms
+city: no clouds 1.55 ms, clouds 1.55 ms, +-0.00 ms
+among-clouds: no clouds 1.31 ms, clouds 1.41 ms, +0.10 ms
 lens caddx-ratel-2 1904x929 2
-puffs 1699
-up: no clouds 3.67 ms, clouds 3.61 ms, +-0.06 ms
-horizon: no clouds 3.19 ms, clouds 3.25 ms, +0.06 ms
-city: no clouds 3.61 ms, clouds 3.47 ms, +-0.15 ms
-among-clouds: no clouds 3.72 ms, clouds 3.66 ms, +-0.06 ms
+puffs 2237
+drift update 0.168 ms
+up: no clouds 3.81 ms, clouds 3.93 ms, +0.13 ms
+horizon: no clouds 3.58 ms, clouds 3.70 ms, +0.12 ms
+city: no clouds 3.95 ms, clouds 4.15 ms, +0.20 ms
+among-clouds: no clouds 3.89 ms, clouds 4.07 ms, +0.18 ms
 no console errors

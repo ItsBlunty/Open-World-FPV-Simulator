@@ -1,7 +1,8 @@
-puff 698 295 -802 r 62
+puff 2501 308 849 r 77
 -40 m in: fog [400,3000]
--8 m in: fog [224,282]
--2 m in: fog [33,22]
+-8 m in: fog [191,181]
+-2 m in: fog [45,26]
 4 m in: fog [0,14]
 20 m in: fog [0,14]
+in cloud at 1337 299 -182 r 21 runway 373 m off; fog [0,14]
 no console errors

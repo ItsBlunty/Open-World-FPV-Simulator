@@ -325,12 +325,16 @@ do, instead of the weird cutout view thing that happens." (Its code is in git at
 
 **Stylised clouds** (`render/cloud-puffs.ts`, `render/clouds.ts`). Cumulus as heaps of soft white balls, low enough to
 climb to:
-- Placed from a fixed seed on a jittered 650 m grid round the map's middle out to 6 km, a cloud in 45 % of cells
-  (1699 puffs): each 90-260 m long, half to two thirds as wide, its middle heaped up a third to a half of its length, two
+- Placed from a fixed seed on a jittered 650 m grid over a 13 km square round the map's middle, a cloud in 38 % of cells
+  (2237 puffs): each 90-260 m long, half to two thirds as wide, its middle heaped up a third to a half of its length, two
   or three smaller puffs on top. Bases 180-280 m (stylised: real fair-weather bases are 1-2 km up); a test checks the
   lowest puff clears the tallest thing the map builds by more than 10 m. Puffs 0.78 as tall as wide.
-- One instanced mesh (a 32x20 sphere, ~2.1 M triangles, one draw), lit physically like the map with a blue-grey glow
-  so their shaded sides stay light, fogged with the map. No shadows; not solid (clouds aren't). They don't move.
+- One instanced mesh (a 32x20 sphere, ~2.8 M triangles, one draw), lit physically like the map with a blue-grey glow
+  so their shaded sides stay light, fogged with the map. No shadows; not solid (clouds aren't).
+- They drift (owner: "The clouds should be moving across the sky"): 5 m/s east and 2 m/s south [estimate: fair-weather
+  cumulus drift at 5-10 m/s], from the sim's time, so a replay has the same sky at the same moment. Each cloud moves
+  whole round the square and comes back on the far side, shrinking to nothing over the last 1200 m before the edge and
+  growing back after it (no pop). `drift-0s.jpg` / `drift-20s.jpg`: the same view 20 s apart.
 - Inside a cloud: each frame the camera's depth in the nearest puff (`insideDepth`) sets a whiteout, from 4 m outside
   the puff to full 12 m inside. The scene fog closes in (its distances blended in proportion, from the View distance's
   down to 14 m) and turns cloud-white (0xdfe5ec), the sky behind with it, so the edge never shows as a cutout: the puff
@@ -338,10 +342,16 @@ climb to:
   view's own fog (400 / 3000 m at High), 8 m out 224 / 282 m (a neighbouring puff is nearer), 2 m out 33 / 22 m, 4 m in
   and deeper 0 / 14 m.
 - Settings > Graphics > Clouds (Off / On), live, on in Ultra, High and Medium (default on). Full graphics only.
+- The airport's lights used to ignore the fog (lights carry through haze), so they shone clear through a whiteout (owner:
+  "you can see the lights strangely well through the whiteout ... They should also be a bit hazy"). Now each fades into
+  the fog's colour with distance, 95 % gone at 3 times where the scene's fog hides everything [estimate: lights in fog are
+  seen 2-4 times as far as surfaces]: at High a little hazy over 1-3 km, inside a cloud gone by ~40 m (`airport-lights.ts`
+  setHaze, each frame). `lights-from-in-cloud.jpg`: from deep in a cloud 370 m off the runway, none show.
 
-**Cost** (`perf.mjs`, `perf.txt`; RTX 4070 Ti at dpr 2, 3808x1858, the same frames drawn 60 times with the clouds hidden
-and shown): within ±0.15 ms everywhere (up at them, the horizon, over the city, among them at 250 m), with or without
-the fisheye. Not measured on a weak GPU, where 2 M triangles could tell.
+**Cost** (`perf.mjs`, `perf.txt`; RTX 4070 Ti, 1904x929 at dpr 1 and 2, the same frames drawn 60 times with the clouds
+hidden and shown inside the timed task; a first run toggled them outside it, where the engine turned them back on each
+frame, and measured nothing): drawing them +0.0-0.13 ms without the lens, +0.08-0.2 ms with the fisheye; moving them
+each frame 0.17-0.22 ms of CPU. Not measured on a weak GPU, where 2.8 M triangles could tell.
 
 **The shadow block from high up** (owner's screenshot, 2026-10-24: "there is a shadow big ... it makes a giant
 rectangle shadow"). The shadow camera's depth range was centred on the camera and has room for 400 m: from ~600 m up
@@ -354,5 +364,5 @@ Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs: from the park up and to 
 into one; WebGPU and WebGL 2 `*-webgl.jpg`; no console errors). Tests: `clouds.test.ts`
 (same every time, how many and where, clear of the map, depth in a puff, the fog inside), `graphics.test.ts`.
 
-Open: clouds cast no shadows; they don't drift; puffs overlap with hard creases (stylised); not tried on a weak GPU;
+Open: clouds cast no shadows; the wind is fixed (no setting); puffs overlap with hard creases (stylised); not tried on a weak GPU;
 none in low spec; the far grass is plain (no fields or hills past 2 km).
