@@ -306,25 +306,48 @@ Owner: "add clouds, set longer view distance at ultra and high."
 View distance (applies live), that the presets set: Medium 1.6 km (as before), High 3 km (fog from 400 m), Ultra 6 km
 (from 600 m) (`graphics.ts VIEW_DISTANCES`). The low spec levels keep their own short views ("Set by this renderer").
 Settings saved before it get the view their preset now has (shadows Ultra → 6 km, Far → 3 km), so a saved Ultra or High
-still reads as itself, not Custom. Full graphics' far plane went from 5 km to 15 km (`view.ts FULL_FAR`, past the clouds).
+still reads as itself, not Custom. Full graphics' far plane went from 5 km to 21 km (`view.ts FULL_FAR`, past the clouds).
 Nothing else culled by distance in full graphics (one mesh per material for the whole map), so a longer view costs no
-extra draws, only fill; 120 fps (the cap) at all three in headless Chrome on this PC.
+extra draws, only fill; 120 fps (the cap) at all three in headless Chrome on this PC. Evidence: `medium-`, `high-`, `ultra-east-from-120m.jpg`
+in `docs/evidence/2026-10-24-clouds/` (taken with the first, flat clouds; fog read back 250/1600, 400/3000, 600/6000).
 
 **Ground.** The map's grass ended 2 km out (2.6 km east), which a 3-6 km view would show as an edge. Map v24 carries
 plain grass out to 10 km round it (`first-map.ts FAR_GROUND`, four quads, 8 triangles more: 545 800), solid like the rest.
 
-**Clouds** (`render/clouds.ts`, `render/cloud-texture.ts`). A sheet of fair-weather cumulus 1500 m up (cumulus bases sit
-at 1-2 km on a summer day), about 30 % cover. Its picture is made once at load (~0.3 s in Node, 1024², fixed seed: every
-visit the same sky): fractal value noise on a wrapping lattice, warped so the clouds don't line up with it, white at the
-edges and blue-grey where thick (a cumulus base in its own shade). One picture covers 8 km and tiles. The sheet is a disc
-of 14 km radius round the camera, fading out from 4 km, so the clouds meet the sky at the horizon; the picture stays put
-over the ground and drifts with a 6 m/s wind from the sim tick (replays show the same sky), so flying under a cloud passes
-it. Not fogged. Full graphics only: the low spec renderers' far planes (200-660 m) end far short of 1500 m.
+**Clouds, first try: a flat picture (dropped).** A tiling 2D cumulus picture on a sheet 1500 m up. Owner: "The clouds
+look horrible, they should be 3d pillowy clouds, not some repeating 2d pattern." Asked: volumetric (realistic, costlier)
+or piles of balls (stylised, cheap)? "lets test volumetric for performance."
 
-Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs, headless Chrome WebGPU): the clouds from the park up and to the
-horizon; the same view east from 120 m over the city's west edge at Medium, High, Ultra (fog read back 250/1600,
-400/3000, 600/6000); no console errors. Tests: `clouds.test.ts` (same every time, cover, tiles without a seam, white edges
-and grey bases), `graphics.test.ts` (preset views, old settings keep their preset).
+**Volumetric clouds** (`render/clouds.ts`, `render/cloud-texture.ts`), after Schneider (SIGGRAPH 2015, Horizon Zero
+Dawn) and Hillaire (SIGGRAPH 2016, Frostbite). Fair-weather cumulus between 1500 and 2800 m, ray-marched per pixel:
+- Noise made once at load from fixed seeds (every visit the same sky; ~0.2 s in Node): a 256² coverage map (where clouds
+  stand and how tall they grow, one map per 20 km) and a 64³ shape volume, inside-out Worley at 4/8/16 cells carving value
+  noise (the billows; one volume per 3 km, sampled again per 700 m to erode the edges). Both wrap, so they tile.
+- Density: coverage over ~50 % of the sky, a flat base and rounded tops that stand higher where the cover is thicker,
+  the billows eating into thin cover (Schneider's remap).
+- Light: 64 steps along the view, 4 samples towards the sun at each (25-360 m), Beer's law, Henyey-Greenstein phase
+  (forward 0.65, back -0.25), the powder effect, a weaker second extinction for light scattered many times
+  (Wrenninge), skylight bluish at the tops and grey at the base. Extinction 0.025/m in the thick [estimate].
+- The layer bends down round a 60 km "planet", as flight sims' layers do, so clouds reach the horizon (a flat layer
+  meets a level view only at infinity); 5 km off it is 200 m lower. Drawn to 20 km, fading into the haze from 3 km and out
+  from 14 km. The volume is a dome round the camera drawn from inside, so anything nearer hides it by the depth test.
+- Each pixel starts its march at a random fraction of a step (a pixel hash; interleaved gradient noise drew diagonal
+  hatching), which turns banding into fine grain at the edges (`edges-3x.png`). No temporal smoothing.
+- They stay put over the ground and drift with a 6 m/s wind [estimate] from the sim tick (replays show the same sky).
+- Settings > Graphics > Clouds (Off / Volumetric), live; on in Ultra and High, off in Medium until tried on weaker GPUs.
+  Full graphics only. Settings saved before get clouds where their shadows match Ultra or High.
 
-Open: clouds cast no shadows and have no sides (flat from below, and seen flat from above 1500 m); one sky (no weather or
-time of day); the far grass is plain (no fields or hills past 2 km); clouds not in low spec; fps not measured on a weak GPU at 6 km.
+**Cost** (`perf.mjs`, `perf.txt`; headless Chrome, WebGPU, RTX 4070 Ti, 1904x929; the same frames drawn 60 times with the
+clouds hidden and shown, timed to the GPU finishing). At dpr 1 the frame is CPU-bound and the clouds hide in it (+0.9 ms
+looking up into them, ~0 elsewhere, with or without the fisheye). At dpr 2 (4x the pixels, GPU-bound): looking up +4.0 ms,
+at the horizon +2.2, over the city +1.7; with the Caddx Ratel 2 fisheye +4.9 / +3.7 / +3.1. So on this GPU at 1080p about
+1-1.2 ms with the lens. A GPU four times slower would pay about 4-5 ms a frame with the lens: fine at 60 fps, a lot at 144.
+WebGL 2 (`?webgl`) draws them the same (`*-webgl.jpg`).
+
+Evidence `docs/evidence/2026-10-24-clouds/` (probe.mjs: from the park up and to the horizon, over the city from 120 m,
+the edges at 3x; WebGPU and WebGL 2; no console errors). Tests: `clouds.test.ts` (same every time, cover, tiling, lumps),
+`graphics.test.ts` (preset views and clouds, old settings keep their preset).
+
+Open: not tried on a weak GPU; could march at half resolution if too slow; edge grain (no temporal smoothing); the clouds
+cast no shadows on the ground; the quad can fly into them (they draw as fog round it, untested); one sky (no weather or time of day);
+the far grass is plain (no fields or hills past 2 km); none in low spec.

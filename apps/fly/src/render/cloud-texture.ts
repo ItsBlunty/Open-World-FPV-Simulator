@@ -1,77 +1,112 @@
-// The clouds' picture (owner, 2026-10-24: "add clouds"): fair-weather cumulus seen from below, as a square that tiles
-// with itself. Fractal value noise on a lattice that wraps at the square's edge; where it rises past the coverage it
-// is cloud, opaque and white at its thin edges, greyer where it is thicker (a cumulus' base is in its own shade).
-// Made from a fixed seed, so every visit has the same sky. Drawn only: no Three.js here, so Node tests check it.
+// The volumetric clouds' noise (owner, 2026-10-24: "3d pillowy clouds"), made once at load from fixed seeds so every
+// visit has the same sky: a 2D coverage map (where the clouds stand, how tall they grow) and a 3D shape volume (the
+// billows they are made of), both wrapping at their edges so they tile. The shape is Worley noise turned inside out
+// (round lumps round the cells' points) over value noise, the "Perlin-Worley" of Schneider's Horizon Zero Dawn clouds
+// (SIGGRAPH 2015, "The real-time volumetric cloudscapes of Horizon Zero Dawn"). clouds.ts ray-marches through them.
+// Drawn only: no Three.js here, so Node tests check it.
 
-/** the picture's side, pixels */
-export const CLOUD_TEX = 1024;
-/** how much of the sky is cloud, about: noise above 1 - this (fair-weather cumulus, "few" to "scattered" in METAR terms) */
-export const CLOUD_COVER = 0.35;
+/** the coverage map's side, texels */
+export const COVERAGE_TEX = 256;
+/** the shape volume's side, voxels */
+export const SHAPE_TEX = 64;
 
-/** a lattice of `period` x `period` random values in [0, 1), from `seed` */
-function lattice(period: number, seed: number): Float32Array {
-    const out = new Float32Array(period * period);
-    for (let k = 0; k < out.length; k++) {
-        let h = Math.imul(k, 374761393) ^ Math.imul(seed + 1, 0x27d4eb2d);
-        h = Math.imul(h ^ (h >>> 13), 1274126177);
-        h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
-        out[k] = ((h ^ (h >>> 13)) >>> 0) / 4294967296;
+/** a random value in [0, 1) for integer k and a seed */
+function rand(k: number, seed: number): number {
+    let h = Math.imul(k, 374761393) ^ Math.imul(seed + 1, 0x27d4eb2d);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+    return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
+}
+
+/** `n` random values in [0, 1) */
+function randoms(n: number, seed: number): Float32Array {
+    const out = new Float32Array(n);
+    for (let k = 0; k < n; k++) out[k] = rand(k, seed);
+    return out;
+}
+
+const wrap = (i: number, p: number): number => ((i % p) + p) % p;
+const fade = (t: number): number => t * t * (3 - 2 * t);
+const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
+
+/** smooth 2D value noise in [0, 1) on a lattice `l` wrapping every `p` cells */
+function noise2(l: Float32Array, p: number, x: number, y: number): number {
+    const xf = Math.floor(x), yf = Math.floor(y);
+    const sx = fade(x - xf), sy = fade(y - yf);
+    const x0 = wrap(xf, p), y0 = wrap(yf, p), x1 = wrap(xf + 1, p), y1 = wrap(yf + 1, p);
+    return lerp(lerp(l[y0 * p + x0], l[y0 * p + x1], sx), lerp(l[y1 * p + x0], l[y1 * p + x1], sx), sy);
+}
+
+/** smooth 3D value noise in [0, 1) on a lattice `l` wrapping every `p` cells */
+function noise3(l: Float32Array, p: number, x: number, y: number, z: number): number {
+    const xf = Math.floor(x), yf = Math.floor(y), zf = Math.floor(z);
+    const sx = fade(x - xf), sy = fade(y - yf), sz = fade(z - zf);
+    const x0 = wrap(xf, p), x1 = wrap(xf + 1, p), y0 = wrap(yf, p), y1 = wrap(yf + 1, p), z0 = wrap(zf, p), z1 = wrap(zf + 1, p);
+    const at = (x: number, y: number, z: number): number => l[(z * p + y) * p + x];
+    return lerp(
+        lerp(lerp(at(x0, y0, z0), at(x1, y0, z0), sx), lerp(at(x0, y1, z0), at(x1, y1, z0), sx), sy),
+        lerp(lerp(at(x0, y0, z1), at(x1, y0, z1), sx), lerp(at(x0, y1, z1), at(x1, y1, z1), sx), sy), sz);
+}
+
+/**
+ * Worley noise inside out at (x, y, z) in cells, wrapping every `p` cells: 1 at a cell's random point, falling to 0 a
+ * cell's width away. `pts` holds each cell's point (3 per cell, within the cell).
+ */
+function worley(pts: Float32Array, p: number, x: number, y: number, z: number): number {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    let best = 9;
+    for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const cx = xi + dx, cy = yi + dy, cz = zi + dz;
+        const k = 3 * ((wrap(cz, p) * p + wrap(cy, p)) * p + wrap(cx, p));
+        const ex = cx + pts[k] - x, ey = cy + pts[k + 1] - y, ez = cz + pts[k + 2] - z;
+        best = Math.min(best, ex * ex + ey * ey + ez * ez);
+    }
+    return Math.max(0, 1 - Math.sqrt(best));
+}
+
+/**
+ * Where the clouds stand: a coverage value per texel (0-255), fractal value noise from 5 cells across down to 80,
+ * stretched about its middle so both clear sky and big clouds occur. clouds.ts sets the cover from it.
+ */
+export function coverageMap(side = COVERAGE_TEX, seed = 7): Uint8Array {
+    const out = new Uint8Array(side * side);
+    const OCT = 5, BASE = 5;
+    const ls = Array.from({ length: OCT }, (_, o) => randoms((BASE << o) ** 2, seed + o));
+    let norm = 0;
+    for (let o = 0; o < OCT; o++) norm += 0.5 ** o;
+    for (let j = 0; j < side; j++) {
+        for (let i = 0; i < side; i++) {
+            let n = 0;
+            for (let o = 0; o < OCT; o++) {
+                const c = BASE << o;
+                n += noise2(ls[o], c, (i / side) * c, (j / side) * c) * 0.5 ** o;
+            }
+            n = 0.5 + (n / norm - 0.5) * 2.2;
+            out[j * side + i] = Math.round(255 * Math.min(1, Math.max(0, n)));
+        }
     }
     return out;
 }
 
-/** smooth value noise in [0, 1] at (x, y) on a lattice of cells of 1 that wraps every `period` cells */
-function noise(l: Float32Array, period: number, x: number, y: number): number {
-    const xf = Math.floor(x), yf = Math.floor(y);
-    const fx = x - xf, fy = y - yf;
-    const x0 = ((xf % period) + period) % period, y0 = ((yf % period) + period) % period;
-    const x1 = (x0 + 1) % period, y1 = (y0 + 1) % period;
-    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-    const a = l[y0 * period + x0], b = l[y0 * period + x1], c = l[y1 * period + x0], d = l[y1 * period + x1];
-    return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
-}
-
-function smoothstep(e0: number, e1: number, v: number): number {
-    const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0)));
-    return t * t * (3 - 2 * t);
-}
-
 /**
- * The clouds as RGBA, `side` x `side` pixels, row by row; each edge continues on the opposite one. Six octaves from 8
- * cells across the square (one cloud or a gap each) down to 256 (ragged edges), where two more noises (which wrap too) push
- * the lookup about, so the clouds don't line up with the lattice.
+ * The clouds' billows: a value per voxel (0-255), x fastest, then y, then z. Inside-out Worley at 4, 8 and 16 cells
+ * across (big lumps with smaller ones on them), carving 3D value noise at 4 and 8: what is left is round and lumpy.
  */
-export function cloudPixels(side = CLOUD_TEX, seed = 7): Uint8Array {
-    const out = new Uint8Array(side * side * 4);
-    const OCTAVES = 6, BASE = 8, WARP = 6;
-    let norm = 0;
-    for (let o = 0; o < OCTAVES; o++) norm += 0.5 ** o;
-    const edge = 1 - CLOUD_COVER;
-    const octaves = Array.from({ length: OCTAVES }, (_, o) => lattice(BASE << o, seed + o));
-    const warpU = lattice(WARP, seed + 100), warpV = lattice(WARP, seed + 101);
-    for (let j = 0; j < side; j++) {
-        for (let i = 0; i < side; i++) {
-            const u = i / side, v = j / side;
-            // the warp: up to a third of a base cell either way
-            const wu = (noise(warpU, WARP, u * WARP, v * WARP) - 0.5) * 0.66 / BASE;
-            const wv = (noise(warpV, WARP, u * WARP, v * WARP) - 0.5) * 0.66 / BASE;
-            let n = 0;
-            for (let o = 0; o < OCTAVES; o++) {
-                const cells = BASE << o;
-                n += noise(octaves[o], cells, (u + wu) * cells, (v + wv) * cells) * 0.5 ** o;
-            }
-            n /= norm;
-            // the noise's spread is narrow (a sum of octaves): stretch it about 0.5 so the cover is about CLOUD_COVER
-            n = 0.5 + (n - 0.5) * 2.4;
-            const alpha = smoothstep(edge - 0.04, edge + 0.1, n);
-            const thick = smoothstep(edge, edge + 0.45, n);
-            const k = 4 * (j * side + i);
-            // white at the edges, a blue-grey base where thick
-            out[k] = Math.round(255 * (1 - 0.3 * thick));
-            out[k + 1] = Math.round(255 * (1 - 0.27 * thick));
-            out[k + 2] = Math.round(255 * (1 - 0.2 * thick));
-            out[k + 3] = Math.round(255 * alpha);
-        }
+export function shapeVolume(side = SHAPE_TEX, seed = 11): Uint8Array {
+    const out = new Uint8Array(side ** 3);
+    const W = [4, 8, 16];
+    const pts = W.map((c, o) => randoms(3 * c ** 3, seed + 20 + o));
+    const V = [4, 8];
+    const vl = V.map((c, o) => randoms(c ** 3, seed + o));
+    for (let z = 0; z < side; z++) for (let y = 0; y < side; y++) for (let x = 0; x < side; x++) {
+        const u = x / side, v = y / side, w = z / side;
+        const wor = 0.625 * worley(pts[0], W[0], u * W[0], v * W[0], w * W[0])
+            + 0.25 * worley(pts[1], W[1], u * W[1], v * W[1], w * W[1])
+            + 0.125 * worley(pts[2], W[2], u * W[2], v * W[2], w * W[2]);
+        const val = (noise3(vl[0], V[0], u * V[0], v * V[0], w * V[0]) + 0.5 * noise3(vl[1], V[1], u * V[1], v * V[1], w * V[1])) / 1.5;
+        // Schneider's remap of the value noise from [wor - 1, 1] onto [0, 1]: the Worley's gaps cut into it
+        const n = (val - (wor - 1)) / (2 - wor);
+        out[(z * side + y) * side + x] = Math.round(255 * Math.min(1, Math.max(0, n * wor * 1.6)));
     }
     return out;
 }

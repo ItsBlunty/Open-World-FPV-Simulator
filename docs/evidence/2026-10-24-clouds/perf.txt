@@ -1,0 +1,19 @@
+lens none 1904x929 1
+up: no clouds 1.20 ms, clouds 2.11 ms, +0.91 ms
+horizon: no clouds 1.13 ms, clouds 1.12 ms, +-0.01 ms
+city: no clouds 1.46 ms, clouds 1.49 ms, +0.03 ms
+lens caddx-ratel-2 1904x929 1
+up: no clouds 3.43 ms, clouds 3.34 ms, +-0.09 ms
+horizon: no clouds 3.29 ms, clouds 3.50 ms, +0.21 ms
+city: no clouds 3.64 ms, clouds 3.44 ms, +-0.20 ms
+no console errors
+lens none 1904x929 2
+up: no clouds 0.98 ms, clouds 4.96 ms, +3.98 ms
+horizon: no clouds 0.95 ms, clouds 3.10 ms, +2.16 ms
+city: no clouds 1.33 ms, clouds 3.00 ms, +1.66 ms
+no console errors
+lens caddx-ratel-2 1904x929 2
+up: no clouds 3.34 ms, clouds 8.29 ms, +4.94 ms
+horizon: no clouds 3.04 ms, clouds 6.72 ms, +3.68 ms
+city: no clouds 3.79 ms, clouds 6.91 ms, +3.13 ms
+no console errors

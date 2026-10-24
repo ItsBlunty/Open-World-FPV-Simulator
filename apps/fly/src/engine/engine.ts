@@ -103,18 +103,19 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const maxTexture: number = gpuBackend?.device?.limits.maxTextureDimension2D ?? (gpuBackend?.gl?.getParameter(0x0d33 /* MAX_TEXTURE_SIZE */) as number | undefined) ?? 4096;
     const reachShadows = (): void => sun.setReach(shadowReach(cfg.shadowReach, maxTexture));
     reachShadows();
-    /** full graphics' fog from the View distance setting (the low spec kits keep their own) */
+    /** full graphics' fog from the View distance setting (the low spec kits keep their own), and the clouds on or off */
     const viewFog = (): void => {
+        if (cloudsView) cloudsView.group.visible = cfg.clouds;
         if (lowSpec || !(scene.fog instanceof THREE.Fog)) return;
         const f = VIEW_DISTANCES[cfg.viewDistance];
         scene.fog.near = f.near;
         scene.fog.far = f.far;
     };
-    viewFog();
-    scene.add(levelGroup(level, kit));
-    /** the clouds (full graphics only: low spec sees no further than its fog, clouds.ts) */
+    /** the clouds (full graphics only: low spec sees no further than its fog, clouds.ts); the setting shows or hides them */
     const cloudsView = lowSpec ? null : new CloudsView();
     if (cloudsView) scene.add(cloudsView.group);
+    viewFog();
+    scene.add(levelGroup(level, kit));
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);

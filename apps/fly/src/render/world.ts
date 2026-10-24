@@ -287,7 +287,7 @@ export function levelGroup(level: Level, kit: Kit = FULL_KIT): THREE.Group {
 }
 
 /** Where the sun is: from the south-west, high (a direction; the light itself follows the camera). */
-const SUN_DIR = new THREE.Vector3(-300, 500, 200).normalize();
+export const SUN_DIR = new THREE.Vector3(-300, 500, 200).normalize();
 /** The sun with its shadow; call follow() each frame with the camera's position (it moves only now and then: shadow-follow.ts). */
 export class Sun {
     readonly light: THREE.DirectionalLight;

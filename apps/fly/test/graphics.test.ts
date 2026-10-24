@@ -45,8 +45,8 @@ describe('graphics levels', () => {
         expect(presetOf(loadSettings())).toBe('high');
         withStorage({ version: 1, graphics: 'full', shadows: true, shadowReach: 'near', renderScale: 1 });
         expect(presetOf(loadSettings())).toBe('medium');
-        withStorage({ version: 1, shadowReach: 'ultra', viewDistance: 'near' });
-        expect(loadSettings().viewDistance).toBe('near');
+        withStorage({ version: 1, shadowReach: 'ultra', viewDistance: 'near', clouds: false });
+        expect([loadSettings().viewDistance, loadSettings().clouds]).toEqual(['near', false]);
     });
 
     it('turns traffic off in extra and super low spec only', () => {
@@ -70,7 +70,7 @@ describe('graphics levels', () => {
 });
 
 describe('quality presets', () => {
-    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', renderScale: 1 });
+    const base = (): GraphicsChoice => ({ graphics: 'full', shadows: true, shadowReach: 'near', viewDistance: 'near', clouds: false, renderScale: 1 });
 
     it('the default settings are Medium', () => {
         expect(presetOf(DEFAULT_SETTINGS)).toBe('medium');
@@ -87,12 +87,14 @@ describe('quality presets', () => {
         }
     });
 
-    it('High is Medium with shadows to 250 m and a 3 km view', () => {
+    it('High is Medium with shadows to 250 m, a 3 km view and clouds', () => {
         const c = base();
         expect(presetOf(c)).toBe('medium');
         c.shadowReach = 'far';
         expect(presetOf(c)).toBe('custom');
         c.viewDistance = 'far';
+        expect(presetOf(c)).toBe('custom');
+        c.clouds = true;
         expect(presetOf(c)).toBe('high');
     });
 
@@ -100,6 +102,7 @@ describe('quality presets', () => {
         const c = base();
         c.shadowReach = 'ultra';
         c.viewDistance = 'farthest';
+        c.clouds = true;
         expect(presetOf(c)).toBe('ultra');
         expect(cheaperPreset(c)).toBe('high');
         expect(QUALITY_PRESETS[0]).toBe('ultra');
@@ -124,7 +127,7 @@ describe('quality presets', () => {
     });
 
     it('suggests the next cheaper preset, none past super low', () => {
-        expect(cheaperPreset({ ...base(), shadowReach: 'far', viewDistance: 'far' })).toBe('medium');
+        expect(cheaperPreset({ ...base(), shadowReach: 'far', viewDistance: 'far', clouds: true })).toBe('medium');
         expect(cheaperPreset(base())).toBe('low');
         expect(cheaperPreset({ ...base(), graphics: 'super' })).toBeNull();
         // a custom full-graphics mix: the first low spec preset

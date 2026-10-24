@@ -86,6 +86,8 @@ export interface Settings {
     shadowReach: ShadowReach;
     /** how far full graphics sees before the haze hides it (graphics.ts VIEW_DISTANCES; owner, 2026-10-24). Applies live. */
     viewDistance: ViewDistance;
+    /** the volumetric clouds in full graphics (render/clouds.ts; owner, 2026-10-24). Applies live. */
+    clouds: boolean;
     /** render resolution as a share of the screen's (capped at 2 device pixels per CSS pixel, 1 in low spec mode) */
     renderScale: number;
     /**
@@ -142,6 +144,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     shadows: true,
     shadowReach: 'near',
     viewDistance: 'near',
+    clouds: false,
     renderScale: 1,
     graphics: 'full',
     noGpuFrom: null,
@@ -210,6 +213,9 @@ export function loadSettings(): Settings {
     if (isViewDistance(s.viewDistance)) out.viewDistance = s.viewDistance;
     // saved before the setting (2026-10-24): the view the preset with these shadows has now, so Ultra and High stay themselves
     else out.viewDistance = out.shadowReach === 'ultra' ? 'farthest' : out.shadowReach === 'far' ? 'far' : 'near';
+    if (typeof s.clouds === 'boolean') out.clouds = s.clouds;
+    // saved before the clouds (2026-10-24): on where the preset with these shadows has them
+    else out.clouds = out.shadowReach === 'ultra' || out.shadowReach === 'far';
     if (typeof s.renderScale === 'number' && s.renderScale >= 0.5 && s.renderScale <= 1) out.renderScale = s.renderScale;
     if (typeof s.sound === 'boolean') out.sound = s.sound;
     if (typeof s.soundLowLatency === 'boolean') out.soundLowLatency = s.soundLowLatency;

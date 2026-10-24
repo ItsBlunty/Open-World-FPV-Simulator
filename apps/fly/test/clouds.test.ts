@@ -1,42 +1,54 @@
-// The clouds' picture (owner, 2026-10-24: "add clouds"): render/cloud-texture.ts.
+// The volumetric clouds' noise (owner, 2026-10-24: "3d pillowy clouds"): render/cloud-texture.ts.
 import { describe, expect, it } from 'vitest';
-import { CLOUD_COVER, cloudPixels } from '../src/render/cloud-texture';
+import { coverageMap, shapeVolume } from '../src/render/cloud-texture';
 
-describe('cloud picture', () => {
-    const side = 256;
-    const p = cloudPixels(side);
-    const alpha = (i: number, j: number): number => p[4 * (((j + side) % side) * side + ((i + side) % side)) + 3];
+/** the biggest step between neighbours along x inside, and across the wrap from the last column to the first */
+function steps(get: (i: number, j: number) => number, side: number, rows: number): { inside: number; seam: number } {
+    let inside = 0, seam = 0;
+    for (let j = 0; j < rows; j++) {
+        for (let i = 1; i < side; i++) inside = Math.max(inside, Math.abs(get(i, j) - get(i - 1, j)));
+        seam = Math.max(seam, Math.abs(get(0, j) - get(side - 1, j)));
+    }
+    return { inside, seam };
+}
 
-    it('is the same every time (a fixed seed: every visit has the same sky)', () => {
-        expect(cloudPixels(side)).toEqual(p);
-        expect(cloudPixels(side, 8)).not.toEqual(p);
+describe('cloud noise', () => {
+    const cov = coverageMap(128);
+    const S = 32;
+    const shape = shapeVolume(S);
+
+    it('is the same every time (fixed seeds: every visit has the same sky)', () => {
+        expect(coverageMap(128)).toEqual(cov);
+        expect(shapeVolume(S)).toEqual(shape);
+        expect(coverageMap(128, 8)).not.toEqual(cov);
     });
 
-    it('covers about CLOUD_COVER of the sky', () => {
-        let cloud = 0;
-        for (let k = 3; k < p.length; k += 4) if (p[k] > 127) cloud++;
-        const share = cloud / (side * side);
-        expect(share).toBeGreaterThan(CLOUD_COVER - 0.12);
-        expect(share).toBeLessThan(CLOUD_COVER + 0.05);
-    });
-
-    it('tiles: each edge runs on into the opposite one as smoothly as inside the picture', () => {
-        // the biggest step between neighbours across the seam is no bigger than the biggest inside
-        let inside = 0, seam = 0;
-        for (let j = 0; j < side; j++) {
-            for (let i = 1; i < side; i++) inside = Math.max(inside, Math.abs(alpha(i, j) - alpha(i - 1, j)));
-            seam = Math.max(seam, Math.abs(alpha(0, j) - alpha(side - 1, j)), Math.abs(alpha(j, 0) - alpha(j, side - 1)));
+    it('has clear sky and thick cover both on the coverage map', () => {
+        let clear = 0, thick = 0;
+        for (const v of cov) {
+            if (v < 100) clear++;
+            if (v > 180) thick++;
         }
-        expect(seam).toBeLessThanOrEqual(inside);
+        expect(clear / cov.length).toBeGreaterThan(0.15);
+        expect(thick / cov.length).toBeGreaterThan(0.15);
     });
 
-    it('is white at a cloud\'s edge and greyer where it is thick', () => {
-        let edge = 0, thick = 0;
-        for (let k = 0; k < p.length; k += 4) {
-            if (p[k + 3] > 0 && p[k + 3] < 64) edge = Math.max(edge, p[k]);
-            if (p[k + 3] === 255) thick = Math.max(thick, 255 - p[k]);
+    it('tiles: each edge runs on into the opposite one as smoothly as inside', () => {
+        const c = steps((i, j) => cov[j * 128 + i], 128, 128);
+        expect(c.seam).toBeLessThanOrEqual(c.inside);
+        // the volume along x, on every row of every slice; and along z
+        const x = steps((i, j) => shape[j * S + i], S, S * S);
+        expect(x.seam).toBeLessThanOrEqual(x.inside);
+        const z = steps((k, j) => shape[(k * S) * S + j], S, S);
+        expect(z.seam).toBeLessThanOrEqual(z.inside);
+    });
+
+    it('has lumps and gaps in the shape volume', () => {
+        let lo = 255, hi = 0;
+        for (const v of shape) {
+            lo = Math.min(lo, v);
+            hi = Math.max(hi, v);
         }
-        expect(edge).toBeGreaterThan(245);
-        expect(thick).toBeGreaterThan(30);
+        expect(hi - lo).toBeGreaterThan(120);
     });
 });

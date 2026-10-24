@@ -81,8 +81,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Replay radio controls finished (owner): the controls written out, the wind speed shown; tried with a stand-in radio. [replay-viewer]
   No GPU (owner): a browser drawing in software drops to Super low by itself with a warning box saying why (acceleration
   off and no GPU driver look the same to a page); a GPU again puts the old level back. [low-spec §2k]
-  Clouds and view distance (owner, map v24): fair-weather cumulus 1500 m up, drifting; Settings > Graphics > View
-  distance, Medium 1.6 km, High 3 km, Ultra 6 km; grass out to 10 km so the view ends in haze. [browsers-input-performance §2o]
+  View distance (owner, map v24): Settings > Graphics, Medium 1.6 km, High 3 km, Ultra 6 km; grass out to 10 km. Volumetric
+  clouds (owner: "3d pillowy"): ray-marched cumulus 1.5-2.8 km up to the horizon, drifting; Settings > Graphics > Clouds,
+  on in High and Ultra; ~1 ms a frame on this GPU at 1080p with the lens. [browsers-input-performance §2o]
   Ultra preset (owner): shadows to 1000 m on a 16384² map (~1 GB) where the GPU allows; shadow depth range fixed (a
   dark wedge on the ground from high up). [browsers-input-performance §2j]
   Semis pull away slower (traffic v11, owner): 0.095 g for 3 s then 0.047 g, as measured trucks; they keep off the
@@ -133,8 +134,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    beacon on the tower, the runway and taxiway lights. Right? Approach lights or apron floodlights wanted? [airport §2l, §2m]
 10. **Crane:** spawn "City street", find the construction site: watch a crate go up, over and down; fly under the jib,
    through it, into a crate's way; look at the operator through the cab glass. Speeds and waits right? Crane sounds? [map §2n]
-11. **Clouds and view distance:** High and Ultra, climb over the city: far enough, fps OK? Clouds' look, height (1500 m),
-   cover and drift right? Wanted in low spec too? [browsers-input-performance §2o]
+11. **Clouds and view distance:** High and Ultra, climb over the city: far enough? Volumetric clouds: look, cover, height,
+   drift right? fps with them on vs off (Settings > Graphics > Clouds)? On in Medium too? [browsers-input-performance §2o]
 
 ## Left open (not started)
 

@@ -32,6 +32,8 @@ export interface EngineSettings {
     shadowReach: ShadowReach;
     /** how far full graphics sees (graphics.ts VIEW_DISTANCES) */
     viewDistance: ViewDistance;
+    /** the volumetric clouds on (full graphics only) */
+    clouds: boolean;
     overrides: ParamOverrides;
     traffic: TrafficConfig;
     spawn: string;
