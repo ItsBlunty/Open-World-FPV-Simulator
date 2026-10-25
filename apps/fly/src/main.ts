@@ -4,7 +4,7 @@
 // in Firefox and chose the page (2026-10-18). URL options: ?selftest runs the determinism check, ?demo flies the
 // self-test's scripted sticks in real time (no radio needed; ?demo=tricks flies flips and rolls for the grader), ?webgl forces WebGL 2, ?spawn=<id> starts at a spawn
 // point, ?cam=chase starts in the chase view, ?noshadows turns the sun's shadows off (for slow GPUs, and to measure
-// what they cost), ?lowspec turns low spec mode on for this visit (?lowspec=0 off), ?render=worker runs the engine in a worker.
+// what they cost), ?nomerge draws the level one mesh per material (as before 2026-10-25, to compare), ?lowspec turns low spec mode on for this visit (?lowspec=0 off), ?render=worker runs the engine in a worker.
 
 import './style.css';
 import { S, autoDynIdleMinRpm, compileParams } from '@owfpv/sim-core';

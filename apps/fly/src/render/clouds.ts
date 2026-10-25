@@ -13,8 +13,8 @@
 // Full graphics only. Drawn only: nothing here reaches the sim.
 
 import * as THREE from 'three/webgpu';
-import { color, float, max, mix, normalWorld, positionWorld, smoothstep, texture, uniform, vec2, vec3, vec4 } from 'three/tsl';
-import { BASE_MAX, CLOUD_FIELD, cloudPuffs, drift, insideDepth } from './cloud-puffs';
+import { Fn, abs, attribute, color, float, floor, max, min, mix, normalWorld, positionLocal, positionWorld, smoothstep, texture, uniform, vec2, vec3, vec4 } from 'three/tsl';
+import { BASE_MAX, CLOUD_FIELD, CLOUD_WIND, FADE, MID_X, cloudPuffs, drift, insideDepth } from './cloud-puffs';
 import type { Puff } from './cloud-puffs';
 import { SUN_DIR } from './world';
 
@@ -48,6 +48,8 @@ export class CloudsView {
     /** world to the shadow map's clip space, and how strong the shadows are (0 with the clouds off) */
     private readonly shadowMatrix = uniform(new THREE.Matrix4());
     private readonly shadowStrength = uniform(SHADOW_DARK);
+    /** the sim time the clouds are drawn at, s (update) */
+    private readonly time = uniform(0);
     private readonly m = new THREE.Matrix4();
     private readonly q = new THREE.Quaternion();
     private readonly p = new THREE.Vector3();
@@ -65,16 +67,27 @@ export class CloudsView {
         const mat = new THREE.MeshBasicNodeMaterial();
         const lit = smoothstep(float(-0.35), float(0.9), normalWorld.dot(vec3(SUN_DIR.x, SUN_DIR.y, SUN_DIR.z)));
         mat.colorNode = mix(color(0xa4afc0), color(0xffffff), lit);
+        // the drift moves them on the GPU (owner, 2026-10-25: fewer draws, "clouds moved in the shader"): each puff's matrix
+        // is fixed, placed round its cloud's centre, and the wind's offset and the shrink at the square's edge are added
+        // per vertex; re-sending 2237 matrices (143 KB) a frame cost Firefox a large GPU write each frame
+        mat.positionNode = this.driftNode();
         const mesh = new THREE.InstancedMesh(ball, mat, this.puffs.length);
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
         // they move round the whole square: always drawn (one draw)
         mesh.frustumCulled = false;
         mesh.name = 'clouds:puffs';
         this.mesh = mesh;
         this.group.add(mesh);
         // the shadow pass: the same puffs (sharing their matrices) as coarse white balls on black, from the sun
-        const coarse = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), new THREE.MeshBasicNodeMaterial({ color: 0xffffff }), this.puffs.length);
+        const coarseMat = new THREE.MeshBasicNodeMaterial({ color: 0xffffff });
+        coarseMat.positionNode = this.driftNode();
+        const coarse = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), coarseMat, this.puffs.length);
         coarse.instanceMatrix = mesh.instanceMatrix;
+        // each puff's cloud: its centre where placed (x, z) and the puff's base (y), what drift() moves and shrinks it by
+        const cloud = new THREE.InstancedBufferAttribute(new Float32Array(this.placed.flatMap((p) => [p.cx, p.cz, p.y - p.r * p.sy])), 3);
+        mesh.geometry.setAttribute('cloud', cloud);
+        coarse.geometry.setAttribute('cloud', cloud);
+        this.placed.forEach((p, i) => mesh.setMatrixAt(i, this.m.compose(this.p.set(p.x - p.cx, p.y, p.z - p.cz), this.q, this.s.set(p.r, p.r * p.sy, p.r))));
+        mesh.instanceMatrix.needsUpdate = true;
         coarse.frustumCulled = false;
         this.shadowScene.add(coarse);
         this.shadowScene.background = new THREE.Color(0x000000);
@@ -117,13 +130,30 @@ export class CloudsView {
         renderer.setRenderTarget(null);
     }
 
-    /** Move the clouds to where the wind has carried them at sim time `t` s. */
+    /** Move the clouds to where the wind has carried them at sim time `t` s (the shader draws them there; `puffs` for the whiteout). */
     update(t: number): void {
         drift(this.placed, t, this.puffs);
-        this.puffs.forEach((f, i) => {
-            this.mesh.setMatrixAt(i, this.m.compose(this.p.set(f.x, f.y, f.z), this.q, this.s.set(f.r, f.r * f.sy, f.r)));
-        });
-        this.mesh.instanceMatrix.needsUpdate = true;
+        this.time.value = t;
+    }
+
+    /**
+     * cloud-puffs.ts drift() per vertex: the instance matrix put the vertex at (x - cx, y, z - cz) of its puff placed at
+     * time 0; the cloud's centre is carried by the wind and wrapped round the square, and near the square's edge the
+     * puff shrinks towards its cloud's centre and its own base. Same sums as drift(), so the whiteout matches the drawing.
+     */
+    private driftNode(): THREE.Node<'vec3'> {
+        const H = CLOUD_FIELD;
+        // drift()'s wrap with a floor, not %, which in WGSL keeps the sign
+        const wrap = (v: THREE.Node<'float'>): THREE.Node<'float'> => v.sub(floor(v.add(H).div(2 * H)).mul(2 * H));
+        return Fn(() => {
+            const c = attribute<'vec3'>('cloud', 'vec3');
+            const cx = wrap(c.x.sub(MID_X).add(this.time.mul(CLOUD_WIND.x))).add(MID_X);
+            const cz = wrap(c.y.add(this.time.mul(CLOUD_WIND.z)));
+            const k = min(float(H).sub(max(abs(cx.sub(MID_X)), abs(cz))).div(FADE), 1);
+            const s = k.mul(k).mul(float(3).sub(k.mul(2)));
+            const L = positionLocal;
+            return vec3(cx.add(L.x.mul(s)), c.z.add(L.y.sub(c.z).mul(s)), cz.add(L.z.mul(s)));
+        })();
     }
 
     /** How far into the whiteout a camera at `cam` is: 0 clear of every cloud, 1 deep inside one. */

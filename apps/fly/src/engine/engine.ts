@@ -3,7 +3,7 @@
 // (worker.ts, ?render=worker) or on the page (main.ts, the default).
 
 import * as THREE from 'three/webgpu';
-import { SRGBColorSpace, WebGLRenderTarget, WebGLRenderer } from 'three';
+import { DepthTexture, FloatType, SRGBColorSpace, WebGLRenderTarget, WebGLRenderer } from 'three';
 import { S, SIM_CORE_VERSION } from '@owfpv/sim-core';
 import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap, courseProblem, customArches } from '@owfpv/maps';
@@ -151,7 +151,8 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
         (scene.background as THREE.Color).copy(scene.fog.color);
         lightsView?.setHaze(scene.fog.color, g.far);
     };
-    scene.add(levelGroup(level, kit));
+    // ?nomerge: the level one mesh per material, as before the merge (render/world.ts levelGroup), to compare
+    scene.add(levelGroup(level, kit, !params.has('nomerge')));
     const trafficView = new TrafficView(kit);
     trafficView.rebuild(session.traffic);
     scene.add(trafficView.group);
@@ -284,10 +285,10 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     fisheye.setLens(lensById(cfg.lens));
     fitFisheye();
     if (params.get('cam') === 'chase') view.setMode('chase');
-    /** the chase camera's see-through circle when a wall hides the quad (render/see-through.ts); same target kind as the lens faces */
+    /** the chase camera's see-through circle when a wall hides the quad (render/see-through.ts); same target kind as the lens faces (32-bit float depth, fisheye.ts) */
     const seeThrough = new SeeThrough(kit, () => gpuRenderer
-        ? new THREE.RenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, depthBuffer: true })
-        : new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace, depthBuffer: true }));
+        ? new THREE.RenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, depthBuffer: true, depthTexture: new THREE.DepthTexture(1, 1, THREE.FloatType) })
+        : new WebGLRenderTarget(1, 1, { colorSpace: SRGBColorSpace, depthBuffer: true, depthTexture: new DepthTexture(1, 1, FloatType) }));
     const rayT = session.world.rayT.bind(session.world);
     /** "Look around" without a radio: fly the camera with WASD and the mouse */
     const freeCam = new FreeCam();

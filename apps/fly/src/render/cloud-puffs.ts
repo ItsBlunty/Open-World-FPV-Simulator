@@ -24,7 +24,7 @@ const FILL = 0.38;
 /** half the side of the square the clouds drift across, round the map's middle, m: 10 cells (past the Ultra view from the map's edge) */
 export const CLOUD_FIELD = 10 * CELL;
 /** a cloud shrinks away over this much before the square's edge, m */
-const FADE = 1200;
+export const FADE = 1200;
 /** the wind carrying them, m/s along +x (east) and +z (south) [estimate: fair-weather cumulus drift at 5-10 m/s] */
 export const CLOUD_WIND = { x: 5, z: 2 };
 /** the clouds' bases, m: the lowest and highest (stylised: real fair-weather bases are at 1-2 km) */
@@ -33,7 +33,7 @@ export const BASE_MAX = 280;
 /** puffs are this much shorter up and down than across */
 const SQUASH = 0.78;
 /** the map's middle, m (packages/maps first-map.ts: the ground from -2000 to 2600 east, -2000 to 2000 north) */
-const MID_X = 300;
+export const MID_X = 300;
 
 /** a random value in [0, 1) for integer k and a seed */
 function rand(k: number, seed: number): number {

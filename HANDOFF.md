@@ -99,10 +99,10 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   - traffic self-test `d157f30a…` (traffic v11: semis' acceleration and turns; the trains v3)
   - map v24 `9afdca43…` (545 800 triangles, `packages/maps/test/first-map.test.ts`)
 - **Versions:** `SIM_CORE_VERSION` sim-core/0.7.0 (log format /4 written), `MAP_VERSION` 24, `CRANE_VERSION` 1, `TRAFFIC_VERSION` 11, `TRAIN_VERSION` 3, `AIR_VERSION` 3, `GRADE_VERSION` 1.
-- **Browsers:** Chrome / Edge first. Firefox reviewed 2026-10-25 [§2p]: WebGL without `EXT_clip_control` (Firefox <159)
-  uses a logarithmic depth buffer (no z-fighting) [§2q]; WebGPU stays Firefox's renderer (WebGL 2 measured no better);
-  Settings > Camera > Lens drawing: Automatic draws the fisheye fast in Firefox (one wide view: 4.1 ms CPU a frame vs 6.9,
-  120 fps), exact elsewhere, with an amber "softer on purpose" box [§2r]. `?selftest` matches. [browsers-input-performance §2p-§2r]
+- **Browsers:** Chrome / Edge first. Firefox reviewed 2026-10-25 [§2p]: WebGL without `EXT_clip_control` uses log depth
+  [§2q]; Lens drawing (Automatic = fast fisheye in Firefox) [§2r]; fewer draws for all: level merged (26 -> 3 draws a
+  pass, shadow casters 20 -> 1), clouds drift in the shader, lens views 32-bit depth (far paths no longer vanish) [§2s].
+  Firefox CPU a frame: fast lens 3.5 ms, exact 5.7 ms (was 4.5 / 7.8). `?selftest` matches. [browsers-input-performance §2p-§2s]
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
   the replay viewer; on 2026-10-24: the city pass, golden props (count and 1 m reach),
@@ -142,8 +142,9 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 11. **Clouds and view distance:** climb into a cloud and through it: whiteout right, lights hazy enough? Height
    (180-280 m), size, how many, drift speed (5 m/s) right? Cloud shadows dark and sharp enough? fps on vs off? View far enough at High and Ultra? Shadow block gone from
    high up? [browsers-input-performance §2o]
-12. **Fast fisheye in Firefox (§2r):** fly Firefox on Pages (Lens drawing: Automatic): frame rate held? Centre sharp
-   enough, edges soft enough to live with? Box text clear? Try Exact for comparison. Next: D (fewer draws) or E? [browsers-input-performance §2r]
+12. **Firefox and fewer draws (§2r, §2s):** fly Firefox and Chrome on Pages: frame rate, the fast lens's look, and anything
+   drawn wrong since the merge (surfaces' colours, shadows, clouds, park paths now visible from high up)? `?nomerge` shows
+   the old way. [browsers-input-performance §2s]
 
 ## Left open (not started)
 
@@ -209,7 +210,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §2n: the crane at work; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes; §2a: one dipole per bay |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV; §2i: semis' acceleration, right turns |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
-| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range; §2o: clouds, view distance, the far grass; §2p: Firefox review (what Firefox gives, how other engines handle it, wrong turns, options); §2q: log depth without EXT_clip_control, WebGPU vs WebGL 2 in Firefox; §2r: the fast fisheye lens (Lens drawing) |
+| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range; §2o: clouds, view distance, the far grass; §2p: Firefox review (what Firefox gives, how other engines handle it, wrong turns, options); §2q: log depth without EXT_clip_control, WebGPU vs WebGL 2 in Firefox; §2r: the fast fisheye lens (Lens drawing); §2s: level merged, clouds drift in the shader, lens 32-bit depth |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |

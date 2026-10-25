@@ -479,3 +479,31 @@ switch 1 -> 3 -> 1 faces. 644 tests (new: lens drawing in `graphics.test.ts`); t
 **Left open:** the owner flies it in Firefox (and may try Fast in Chrome); not tried on a weak GPU (the face's pixels and
 mipmaps cost GPU time, the passes CPU time); no anti-aliasing in the centre (FXAA would be the cheap fix if it shows);
 the one-off hitch when switching.
+
+## 2s. Option D built: fewer draws for every browser (owner, 2026-10-25)
+
+**Asked:** "I flew the fast lens. Build D next: fewer draws for everyone (merged static meshes, clouds moved in the shader)."
+
+**Built:**
+- **Level merged** (`render/world.ts` `levelGroup`, `mergedMaterial`): the plain opaque materials share one mesh; each
+  vertex carries its material's number (`surface`), which picks colour, roughness, metalness and the grid from tables
+  (the values `gridMaterial` gives each alone). Ribbon glass and frosted panels keep their own meshes. The shadow
+  casters are one more mesh, positions only, on `SHADOW_ONLY_LAYER`, which only the sun's shadow camera sees (Three.js's
+  ShadowNode keeps a shadow camera's own layers); the visible meshes no longer cast. First map: 26 draws a camera pass
+  -> 3, 20 in the shadow pass -> 1. `?nomerge` draws it as before, to compare.
+- **Clouds drift on the GPU** (`render/clouds.ts` `driftNode`): each puff's matrix is fixed round its cloud's centre, a
+  per-puff `cloud` attribute holds that centre and the puff's base, and the shader adds the wind and the shrink at the
+  square's edge with the same sums as `cloud-puffs.ts` `drift()` (kept on the CPU for the whiteout). No more 2237
+  matrices (143 KB) sent every frame.
+- **Found on the way, fixed:** the lens's views (and the chase see-through view) had 24-bit depth: Three.js gives a
+  render target 24-bit depth unless it has a depth texture, and reversed depth needs float to reach far, so through the
+  lens 5 cm park paths vanished into the grass from ~400 m up (since the lens was built). Now 32-bit float depth textures.
+
+**Evidence** (`docs/evidence/2026-10-25-firefox-review/results.md` §11): Firefox CPU a frame, fast lens 4.47 -> 3.51 ms;
+exact lens 7.84 -> 5.71 ms, 98 -> 117 fps. Merged and `?nomerge` draw the same picture (80-143 of 915 200 pixels differ;
+shadows, clouds in place), exact lens too; low spec draws. Cloud positions and shadows the same as the Pages build at the
+same sim time. 644 tests; typecheck clean. Not measured in Chrome (the owner stopped it: too many windows).
+
+**Left open:** Chrome numbers; airport (12 draws) and time-trial gates (8) not merged; the 80-143 differing pixels are
+ties between coplanar faces (draw order changed); the merged mesh's material tables use a few more shader cycles on
+plain surfaces (the grid is computed everywhere).

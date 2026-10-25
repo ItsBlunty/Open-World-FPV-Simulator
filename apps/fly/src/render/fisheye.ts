@@ -15,7 +15,7 @@
 // Rendering only: it reads the camera's pose and never touches sim state.
 
 import * as THREE from 'three/webgpu';
-import { SRGBColorSpace, ShaderMaterial, WebGLRenderTarget } from 'three';
+import { DepthTexture, FloatType, SRGBColorSpace, ShaderMaterial, WebGLRenderTarget } from 'three';
 import { Fn, If, abs, cos, float, floor, int, ivec2, max, min, mix, screenUV, select, sin, sqrt, tan, texture, textureLoad, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { CAMERA_NEAR } from './view';
 import { FACES, LUT_N, SIDE_REACH, lensLayout } from './lens';
@@ -79,15 +79,19 @@ export class FisheyeView {
     constructor(opts: FisheyeOptions) {
         this.single = opts.lowSpec || opts.wide === true;
         this.oversample = opts.oversample ?? 1;
+        // 32-bit float depth: Three.js gives a render target 24-bit depth unless told, and reversed depth needs float to
+        // reach far; with 24 bits, 5 cm park paths lost to the grass 400 m away through the lens (owner, 2026-10-25)
         const make = (size: number): THREE.RenderTarget => {
             if (opts.lowSpec) {
                 return new WebGLRenderTarget(size, size, {
-                    colorSpace: SRGBColorSpace, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
+                    colorSpace: SRGBColorSpace, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter,
+                    depthTexture: new DepthTexture(size, size, FloatType)
                 }) as unknown as THREE.RenderTarget;
             }
-            if (!opts.wide) return new THREE.RenderTarget(size, size, { type: THREE.HalfFloatType, samples: SAMPLES, depthBuffer: true });
+            const depthTexture = new THREE.DepthTexture(size, size, THREE.FloatType);
+            if (!opts.wide) return new THREE.RenderTarget(size, size, { type: THREE.HalfFloatType, samples: SAMPLES, depthBuffer: true, depthTexture });
             const t = new THREE.RenderTarget(size, size, {
-                type: THREE.HalfFloatType, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
+                type: THREE.HalfFloatType, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, depthTexture
             });
             // the face is squeezed along the radius far more than across it towards the edges
             t.texture.anisotropy = 16;

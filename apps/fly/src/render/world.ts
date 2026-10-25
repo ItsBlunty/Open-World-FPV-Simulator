@@ -1,4 +1,5 @@
-// The level in Three.js: one mesh per material, built from the same triangles the collision uses.
+// The level in Three.js, built from the same triangles the collision uses: the plain materials merged into one mesh, a
+// few apart (ribbon glass, frosted panels), and one shadow-only mesh of everything that casts.
 // Blockout surfaces get a world-aligned grid in the shader (1 m and 5 m lines): on flat colours an
 // FPV pilot cannot read speed or height, on a grid they can. City windows are geometry (the glass set
 // back in the walls, maps first-map.ts windowedBlock); the glass towers' ribbon glass gets its mullions
@@ -6,7 +7,7 @@
 // Low spec mode (kit.ts) draws the same grid in a few lines of GLSL added to a matte material, no mullions, in tiles.
 
 import * as THREE from 'three/webgpu';
-import { abs, color, float, fract, fwidth, max, min, mix, normalWorld, positionWorld, smoothstep, step, vec3 } from 'three/tsl';
+import { abs, attribute, color, float, fract, fwidth, int, max, min, mix, normalWorld, positionWorld, smoothstep, step, uniformArray, vec3 } from 'three/tsl';
 import type { Level, Material } from '@owfpv/maps';
 import { SHADOW_REACHES, shadowDepth, shadowNeedsRecentre } from './shadow-follow';
 import { FULL_KIT } from './kit';
@@ -118,9 +119,68 @@ function mullions(): FloatNode {
     return mix(line, float(MULLION_W / MULLION_BAY), smoothstep(0.15, 0.5, w.div(MULLION_BAY)));
 }
 
-function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
+/** A material's roughness and metalness (glass and water shine, metal and the crane a little metallic). */
+function surfaceOf(m: Material): { roughness: number; metalness: number } {
     const glassy = m === 'glass' || m === 'water' || m === 'window' || m === 'window-ribbon';
-    const mat = new THREE.MeshStandardNodeMaterial({ roughness: glassy ? (m.startsWith('window') ? 0.12 : 0.25) : 0.9, metalness: m === 'metal' || m === 'crane' ? 0.3 : 0 });
+    return { roughness: glassy ? (m.startsWith('window') ? 0.12 : 0.25) : 0.9, metalness: m === 'metal' || m === 'crane' ? 0.3 : 0 };
+}
+
+/** The grid's darkening, 0-1, at a surface point: 1 m and 5 m lines along the axes each face runs across. */
+function gridShade(): FloatNode {
+    const p = positionWorld;
+    const n = abs(normalWorld);
+    // a line along an axis shows on faces that axis runs across (not on faces it points out of)
+    const wx = float(1).sub(smoothstep(0.6, 0.9, n.x));
+    const wy = float(1).sub(smoothstep(0.6, 0.9, n.y));
+    const wz = float(1).sub(smoothstep(0.6, 0.9, n.z));
+    const minor = max(max(lines(p.x, 1).mul(wx), lines(p.y, 1).mul(wy)), lines(p.z, 1).mul(wz));
+    const major = max(max(lines(p.x, 5).mul(wx), lines(p.y, 5).mul(wy)), lines(p.z, 5).mul(wz));
+    return minor.mul(0.1).max(major.mul(0.28));
+}
+
+/**
+ * Every plain opaque material of the level in one (owner, 2026-10-25: fewer draws): each vertex carries its material's
+ * number (`surface`), which picks its colour, roughness, metalness and whether it has the grid from tables, the same
+ * values gridMaterial gives each alone. One draw instead of one per material, in every camera pass.
+ */
+function mergedMaterial(mats: readonly Material[]): THREE.MeshStandardNodeMaterial {
+    const mat = new THREE.MeshStandardNodeMaterial();
+    const colours = uniformArray(mats.map((m) => new THREE.Color(COLOURS[m])), 'color');
+    const rough = uniformArray(mats.map((m) => surfaceOf(m).roughness), 'float');
+    const metal = uniformArray(mats.map((m) => surfaceOf(m).metalness), 'float');
+    const grid = uniformArray(mats.map((m) => (PLAIN.has(m) ? 0 : 1)), 'float');
+    // the same number at a triangle's three corners: rounded, so interpolation cannot nudge it to the next one
+    const i = int(attribute<'float'>('surface', 'float').add(0.5));
+    const base = colours.element(i) as unknown as THREE.Node<'vec3'>;
+    mat.colorNode = mix(base, vec3(0.08, 0.08, 0.08), gridShade().mul(grid.element(i) as unknown as FloatNode));
+    mat.roughnessNode = rough.element(i);
+    mat.metalnessNode = metal.element(i);
+    return mat;
+}
+
+/** Triangle lists end to end */
+function concat(parts: readonly Float32Array[]): Float32Array {
+    const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+    let at = 0;
+    for (const p of parts) {
+        out.set(p, at);
+        at += p.length;
+    }
+    return out;
+}
+
+/** Materials kept apart from the merged one: the ribbon glass paints mullions, the frosted panels are see-through. */
+const OWN_MESH: ReadonlySet<Material> = new Set<Material>(['window-ribbon', 'frosted']);
+/** Materials that cast no shadow: paint on the ground, water, the see-through panels. */
+const NO_SHADOW: ReadonlySet<Material> = new Set<Material>(['marking', 'marking-yellow', 'marking-red', 'water', 'frosted']);
+/**
+ * The layer only the sun's shadow camera sees (Sun turns it on; Three.js's ShadowNode keeps a shadow camera's own layers
+ * when it has any past layer 0): the level's shadow casters, merged into one mesh no other camera draws.
+ */
+export const SHADOW_ONLY_LAYER = 1;
+
+function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
+    const mat = new THREE.MeshStandardNodeMaterial(surfaceOf(m));
     const base = color(COLOURS[m]);
     if (m === 'window-ribbon') {
         const f = mullions();
@@ -140,16 +200,7 @@ function gridMaterial(m: Material): THREE.MeshStandardNodeMaterial {
         mat.colorNode = base;
         return mat;
     }
-    const p = positionWorld;
-    const n = abs(normalWorld);
-    // a line along an axis shows on faces that axis runs across (not on faces it points out of)
-    const wx = float(1).sub(smoothstep(0.6, 0.9, n.x));
-    const wy = float(1).sub(smoothstep(0.6, 0.9, n.y));
-    const wz = float(1).sub(smoothstep(0.6, 0.9, n.z));
-    const minor = max(max(lines(p.x, 1).mul(wx), lines(p.y, 1).mul(wy)), lines(p.z, 1).mul(wz));
-    const major = max(max(lines(p.x, 5).mul(wx), lines(p.y, 5).mul(wy)), lines(p.z, 5).mul(wz));
-    const shade = minor.mul(0.1).max(major.mul(0.28));
-    mat.colorNode = mix(base, vec3(0.08, 0.08, 0.08), shade);
+    mat.colorNode = mix(base, vec3(0.08, 0.08, 0.08), gridShade());
     return mat;
 }
 
@@ -264,24 +315,55 @@ function lowSpecLevel(level: Level, kit: Kit, g: THREE.Group): void {
 }
 
 /** The level's meshes, one per material (low spec: one per tile), in a group. */
-export function levelGroup(level: Level, kit: Kit = FULL_KIT): THREE.Group {
+/** `merge` false (`?nomerge`): one mesh per material, each casting its own shadow, as before 2026-10-25 (for comparing) */
+export function levelGroup(level: Level, kit: Kit = FULL_KIT, merge = true): THREE.Group {
     const g = new THREE.Group();
     g.name = `level:${level.id}`;
     if (kit.lowSpec) {
         lowSpecLevel(level, kit, g);
         return g;
     }
-    for (const [m, tris] of level.parts) {
+    // Fewer draws (owner, 2026-10-25): the plain opaque materials share one mesh, and the shadow casters one more that only
+    // the sun's shadow camera sees, so the level is ~3 draws a camera pass and 1 in the shadow pass, not one per material
+    // in each (26 and 20 on the first map). Firefox spends about twice Chrome's time on each draw
+    // (docs/notes/browsers-input-performance.md §2p, §2s).
+    const geometry = (tris: Float32Array): THREE.BufferGeometry => {
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(tris, 3));
-        geo.computeVertexNormals(); // non-indexed: flat normals per face
         geo.computeBoundingSphere();
-        const mesh = new THREE.Mesh(geo, gridMaterial(m));
-        mesh.name = m;
-        mesh.castShadow = m !== 'marking' && m !== 'marking-yellow' && m !== 'marking-red' && m !== 'water' && m !== 'frosted';
+        return geo;
+    };
+    const add = (mesh: THREE.Mesh, name: string): void => {
+        mesh.name = name;
         mesh.receiveShadow = true;
         mesh.matrixAutoUpdate = false;
         g.add(mesh);
+    };
+    const own = (m: Material): boolean => !merge || OWN_MESH.has(m);
+    const merged = [...level.parts].filter(([m]) => !own(m));
+    if (merged.length) {
+        const geo = geometry(concat(merged.map(([, t]) => t)));
+        geo.setAttribute('surface', new THREE.BufferAttribute(new Float32Array(merged.flatMap(([, t], k) => new Array<number>(t.length / 3).fill(k))), 1));
+        geo.computeVertexNormals(); // non-indexed: flat normals per face
+        add(new THREE.Mesh(geo, mergedMaterial(merged.map(([m]) => m))), 'level:merged');
+    }
+    for (const [m, tris] of level.parts) {
+        if (!own(m)) continue;
+        const geo = geometry(tris);
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, gridMaterial(m));
+        mesh.castShadow = !merge && !NO_SHADOW.has(m);
+        add(mesh, m);
+    }
+    const casters = merge ? [...level.parts].filter(([m]) => !NO_SHADOW.has(m)) : [];
+    if (casters.length) {
+        // positions only: the shadow pass writes depth, nothing else
+        const caster = new THREE.Mesh(geometry(concat(casters.map(([, t]) => t))), new THREE.MeshBasicNodeMaterial());
+        caster.castShadow = true;
+        caster.layers.set(SHADOW_ONLY_LAYER);
+        caster.name = 'level:shadow-casters';
+        caster.matrixAutoUpdate = false;
+        g.add(caster);
     }
     return g;
 }
@@ -305,6 +387,8 @@ export class Sun {
         const l = new THREE.DirectionalLight(0xfff4e0, 2.2);
         l.castShadow = true;
         const cam = l.shadow.camera;
+        // layer 0 (everything that casts) and the level's merged casters (levelGroup), which no other camera draws
+        cam.layers.enable(SHADOW_ONLY_LAYER);
         cam.near = 1;
         scene.add(l, l.target);
         this.light = l;

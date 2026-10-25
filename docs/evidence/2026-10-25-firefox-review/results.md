@@ -100,3 +100,22 @@ right fast): same shape and framing; `lens-centre.png` (3x): as sharp, edges a l
 `lens-edge.png` (3x): softer, thin wires and road lines fade sooner. Settings (`ui.json`, `settings-firefox.png`): the
 Lens drawing row reads "Automatic (fast in Firefox)" with the amber box; switching to Exact draws 3 faces and drops the
 box, back to Fast 1 face, saved. Single-face sizes (Ratel 2): 2932x2326 at 1280x715, 4097x3249 (capped) at 1920x1080.
+
+## 11. Fewer draws (option D; local production build vs the Pages build 676aaf1, Firefox 158 windowed)
+Census (headless Firefox, `census.js`-style hook on `renderer.renderObject`, fast lens): ~125 draws a frame; the level's
+26 materials in each camera pass and 20 in the sun's shadow pass were the largest group, then traffic (instanced), airport 12,
+time-trial gates 8.
+| Firefox, lens drawing | CPU ms in render() / frame | fps | p95 | writeBuffer / setBindGroup |
+|---|---|---|---|---|
+| fast, before | 4.47 | 119.7 | 8.3 | 253 / 331 |
+| fast, after | 3.51 | 120.3 | 8.3 | 215 / 211 |
+| exact, before | 7.84 | 97.8 | 16.7 | 594 / 776 |
+| exact, after | 5.71 | 117 | 8.3 | 485 / 505 |
+Chrome not measured (the owner stopped the run: too many windows).
+Same picture: one build, `?nomerge` (one mesh per material, as before) against the merged level, camera pinned to fixed
+poses, cars, trains, planes and the crane hidden, clouds at t = 7 s (`m-merged.json`, `m-nomerge.json`): fast lens
+103 and 80 of 915 200 pixels differ by more than 8 levels (`m-side-city.png`, `m-side-high.png`, shadows and clouds
+in both); exact lens 143 and 72 (`x-side-high.png`).
+Lens depth: Three.js r186 gives a render target 24-bit depth unless it has a depth texture (`Textures.js` line 94,
+`WebGPUTextureUtils.js` Depth24Plus), so through the lens the 5 cm park paths lost to the grass from 420 m up
+(`paths-24bit-vs-32bit.png`: left the Pages build, right with 32-bit float depth).
