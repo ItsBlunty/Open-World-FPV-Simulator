@@ -269,14 +269,14 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
      * the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat.
      * Low spec has its own cheaper build of it, one wide face (owner, 2026-10-22), culled at the FPV camera's nearer far plane.
      */
-    // Full graphics draws it the fast way (one wide face) when Settings > Camera > Lens drawing says so, or by default in
-    // Firefox (graphics.ts fastLens; owner, 2026-10-25); a change builds the view again.
+    // Full graphics draws it the fast way (one wide face) when Settings > Camera > Lens drawing says so (graphics.ts
+    // fastLens; owner, 2026-10-25); a change builds the view again.
     const makeFisheye = (): FisheyeView => new FisheyeView({
-        lowSpec, wide: fastLens(cfg.lensDrawing, navigator.userAgent), far: view.camera.far,
+        lowSpec, wide: fastLens(cfg.lensDrawing), far: view.camera.far,
         oversample: !lowSpec ? 1 : kit.graphics === 'low' ? LOW_SPEC_OVERSAMPLE : NO_GPU_OVERSAMPLE
     });
     let fisheye = makeFisheye();
-    let fisheyeFast = fastLens(cfg.lensDrawing, navigator.userAgent);
+    let fisheyeFast = fastLens(cfg.lensDrawing);
     const bufferSize = new THREE.Vector2();
     const fitFisheye = (): void => {
         renderer.getDrawingBufferSize(bufferSize);
@@ -547,7 +547,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     view.uptiltDeg = cfg.uptiltDeg;
                     view.fovDeg = cfg.fovDeg;
                     view.updateFov();
-                    const fast = fastLens(cfg.lensDrawing, navigator.userAgent);
+                    const fast = fastLens(cfg.lensDrawing);
                     if (!lowSpec && fast !== fisheyeFast) {
                         fisheye.dispose();
                         fisheye = makeFisheye();

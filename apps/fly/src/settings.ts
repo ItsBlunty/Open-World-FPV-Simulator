@@ -26,7 +26,7 @@ export interface Settings {
     lens: string;
     /**
      * How full graphics draws the lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"): 'exact' several views,
-     * 'fast' one wide view, 'auto' fast in Firefox only (graphics.ts fastLens). Applies live.
+     * 'fast' one wide view (graphics.ts LensDrawing); exact by default in every browser. Applies live.
      */
     lensDrawing: LensDrawing;
     /** the pilot's own rates; null flies the preset's */
@@ -125,7 +125,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     uptiltDeg: 20,
     fovDeg: 120,
     lens: DEFAULT_LENS,
-    lensDrawing: 'auto',
+    lensDrawing: 'exact',
     rates: null,
     mode: 'acro',
     stickMode: 2,

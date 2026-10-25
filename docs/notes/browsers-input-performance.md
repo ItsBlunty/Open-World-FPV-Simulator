@@ -532,3 +532,14 @@ sound on. In the owner's tab (claudecodebrowser): sim ticking, HUD 120 fps, no W
 646 tests (new: `local-ports.test.ts`); typecheck clean.
 
 **Left open:** Firefox's spatial sound otherwise not checked by ear (panners use the parameters Firefox has).
+
+## 2u. Firefox back on the exact lens (owner, 2026-10-25)
+
+**Owner:** "the resolution/quality is terrible on firefox, even on Ultra. Chrome version still looks great", then
+"firefox should be using the same lens as chrome". The fast lens (§2r) was Firefox's default ("Automatic"); its single
+face is capped at 4096 texels (lens.ts MAX_SIZE), so on the owner's 2509x1371 screen (Ratel 2: a 4098x3249 face across
+7.5 tangent units) the centre gets fewer texels than screen pixels, with no multisampling.
+**Changed:** Lens drawing is Exact (default, every browser) or Fast; "Automatic" is gone and a saved 'auto' loads as
+Exact (`graphics.ts` `fastLens`, `isLensDrawing`). The Fast warning box no longer talks about Firefox. Checked headless:
+a saved 'auto' draws 3 faces. 646 tests; typecheck clean. Firefox's exact-lens cost after §2s: 5.7 ms CPU a frame at
+1280x715 (117 fps); at the owner's size not measured.

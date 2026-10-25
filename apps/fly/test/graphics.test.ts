@@ -49,16 +49,14 @@ describe('graphics levels', () => {
         expect([loadSettings().viewDistance, loadSettings().clouds]).toEqual(['near', false]);
     });
 
-    it('draws the lens the fast way in Firefox by default, and as the pilot says (owner, 2026-10-25)', () => {
-        const firefox = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:158.0) Gecko/20100101 Firefox/158.0';
-        const chrome = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36';
-        expect([fastLens('auto', firefox), fastLens('auto', chrome)]).toEqual([true, false]);
-        expect([fastLens('exact', firefox), fastLens('fast', chrome)]).toEqual([false, true]);
-        expect(DEFAULT_SETTINGS.lensDrawing).toBe('auto');
-        withStorage({ version: 1, lensDrawing: 'exact' });
+    it('draws the exact lens by default in every browser, fast only when picked (owner, 2026-10-25)', () => {
+        expect([fastLens('exact'), fastLens('fast')]).toEqual([false, true]);
+        expect(DEFAULT_SETTINGS.lensDrawing).toBe('exact');
+        withStorage({ version: 1, lensDrawing: 'fast' });
+        expect(loadSettings().lensDrawing).toBe('fast');
+        // 'auto' was fast in Firefox for a day: it loads as exact now
+        withStorage({ version: 1, lensDrawing: 'auto' });
         expect(loadSettings().lensDrawing).toBe('exact');
-        withStorage({ version: 1, lensDrawing: 'bogus' });
-        expect(loadSettings().lensDrawing).toBe('auto');
     });
 
     it('turns traffic off in extra and super low spec only', () => {

@@ -95,21 +95,22 @@ export function isViewDistance(v: unknown): v is ViewDistance {
 }
 
 /**
- * How full graphics draws a fisheye lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"). 'exact': the scene
- * from up to five cube-face cameras (render/fisheye.ts); 'fast': from one wide camera, as low spec does, so one scene
- * pass instead of three to five. Firefox spends about twice Chrome's CPU on each pass (docs/notes/
- * browsers-input-performance.md §2p), so 'auto' is fast there and exact elsewhere.
+ * How full graphics draws a fisheye lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox", then "firefox should be
+ * using the same lens as chrome"). 'exact', the default in every browser: the scene from up to five cube-face cameras
+ * (render/fisheye.ts); 'fast', chosen in Settings: from one wide camera, as low spec does, one scene pass instead of three
+ * to five, softer (no multisampling, the face capped at 4096 texels: below one texel a pixel from about 1920x1080 up).
  */
-export type LensDrawing = 'auto' | 'exact' | 'fast';
-export const LENS_DRAWINGS: readonly LensDrawing[] = ['auto', 'exact', 'fast'];
+export type LensDrawing = 'exact' | 'fast';
+export const LENS_DRAWINGS: readonly LensDrawing[] = ['exact', 'fast'];
 
+/** A saved value; 'auto' (fast in Firefox, 2026-10-25) is no longer one, so it loads as the default */
 export function isLensDrawing(v: unknown): v is LensDrawing {
     return typeof v === 'string' && (LENS_DRAWINGS as readonly string[]).includes(v);
 }
 
-/** Whether the lens is drawn the fast way in a browser with this user agent string */
-export function fastLens(drawing: LensDrawing, userAgent: string): boolean {
-    return drawing === 'fast' || (drawing === 'auto' && /firefox\//i.test(userAgent));
+/** Whether the lens is drawn the fast way */
+export function fastLens(drawing: LensDrawing): boolean {
+    return drawing === 'fast';
 }
 
 /**

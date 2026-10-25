@@ -191,23 +191,19 @@ export class SettingsUi {
     }
 
     /**
-     * How full graphics draws the lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"; graphics.ts LensDrawing),
-     * and, when it is the fast one, a warning box as the low spec lens has, so nobody takes it for the exact lens.
+     * How full graphics draws the lens (owner, 2026-10-25; graphics.ts LensDrawing): exact by default, fast if picked, and
+     * then a warning box as the low spec lens has, so nobody takes it for the exact lens.
      */
     private lensDrawing(host: SettingsHost, s: Settings): HTMLElement[] {
-        const firefox = fastLens('auto', navigator.userAgent);
         const out: HTMLElement[] = [this.field('Lens drawing', this.select<LensDrawing>(s.lensDrawing, [
-            { value: 'auto', label: firefox ? 'Automatic (fast in Firefox)' : 'Automatic (exact in this browser)' },
             { value: 'exact', label: 'Exact: several views, sharpest' },
             { value: 'fast', label: 'Fast: one wide view, softer' }
         ], (v) => { s.lensDrawing = v; host.onCamera(); host.save(); this.build(); }))];
-        if (fastLens(s.lensDrawing, navigator.userAgent)) {
+        if (fastLens(s.lensDrawing)) {
             out.push(h('div', { class: 'callout-warn' },
-                h('div', { class: 'callout-title' }, '⚠ Fast fisheye: a little softer on purpose'),
-                h('div', {}, 'The scene is drawn once, as one wide view, instead of several views joined together. The middle has no edge smoothing and the edges are softer.'),
-                h('div', {}, firefox
-                    ? 'Firefox spends about twice as long as Chrome on each view, so the exact lens drops frames here. For the exact lens pick Exact, or fly in Chrome or Edge.'
-                    : 'For the exact lens, pick Exact.')));
+                h('div', { class: 'callout-title' }, '⚠ Fast fisheye: softer on purpose'),
+                h('div', {}, 'The scene is drawn once, as one wide view, instead of several views joined together: fewer frames dropped on a slow computer. The picture is softer, more so on big screens, and has no edge smoothing.'),
+                h('div', {}, 'For the real lens, pick Exact.')));
         }
         return out;
     }
