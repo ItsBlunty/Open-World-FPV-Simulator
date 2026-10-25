@@ -507,3 +507,28 @@ same sim time. 644 tests; typecheck clean. Not measured in Chrome (the owner sto
 **Left open:** Chrome numbers; airport (12 draws) and time-trial gates (8) not merged; the 80-143 differing pixels are
 ties between coplanar faces (draw order changed); the merged mesh's material tables use a few more shader cycles on
 plain surfaces (the grid is computed everywhere).
+
+## 2t. The picture froze in Firefox with sound on (owner, 2026-10-25): fixed
+
+**Reported:** "Flying without a radio is not working on firefox", then: the image draws, clicking in captures the mouse,
+"but moving the mouse and hitting the buttons does nothing ... the whole world is frozen"; switching tabs and back
+shows one new frame; with a radio too; low spec the same; it unfroze when sound went off (M).
+
+**Cause:** `audio/audio.ts` `frame()` moved the listener through `AudioListener.positionX/forwardX/upX`, which Firefox
+does not have (it has only the older `setPosition`/`setOrientation`): every audio message threw. With the engine on the
+page, `engine/protocol.ts` `localPorts` hands messages over synchronously, so the error went back into the engine's
+frame (`postAudio` comes just before `draw`) and stopped it before drawing: the sim, the free camera and the HUD ran on,
+nothing was drawn. A tab switch suspends the sound (`visible`), so one frame got through. Since sound was built (§1l);
+Firefox was shelved then, and headless checks never clicked, so the sound never started in them.
+
+**Fixed:** the listener uses `setPosition`/`setOrientation` where the parameters are missing (applied at once, no 10 ms
+smoothing in Firefox); `localPorts` reports a handler's error (`reportError`) and does not throw it at the sender, as a
+MessageChannel would, so a page error can no longer freeze the picture.
+
+**Evidence:** reproduced headless (Firefox 158, a real click starts the sound, E held): Pages build, screenshots 1.2 s
+apart identical with sound on (0 px differ), 174 071 px with it off; the sound's `frame` threw `can't access property
+"setTargetAtTime", e is undefined` from the listener. Fixed build: 201 sound frames, 0 errors, 142 076 px differ with
+sound on. In the owner's tab (claudecodebrowser): sim ticking, HUD 120 fps, no WebGPU errors, canvas unchanged.
+646 tests (new: `local-ports.test.ts`); typecheck clean.
+
+**Left open:** Firefox's spatial sound otherwise not checked by ear (panners use the parameters Firefox has).

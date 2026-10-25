@@ -102,7 +102,8 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 - **Browsers:** Chrome / Edge first. Firefox reviewed 2026-10-25 [§2p]: WebGL without `EXT_clip_control` uses log depth
   [§2q]; Lens drawing (Automatic = fast fisheye in Firefox) [§2r]; fewer draws for all: level merged (26 -> 3 draws a
   pass, shadow casters 20 -> 1), clouds drift in the shader, lens views 32-bit depth (far paths no longer vanish) [§2s].
-  Firefox CPU a frame: fast lens 3.5 ms, exact 5.7 ms (was 4.5 / 7.8). `?selftest` matches. [browsers-input-performance §2p-§2s]
+  Firefox CPU a frame: fast lens 3.5 ms, exact 5.7 ms (was 4.5 / 7.8). Picture frozen with sound on in Firefox fixed (no
+  AudioListener parameters there; a page error no longer stops the engine's frame) [§2t]. `?selftest` matches. [browsers-input-performance §2p-§2t]
   The engine runs on the page; `?render=worker` is opt-in. Low spec mode needs WebGL 2 only (works with GPU off, on WARP).
 - **Accepted by the owner:** contacts, turtle mode, traffic, the free-fly camera, map v4, fisheye lenses, the menu,
   the replay viewer; on 2026-10-24: the city pass, golden props (count and 1 m reach),
@@ -144,7 +145,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
    high up? [browsers-input-performance §2o]
 12. **Firefox and fewer draws (§2r, §2s):** fly Firefox and Chrome on Pages: frame rate, the fast lens's look, and anything
    drawn wrong since the merge (surfaces' colours, shadows, clouds, park paths now visible from high up)? `?nomerge` shows
-   the old way. [browsers-input-performance §2s]
+   the old way. Sound on in Firefox: picture moves, sounds placed right? [browsers-input-performance §2s, §2t]
 
 ## Left open (not started)
 
@@ -210,7 +211,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 | `map.md` | §0d, §0g, §0q: look pass, world pass (beams, windows, ramps), crane, names, doors; §2n: the crane at work; §1c: forest, trees, the yard filled out; §1g: the map joined up (city edge, roads out, paths, power line); §1q: flickering faces, the z-fight test; §1u: the Duga radar; §1w: the Duga remade; §1x: its dipoles and pipes; §2a: one dipole per bay |
 | `traffic.md` | §0e: solid traffic, signals, the junction network, left-turn arrows; §1p: people keeping apart, kerb waiting spots; §1t: vehicle kinds, pickups, semis and trailers, street vendors; §1v: contact asks scan the movers once a tick; §1y: the test suite trimmed; §1z: the quad trapped inside an SUV; §2i: semis' acceleration, right turns |
 | `camera-and-menu.md` | §0f free-fly camera, §0m fisheye lenses, §0n main menu and settings, §0x chase see-through circle, §1e graphics presets, §1f title card, pause menu, Settings tabs, §1k start point on the title card, back to main menu, data reset |
-| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range; §2o: clouds, view distance, the far grass; §2p: Firefox review (what Firefox gives, how other engines handle it, wrong turns, options); §2q: log depth without EXT_clip_control, WebGPU vs WebGL 2 in Firefox; §2r: the fast fisheye lens (Lens drawing); §2s: level merged, clouds drift in the shader, lens 32-bit depth |
+| `browsers-input-performance.md` | §0h-0l: Firefox gamepad, input clock, render worker, warm-up, stutters, shadows; §1d: shadow distance; §1r: the shadow ring (bias); §2j: Ultra preset, shadow depth range; §2o: clouds, view distance, the far grass; §2p: Firefox review (what Firefox gives, how other engines handle it, wrong turns, options); §2q: log depth without EXT_clip_control, WebGPU vs WebGL 2 in Firefox; §2r: the fast fisheye lens (Lens drawing); §2s: level merged, clouds drift in the shader, lens 32-bit depth; §2t: Firefox frozen picture with sound on |
 | `physics.md` | §0o-0p: the M2 review and rotor inflow (sim-core/0.6.0), NeuroBEM check; §2f: motor idle, dynamic idle, the zero-throttle roll sound |
 | `collectibles.md` | §0r: golden props, bus shelters, billboards, dumpsters, the collection screen |
 | `saved-flights.md` | §0t: flights kept in the browser as stick logs, the replay check, the flights screen, opening a flight file |

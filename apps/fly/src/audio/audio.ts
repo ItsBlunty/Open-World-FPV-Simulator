@@ -546,9 +546,17 @@ export class AudioEngine {
         const L = c.listener;
         const [fx, fy, fz] = rotate(a[A.lqx], a[A.lqy], a[A.lqz], a[A.lqw], 0, 0, -1);
         const [ux, uy, uz] = rotate(a[A.lqx], a[A.lqy], a[A.lqz], a[A.lqw], 0, 1, 0);
-        set(L.positionX, lx, t); set(L.positionY, ly, t); set(L.positionZ, lz, t);
-        set(L.forwardX, fx, t); set(L.forwardY, fy, t); set(L.forwardZ, fz, t);
-        set(L.upX, ux, t); set(L.upY, uy, t); set(L.upZ, uz, t);
+        // Firefox has no listener parameters (AudioListener.positionX ..., MDN browser-compat-data), only the older
+        // setPosition / setOrientation, applied at once; reaching for the parameters threw there on every frame
+        // (owner, 2026-10-25: the picture froze in Firefox; docs/notes/browsers-input-performance.md §2t)
+        if (L.positionX) {
+            set(L.positionX, lx, t); set(L.positionY, ly, t); set(L.positionZ, lz, t);
+            set(L.forwardX, fx, t); set(L.forwardY, fy, t); set(L.forwardZ, fz, t);
+            set(L.upX, ux, t); set(L.upY, uy, t); set(L.upZ, uz, t);
+        } else {
+            L.setPosition(lx, ly, lz);
+            L.setOrientation(fx, fy, fz, ux, uy, uz);
+        }
 
         this.quad(a, on, external, t);
         this.trainsFrame(a, on, t);

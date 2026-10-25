@@ -229,15 +229,26 @@ export const HUD_HZ = 30;
  * copies every message (structured clone) and the copies fill memory that Firefox frees with a major GC about every
  * 30 s, which stuttered (owner, 2026-10-18; docs/notes/browsers-input-performance.md §0k). Delivery is synchronous, so a sender may reuse what it
  * sent as soon as postMessage returns. Messages to a side with no handler yet wait until one is set.
+ * An error in a handler is reported (the console shows it) and does not reach the sender, as with a MessageChannel: the
+ * page's sound threw on every audio message in Firefox and, thrown back into the engine's frame, stopped it before it
+ * drew, so the picture froze while the sim ran on (owner, 2026-10-25; docs/notes/browsers-input-performance.md §2t).
  */
 export function localPorts(): [Port, Port] {
+    const run = (h: (e: MessageEvent) => void, m: unknown): void => {
+        try {
+            h({ data: m } as MessageEvent);
+        } catch (err) {
+            if (typeof reportError === 'function') reportError(err);
+            else setTimeout(() => { throw err; });
+        }
+    };
     const make = (): Port & { peer: { deliver(m: unknown): void } | null; deliver(m: unknown): void } => {
         let handler: ((e: MessageEvent) => void) | null = null;
         const waiting: unknown[] = [];
         const port = {
             peer: null as { deliver(m: unknown): void } | null,
             deliver(m: unknown): void {
-                if (handler) handler({ data: m } as MessageEvent);
+                if (handler) run(handler, m);
                 else waiting.push(m);
             },
             postMessage(m: unknown): void {
@@ -248,7 +259,7 @@ export function localPorts(): [Port, Port] {
             },
             set onmessage(h: ((e: MessageEvent) => void) | null) {
                 handler = h;
-                while (handler && waiting.length) handler({ data: waiting.shift() } as MessageEvent);
+                while (handler && waiting.length) run(handler, waiting.shift());
             }
         };
         return port;
