@@ -89,3 +89,14 @@ WebGPURenderer's WebGL 2 backend):
 `CPU=1`, lens on: WebGPU 6.92 ms in render() a frame, 117.6 fps; WebGL 2 7.83 ms, 94.8 fps.
 WebGL 2's major GCs: only while loading (2.4, 12.7 s) and the 60 s timer (no TOO_MUCH_MALLOC in flight), yet every
 WebGL 2 run had one 83-92 ms frame (cause not found). WebGPU's profiles were not written by Firefox in two runs.
+
+## 10. The fast lens (option C; same day, local production build, Firefox 158 windowed, `?demo`)
+| Lens drawing | fps | CPU ms in render() / frame | p95 frame | writeBuffer / setBindGroup / passes | 60 s: frames > 12.5 ms, worst |
+|---|---|---|---|---|---|
+| Automatic = fast (Firefox) | 119.9 | 4.10 | 8.3 ms | 253 / 331 / 16 (12 are mipmap levels) | 78 / 75 ms; again 21 / 58 ms |
+| Exact | 115.7 | 6.91 | 16.7 ms | 593 / 775 / 7 | 1640 / 91.7 ms (92 fps) |
+Pictures, same flight frozen at tick ~7000 (`lens-exact.json`, `lens-fast.json`; 8 ms apart): `lens-side.png` (left exact,
+right fast): same shape and framing; `lens-centre.png` (3x): as sharp, edges a little more jagged (no multisampling);
+`lens-edge.png` (3x): softer, thin wires and road lines fade sooner. Settings (`ui.json`, `settings-firefox.png`): the
+Lens drawing row reads "Automatic (fast in Firefox)" with the amber box; switching to Exact draws 3 faces and drops the
+box, back to Fast 1 face, saved. Single-face sizes (Ratel 2): 2932x2326 at 1280x715, 4097x3249 (capped) at 1920x1080.

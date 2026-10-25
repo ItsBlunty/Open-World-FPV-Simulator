@@ -124,7 +124,7 @@ const sound = new AudioEngine(soundLevels(), {
 for (const ev of ['pointerdown', 'keydown'] as const) addEventListener(ev, () => sound.unlock(), { capture: true });
 
 function engineSettings(): EngineSettings {
-    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, renderScale: settings.renderScale, shadowReach: settings.shadowReach, viewDistance: settings.viewDistance, clouds: settings.clouds, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
+    return { uptiltDeg: settings.uptiltDeg, fovDeg: settings.fovDeg, lens: settings.lens, lensDrawing: settings.lensDrawing, renderScale: settings.renderScale, shadowReach: settings.shadowReach, viewDistance: settings.viewDistance, clouds: settings.clouds, overrides: overrides(), traffic: trafficConfig(), spawn: settings.spawn };
 }
 
 // ---------------------------------------------------------------- keys, mouse, free-fly camera (state)

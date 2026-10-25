@@ -12,7 +12,7 @@ import type { CourseFile } from '@owfpv/maps';
 import type { EditorOp } from '../course-editor';
 import type { TrafficConfig } from '@owfpv/traffic';
 import type { Flight } from '../flights';
-import type { GraphicsLevel, ViewDistance } from '../graphics';
+import type { GraphicsLevel, LensDrawing, ViewDistance } from '../graphics';
 import type { Track } from '../replay';
 import type { ShadowReach } from '../render/shadow-follow';
 import type { TrialEvent, TrialStatus } from '../trials';
@@ -27,6 +27,8 @@ export interface EngineSettings {
     fovDeg: number;
     /** FPV lens id (render/lenses), or 'none' for the flat camera */
     lens: string;
+    /** how full graphics draws the lens (graphics.ts LensDrawing) */
+    lensDrawing: LensDrawing;
     renderScale: number;
     /** how far the sun's shadows reach (render/shadow-follow.ts) */
     shadowReach: ShadowReach;

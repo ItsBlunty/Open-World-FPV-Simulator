@@ -12,8 +12,8 @@ import { LENSES, NO_LENS } from '../render/lenses';
 import { lensFov } from '../render/lens';
 import { h, clear } from './dom';
 import type { Child } from './dom';
-import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, VIEW_DISTANCE_IDS, applyPreset, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
-import type { GraphicsLevel, QualityPreset, ViewDistance } from '../graphics';
+import { GRAPHICS_LEVELS, PRESET_NAMES, QUALITY_PRESETS, VIEW_DISTANCE_IDS, applyPreset, fastLens, graphicsName, isLowSpec, presetOf, trafficAllowed } from '../graphics';
+import type { GraphicsLevel, LensDrawing, QualityPreset, ViewDistance } from '../graphics';
 import { SHADOW_REACH_IDS } from '../render/shadow-follow';
 import type { ShadowReach } from '../render/shadow-follow';
 
@@ -190,6 +190,28 @@ export class SettingsUi {
         return h('div', { class: 'row' }, h('span', { style: 'width:150px' }, label), control);
     }
 
+    /**
+     * How full graphics draws the lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"; graphics.ts LensDrawing),
+     * and, when it is the fast one, a warning box as the low spec lens has, so nobody takes it for the exact lens.
+     */
+    private lensDrawing(host: SettingsHost, s: Settings): HTMLElement[] {
+        const firefox = fastLens('auto', navigator.userAgent);
+        const out: HTMLElement[] = [this.field('Lens drawing', this.select<LensDrawing>(s.lensDrawing, [
+            { value: 'auto', label: firefox ? 'Automatic (fast in Firefox)' : 'Automatic (exact in this browser)' },
+            { value: 'exact', label: 'Exact: several views, sharpest' },
+            { value: 'fast', label: 'Fast: one wide view, softer' }
+        ], (v) => { s.lensDrawing = v; host.onCamera(); host.save(); this.build(); }))];
+        if (fastLens(s.lensDrawing, navigator.userAgent)) {
+            out.push(h('div', { class: 'callout-warn' },
+                h('div', { class: 'callout-title' }, '⚠ Fast fisheye: a little softer on purpose'),
+                h('div', {}, 'The scene is drawn once, as one wide view, instead of several views joined together. The middle has no edge smoothing and the edges are softer.'),
+                h('div', {}, firefox
+                    ? 'Firefox spends about twice as long as Chrome on each view, so the exact lens drops frames here. For the exact lens pick Exact, or fly in Chrome or Edge.'
+                    : 'For the exact lens, pick Exact.')));
+        }
+        return out;
+    }
+
     private select<T extends string>(value: T, options: readonly { value: T; label: string; disabled?: boolean }[], set: (v: T) => void): HTMLElement {
         return h('select', { onchange: (e: Event) => set((e.target as HTMLSelectElement).value as T) },
             ...options.map((o) => h('option', { value: o.value, selected: o.value === value, disabled: o.disabled ?? false }, o.label)));
@@ -302,6 +324,7 @@ export class SettingsUi {
                     h('div', { class: 'callout-title' }, '⚠ Low spec fisheye: lower quality on purpose'),
                     h('div', {}, 'This is not the real lens. It is a cheap stand-in so a weak computer can still fly with a fisheye: blurrier, most of all at the edges.'),
                     h('div', {}, 'For the real fisheye, set Graphics to High or Medium.'))] : []),
+                ...(!isLowSpec(host.graphicsNow) && s.lens !== NO_LENS ? this.lensDrawing(host, s) : []),
                 // a real lens sets its own field of view (owner, 2026-10-18: hide the slider then)
                 s.lens === NO_LENS
                     ? this.slider('Field of view', 80, 150, s.fovDeg, '°', (v) => { s.fovDeg = v; host.onCamera(); host.save(); })

@@ -456,3 +456,26 @@ users report); the classic renderer of low spec takes 1.2 ms. So the lens (optio
 **Left open:** the owner flies Firefox on Pages with `?webgl` and without, and low spec (no shimmer?); the one long
 WebGL 2 frame; GPU cost of log depth on a weak GPU not measured; Firefox 159 (2026-10-27) brings the extension, after
 which these paths go back to reversed depth by themselves.
+
+## 2r. Option C built: the fast fisheye lens, by default in Firefox (owner, 2026-10-25)
+
+**Asked:** "I flew it. Build C: a cheaper fisheye lens for Firefox."
+
+**Built:** Settings > Camera > Lens drawing (full graphics, with a lens): Automatic (the default: fast in Firefox, exact
+elsewhere), Exact (the face cameras, as before), Fast (`graphics.ts` `LensDrawing`, `fastLens`; `settings.ts`
+`lensDrawing`). Fast draws the low spec way with the WebGPURenderer: the front face alone, cropped as wide as the
+picture reaches (`lensLayout(..., single)`), one scene pass instead of three to five (`render/fisheye.ts` `wide`,
+`wideShader`). The face is half float with mipmaps and 16x anisotropic reads, **no multisampling**: one face is 3-11 Mpx
+at 1280x715 (the exact faces 1.5-2 Mpx), so 4x MSAA would take 200-600 MB; without it about 100 MB. The centre keeps one
+texel per screen pixel up to the 4096 cap (Ratel 2 hits it from 1920x1080 up, so the centre softens a little there).
+When fast is on, an amber box says it is softer on purpose and why (as the low spec lens's box). Changing the setting
+builds the lens view again (`FisheyeView.dispose`); its pipelines build on the next frame (one hitch). Rendering only.
+
+**Evidence** (`docs/evidence/2026-10-25-firefox-review/results.md` §10): Firefox, default settings: 4.1 ms CPU a frame
+(exact 6.9), 120 fps, 21-78 slow frames a minute (exact 1640 at 92 fps); writes 253 a frame (593). Pictures side by side:
+same framing; centre as sharp with slightly harder edges; picture edges softer. Settings checked in Firefox, live
+switch 1 -> 3 -> 1 faces. 644 tests (new: lens drawing in `graphics.test.ts`); typecheck clean.
+
+**Left open:** the owner flies it in Firefox (and may try Fast in Chrome); not tried on a weak GPU (the face's pixels and
+mipmaps cost GPU time, the passes CPU time); no anti-aliasing in the centre (FXAA would be the cheap fix if it shows);
+the one-off hitch when switching.

@@ -8,8 +8,8 @@ import type { RadioProfile, StickMode } from '@owfpv/input';
 import { DYN_IDLE_DEFAULTS, copyRates } from '@owfpv/sim-core';
 import type { FlightMode, RatesConfig } from '@owfpv/sim-core';
 import { DEFAULT_LENS, NO_LENS, lensById } from './render/lenses';
-import { isGraphicsLevel, isViewDistance } from './graphics';
-import type { GraphicsLevel, ViewDistance } from './graphics';
+import { isGraphicsLevel, isLensDrawing, isViewDistance } from './graphics';
+import type { GraphicsLevel, LensDrawing, ViewDistance } from './graphics';
 import { isShadowReach } from './render/shadow-follow';
 import type { ShadowReach } from './render/shadow-follow';
 
@@ -24,6 +24,11 @@ export interface Settings {
      * Default the Caddx Ratel 2 (owner, 2026-10-18).
      */
     lens: string;
+    /**
+     * How full graphics draws the lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"): 'exact' several views,
+     * 'fast' one wide view, 'auto' fast in Firefox only (graphics.ts fastLens). Applies live.
+     */
+    lensDrawing: LensDrawing;
     /** the pilot's own rates; null flies the preset's */
     rates: RatesConfig | null;
     /** flight mode when the radio has no mode switch */
@@ -120,6 +125,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     uptiltDeg: 20,
     fovDeg: 120,
     lens: DEFAULT_LENS,
+    lensDrawing: 'auto',
     rates: null,
     mode: 'acro',
     stickMode: 2,
@@ -185,6 +191,7 @@ export function loadSettings(): Settings {
     if (typeof s.uptiltDeg === 'number' && s.uptiltDeg >= 0 && s.uptiltDeg <= 80) out.uptiltDeg = s.uptiltDeg;
     if (typeof s.fovDeg === 'number' && s.fovDeg >= 60 && s.fovDeg <= 160) out.fovDeg = s.fovDeg;
     if (s.lens === NO_LENS || (typeof s.lens === 'string' && lensById(s.lens))) out.lens = s.lens;
+    if (isLensDrawing(s.lensDrawing)) out.lensDrawing = s.lensDrawing;
     if (s.rates && typeof s.rates === 'object') out.rates = copyRates(s.rates);
     if (s.mode === 'acro' || s.mode === 'angle' || s.mode === 'horizon') out.mode = s.mode;
     if (s.stickMode === 1 || s.stickMode === 2 || s.stickMode === 3 || s.stickMode === 4) out.stickMode = s.stickMode;

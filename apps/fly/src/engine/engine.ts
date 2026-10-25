@@ -28,7 +28,7 @@ import { SeeThrough, blocked } from '../render/see-through';
 import { lensById } from '../render/lenses';
 import { shadowReach } from '../render/shadow-follow';
 import { kitFor } from '../render/kit';
-import { VIEW_DISTANCES, graphicsName } from '../graphics';
+import { VIEW_DISTANCES, fastLens, graphicsName } from '../graphics';
 import { HUD_HZ } from './protocol';
 import { captureFlight } from '../flights';
 import { T, lifeAt, poseAt } from '../replay';
@@ -268,9 +268,14 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
      * the FPV camera's lens (render/fisheye.ts), also on the free camera (owner, 2026-10-18); the chase camera stays flat.
      * Low spec has its own cheaper build of it, one wide face (owner, 2026-10-22), culled at the FPV camera's nearer far plane.
      */
-    const fisheye = new FisheyeView({
-        lowSpec, far: view.camera.far, oversample: !lowSpec ? 1 : kit.graphics === 'low' ? LOW_SPEC_OVERSAMPLE : NO_GPU_OVERSAMPLE
+    // Full graphics draws it the fast way (one wide face) when Settings > Camera > Lens drawing says so, or by default in
+    // Firefox (graphics.ts fastLens; owner, 2026-10-25); a change builds the view again.
+    const makeFisheye = (): FisheyeView => new FisheyeView({
+        lowSpec, wide: fastLens(cfg.lensDrawing, navigator.userAgent), far: view.camera.far,
+        oversample: !lowSpec ? 1 : kit.graphics === 'low' ? LOW_SPEC_OVERSAMPLE : NO_GPU_OVERSAMPLE
     });
+    let fisheye = makeFisheye();
+    let fisheyeFast = fastLens(cfg.lensDrawing, navigator.userAgent);
     const bufferSize = new THREE.Vector2();
     const fitFisheye = (): void => {
         renderer.getDrawingBufferSize(bufferSize);
@@ -327,7 +332,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     let replayAir: AirTraffic | null = null;
     const replayAt: EngineMsg & { type: 'replay-at' } = { type: 'replay-at', tick: 0, playing: false };
 
-    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, lightsView, cloudsView, craneView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, fisheye, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
+    const fly = { session, view, sun, renderer, lowSpec, scene, S, trafficView, trainViews, airView, lightsView, cloudsView, craneView, buildingsView, collectView, get trialsView() { return trialsView; }, freeCam, radio, get fisheye() { return fisheye; }, seeThrough, get replay() { return replay; }, get editing() { return editing; } };
 
     function startReplay(track: Track, cam: ReplayCam, path: PathMode): void {
         if (replay) stopReplay();
@@ -541,6 +546,13 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
                     view.uptiltDeg = cfg.uptiltDeg;
                     view.fovDeg = cfg.fovDeg;
                     view.updateFov();
+                    const fast = fastLens(cfg.lensDrawing, navigator.userAgent);
+                    if (!lowSpec && fast !== fisheyeFast) {
+                        fisheye.dispose();
+                        fisheye = makeFisheye();
+                        fisheyeFast = fast;
+                        fitFisheye();
+                    }
                     fisheye.setLens(lensById(cfg.lens));
                 } else if (m.what === 'flight') session.setOverrides(cfg.overrides);
                 else if (m.what === 'traffic') {

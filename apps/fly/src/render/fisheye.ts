@@ -7,11 +7,16 @@
 // picture reaches (up to ~80 deg off the axis), with the classic WebGLRenderer: each extra face is a whole scene pass
 // (every city tile it touches is drawn whole), which cost far more than the wide face's extra pixels; the centre is a
 // little softer and the edges are read from mipmaps, as the face is squeezed there (docs/notes/low-spec.md).
+// The fast lens of full graphics (owner, 2026-10-25: "a cheaper fisheye lens for Firefox") draws that one wide face with
+// the WebGPURenderer: one scene pass instead of three to five, which is where Firefox's frame time went (each pass
+// writes every object's data again; docs/notes/browsers-input-performance.md §2p). The face is 2-6x the screen's
+// pixels, so it has no multisampling (4x would take 200-600 MB): the squeezed edges are smoothed by the mipmaps and
+// anisotropic reads, the centre at one texel per pixel has no anti-aliasing.
 // Rendering only: it reads the camera's pose and never touches sim state.
 
 import * as THREE from 'three/webgpu';
 import { SRGBColorSpace, ShaderMaterial, WebGLRenderTarget } from 'three';
-import { Fn, If, abs, cos, float, floor, int, ivec2, max, min, mix, screenUV, sin, sqrt, texture, textureLoad, uniform, vec2, vec3, vec4 } from 'three/tsl';
+import { Fn, If, abs, cos, float, floor, int, ivec2, max, min, mix, screenUV, select, sin, sqrt, tan, texture, textureLoad, uniform, vec2, vec3, vec4 } from 'three/tsl';
 import { CAMERA_NEAR } from './view';
 import { FACES, LUT_N, SIDE_REACH, lensLayout } from './lens';
 import type { LensLayout, LensProfile } from './lens';
@@ -37,6 +42,8 @@ interface Drawer {
 export interface FisheyeOptions {
     /** the classic WebGLRenderer draws it, from the front face alone (low spec modes) */
     lowSpec: boolean;
+    /** full graphics draws the front face alone, wide (the fast lens, graphics.ts LensDrawing); low spec always does */
+    wide?: boolean;
     /** the face cameras' far plane, m: the FPV camera's, so the faces cull as it does */
     far: number;
     /** face texels per screen pixel (default 1) */
@@ -70,13 +77,22 @@ export class FisheyeView {
     layout: LensLayout | null = null;
 
     constructor(opts: FisheyeOptions) {
-        this.single = opts.lowSpec;
+        this.single = opts.lowSpec || opts.wide === true;
         this.oversample = opts.oversample ?? 1;
-        const make = (size: number): THREE.RenderTarget => opts.lowSpec
-            ? new WebGLRenderTarget(size, size, {
-                colorSpace: SRGBColorSpace, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
-            }) as unknown as THREE.RenderTarget
-            : new THREE.RenderTarget(size, size, { type: THREE.HalfFloatType, samples: SAMPLES, depthBuffer: true });
+        const make = (size: number): THREE.RenderTarget => {
+            if (opts.lowSpec) {
+                return new WebGLRenderTarget(size, size, {
+                    colorSpace: SRGBColorSpace, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
+                }) as unknown as THREE.RenderTarget;
+            }
+            if (!opts.wide) return new THREE.RenderTarget(size, size, { type: THREE.HalfFloatType, samples: SAMPLES, depthBuffer: true });
+            const t = new THREE.RenderTarget(size, size, {
+                type: THREE.HalfFloatType, depthBuffer: true, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter
+            });
+            // the face is squeezed along the radius far more than across it towards the edges
+            t.texture.anisotropy = 16;
+            return t;
+        };
         this.targets = FACES.map(() => make(1));
         this.warmTarget = make(64);
         this.cams = FACES.map(() => new THREE.PerspectiveCamera(90, 1, CAMERA_NEAR, opts.far));
@@ -94,7 +110,7 @@ export class FisheyeView {
             this.pass.add(plane);
         } else {
             const mat = new THREE.MeshBasicNodeMaterial();
-            mat.colorNode = this.shader();
+            mat.colorNode = this.single ? this.wideShader() : this.shader();
             this.quad = new THREE.QuadMesh(mat);
         }
     }
@@ -172,6 +188,15 @@ export class FisheyeView {
         this.drawPass(renderer);
     }
 
+    /** Free the GPU memory (the faces, the lookup table, the pass's material) when the engine builds another view */
+    dispose(): void {
+        for (const t of this.targets) t.dispose();
+        this.warmTarget.dispose();
+        this.lut.dispose();
+        (this.quad?.material as THREE.Material | undefined)?.dispose();
+        this.passMat?.dispose();
+    }
+
     /** Build the face and lens-pass pipelines before the first frame (engine.ts warmUp), lens or not. */
     warmUp(renderer: Drawer, scene: THREE.Scene, cam: THREE.Camera): void {
         renderer.setRenderTarget(this.warmTarget);
@@ -224,6 +249,33 @@ export class FisheyeView {
                 });
             });
             return out;
+        })();
+    }
+
+    /**
+     * The fast lens's pass: screen pixel -> lens ray as shader() above, read from the front face alone, as the low spec
+     * GLSL below. The read is outside any branch, so the GPU picks the mipmap level from neighbouring pixels.
+     */
+    private wideShader(): THREE.Node<'vec4'> {
+        const face = this.targets[0].texture;
+        const R = this.rects[0];
+        return Fn(() => {
+            const x = screenUV.x.sub(0.5).mul(this.scale.x);
+            const y = float(0.5).sub(screenUV.y).mul(this.scale.y);
+            const r = sqrt(x.mul(x).add(y.mul(y)));
+            const fi = min(r.div(this.rMax).mul(LUT_N - 1), LUT_N - 1);
+            const i0 = floor(fi);
+            const i1 = min(i0.add(1), LUT_N - 1);
+            const t0 = textureLoad(this.lut, ivec2(int(i0), int(0))).x;
+            const t1 = textureLoad(this.lut, ivec2(int(i1), int(0))).x;
+            // past the picture (the bars) the angle may reach 90 deg: kept just short of it
+            const theta = min(mix(t0, t1, fi.sub(i0)), 1.55);
+            // the ray's place on the front face: tan(theta) along the radius
+            const k = tan(theta).div(max(r, 1e-9));
+            const a = x.mul(k), b = y.mul(k);
+            // a render target's v runs down from its top row (as shader())
+            const c = texture(face, vec2(a.sub(R.x).div(R.y.sub(R.x)), R.w.sub(b).div(R.w.sub(R.z))));
+            return select(abs(x).lessThanEqual(this.half.x).and(abs(y).lessThanEqual(this.half.y)), c, vec4(0, 0, 0, 1));
         })();
     }
 

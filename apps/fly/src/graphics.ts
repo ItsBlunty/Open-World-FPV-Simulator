@@ -95,6 +95,24 @@ export function isViewDistance(v: unknown): v is ViewDistance {
 }
 
 /**
+ * How full graphics draws a fisheye lens (owner, 2026-10-25: "a cheaper fisheye lens for Firefox"). 'exact': the scene
+ * from up to five cube-face cameras (render/fisheye.ts); 'fast': from one wide camera, as low spec does, so one scene
+ * pass instead of three to five. Firefox spends about twice Chrome's CPU on each pass (docs/notes/
+ * browsers-input-performance.md §2p), so 'auto' is fast there and exact elsewhere.
+ */
+export type LensDrawing = 'auto' | 'exact' | 'fast';
+export const LENS_DRAWINGS: readonly LensDrawing[] = ['auto', 'exact', 'fast'];
+
+export function isLensDrawing(v: unknown): v is LensDrawing {
+    return typeof v === 'string' && (LENS_DRAWINGS as readonly string[]).includes(v);
+}
+
+/** Whether the lens is drawn the fast way in a browser with this user agent string */
+export function fastLens(drawing: LensDrawing, userAgent: string): boolean {
+    return drawing === 'fast' || (drawing === 'auto' && /firefox\//i.test(userAgent));
+}
+
+/**
  * The quality presets at the top of Settings > Graphics, as games have them (owner, 2026-10-19): Ultra (2026-10-24), High
  * and Medium draw with the full renderer and differ in how far the shadows reach; Low, Very low and Super low are the three low spec
  * levels. Any other mix of the details under them is "custom".
