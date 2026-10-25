@@ -43,6 +43,18 @@ import type { EditorMode, EngineMsg, EngineReport, EngineSettings, InitMsg, Page
 import { RadioLink } from './radio-link';
 import { A, cityWeight, fastestHit, putAir, putQuad, putTrains, trainAxles } from '../audio/frame';
 
+/** Whether this browser's WebGL 2 has EXT_clip_control (reversed depth), from a throwaway context; works in a worker too */
+function clipControl(): boolean {
+    try {
+        const gl = new OffscreenCanvas(1, 1).getContext('webgl2');
+        const ok = gl?.getExtension('EXT_clip_control') != null;
+        gl?.getExtension('WEBGL_lose_context')?.loseContext();
+        return ok;
+    } catch {
+        return false;
+    }
+}
+
 export async function startEngine(port: Port, canvas: HTMLCanvasElement | OffscreenCanvas, init: InitMsg): Promise<void> {
     const post = (m: EngineMsg): void => port.postMessage(m);
     // what the page says while the map and the renderer start up is kept, then handled in order
@@ -83,14 +95,23 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const adapter = lowSpec || params.has('webgl') || !gpu ? null : await gpu.requestAdapter({ featureLevel: 'compatibility' }).catch(() => null);
     const requiredLimits = adapter ? { maxTextureDimension2D: Math.min(16384, adapter.limits.maxTextureDimension2D) } : undefined;
     const gpuRenderer = lowSpec ? null : new THREE.WebGPURenderer({ canvas, antialias: true, forceWebGL: params.has('webgl'), reversedDepthBuffer: true, requiredLimits });
-    const renderer = gpuRenderer ?? new WebGLRenderer({ canvas, antialias: false, reversedDepthBuffer: true });
+    // Without EXT_clip_control (Firefox before 159, owner 2026-10-25) Three.js drops reversed depth, and the 1 cm near
+    // plane on normal 24-bit depth z-fights from tens of metres out (docs/notes/browsers-input-performance.md §2q): a
+    // logarithmic depth buffer instead. The classic renderer takes it only when made, so ask a throwaway context first.
+    const classicLogDepth = !gpuRenderer && !clipControl();
+    const renderer = gpuRenderer ?? new WebGLRenderer({ canvas, antialias: false, reversedDepthBuffer: !classicLogDepth, logarithmicDepthBuffer: classicLogDepth });
     let size = { width: init.width, height: init.height, dpr: init.dpr };
     const pixelRatio = (): number => Math.min(size.dpr, lowSpec ? 1 : 2) * (kit.resolution ?? cfg.renderScale);
     renderer.setPixelRatio(pixelRatio());
     // false: an OffscreenCanvas has no style; the page's CSS sizes the canvas element
     renderer.setSize(size.width, size.height, false);
     await gpuRenderer?.init();
-    const backend = !gpuRenderer ? `WebGL 2, ${graphicsName(kit.graphics)}` : (gpuRenderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
+    // WebGPU always has reversed depth; the WebGL 2 backend has cleared reversedDepthBuffer in init() if it lacks the
+    // extension. Node materials read logarithmicDepthBuffer when they build, so it must be set before the first draw.
+    // (typed read-only; a plain field in three r186's Renderer.js, read by NodeMaterial.setupDepth and ShadowNode)
+    if (gpuRenderer && !gpuRenderer.reversedDepthBuffer) (gpuRenderer as { logarithmicDepthBuffer: boolean }).logarithmicDepthBuffer = true;
+    const depthNote = classicLogDepth || gpuRenderer?.logarithmicDepthBuffer ? 'logarithmic depth' : null;
+    const backend =!gpuRenderer ? `WebGL 2, ${graphicsName(kit.graphics)}` : (gpuRenderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL 2';
 
     // read once: switching shadows on a running page crashed Three.js (castShadow toggled), so the setting applies on reload
     renderer.shadowMap.enabled = init.shadows && !lowSpec;
@@ -621,7 +642,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
             roll: deg(euler.z), pitch: deg(euler.x), yaw: deg(euler.y),
             armed: sim.s[S.armed] > 0, crashed: sim.s[S.crashed] > 0,
             view: view.mode, freeCam: freeCam.active, replayTick: replay ? Math.round(replay.tick) : null,
-            renderer: backend, lowSpec, drawCalls: info.calls ?? info.drawCalls ?? 0, triangles: info.triangles
+            renderer: depthNote ? `${backend}, ${depthNote}` : backend, lowSpec, drawCalls: info.calls ?? info.drawCalls ?? 0, triangles: info.triangles
         };
     }
     for (const m of early) handle(m);

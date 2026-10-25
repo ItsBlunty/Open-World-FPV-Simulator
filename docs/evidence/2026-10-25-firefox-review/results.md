@@ -65,3 +65,27 @@ The profiler itself costs some frame time; compare rows, not with section 4.
 ## 7. Gamepad source (mozilla-firefox/firefox `main`, read 2026-10-25)
 Unchanged since 2026-10-18: `dom/gamepad/windows/WindowsGamepad.cpp` `kWindowsGamepadPollInterval = 4`;
 `Gamepad.cpp` `UpdateTimestamp()` stamps when the page's main thread applies the update.
+
+## 8. After the fix: logarithmic depth where reversed depth is missing (same day, local production build)
+`zf-low.json` / `zf-gl.json` (headless Firefox, frozen sim; headless has no WebGPU, so plain `?demo` runs the
+WebGPURenderer's WebGL 2 backend):
+- `?demo&lowspec&spawn=city`: classic renderer reads back reversed false, logarithmic **true**. Against the 10 cm
+  reference, 10 pixels differ (was 901 at 1 cm on normal depth). `z-before-after.png`: left the old build, right the new.
+- `?demo&spawn=city` at tick 18 280: WebGPURenderer reversed false, logarithmic true; in the distant buildings
+  0 of 153 340 pixels differ from the 10 cm reference (`gl-far.png`). The near part differs because 10 cm cuts the
+  ground the crashed quad lies on (why the near plane is 1 cm); log depth draws it.
+- Built-in browser (Chromium 152, has the extension): `?lowspec&demo` and `?demo&webgl` keep reversed depth, log off;
+  no console errors. `?selftest` in Firefox: ok, `1eb33767…` / `d157f30a…`. 71 files, 643 tests; typecheck clean.
+
+## 9. WebGPU or WebGL 2 in Firefox (windowed, `?demo` vs `?demo&webgl`, 60 s each)
+| Run | frames (fps) | frames > 12.5 ms | worst |
+|---|---|---|---|
+| WebGPU, lens on (profiler) | 5875 (98) | 1314 | 50 ms |
+| WebGL 2, lens on (profiler) | 5219 (87) | 1952 | 66.7 ms |
+| WebGPU, lens off (profiler) | 7161 (119) | 17 | 33.3 ms |
+| WebGL 2, lens off (profiler) | 7152 (119) | 24 | 83.3 ms |
+| WebGPU, lens off, twice | 7167 / 7084 | 15 / 86 | 33.3 / 108.3 ms |
+| WebGL 2, lens off, twice | 7161 / 7164 | 17 / 16 | 83.3 / 91.7 ms |
+`CPU=1`, lens on: WebGPU 6.92 ms in render() a frame, 117.6 fps; WebGL 2 7.83 ms, 94.8 fps.
+WebGL 2's major GCs: only while loading (2.4, 12.7 s) and the 60 s timer (no TOO_MUCH_MALLOC in flight), yet every
+WebGL 2 run had one 83-92 ms frame (cause not found). WebGPU's profiles were not written by Firefox in two runs.

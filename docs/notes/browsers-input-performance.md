@@ -377,7 +377,7 @@ into one; WebGPU and WebGL 2 `*-webgl.jpg`; no console errors). Tests: `clouds.t
 Open: cloud shadows are 80 % [estimate], soft at ~19 m texels and cast by coarse balls; clouds don't shade each other; the wind is fixed (no setting); puffs overlap with hard creases (stylised); not tried on a weak GPU;
 none in low spec; the far grass is plain (no fields or hills past 2 km).
 
-## 2p. Firefox review (owner, 2026-10-25): researched and measured, nothing changed yet
+## 2p. Firefox review (owner, 2026-10-25): researched and measured; A built and B measured in §2q
 
 **Asked:** "a heavy analysis of firefox support, including deep research of how other devs and programs handle
 firefox support for games like ours ... we may have taken some wrong turns in changes to support it before."
@@ -431,3 +431,28 @@ page (§0i) was the owner's call from a felt stutter; the Firefox notice is accu
   instead of re-sending 2237 matrices (143 KB) every frame.
 - E. Smaller: the Report screen says the GPU name is a Firefox bucket; check the no-GPU detection in Firefox with
   acceleration off; audio latency in Firefox not measured; Firefox checks as part of each graphics change.
+
+## 2q. Option A built, option B measured (owner, 2026-10-25): log depth without EXT_clip_control
+
+**Asked:** "Yes, build option A (the WebGL depth fallback), then we can compare WebGPU and WebGL 2 in Firefox (B)."
+
+**Built (`engine/engine.ts`):** the classic renderer (low spec levels) asks a throwaway WebGL 2 context for
+`EXT_clip_control` (`clipControl()`, works in the worker too) and is made with `logarithmicDepthBuffer` when it is
+missing; the WebGPURenderer is made as before, and if its WebGL 2 backend cleared `reversedDepthBuffer` in `init()`,
+`logarithmicDepthBuffer` is set before anything is drawn (Three.js r186 node materials and the shadow node read it
+when they build). WebGPU and every browser with the extension are unchanged. The Report screen's Renderer line ends in
+", logarithmic depth" when it is on. Cost: log depth writes depth from the fragment shader, so the GPU loses early
+depth rejection; only on the browsers that had z-fighting. Rendering only; no sim state.
+
+**Evidence** (`docs/evidence/2026-10-25-firefox-review/results.md` §8): frozen frames in Firefox 158 match the 10 cm
+reference far away (low spec 10 px differ, was 901; full graphics on WebGL 2 0 of 153 340 px in the distance), windows
+whole (`z-before-after.png`, `gl-far.png`); Chromium unchanged; `?selftest` matches in Firefox; 643 tests; typecheck clean.
+
+**B, WebGPU vs WebGL 2 in Firefox (§9 there):** no case for switching. Lens off, both hold ~119 fps with 15-86 slow
+frames a minute; WebGL 2 has no mid-flight malloc GC but one 83-92 ms frame in every run. Lens on, WebGL 2 is worse
+(95 vs 118 fps; 7.8 vs 6.9 ms CPU a frame). The cost is in Three.js's WebGPURenderer on either backend (as three.js
+users report); the classic renderer of low spec takes 1.2 ms. So the lens (option C) is the lever for Firefox.
+
+**Left open:** the owner flies Firefox on Pages with `?webgl` and without, and low spec (no shimmer?); the one long
+WebGL 2 frame; GPU cost of log depth on a weak GPU not measured; Firefox 159 (2026-10-27) brings the extension, after
+which these paths go back to reversed depth by themselves.
