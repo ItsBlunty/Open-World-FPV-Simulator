@@ -376,3 +376,58 @@ into one; WebGPU and WebGL 2 `*-webgl.jpg`; no console errors). Tests: `clouds.t
 
 Open: cloud shadows are 80 % [estimate], soft at ~19 m texels and cast by coarse balls; clouds don't shade each other; the wind is fixed (no setting); puffs overlap with hard creases (stylised); not tried on a weak GPU;
 none in low spec; the far grass is plain (no fields or hills past 2 km).
+
+## 2p. Firefox review (owner, 2026-10-25): researched and measured, nothing changed yet
+
+**Asked:** "a heavy analysis of firefox support, including deep research of how other devs and programs handle
+firefox support for games like ours ... we may have taken some wrong turns in changes to support it before."
+Measurements: `docs/evidence/2026-10-25-firefox-review/results.md` (Firefox 158.0.1, Chrome 155, this PC).
+
+**What Firefox gives a game like ours (sources read 2026-10-25):**
+- WebGPU: Windows since 141, Apple silicon Macs since 145/147; Linux, Intel Macs and Android Nightly only (gpuweb wiki
+  Implementation Status). Elsewhere Three.js's WebGPURenderer falls back to its WebGL 2 backend.
+- Its WebGPU is slower per call than Chrome's: Mozilla's own meta bug 1713185 lists ~45 open speed bugs, among them
+  1968102 "GPUQueue.writeBuffer is slow" (a fresh shared-memory block per call; small writes inlined since 2025-06),
+  1954570 (GPU memory does not trigger GC), 1937100 (stutters from encoder objects kept alive), 1870699 (completions
+  polled every 100 ms; open). Measured here: the same 594 writes a frame cost Firefox 6.8 ms of CPU, Chrome 3.4 ms.
+- WebGL 2: no `EXT_clip_control` until Firefox 159 (bug 1885031, release 2026-10-27; not ESR 153); the GPU name is
+  bucketed ("GTX 980 ... or similar" on an RTX 4070 Ti).
+- Input: no WebHID (Mozilla position "negative", standards-positions #459); Web Serial exists but no EdgeTX serial mode
+  sends sticks (§0h); gamepads drained every 4 ms and stamped on the main thread (source unchanged since §0h). An
+  event-driven Gamepad API (Microsoft) is under review at Mozilla (#1389), not built anywhere yet.
+
+**How others handle it:** the big web engines default to WebGL 2 and make WebGPU opt-in: PlayCanvas
+(`createGraphicsDevice`, empty `deviceTypes` = WebGL 2; WebGL 2 always appended as fallback), Unity 6 (WebGL 2 default,
+WebGPU opt-in; Firefox not in its WebGPU browser list), Godot 4's web export (WebGL 2 only); Babylon.js picks WebGPU
+only when the page creates a `WebGPUEngine` (doc.babylonjs.com setup/support/webGPU; WebGL and WebGPU kept side by side).
+Three.js users report the WebGPURenderer costing more CPU than the classic WebGLRenderer
+(discourse threads 77629, 91904) and use `forceWebGL` only to test the fallback. Browser FPV sims found online (Nexus
+FPV, a Flite Test sim) list gamepads, no WebHID, and claim Firefox works; none published measurements.
+
+**Wrong turns found:**
+1. **WebGL 2 was rejected for a fixable reason.** On 2026-10-18 the owner found Firefox's WebGL 2 "flashes and looks
+   bad", so Firefox stayed on WebGPU with its GC stutter. The day before, the near plane had gone to 1 cm on a reversed
+   depth buffer (`f1ddc51`), which in WebGL needs `EXT_clip_control`; Firefox lacks it, Three.js silently drops back to
+   normal depth, and 1 cm on normal 24-bit depth z-fights (shown: `z-crop.png`). The same hits every WebGL path in
+   Firefox 158: all three low spec levels, the no-GPU drop to super low, `?webgl`, and Firefox on Linux / Intel Mac.
+   Firefox 159 fixes it for most, but not ESR.
+2. **The lens was built knowing Firefox would pay.** The fisheye's face cameras (decisions 2026-10-18, "Firefox
+   shelved for now") draw the scene 3-5 times: 593 writes a frame against 233 without the lens. Chrome absorbs it
+   (3.4 ms); Firefox does not (6.8 ms, 93 fps and 1587 slow frames a minute under the profiler; 120 fps and 16 without
+   the lens). The lens is on by default, so a new Firefox user starts in the worst case.
+3. **Fixes for Firefox were tuned to a scene that has since grown.** §0l cut writes to 69 a frame; with the lens,
+   clouds, airport, crane and more it is 593. The 16 m shadow recentring (§0l) still helps, but it is no longer the lever.
+Not wrong turns: the gamepad clock (§0h/§0i) and the gamepad-connect fix help every browser; keeping the engine on the
+page (§0i) was the owner's call from a felt stutter; the Firefox notice is accurate about radios.
+
+**Options (for the owner; none started):**
+- A. Depth: when the renderer reports no reversed depth, use Three.js's logarithmic depth buffer (or a nearer-far
+  split); small, rendering only, fixes Firefox <159, ESR, and any WebGL without the extension.
+- B. Firefox renderer: after A, measure WebGPU vs WebGL 2 in Firefox for a minute each (§0k found no malloc GC with WebGL 2;
+  lens off both hold 120 here), and let the owner fly both; pick per browser.
+- C. Lens cost: a cheaper lens for Firefox (the low spec "one wide view + warp" already exists), or fewer face passes,
+  or sharing per-object data across faces.
+- D. Fewer draws for everyone: merge static meshes (BatchedMesh / merged geometry); clouds move by a shader offset
+  instead of re-sending 2237 matrices (143 KB) every frame.
+- E. Smaller: the Report screen says the GPU name is a Firefox bucket; check the no-GPU detection in Firefox with
+  acceleration off; audio latency in Firefox not measured; Firefox checks as part of each graphics change.
