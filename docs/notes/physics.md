@@ -177,3 +177,79 @@ the dropdown switches back to the Nazgul, no console errors (`settings-quad.jpg`
 hovers at about 35 % motor command instead of the measured 30 %, and holds thrust per rpm^2 constant (real: +20 % from
 hover to full). Betaflight's d_min, TPA and thrust_linear from the log are not modelled. Time trial times are not kept
 apart by quad.
+
+## 2w. BetaFPV Air75 II: three 75 mm 1S whoop presets from the maker's bench and CLI files (contributed 2026-11-09): built, waiting for a pilot to fly
+
+Request (a contributor, not the owner): "add a realistic BetaFPV Air II 75mm whoop drone as a new option ... the most
+accurate physics possible". The Air75 II is sold in three versions that share frame, prop, FC, camera and battery and
+differ in motor, weight and tune, so each is a preset and a dropdown entry: `air75ii-freestyle-1s` (0802 22000KV,
+21.3 g dry, BetaFPV's first-whoop version), `air75ii-racing-1s` (25000KV, 20.9 g), `air75ii-champion-1s` (28000KV, dual
+ball bearings, 20.2 g). Files written by `docs/evidence/2026-11-09-air75-ii/make-presets.py` from one table.
+
+**Sources (BetaFPV's own, read 2026-11-09):** the product page (versions, weights, flight times 7:30 / 7:00 / 6:50 on
+the LAVA II 1S 480 mAh); the 0802 (2026) motor page with its load-performance table: each motor on the GF 1614-3P at
+every 10 % of throttle, volts, amps, grams, watts, rpm (the first preset here built on a real thrust table of its own
+motor and prop); the frame page (75 mm, 4.00 g, duct 42.0 mm inside, 99.1 x 99.1 x 16.2 mm); the prop page (40 mm x
+1.4 in, 3 blades, 0.24 g); the battery page (480 mAh LiHV, 12.6 g, 95C); the C03 camera (160 deg on 4:3); the Air II
+canopy (15-45 deg in 10 deg steps); the support article "CLI and Firmware for Air75 II" with a `diff all` per version
+(Betaflight 2026.6.0, files of 2026-05-15): rates, PIDs, idle, throttle curve. Betaflight's source for what the files
+leave at default (motor_idle 550, ACTUAL rates with rc_rate 7, the three-point throttle curve in fc/rc.c). Independent:
+Oscar Liang's review of the original Air75 (33.5 g with a 450 mAh pack, 5:30-6:00 flights, hover at 31 % stick).
+
+**The bench at 100 % throttle** (supply, not a sagging pack): Freestyle 47.7 g, 5.90 A, 22.73 W, 43 292 rpm at 3.86 V;
+Racing 55.0 g, 8.15 A, 31.15 W, 46 481 rpm at 3.82 V; Champion 58.2 g, 9.00 A, 34.30 W, 47 888 rpm at 3.81 V. At 50 %:
+18.0 / 22.9 / 24.2 g at 26 640 / 29 812 / 30 500 rpm. The whole table is in the evidence README.
+
+**What the table says about the model** (physics-review F9). (1) Loaded speed is 0.45-0.51 of KV x V at full throttle
+(`rpm_loaded_fraction`) but 0.62-0.64 of full speed at 50 % throttle: a 1S motor drops a third of its volts across its
+0.18-0.24 ohm at full throttle and little at half, so its speed per command rises as the command falls. The model's
+straight line puts the Freestyle's hover at 39 % motor command where the bench puts 8.5 g per motor at about 32 %; the
+red one showed the same more mildly (§2v). (2) Thrust per rpm^2 holds within 10 % from hover to full (18 g at 26.6 k,
+47.7 g at 43.3 k), so the thrust law is fine; it is the motor law. (3) Torque per thrust, from the input power less
+I^2 R and iron losses, is 0.0064 m at full throttle and about 0.012 at 50 %: a 40 mm prop at Reynolds numbers of
+10-20 k gets worse the slower it turns. One `motor_kappa_m` (0.0075) with `efficiency` 0.60-0.67 reproduces the input
+power at 70-100 % throttle, where the current sets the sag; at hover the model draws about half the real current
+(1.7-1.8 A against about 3.4 A for the motors), so with Battery simulation on the whoop hovers 13-14 min where BetaFPV
+flies 7.
+
+**Derivation.** Thrust-to-weight: the bench thrust scaled by (V_loaded / V_bench)^2 to the model's own full-throttle
+voltage, a fixed point with the pack resistance (35 mOhm per cell, an estimate: whoop pilots see a fresh LiHV pack fall
+to 3.3-3.5 V on a 25-35 A punch; the model's cell starts at 4.20 V, the real one at 4.35): Freestyle 4.6 at 3.49 V
+(20 A), Racing 5.0 at 3.32 V (25 A), Champion 5.1 at 3.24 V (27 A). The sag eats most of the higher-KV versions' bench
+advantage (58.2 against 47.7 g on a supply, 42 against 39 g in flight). Inertia from parts (motors and props at 26.5 mm
+on each axis, four duct rings, the pack lying along the pitch axis on top, FC, camera, canopy): roll 1.2e-5, pitch
+1.7e-5 (one value, 1.45e-5), yaw 2.6e-5. Motor lag J / (Kt^2 / R + 2 Q0 / w0) with J 3.5e-8 (the 0.24 g prop and the
+0802 bell) and R fitted to the bench's speed against current: 25-27 ms, set 25; the same formula gave 9 ms for the 2207
+whose log showed 17-18, so it may be short. Rotor drag: momentum theory 1.34-1.36 1/s x 0.68 as the Air65. Drag areas:
+side 22 cm^2; from above 40 cm^2 outside the prop discs (inflow) and 70 cm^2 (classic), both giving a level top speed
+of about 60 km/h (no published figure; Oscar Liang estimates about 85 km/h for the more powerful Meteor75 Pro II).
+Collider: a 23 mm sphere on each motor (the duct: 42.0 mm inside, a 2 mm wall) and a 25 mm body, so the frame's
+99.1 mm over the ducts comes out exactly and the quad rests 25 mm up (the real frame is 16.2 mm tall). Prop wash 0.25 /
+0.3, the Nazgul's estimates (whoops are known for it): the first whoops with rotor inflow and prop wash. Throttle
+curve: the Freestyle file leaves Betaflight's straight line; the Racing and Champion files set Betaflight 2026's
+three-point curve (thr_mid 28 / thr_expo 25 / thr_hover 17, and 25 / 45 / 16: the stick at 28 % gives 17 % throttle),
+which the simulator's two-parameter curve cannot pass under the diagonal; the least-squares fits (mid 1 / expo 32,
+mid 2 / expo 38) stay within 3 % and 1.2 % of throttle. Betaflight 2026's `d_roll` is the D flown at rest (4.5's
+d_min) and is the D used; d_max, anti-gravity, iterm_relax and TPA are not modelled.
+
+**Game:** Settings > World and physics > Quad: three entries after the Red one; the Nazgul stays the default and the
+self-test. Saved flights embed their preset, so nothing old changes.
+
+**Evidence:** `packages/sim-core/test/air75ii-preset.test.ts` (the ducted collider against the 65 mm one-sphere whoops,
+the twr fixed point within 3 % and its no-resistance control, the stock tunes, the throttle fits and the default
+curve's 8 % miss, hover at 33-42 % motor with inflow and prop wash on, the 12-16 min model hover, roll pick-up and
+50-70 km/h top speed against the cinelifter and the racer, the picker fields from the maker); the prop-wash test's
+"presets without prop wash" set now reads the `wake_loss` field. `docs/evidence/2026-11-09-air75-ii/`: README (sources,
+the bench table, the arithmetic), `make-presets.py`, `probe.test.ts` and `probe-output.txt` (the model's numbers: hover,
+current, top speed, climb 14.6-15.4 m/s after 8 s, roll t63 16-19 ms and 470-520 deg/s at 20 ms, yaw, angle mode,
+the throttle fits). 667 tests pass (74 files, 13 new), typecheck clean; dev server: Settings > World and physics > Quad lists
+the three after the Red one, picking the Freestyle saves and reloads, and the engine then flies `air75ii-freestyle-1s` (preset id,
+33.9 g, five collider spheres, 4.2 V on the HUD) with no page errors. Built in a worktree beside a session working on the Velocidrone
+import in the main checkout.
+
+**Known differences from the real whoop:** hover at 35-39 % motor command (bench about 32 %) and a compressed
+low-throttle range, from the model's linear speed-in-command law (a motor model with winding resistance would fix it,
+and the red one's 1950 -> 1460 rpm/V too); hover current half the real one (one kappa / eta); the cell starts at 4.20 V,
+not 4.35; the duct's own thrust share is unknown and not added; pack resistance, inertia, motor lag and drag are
+estimates with no Air75 II log to check them against. A blackbox log with eRPM from any Air75 II would settle lag,
+thrust and sag the way §2v did.

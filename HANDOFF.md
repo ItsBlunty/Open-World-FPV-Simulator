@@ -3,7 +3,7 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## State (2026-11-08)
+## State (2026-11-09)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
@@ -93,7 +93,7 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
   Motor idle (owner): zero-throttle rolls do rev the motors (mixer right); the sound's flat idle floor hid it, now a
   rising whirr; Betaflight's dynamic idle built (sim-core `dynIdle`, off by default, game picks 3400 rpm), Settings >
   World and physics > Motor idle. [physics §2f]
-- **Tests:** `pnpm test`: 71 files, 641 tests pass (2026-10-24) in 30 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
+- **Tests:** `pnpm test`: 74 files, 667 tests pass (2026-11-09) in 38 s (was 114 s; trimmed 2026-10-20; `FlightSession` `startTick` lets tests skip waiting for trains). [traffic §1y] `pnpm typecheck` clean (run it without `-s`: pnpm's silent flag hides tsc errors).
 - **Pinned hashes** (re-pin them on purpose when a change is meant to alter them):
   - flight self-test `1eb33767…`; classic physics `c1c4280b…` (`apps/fly/src/selftest.ts`, both new in 0.7.0)
   - traffic self-test `d157f30a…` (traffic v11: semis' acceleration and turns; the trains v3)
@@ -121,10 +121,12 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 
 - Nothing from the owner's list of 2026-10-24 left: all six built. Ask the owner what's next.
   Owner's quad measured from its blackbox log and built as a preset (2026-11-08): Settings > World and physics > Quad > Red one; squashed X, measured lag, thrust, inertia, yaw, sag, the owner's rates and PIDs. [physics §2v]
+  BetaFPV Air75 II whoop presets contributed (2026-11-09): Freestyle, Racing and Champion in Settings > World and physics > Quad, from BetaFPV's own thrust bench of each motor on the stock prop and its Betaflight 2026.6 CLI files; the first whoops with rotor inflow and prop wash. The bench shows a 1S motor's speed is far from linear in command (physics-review F9: a motor model with winding resistance would fix the whoop's and the red one's hover command). [physics §2w]
 
 ## Waiting for the owner
 
 0. **Red one:** Settings > World and physics > Quad > Red one, fly it on Pages: flips, rolls, punch-outs, hover throttle (the model hovers at ~35 % motor, your quad at 30 %). Feels like your quad? [physics §2v]
+0a. **Air75 II (contributed):** Settings > World and physics > Quad > BetaFPV Air75 II Freestyle (then Racing, Champion): hover, punch-outs, flips, yaw, a slow descent through its own wash. Feels like a 75 mm whoop? Known: it hovers at 35-39 % motor where BetaFPV's bench says about 32 %, and with Battery simulation on it flies about twice as long as a real one. A blackbox log with eRPM from any Air75 II would settle lag, thrust and sag. [physics §2w]
 1. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, look at the
    filled-in issue. Format right? Anything missing for replicating bugs? [feedback §0w]
 2. **Wall hits (sim-core/0.7.0):** fly into walls at speed, lean a prop on a wall, blip the bando ceiling. Bounce right?

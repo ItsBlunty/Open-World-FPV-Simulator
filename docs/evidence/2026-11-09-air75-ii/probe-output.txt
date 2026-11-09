@@ -1,0 +1,66 @@
+== air75ii-freestyle-1s: auw 33.9 g, bench 47.7 g at 3.86 V
+twr fixed point 4.612 at vNom 3.494 V (full current 20.2 A, 5.04 A per motor; bench 5.9 A at 3.86 V)
+  thrust per motor at vNom 39.1 g; rpm full 39203
+  hover: motor 0.393, throttle 0.358, stick 0.358, 4.14 V, 1.72 A, rpm 18255, hover time on 85 % 14.2 min
+  classic top speed, cda x0.7: 76.3 km/h
+  classic top speed, cda x1: 64 km/h
+  classic top speed, cda x1.4: 54.2 km/h
+  inflow  top speed, cda x0.75: 64.4 km/h
+  inflow  top speed, cda x1: 59.4 km/h
+  inflow  top speed, cda x1.25: 55.5 km/h
+  climb after 8 s full throttle: 14.6 m/s (classic 16.3)
+  roll: t63 19 ms, 516 deg/s at 20 ms, overshoot 1.9 %
+  yaw: 783 deg/s at 100 ms of a full stick (target 700)
+  angle roll: peak 60 deg (limit 60), past level 0 deg
+  angle pitch: peak 60 deg (limit 60), past level 0 deg
+  angle table: left -15.12, diagonal 15.13 / 15.12, want 15.13
+  hover hold g 9.81 soc 1: vy -0.103 (motor 0.393)
+  hover hold g 9.81 soc 0.5: vy -0.103 (motor 0.448)
+  hover hold g 9.81 soc 0.2: vy -0.105 (motor 0.48)
+  hover hold g 1.62 soc 0.2: vy -0.034 (motor 0.191)
+== air75ii-racing-1s: auw 33.5 g, bench 55 g at 3.82 V
+twr fixed point 4.95 at vNom 3.316 V (full current 25.2 A, 6.31 A per motor; bench 8.15 A at 3.82 V)
+  thrust per motor at vNom 41.5 g; rpm full 40627
+  hover: motor 0.36, throttle 0.32, stick 0.429, 4.136 V, 1.84 A, rpm 18260, hover time on 85 % 13.3 min
+  classic top speed, cda x0.7: 78 km/h
+  classic top speed, cda x1: 65.4 km/h
+  classic top speed, cda x1.4: 55.4 km/h
+  inflow  top speed, cda x0.75: 66 km/h
+  inflow  top speed, cda x1: 60.8 km/h
+  inflow  top speed, cda x1.25: 56.8 km/h
+  climb after 8 s full throttle: 15.2 m/s (classic 16.9)
+  roll: t63 16 ms, 487 deg/s at 20 ms, overshoot 4 %
+  yaw: 548 deg/s at 100 ms of a full stick (target 500)
+  angle roll: peak 60 deg (limit 60), past level 0 deg
+  angle pitch: peak 60 deg (limit 60), past level 0 deg
+  angle table: left -16.81, diagonal 16.81 / 16.81, want 16.81
+  hover hold g 9.81 soc 1: vy -0.104 (motor 0.36)
+  hover hold g 9.81 soc 0.5: vy -0.104 (motor 0.411)
+  hover hold g 9.81 soc 0.2: vy -0.106 (motor 0.441)
+  hover hold g 1.62 soc 0.2: vy -0.034 (motor 0.175)
+  throttle fit of BF mid 28 expo 25 hover 17: mid 1 expo 32, rms 1.41 %, max 3 %
+    0.2: bf 0.13 fit 0.141 | 0.28: bf 0.17 fit 0.2 | 0.4: bf 0.28 fit 0.295 | 0.5: bf 0.38 fit 0.382 | 0.6: bf 0.488 fit 0.478 | 0.8: bf 0.728 fit 0.708
+    hover throttle 0.32 sits at stick 0.441 on BF's curve, 0.429 on the preset's
+== air75ii-champion-1s: auw 32.8 g, bench 58.2 g at 3.81 V
+twr fixed point 5.146 at vNom 3.244 V (full current 27.3 A, 6.83 A per motor; bench 9.0 A at 3.81 V)
+  thrust per motor at vNom 42.2 g; rpm full 40876
+  hover: motor 0.346, throttle 0.322, stick 0.453, 4.136 V, 1.84 A, rpm 18019, hover time on 85 % 13.3 min
+  classic top speed, cda x0.7: 78.5 km/h
+  classic top speed, cda x1: 65.8 km/h
+  classic top speed, cda x1.4: 55.8 km/h
+  inflow  top speed, cda x0.75: 66.3 km/h
+  inflow  top speed, cda x1: 61.1 km/h
+  inflow  top speed, cda x1.25: 57 km/h
+  climb after 8 s full throttle: 15.4 m/s (classic 17.1)
+  roll: t63 16 ms, 472 deg/s at 20 ms, overshoot 0.4 %
+  yaw: 541 deg/s at 100 ms of a full stick (target 500)
+  angle roll: peak 60 deg (limit 60), past level 0 deg
+  angle pitch: peak 60 deg (limit 60), past level 0 deg
+  angle table: left -16.81, diagonal 16.81 / 16.81, want 16.81
+  hover hold g 9.81 soc 1: vy -0.102 (motor 0.346)
+  hover hold g 9.81 soc 0.5: vy -0.102 (motor 0.394)
+  hover hold g 9.81 soc 0.2: vy -0.104 (motor 0.423)
+  hover hold g 1.62 soc 0.2: vy -0.034 (motor 0.168)
+  throttle fit of BF mid 25 expo 45 hover 16: mid 2 expo 38, rms 0.78 %, max 1.2 %
+    0.2: bf 0.14 fit 0.134 | 0.28: bf 0.179 fit 0.189 | 0.4: bf 0.268 fit 0.277 | 0.5: bf 0.356 fit 0.361 | 0.6: bf 0.458 fit 0.457 | 0.8: bf 0.702 fit 0.691
+    hover throttle 0.322 sits at stick 0.463 on BF's curve, 0.453 on the preset's

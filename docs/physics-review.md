@@ -351,3 +351,19 @@ level of 20 % of top speed, so none of it was heard; fixed in the sound (`docs/n
 whether a real quad holds its motors higher through a sustained zero-throttle roll (a blackbox log would tell).
 Dynamic idle was added then (Betaflight's, off by default); it cannot show its real purpose here because rotor speed
 does not respond to the airflow through the prop (the inflow gap above).
+
+### F9. A 1S whoop motor's speed is far from linear in its command (found 2026-11-09, BetaFPV's bench of the Air75 II motors)
+
+The model turns the motor command into rotor speed in a straight line (omega = omegaMaxPerVolt x V x command) and takes
+thrust from speed squared. BetaFPV's load table of its 0802 (2026) motors on the Gemfan 1614 prop (a 3.8-3.9 V supply;
+`docs/evidence/2026-11-09-air75-ii`) has the Freestyle motor at 43 292 rpm at 100 % throttle, 26 640 at 50 % (0.62 of
+full, not 0.5) and 16 629 at 30 % (0.38, not 0.3). A 1S motor drops about a third of its volts across its 0.18-0.24 ohm
+at full throttle and much less at half, so the speed per command rises as the command falls: the shape the red one's log
+showed on 6S (1950 rpm/V at low command, 1460 at full; `docs/notes/physics.md` §2v), twice as strong. Thrust per rpm^2 is
+constant within 10 % (47.7 g at 43.3 k rpm, 18.0 g at 26.6 k), so the thrust law holds; it is the motor law. Effect: the
+model hovers the Air75 II at 35-39 % motor command where the bench puts about 32 %, and compresses the low-throttle
+range. The same table shows torque per thrust doubling from full throttle to half (0.0064 -> 0.012 m, from the input
+power less I^2 R and iron losses): a Reynolds-number effect of a 40 mm prop, so with one kappa / eta the model's hover
+current is about half the bench's (its flight time twice BetaFPV's with Battery simulation on). Fix, not built: a motor
+with winding resistance, omega = Kv' (V x command - I R), with Kv' and R from such a table or a blackbox log (it would
+carry the red one's 1950 -> 1460 rpm/V too); a candidate for section 3's list beside G3.

@@ -1,0 +1,286 @@
+{
+  "id": "air75ii-freestyle-1s",
+  "name": "BetaFPV Air75 II Freestyle, 1S",
+  "class": "75 mm brushless tiny whoop",
+  "notes": "BetaFPV's Air75 II in its Freestyle version (22000KV 0802 motors): BetaFPV's version for a first whoop and smooth indoor flying. Frame, motors, prop, battery, weights and camera from BetaFPV's pages (read 2026-11-09); thrust, current, power and speed at every throttle step from BetaFPV's own bench of this motor on this prop (the 0802 (2026) page); rates, PIDs, idle and throttle curve from BetaFPV's CLI file for this version (Betaflight 2026.6.0, 20260515). Inertia, motor lag, kappa, drag and pack resistance are estimates from those parts (docs/notes/physics.md section 2w, docs/evidence/2026-11-09-air75-ii). Nothing here is endorsed by BetaFPV.",
+  "fields": {
+    "wheelbase_mm": {
+      "value": 75,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-frame",
+      "note": "motor to motor, corner to corner (a true X: the motors sit on a 53 mm square)"
+    },
+    "motor": {
+      "value": "BetaFPV 0802 (2026) Freestyle 22000KV, brass bushings, 1.88 g",
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026"
+    },
+    "motor_kv": {
+      "value": 22000,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026"
+    },
+    "prop": {
+      "value": "Gemfan 1614 3-blade (GF 1614-3P), 40 mm x 1.4 in, polycarbonate, 0.24 g",
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/gemfan-1614-3-blade-propellers-1-0mm-shaft"
+    },
+    "prop_diameter_mm": {
+      "value": 40,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/gemfan-1614-3-blade-propellers-1-0mm-shaft",
+      "note": "1.6 inch (the duct is 42.0 mm inside)"
+    },
+    "prop_pitch_in": {
+      "value": 1.4,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/gemfan-1614-3-blade-propellers-1-0mm-shaft",
+      "note": "1614: 1.6 x 1.4; the rotor inflow model takes its blade angle from the pitch"
+    },
+    "dry_mass_g": {
+      "value": 21.3,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-quadcopter",
+      "note": "without the battery (BetaFPV: Champion 20.2 g, Racing 20.9 g, Freestyle 21.3 g)"
+    },
+    "battery": {
+      "value": "BetaFPV LAVA II 1S 480 mAh LiHV, 95C, BT2.0",
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/lava-ii-1s-battery",
+      "note": "the pack of BetaFPV's flight-time figure; the 580 mAh LAVA II (about 15 g) is the other recommended pack"
+    },
+    "battery_cells": {
+      "value": 1,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/lava-ii-1s-battery",
+      "note": "LiHV: 4.35 V full. The model charges its cell to 4.20 V (sim-core params.ts voc), so a fresh pack here starts 0.15 V down on the real one"
+    },
+    "battery_capacity_mah": {
+      "value": 480,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/lava-ii-1s-battery"
+    },
+    "battery_mass_g": {
+      "value": 12.6,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/lava-ii-1s-battery",
+      "note": "61 x 15.5 x 6 mm"
+    },
+    "auw_g": {
+      "value": 33.9,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-quadcopter",
+      "note": "21.3 g dry + 12.6 g pack; Oscar Liang weighed the original Air75 at 33.5 g with a 450 mAh pack"
+    },
+    "twr": {
+      "value": 4.6,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026",
+      "note": "BetaFPV's bench of this motor on the GF 1614-3P: 47.7 g at 100 % throttle, 5.9 A, 22.73 W, 43292 rpm at 3.86 V (a supply, not a sagging pack). In flight the pack sags under four such motors: the thrust is scaled by (V_loaded / 3.86)^2 to the model's own full-throttle voltage (a fixed point with the pack resistance below), then x4 / 33.9 g. The duct's share (BetaFPV: 11 % more thrust than the Air75's duct) is not known and not added",
+      "min": 3.9,
+      "max": 5.3
+    },
+    "inertia_roll_pitch_kgm2": {
+      "value": 1.45e-05,
+      "source": "estimate",
+      "note": "sum of parts about the centre of mass: 4 motors + props (2.12 g each) at 26.5 mm on each axis (6.0e-6), the 4.0 g frame as four duct rings of 23 mm round them (3.7e-6), the 12.6 g pack lying 61 mm long on top (pitch 5.2e-6, roll 1.6e-6), FC, camera and canopy (pitch 2.1e-6, roll 0.6e-6): roll 1.2e-5, pitch 1.7e-5; one value for both, their mean"
+    },
+    "inertia_yaw_kgm2": {
+      "value": 2.6e-05,
+      "source": "estimate",
+      "note": "sum of parts: motors and props 1.2e-5, duct rings 7.4e-6, pack 4.2e-6, FC, camera and canopy 2.2e-6"
+    },
+    "motor_tau_ms": {
+      "value": 25,
+      "source": "estimate",
+      "note": "J / (Kt^2 / R + 2 Q0 / w0) with J 3.5e-8 (prop and bell), Kt 60 / (2 pi 22000), R 0.24 ohm fitted to the bench's speed against current at 50 and 100 % throttle (the motor turns 17670 rpm per volt left after the resistive drop), and the hover torque and speed: 25-27 ms. The same formula gave 9 ms for a 2207 whose log showed 17-18 ms, so this may be short; no Air75 II log yet",
+      "min": 15,
+      "max": 35
+    },
+    "motor_kappa_m": {
+      "value": 0.0075,
+      "source": "estimate",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026",
+      "note": "reaction torque / thrust. From the bench's input power less copper (I^2 R) and iron losses: 0.0064 m at full throttle, 0.0078 at 80 %, 0.012 at 50 % (a 40 mm prop at Reynolds numbers of 10-20 k loses more torque the slower it turns); one value from the 70-100 % band, where the current sets the sag. With efficiency below, kappa / efficiency reproduces the bench's input power at 70-100 % throttle",
+      "min": 0.006,
+      "max": 0.013
+    },
+    "motor_idle": {
+      "value": 0.055,
+      "source": "bf-default",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II",
+      "note": "BetaFPV's CLI sets no motor_idle, so Betaflight 2026.6's default 550 (5.5 %, src/main/pg/motor.c)"
+    },
+    "rpm_loaded_fraction": {
+      "value": 0.51,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026",
+      "note": "BetaFPV's bench: 43292 rpm at 100 % throttle and 3.86 V = 0.51 of KV x V (the 3-blade 40 mm prop loads the motor hard); the model holds this fraction at every throttle, the real motor turns faster per volt at low throttle (bench: 26640 rpm at 50 %, 0.62 of full)"
+    },
+    "cda_horizontal_cm2": {
+      "value": 22,
+      "source": "estimate",
+      "note": "side-on: the 99 x 16 mm frame, the pack end-on, canopy and camera, four motors, about 20 cm^2 at Cd 1.1"
+    },
+    "cda_vertical_cm2": {
+      "value": 70,
+      "source": "estimate",
+      "note": "classic physics only: stands in for the props unloading at speed; set so the level top speed is about 60 km/h (no published figure; Oscar Liang estimates about 85 km/h for the more powerful Meteor75 Pro II)"
+    },
+    "cda_vertical_inflow_cm2": {
+      "value": 40,
+      "source": "estimate",
+      "note": "the frame seen from above outside the four prop discs: duct walls and braces, FC, pack and canopy, about 35 cm^2 at Cd 1.1; with rotor inflow the props unload at speed themselves"
+    },
+    "collider_duct_radius_mm": {
+      "value": 23,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-frame",
+      "note": "the duct: 42.0 mm inside, 2 mm wall, so the frame is 99.1 mm over the ducts (26.5 + 23 = 49.5 mm from the centre on each axis)"
+    },
+    "collider_duct_offset_mm": {
+      "value": 26.5,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-frame",
+      "note": "wheelbase / 2 / sqrt 2: each duct sphere on its motor"
+    },
+    "collider_body_radius_mm": {
+      "value": 25,
+      "source": "estimate",
+      "note": "FC, pack and canopy in the middle; the quad rests 25 mm above the ground on it (the real frame is 16.2 mm tall)"
+    },
+    "v_bounce_ms": {
+      "value": 1.5,
+      "source": "estimate"
+    },
+    "v_crash_ms": {
+      "value": 4.0,
+      "source": "estimate",
+      "note": "as the 65 mm whoop presets"
+    },
+    "pack_resistance_per_cell_ohm": {
+      "value": 0.035,
+      "source": "estimate",
+      "note": "the 480 mAh 1S LiHV pack with its BT2.0 connector and the board's wiring: no measured figure found. Whoop pilots see a fresh pack fall from 4.35 V to about 3.3-3.5 V on a full punch of 25-35 A, which is 25-40 mOhm; BetaFPV rates the pack 95C (45 A). The sag is what sets this preset's thrust-to-weight (see twr)",
+      "min": 0.025,
+      "max": 0.05
+    },
+    "efficiency": {
+      "value": 0.67,
+      "source": "estimate",
+      "ref": "https://betafpv.com/products/0802-brushless-motors-2026",
+      "note": "the model's electrical efficiency, set so kappa / efficiency = 0.0112 reproduces the bench's input power at 70-100 % throttle (12.36 W at 70 %, 22.73 W at 100 %). At hover the real motors draw about twice what the model does (the 40 mm prop's torque per thrust rises as it slows), so with Battery simulation on the model's hover lasts too long"
+    },
+    "flight_time": {
+      "value": "7:30 on the LAVA II 1S 480 mAh (BetaFPV)",
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/air75-ii-brushless-whoop-quadcopter",
+      "note": "Oscar Liang flew the original Air75 5:30-6:00 on a 450 mAh pack"
+    },
+    "camera_uptilt_deg": {
+      "value": 25,
+      "source": "estimate",
+      "ref": "https://www.getfpv.com/accessories-390/parts-hardware/betafpv-air-ii-canopy.html",
+      "note": "the Air II canopy holds the C03 at 15-45 deg in 10 deg steps; the game's Settings > Camera sets the angle, this is only the preset's default"
+    },
+    "camera_fov_deg": {
+      "value": 125,
+      "source": "manufacturer",
+      "ref": "https://betafpv.com/products/c03-fpv-micro-camera",
+      "note": "C03: 160 deg field of view on a 4:3 sensor (2.1 mm lens), so about 125-130 deg across; the game draws its own lens"
+    },
+    "rates": {
+      "value": {
+        "type": "ACTUAL",
+        "rate_limit": 1998,
+        "roll": [
+          7,
+          75,
+          10
+        ],
+        "pitch": [
+          7,
+          75,
+          10
+        ],
+        "yaw": [
+          7,
+          70,
+          5
+        ]
+      },
+      "source": "manufacturer",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II",
+      "note": "BetaFPV's CLI (2026.6.0, 20260515): ACTUAL rates (Betaflight's default type), centre sensitivity 70 deg/s (rc_rate 7, the default), max 750 / 750 / 700 deg/s (roll_srate 75, pitch_srate 75, yaw_srate 70), expo 0.10 / 0.10 / 0.05"
+    },
+    "pid_roll": {
+      "value": [
+        33,
+        60,
+        21,
+        35
+      ],
+      "source": "manufacturer",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II",
+      "note": "BetaFPV's CLI (2026.6.0, 20260515), profile 'GF 1614': P, I, D, F. Betaflight 2026's d_roll is the D flown at rest (4.5's d_min); its d_max 23 / 24, anti_gravity_gain 60 and TPA 60 % from 1220 are not modelled"
+    },
+    "pid_pitch": {
+      "value": [
+        33,
+        59,
+        21,
+        35
+      ],
+      "source": "manufacturer",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II"
+    },
+    "pid_yaw": {
+      "value": [
+        33,
+        60,
+        0,
+        35
+      ],
+      "source": "manufacturer",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II"
+    },
+    "throttle": {
+      "value": {
+        "mid": 50,
+        "expo": 0
+      },
+      "source": "bf-default",
+      "ref": "https://support.betafpv.com/hc/en-us/articles/54653618858521-CLI-and-Firmware-for-Air75-II",
+      "note": "BetaFPV's CLI leaves Betaflight's default curve: thr_mid 50, thr_expo 0, thr_hover 50 (a straight line)"
+    },
+    "rotor_drag_per_s": {
+      "value": 0.91,
+      "source": "estimate",
+      "ref": "https://arxiv.org/abs/1712.02402",
+      "note": "rotor and duct momentum drag at hover rotor speed: momentum theory sqrt(g rho A_rotors / m) = 1.33 1/s, x 0.68 as the Air65 preset (the share the Pavo20 Pro's blackbox coast-down gave of its ideal)",
+      "min": 0.6,
+      "max": 1.36
+    },
+    "rotor_inertia_kgm2": {
+      "value": 3.5e-08,
+      "source": "estimate",
+      "note": "the 0.24 g prop (blades 0.15 g from 2.5 to 20 mm: 1.9e-8) + the 0802 bell, magnets and shaft (about 0.85 g at 4.3 mm: 1.6e-8); drives the yaw reaction to motor speed changes",
+      "min": 2.5e-08,
+      "max": 5e-08
+    },
+    "wake_loss": {
+      "value": 0.25,
+      "source": "estimate",
+      "note": "share of thrust lost at the worst point of a descent through the rotors' own wake (vortex-ring band of momentum theory); the Nazgul's estimate, whoops are known for it",
+      "min": 0,
+      "max": 0.5
+    },
+    "wake_shake": {
+      "value": 0.3,
+      "source": "estimate",
+      "note": "turbulent roll/pitch torque in the wake, as a share of one rotor's thrust times the arm; the Nazgul's estimate",
+      "min": 0,
+      "max": 0.6
+    }
+  }
+}
