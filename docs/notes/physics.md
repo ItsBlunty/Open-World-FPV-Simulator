@@ -115,7 +115,7 @@ case dynamic idle exists for on real quads (props unloading or windmilling in a 
 here it raises and holds the idle floor. Betaflight's I-term reset at low throttle before airmode activates is not
 modelled (the sim's mixer always runs airmode).
 
-## 2v. The owner's quad measured from a blackbox log (owner, 2026-11-08): measured, not built yet
+## 2v. The owner's quad measured from a blackbox log, and its preset (owner, 2026-11-08): built, waiting for the owner to fly
 
 Owner: "This is a custom 5 inch freestyle frame, R29 props, 2207.5 1750kv motors, 700g AUW. Closest I can get for
 now." Then: "also its squashed X, if it matters." Log `red one.BBL`: Betaflight 4.5.5, 8 kHz loop, ~1970 Hz logging,
@@ -153,5 +153,27 @@ would give I_roll ~3.2e-3 and I_pitch ~3.0e-3 kg m^2 (NeuroBEM's 772 g quad: 2.5
 spacing is needed to turn these into inertia**. If I_yaw is near I_roll + I_pitch (~6e-3), kappa ~0.018 m and rotor
 inertia ~9e-6 kg m^2; with the preset's 6e-6 rotor inertia, I_yaw = 3.8e-3 and kappa = 0.0114 m.
 
-**Not measured:** drag (no airspeed in the log), prop wash, mass split. **Left open:** motor spacing, prop size and pitch
-("R29": which prop?), battery capacity and mass, camera angle, from the owner; then a preset for the red one.
+**Not measured:** drag (no airspeed in the log), prop wash, mass split.
+
+**Preset built** (owner's answers: "225 corner to corner, and 138 front to rear"; "HQProp FlowerPig R29"; pack "either a
+1300 or a 1450mah, 6s"; camera angle not relevant - the game's Settings > Camera sets it):
+`packages/sim-core/presets/redone-6s.json`. Squashed X from the new optional field `motor_spacing_front_rear_mm`: motors
+at 88.9 mm to the side and 69 mm fore and aft. Prop 5.1x2.9 3-blade, 4.4 g (HQProp's own R29V3 page). Inertia roll and
+pitch both 3.0e-3 (30 x 88.9 mm and 23 x 69 mm give the same: the weaker pitch is the shorter arm). Yaw: rotor inertia
+from its parts, 5.9e-6 (prop 3.7e-6 + bell 2.2e-6), then the measured ratios give I_yaw 3.8e-3 and kappa 0.0112 m, and
+the hover power agrees (92 W of prop power from 123 W drawn, so efficiency 0.75; a larger I_yaw would need more prop
+power than the battery gave). Motor lag 18 ms, rpm_loaded_fraction 0.833, pack 4.4 mOhm per cell, TWR 8.0, capacity
+1300 mAh (the smaller of the two; only with Battery simulation on). The owner's own rates (Actual 180 / 540 deg/s, expo
+0.36; yaw 140 / 430) and PIDs from the log header. Drag, prop wash and crash numbers are the Nazgul's estimates.
+**Game:** Settings > World and physics > Quad (Nazgul by default; a change reloads the page; quads.ts). The self-test
+stays on the Nazgul. Saved flights embed their preset, so old ones replay unchanged.
+
+**Evidence:** `packages/sim-core/test/redone-preset.test.ts` (geometry, Nazgul's true X unchanged, the compiled numbers
+against the log, flies pitch slower than roll: 20 ms after a full stick 348 deg/s roll / 287 pitch, Nazgul 522 / 496);
+654 tests pass, typecheck clean; in the dev server the engine flies `redone-6s` with those motor positions and rates,
+the dropdown switches back to the Nazgul, no console errors (`settings-quad.jpg`).
+
+**Known differences from the real quad:** the model turns command into rotor speed in a straight line, so the red one
+hovers at about 35 % motor command instead of the measured 30 %, and holds thrust per rpm^2 constant (real: +20 % from
+hover to full). Betaflight's d_min, TPA and thrust_linear from the log are not modelled. Time trial times are not kept
+apart by quad.

@@ -3,6 +3,7 @@
 // life's header as overrides. Every read and write is guarded: private windows and blocked storage
 // just mean the defaults.
 
+import { DEFAULT_QUAD, isQuadId } from './quads';
 import { profileProblem } from '@owfpv/input';
 import type { RadioProfile, StickMode } from '@owfpv/input';
 import { DYN_IDLE_DEFAULTS, copyRates } from '@owfpv/sim-core';
@@ -48,6 +49,8 @@ export interface Settings {
      * of sim-core/0.6.0, to go back and compare (owner, 2026-10-18). Off by default.
      */
     classicPhysics: boolean;
+    /** the quad flown, a QUADS id (quads.ts); the Nazgul by default. Applies on reload (owner, 2026-11-08). */
+    quad: string;
     /**
      * battery simulation: the pack drains as you fly and its voltage falls with it. Off by default (owner, 2026-10-19):
      * the pack stays full (sim-core's batteryDrain false; it still sags under load as a fresh pack does).
@@ -133,6 +136,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
     lastDevice: null,
     damage: false,
     classicPhysics: false,
+    quad: DEFAULT_QUAD,
     battery: false,
     armAngle: 180,
     motorIdle: 55,
@@ -199,6 +203,7 @@ export function loadSettings(): Settings {
     if (typeof s.lastDevice === 'string') out.lastDevice = s.lastDevice;
     if (typeof s.damage === 'boolean') out.damage = s.damage;
     if (typeof s.classicPhysics === 'boolean') out.classicPhysics = s.classicPhysics;
+    if (isQuadId(s.quad)) out.quad = s.quad;
     if (typeof s.battery === 'boolean') out.battery = s.battery;
     if (typeof s.armAngle === 'number' && s.armAngle >= 0 && s.armAngle <= 180) out.armAngle = Math.round(s.armAngle);
     // Betaflight's ranges (cli/settings.c): idle 0-2000 (here tenths of a percent, 0-200), dyn_idle_* as noted above

@@ -123,7 +123,9 @@ bidirectional DShot eRPM give tau, flips with motor outputs give inertia.
 about 8 on a fresh pack and full-throttle rpm per volt all agree with the preset's estimates; motor speed is not linear
 in command (rpm per command-volt 1950 at low command, 1460 at full) and thrust per rpm^2 rises 20 % from hover to full;
 that quad turns about half as hard per newton of thrust difference as the preset (inertia high for its arms), so the
-preset's inertia is more likely low than high. Different quad, so the Nazgul preset is left as it is.
+preset's inertia is more likely low than high. Different quad, so the Nazgul preset is left as it is; the owner's quad
+has its own preset now (`redone-6s`, Settings > Quad). Two model gaps the log shows: rotor speed is not linear in
+command (hover command 30 % real, 35 % in the model) and thrust per rpm^2 is not constant.
 
 ### G4. Prop wash is an empirical bump
 The thrust-loss band follows momentum theory's vortex-ring region, the right idea; its depth (25 %) and shake (30 %)

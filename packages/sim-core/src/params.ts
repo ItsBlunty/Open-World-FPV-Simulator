@@ -393,12 +393,37 @@ export function compileParams(p: PresetJson, o: ParamOverrides = {}): SimParams 
     const arm = num(p, 'wheelbase_mm') / 2000 / Math.SQRT2;
     // Betaflight quad X order: M1 rear-right, M2 front-right, M3 rear-left, M4 front-left.
     // Body frame: x right, y up, z back (forward is -z).
-    const motorPos = new Float64Array([arm, 0, arm, arm, 0, -arm, -arm, 0, arm, -arm, 0, -arm]);
+    // A squashed (stretched) X names its front-to-rear motor spacing too: the side-to-side spacing follows from the
+    // diagonal (wheelbase), and the collider spheres sit on each motor's diagonal, pushed out as far, in proportion, as
+    // collider_duct_offset_mm puts them on a true X. Presets without the field keep the true X exactly.
+    const fr = p.fields.motor_spacing_front_rear_mm;
+    let motorPos: Float64Array;
+    let squash: { hx: number; hz: number; scale: number } | null = null;
+    if (fr !== undefined) {
+        const d = num(p, 'wheelbase_mm') / 1000;
+        const l = num(p, 'motor_spacing_front_rear_mm') / 1000;
+        if (!(l > 0 && l < d)) throw new Error(`preset ${p.id}: motor_spacing_front_rear_mm must be above 0 and below wheelbase_mm`);
+        const hz = l / 2;
+        const hx = Math.sqrt(d * d - l * l) / 2;
+        motorPos = new Float64Array([hx, 0, hz, hx, 0, -hz, -hx, 0, hz, -hx, 0, -hz]);
+        squash = { hx, hz, scale: (off * Math.SQRT2) / (d / 2) };
+    } else {
+        motorPos = new Float64Array([arm, 0, arm, arm, 0, -arm, -arm, 0, arm, -arm, 0, -arm]);
+    }
     // props-in default: M1 CW, M2 CCW, M3 CCW, M4 CW (seen from above)
     const motorYaw = new Float64Array([1, -1, -1, 1]);
 
     let spheres: Float64Array;
-    if (ductR > 0) {
+    if (ductR > 0 && squash) {
+        const sx = squash.hx * squash.scale, sz = squash.hz * squash.scale;
+        spheres = new Float64Array([
+            sx, 0, sz, ductR,
+            sx, 0, -sz, ductR,
+            -sx, 0, sz, ductR,
+            -sx, 0, -sz, ductR,
+            0, 0, 0, bodyR
+        ]);
+    } else if (ductR > 0) {
         spheres = new Float64Array([
             off, 0, off, ductR,
             off, 0, -off, ductR,

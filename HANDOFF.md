@@ -120,11 +120,11 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 ## Next up
 
 - Nothing from the owner's list of 2026-10-24 left: all six built. Ask the owner what's next.
-  Owner's quad measured from a blackbox log (2026-11-08): motor lag 16-20 ms, TWR ~8, nonlinear rpm and thrust curves, turns ~half as hard per newton as the Nazgul preset; no preset yet. [physics §2v]
+  Owner's quad measured from its blackbox log and built as a preset (2026-11-08): Settings > World and physics > Quad > Red one; squashed X, measured lag, thrust, inertia, yaw, sag, the owner's rates and PIDs. [physics §2v]
 
 ## Waiting for the owner
 
-0. **Red one preset:** motor-to-motor distances (front-back and side to side), which R29 prop (size, pitch), battery (mAh, grams), camera angle; then build its preset? [physics §2v]
+0. **Red one:** Settings > World and physics > Quad > Red one, fly it on Pages: flips, rolls, punch-outs, hover throttle (the model hovers at ~35 % motor, your quad at 30 %). Feels like your quad? [physics §2v]
 1. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, look at the
    filled-in issue. Format right? Anything missing for replicating bugs? [feedback §0w]
 2. **Wall hits (sim-core/0.7.0):** fly into walls at speed, lean a prop on a wall, blip the bando ceiling. Bounce right?

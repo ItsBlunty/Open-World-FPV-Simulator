@@ -4,6 +4,12 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- Preset field `motor_spacing_front_rear_mm` (optional): a squashed or stretched X. The side-to-side spacing follows from
+  it and `wheelbase_mm` (the diagonal); the collider spheres sit on each motor's diagonal, pushed out in the same
+  proportion `collider_duct_offset_mm` gives a true X. Presets without it compile exactly as before. New preset
+  `redone-6s`, the owner's quad, its numbers measured from a blackbox log (docs/notes/physics.md §2v). Test:
+  `test/redone-preset.test.ts`.
+
 - `ParamOverrides.dynIdle` (`SimParams.dynIdle`, `DynIdleConfig`, `DYN_IDLE_DEFAULTS`, `S_DYN`, `autoDynIdleMinRpm`):
   Betaflight 4.5's dynamic idle (mixer.c, mixer_init.c), in its CLI units and ranges. On, the static idle is dropped and
   a PID on the slowest motor's rps raises the floor of the motor range up to dyn_idle_max_increase (start_increase before

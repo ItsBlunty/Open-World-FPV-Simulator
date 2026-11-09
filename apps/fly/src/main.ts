@@ -13,6 +13,7 @@ import { mapFrame, switchOn } from '@owfpv/input';
 import type { RadioProfile, RawFrame } from '@owfpv/input';
 import type { TrafficConfig } from '@owfpv/traffic';
 import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
+import { QUADS, quadById } from './quads';
 import { clearStoredSettings, defaultSettings, loadCollection, loadCoursesRaw, loadProfile, loadSettings, loadTrialTimesRaw, saveCollection, saveCoursesRaw, saveProfile, saveSettings, saveTrialTimesRaw } from './settings';
 import { blankCourse, courseFileName, courseText, newCourseId, parseCourses, proposeLink, putCourse, readCourseText, removeCourse } from './course-store';
 import type { CourseFile } from '@owfpv/maps';
@@ -65,8 +66,10 @@ addEventListener('error', (e) => errorLog.add('uncaught', [e.error ?? e.message]
 addEventListener('unhandledrejection', (e) => errorLog.add('unhandled rejection', [e.reason]));
 
 const params = new URLSearchParams(location.search);
-const preset = nazgul as unknown as PresetJson;
 const settings = loadSettings();
+/** the quad flown (Settings > Quad, quads.ts): read once, a change reloads the page */
+const quad = quadById(settings.quad);
+const preset = quad.preset;
 const presetRates = compileParams(preset).rates;
 const presetIdle = compileParams(preset).idle;
 /** dynamic idle's minimum (x 100 rpm) the game picks for this quad from its props; null: the preset has no prop size */
@@ -224,7 +227,7 @@ function newCanvas(): HTMLCanvasElement {
 function initMsg(): InitMsg {
     return {
         type: 'init', timeOrigin: performance.timeOrigin, width: innerWidth, height: innerHeight, dpr: devicePixelRatio,
-        search: location.search, shadows: shadowsOn, graphics: graphicsNow, settings: engineSettings(), collection, flightId, courses: courseStore
+        search: location.search, shadows: shadowsOn, graphics: graphicsNow, settings: engineSettings(), quad: quad.id, collection, flightId, courses: courseStore
     };
 }
 
@@ -1037,7 +1040,7 @@ function pageSections(tab: SettingsTab, where: 'top' | 'bottom'): Child[] {
             h('div', { class: 'row' }, h('button', { onclick: openReport }, 'Report or suggest')),
             ...dataSection(),
             h('h2', {}, 'About'),
-            h('p', { class: 'muted' }, 'Milestone 1 prototype: blockout map, 5" freestyle quad (Nazgul F5 class, 6S). Your flights are kept in this browser as stick inputs, so each replays exactly.'),
+            h('p', { class: 'muted' }, `Milestone 1 prototype: blockout map; quad: ${quad.label}. Your flights are kept in this browser as stick inputs, so each replays exactly.`),
             credits()
         ];
     }
@@ -1263,9 +1266,11 @@ function pageFrame(): void {
 async function runSelftestPage(): Promise<void> {
     const [{ CLASSIC_SELFTEST_HASH, SELFTEST_HASH, TRAFFIC_HASH, runSelftest, runTrafficSelftest }, { buildFirstMap }] = await Promise.all([import('./selftest'), import('@owfpv/maps')]);
     const level = buildFirstMap();
-    const r = runSelftest(preset, level);
+    // the pinned hashes are the Nazgul's, whichever quad this visit flies
+    const selftestPreset = nazgul as unknown as PresetJson;
+    const r = runSelftest(selftestPreset, level);
     // the same flight with classic physics (sim-core/0.6.0): checks the old model too
-    const classic = runSelftest(preset, level, { classicPhysics: true }).hash;
+    const classic = runSelftest(selftestPreset, level, { classicPhysics: true }).hash;
     const traffic = runTrafficSelftest(level);
     const flightOk = r.hash === SELFTEST_HASH && classic === CLASSIC_SELFTEST_HASH, trafficOk = traffic === TRAFFIC_HASH;
     const ok = flightOk && trafficOk;

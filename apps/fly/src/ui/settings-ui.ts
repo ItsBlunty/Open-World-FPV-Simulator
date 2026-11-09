@@ -5,6 +5,7 @@
 // rates-edit.ts (read from Betaflight Configurator 10.10.0 by sim-core's author), so values typed
 // here mean what they mean in Configurator.
 
+import { QUADS } from '../quads';
 import { RATE_AXES, RATE_FIELDS, copyRates, fitRates, fullStickRates, readField, shownText, withField } from '@owfpv/sim-core';
 import type { FlightMode, RateAxis, RateFieldName, RatesConfig, RatesType } from '@owfpv/sim-core';
 import type { Settings } from '../settings';
@@ -359,6 +360,8 @@ export class SettingsUi {
                 this.check('Airport traffic (ten planes landing, taxiing, towed into the hangars and taking off; the air ambulance to the hospital roof; all solid)', s.air, (v) => { s.air = v; host.save(); host.onTraffic(); }),
                 h('p', { class: 'note' }, 'Changing any of these restarts at the spawn point (what you can hit changes).'),
                 h('h2', {}, 'Physics'),
+                this.field('Quad', this.select<string>(s.quad, QUADS.map((q) => ({ value: q.id, label: q.label })), (v) => { s.quad = v; host.save(); location.reload(); })),
+                h('p', { class: 'note' }, "Nazgul: a 5-inch freestyle quad from its maker's numbers and estimates. Red one: a custom 5-inch squashed X whose motor lag, thrust, turning and battery sag were measured from its blackbox log, flown with that pilot's own rates and PIDs (unless you set your own rates under Rates). Changing it reloads the game."),
                 this.check('Classic physics (the flight model before the airflow update, to compare). Changing it restarts at the spawn point.', s.classicPhysics, (v) => { s.classicPhysics = v; host.save(); host.onFlight(); }),
                 h('p', { class: 'note' }, 'Off: each prop feels the air through it, so thrust fades as you climb fast and grows as you fly forward, as measured on real 5-inch quads.'),
                 this.check('Battery simulation (the pack drains as you fly and the quad gets weaker; off: always a full pack). Changing it restarts at the spawn point.', s.battery, (v) => { s.battery = v; host.save(); host.onFlight(); }),

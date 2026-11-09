@@ -55,6 +55,8 @@ export interface InitMsg {
     /** full graphics or a low spec mode (graphics.ts, render/kit.ts) */
     graphics: GraphicsLevel;
     settings: EngineSettings;
+    /** the quad flown, a QUADS id (quads.ts) */
+    quad: string;
     /** the golden props this pilot has taken already, by map id, by number (the page keeps them) */
     collection: Record<string, number[]>;
     /** this visit's saved flight: its id (the page's start time, ms) */

@@ -5,10 +5,9 @@
 import * as THREE from 'three/webgpu';
 import { DepthTexture, FloatType, SRGBColorSpace, WebGLRenderTarget, WebGLRenderer } from 'three';
 import { S, SIM_CORE_VERSION } from '@owfpv/sim-core';
-import type { PresetJson } from '@owfpv/sim-core';
 import { buildFirstMap, courseProblem, customArches } from '@owfpv/maps';
 import type { CourseFile, Gate } from '@owfpv/maps';
-import nazgul from '@owfpv/sim-core/presets/nazgulf5v3-6s.json';
+import { quadById } from '../quads';
 import { FlightSession } from '../session';
 import { demoTrickSticks, selftestSticks } from '../selftest';
 import { levelGroup, environment } from '../render/world';
@@ -61,7 +60,7 @@ export async function startEngine(port: Port, canvas: HTMLCanvasElement | Offscr
     const early: PageMsg[] = [];
     port.onmessage = (e: MessageEvent<PageMsg>) => early.push(e.data);
     const params = new URLSearchParams(init.search);
-    const preset = nazgul as unknown as PresetJson;
+    const preset = quadById(init.quad).preset;
     const level = buildFirstMap();
     let cfg: EngineSettings = init.settings;
     const demo = params.has('demo');
