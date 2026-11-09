@@ -3,7 +3,7 @@
 The current state only. Rewrite it in place: don't add to it. Detail from finished work goes in the topic note under
 `docs/notes/` (see the list at the end); this file keeps one line per item and a link to its note.
 
-## State (2026-10-25)
+## State (2026-11-08)
 
 - **Live build:** https://itsblunty.github.io/Open-World-FPV-Simulator/ (CI publishes every push to `main`; if a run sits queued for good, as on 2026-10-19, a new push starts a fresh one).
 - **Milestones:** M0 done, M1 flown, M2 review done (`docs/physics-review.md`) and its first fix built (rotor inflow,
@@ -120,9 +120,11 @@ The current state only. Rewrite it in place: don't add to it. Detail from finish
 ## Next up
 
 - Nothing from the owner's list of 2026-10-24 left: all six built. Ask the owner what's next.
+  Owner's quad measured from a blackbox log (2026-11-08): motor lag 16-20 ms, TWR ~8, nonlinear rpm and thrust curves, turns ~half as hard per newton as the Nazgul preset; no preset yet. [physics §2v]
 
 ## Waiting for the owner
 
+0. **Red one preset:** motor-to-motor distances (front-back and side to side), which R29 prop (size, pitch), battery (mAh, grams), camera angle; then build its preset? [physics §2v]
 1. **Report screen:** Esc > Settings > Help and about > Report or suggest, write a test report, Open on GitHub, look at the
    filled-in issue. Format right? Anything missing for replicating bugs? [feedback §0w]
 2. **Wall hits (sim-core/0.7.0):** fly into walls at speed, lean a prop on a wall, blip the bando ceiling. Bounce right?

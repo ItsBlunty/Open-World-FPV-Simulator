@@ -118,7 +118,12 @@ They matter more to feel than any missing effect: acceleration, how fast the qua
   Section IV-D): a real 5-inch value, about twice the preset's. The owner chose to leave 17 ms (2026-10-18).
 
 **Improvement:** fit them to a real quad's Betaflight blackbox log: a hover gives TWR and sag, throttle steps with
-bidirectional DShot eRPM give tau, flips with motor outputs give inertia. **Waiting for logs (owner, 2026-10-18).**
+bidirectional DShot eRPM give tau, flips with motor outputs give inertia.
+**First log (owner's own quad, 2026-11-08; `docs/notes/physics.md` §2v):** motor lag 16-20 ms (+2-3 ms delay), TWR
+about 8 on a fresh pack and full-throttle rpm per volt all agree with the preset's estimates; motor speed is not linear
+in command (rpm per command-volt 1950 at low command, 1460 at full) and thrust per rpm^2 rises 20 % from hover to full;
+that quad turns about half as hard per newton of thrust difference as the preset (inertia high for its arms), so the
+preset's inertia is more likely low than high. Different quad, so the Nazgul preset is left as it is.
 
 ### G4. Prop wash is an empirical bump
 The thrust-loss band follows momentum theory's vortex-ring region, the right idea; its depth (25 %) and shake (30 %)

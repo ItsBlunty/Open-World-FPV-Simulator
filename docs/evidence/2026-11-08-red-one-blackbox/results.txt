@@ -1,0 +1,128 @@
+### overview.py
+--- log 1: 29762 rows, 15.1 s, mean dt 508 us
+names: [np.str_('motor[0]'), np.str_('motor[1]'), np.str_('motor[2]'), np.str_('motor[3]'), np.str_('eRPM[0]'), np.str_('eRPM[1]'), np.str_('eRPM[2]'), np.str_('eRPM[3]'), np.str_('flightModeFlags'), np.str_('stateFlags'), np.str_('failsafePhase'), np.str_('rxSignalReceived'), np.str_('rxFlightChannelsValid')]
+rcCommand[3]     min    1000.0 p5    1000.0 med    1287.0 p95    1686.0 max    1950.0
+vbatLatest       min    1616.0 p5    1835.0 med    2157.0 p95    2245.0 max    2286.0
+amperageLatest   min       0.0 p5       9.0 med     550.0 p95    4728.0 max    9583.0
+motor[0]         min      48.0 p5     166.0 med     661.0 p95    1508.0 max    2047.0
+motor[1]         min      48.0 p5     158.0 med     601.0 p95    1361.0 max    1925.0
+motor[2]         min      61.0 p5     151.0 med     640.0 p95    1503.8 max    2047.0
+motor[3]         min      48.0 p5     147.0 med     601.0 p95    1362.0 max    1977.0
+eRPM[0]          min     189.0 p5     229.0 med     802.0 p95    1467.0 max    1765.0
+eRPM[1]          min     177.0 p5     209.0 med     739.0 p95    1345.0 max    1639.0
+eRPM[2]          min      57.0 p5     212.0 med     779.0 p95    1463.0 max    1749.0
+eRPM[3]          min     175.0 p5     194.0 med     741.0 p95    1354.0 max    1662.0
+gyroADC[0]       min     -15.0 p5      -8.0 med       0.0 p95       7.0 max      19.0
+gyroADC[1]       min     -42.0 p5     -13.0 med       0.0 p95      12.0 max      36.0
+gyroADC[2]       min     -21.0 p5      -8.0 med       0.0 p95       2.0 max      15.0
+accSmooth[2]     min      65.0 p5     186.0 med    2131.0 p95    6763.0 max   10114.0
+debug[0]         min     132.0 p5     173.0 med     246.0 p95     387.0 max     517.0
+debug[1]         min     187.0 p5     244.0 med     403.0 p95     564.0 max     580.0
+0:1000/22.4V/1A 1:1062/22.3V/2A 2:1283/21.8V/6A 3:1312/21.5V/12A 4:1138/21.6V/9A 5:1314/20.9V/19A 6:1223/21.1V/12A 7:1228/21.1V/19A 8:1188/21.3V/11A 9:1328/21.2V/9A 10:1312/21.3V/7A 11:1310/21.3V/6A 12:1333/21.1V/7A 13:1311/21.2V/6A 14:1302/21.2V/6A 15:1305/21.2V/5A
+--- log 2: 173579 rows, 88.2 s, mean dt 508 us
+names: [np.str_('motor[0]'), np.str_('motor[1]'), np.str_('motor[2]'), np.str_('motor[3]'), np.str_('eRPM[0]'), np.str_('eRPM[1]'), np.str_('eRPM[2]'), np.str_('eRPM[3]'), np.str_('flightModeFlags'), np.str_('stateFlags'), np.str_('failsafePhase'), np.str_('rxSignalReceived'), np.str_('rxFlightChannelsValid')]
+rcCommand[3]     min    1000.0 p5    1000.0 med    1389.0 p95    1680.0 max    1973.0
+vbatLatest       min    1973.0 p5    2165.0 med    2289.0 p95    2453.0 max    2518.0
+amperageLatest   min       0.0 p5      40.0 med    1151.0 p95    4907.0 max   10413.0
+motor[0]         min      48.0 p5     171.0 med     851.0 p95    1497.0 max    2047.0
+motor[1]         min      48.0 p5     164.0 med     772.0 p95    1323.0 max    2047.0
+motor[2]         min      48.0 p5     187.0 med     873.0 p95    1508.0 max    2047.0
+motor[3]         min      48.0 p5     169.0 med     814.0 p95    1362.0 max    2047.0
+eRPM[0]          min     150.0 p5     239.0 med    1071.0 p95    1705.0 max    2120.0
+eRPM[1]          min     150.0 p5     223.0 med     974.0 p95    1523.0 max    1905.0
+eRPM[2]          min     162.0 p5     260.0 med    1103.0 p95    1719.0 max    2222.0
+eRPM[3]          min     172.0 p5     238.0 med    1031.0 p95    1575.0 max    2000.0
+gyroADC[0]       min    -557.0 p5    -347.0 med     -60.0 p95     159.0 max     455.0
+gyroADC[1]       min    -538.0 p5    -182.0 med     -16.0 p95     235.0 max     555.0
+gyroADC[2]       min    -450.0 p5    -114.0 med      11.0 p95     140.0 max     275.0
+accSmooth[2]     min    -404.0 p5     733.0 med    4020.0 p95    9079.0 max   14339.0
+debug[0]         min     123.0 p5     147.0 med     225.0 p95     400.0 max     531.0
+debug[1]         min     179.0 p5     241.0 med     426.0 p95     560.0 max     583.0
+0:1000/25.1V/0A 1:1002/25.1V/0A 2:1188/24.8V/4A 3:1318/24.6V/9A 4:1352/24.4V/11A 5:1420/23.9V/21A 6:1478/23.5V/25A 7:1182/24.1V/13A 8:1331/24.1V/8A 9:1363/24.0V/13A 10:1314/24.2V/8A 11:1474/23.4V/26A 12:1390/23.7V/13A 13:1301/23.6V/18A 14:1326/23.4V/24A 15:1440/23.0V/30A 16:1269/23.9V/5A 17:1482/23.1V/27A 18:1518/23.0V/25A 19:1507/22.9V/25A 20:1493/22.9V/23A 21:1428/23.2V/15A 22:1459/23.1V/21A 23:1459/23.1V/22A 24:1411/23.2V/13A 25:1378/23.4V/12A 26:1444/23.0V/22A 27:1365/23.2V/14A 28:1384/23.0V/20A 29:1056/23.6V/2A 30:1384/23.4V/12A 31:1407/23.3V/13A 32:1411/23.2V/19A 33:1430/23.0V/20A 34:1461/22.9V/22A 35:1495/22.7V/24A 36:1321/23.3V/7A 37:1465/22.9V/20A 38:1535/22.6V/25A 39:1440/22.9V/16A 40:1533/22.6V/25A 41:1502/22.6V/23A 42:1499/22.6V/23A 43:1470/22.7V/19A 44:1419/22.7V/18A 45:1297/22.9V/16A 46:1398/22.4V/28A 47:1150/23.1V/4A 48:1513/22.4V/32A 49:1008/23.1V/3A 50:1323/23.0V/9A 51:1485/22.4V/26A 52:1204/22.9V/14A 53:1384/22.7V/17A 54:1385/22.9V/11A 55:1497/22.5V/23A 56:1405/22.7V/15A 57:1173/22.8V/9A 58:1311/22.5V/24A 59:1031/23.1V/2A 60:1397/22.7V/15A 61:1496/22.5V/23A 62:1433/22.5V/19A 63:1372/22.7V/12A 64:1465/22.4V/20A 65:1453/22.5V/17A 66:1400/22.5V/16A 67:1285/22.8V/10A 68:1522/22.1V/29A 69:1493/22.2V/22A 70:1509/22.0V/26A 71:1423/22.4V/12A 72:1614/21.7V/38A 73:1485/22.0V/22A 74:1513/21.9V/28A 75:1421/22.2V/20A 76:1258/22.3V/14A 77:1408/22.3V/20A 78:1001/22.6V/4A 79:1453/22.2V/21A 80:1383/22.4V/10A 81:1400/22.4V/14A 82:1360/22.5V/10A 83:1355/22.5V/10A 84:1351/22.5V/10A 85:1346/22.6V/9A 86:1400/22.4V/15A 87:1428/22.3V/17A 88:1507/22.2V/24A
+### motors.py
+=== log 1  fs 1968 Hz
+ M1 steady n=13812 rpm/(cmd*V) median 1726  fit rpm=1524*cmd*V+63*V   by cmd: 0.1-0.2:1948(n960) 0.2-0.3:1772(n1932) 0.3-0.4:1716(n10497) 0.4-0.5:1633(n397) 0.5-0.6:1597(n26)
+ M2 steady n=13965 rpm/(cmd*V) median 1760  fit rpm=1568*cmd*V+54*V   by cmd: 0.1-0.2:1956(n1495) 0.2-0.3:1771(n6841) 0.3-0.4:1736(n5429) 0.4-0.5:1628(n200)
+ M3 steady n=14253 rpm/(cmd*V) median 1753  fit rpm=1575*cmd*V+54*V   by cmd: 0.1-0.2:1989(n864) 0.2-0.3:1774(n3849) 0.3-0.4:1742(n9314) 0.4-0.5:1632(n184) 0.5-0.6:1608(n42)
+ M4 steady n=13112 rpm/(cmd*V) median 1757  fit rpm=1564*cmd*V+57*V   by cmd: 0.1-0.2:2022(n517) 0.2-0.3:1774(n6194) 0.3-0.4:1741(n6256) 0.4-0.5:1630(n145)
+=== log 2  fs 1969 Hz
+ M1 steady n=35813 rpm/(cmd*V) median 1673  fit rpm=1450*cmd*V+80*V   by cmd: 0.1-0.2:1915(n2004) 0.2-0.3:1761(n6257) 0.3-0.4:1685(n14604) 0.4-0.5:1626(n9227) 0.5-0.6:1603(n3176) 0.6-0.8:1555(n545)
+ M2 steady n=44702 rpm/(cmd*V) median 1693  fit rpm=1434*cmd*V+83*V   by cmd: 0.1-0.2:1910(n2958) 0.2-0.3:1754(n15349) 0.3-0.4:1676(n15369) 0.4-0.5:1613(n7722) 0.5-0.6:1590(n2055) 0.6-0.8:1570(n1249)
+ M3 steady n=42797 rpm/(cmd*V) median 1663  fit rpm=1436*cmd*V+85*V   by cmd: 0.1-0.2:1938(n2525) 0.2-0.3:1756(n5886) 0.3-0.4:1684(n17444) 0.4-0.5:1623(n10030) 0.5-0.6:1599(n5224) 0.6-0.8:1571(n1498) 0.8-1.0:1458(n190)
+ M4 steady n=34770 rpm/(cmd*V) median 1686  fit rpm=1439*cmd*V+84*V   by cmd: 0.1-0.2:1906(n1664) 0.2-0.3:1764(n10711) 0.3-0.4:1678(n12305) 0.4-0.5:1623(n8478) 0.5-0.6:1591(n977) 0.6-0.8:1585(n635)
+### thrust.py
+=== log 1
+ hover-like samples 5.6 s: kT = 1.330e-08 N/rpm^2 per motor; mean rpm 11387, cmd 0.304, thr stick 1302, V 21.36, I 6.1 A
+   exactly ~1g: rpm 11242, motor cmd 0.297, V 21.46 -> cmd*V 6.36, current 5.7 A, power 123 W
+ full-throttle samples: 0.17 s
+=== log 2
+ hover-like samples 0.2 s: kT = 5.092e-08 N/rpm^2 per motor; mean rpm 4833, cmd 0.100, thr stick 1081, V 24.99, I 0.5 A
+   exactly ~1g: rpm nan, motor cmd nan, V nan -> cmd*V nan, current nan A, power nan W
+ full-throttle samples: 0.03 s
+  punch t=46.46-46.66s: peak az 6.73 g at +54 ms; az at start+150ms 6.69 g, end 6.64 g; rpm start 23686 max 27451; V min 19.85; I max 101 A; static-k prediction at peak 5.45 g
+### ct.py
+=== log 1: thrust per motor / rpm^2 (from accel x mass), rotation < 3 rad/s
+  rpm  6000- 8000: n   0.2 s  kT median 1.209e-08  (p25 1.15e-08 p75 1.44e-08)  az median 0.36 g
+  rpm  8000-10000: n   0.4 s  kT median 1.675e-08  (p25 1.31e-08 p75 2.03e-08)  az median 0.82 g
+  rpm 10000-12000: n   5.1 s  kT median 1.302e-08  (p25 1.25e-08 p75 1.42e-08)  az median 0.97 g
+  rpm 12000-14000: n   2.2 s  kT median 1.312e-08  (p25 1.28e-08 p75 1.35e-08)  az median 1.16 g
+  rpm 14000-16000: n   0.5 s  kT median 1.395e-08  (p25 1.37e-08 p75 1.41e-08)  az median 1.86 g
+  rpm 16000-18000: n   0.2 s  kT median 1.328e-08  (p25 1.18e-08 p75 1.56e-08)  az median 2.19 g
+  rpm 18000-20000: n   0.2 s  kT median 1.477e-08  (p25 1.23e-08 p75 1.56e-08)  az median 2.95 g
+  rpm 20000-22000: n   0.3 s  kT median 1.377e-08  (p25 1.30e-08 p75 1.52e-08)  az median 3.66 g
+  rpm 22000-24000: n   0.4 s  kT median 1.428e-08  (p25 1.38e-08 p75 1.47e-08)  az median 4.39 g
+  stick>1700 t=5.62+0.10s: stick max 1929, mean cmd max 0.95, peak az 4.78 g, rpm max 23887, V min 16.36, I max 78
+  stick>1700 t=6.94+0.10s: stick max 1950, mean cmd max 0.97, peak az 4.90 g, rpm max 23997, V min 16.16, I max 86
+  stick>1700 t=7.75+0.10s: stick max 1910, mean cmd max 0.92, peak az 4.70 g, rpm max 23644, V min 16.67, I max 96
+  stick>1700 t=8.34+0.11s: stick max 1915, mean cmd max 0.92, peak az 4.66 g, rpm max 23741, V min 16.58, I max 83
+=== log 2: thrust per motor / rpm^2 (from accel x mass), rotation < 3 rad/s
+  rpm  6000- 8000: n   0.9 s  kT median 6.617e-09  (p25 4.61e-09 p75 1.53e-08)  az median 0.20 g
+  rpm  8000-10000: n   0.4 s  kT median 1.594e-08  (p25 1.08e-08 p75 1.75e-08)  az median 0.66 g
+  rpm 10000-12000: n   4.8 s  kT median 1.200e-08  (p25 8.95e-09 p75 1.32e-08)  az median 0.87 g
+  rpm 12000-14000: n   9.1 s  kT median 1.203e-08  (p25 1.05e-08 p75 1.38e-08)  az median 1.23 g
+  rpm 14000-16000: n   6.0 s  kT median 1.292e-08  (p25 1.14e-08 p75 1.48e-08)  az median 1.74 g
+  rpm 16000-18000: n   4.7 s  kT median 1.374e-08  (p25 1.28e-08 p75 1.46e-08)  az median 2.30 g
+  rpm 18000-20000: n   3.8 s  kT median 1.350e-08  (p25 1.19e-08 p75 1.46e-08)  az median 2.79 g
+  rpm 20000-22000: n   2.7 s  kT median 1.432e-08  (p25 1.35e-08 p75 1.47e-08)  az median 3.62 g
+  rpm 22000-24000: n   2.4 s  kT median 1.428e-08  (p25 1.39e-08 p75 1.47e-08)  az median 4.35 g
+  rpm 24000-26000: n   0.7 s  kT median 1.437e-08  (p25 1.38e-08 p75 1.46e-08)  az median 5.04 g
+  rpm 26000-28000: n   0.3 s  kT median 1.446e-08  (p25 1.35e-08 p75 1.47e-08)  az median 5.86 g
+  stick>1700 t=5.46+0.15s: stick max 1803, mean cmd max 0.81, peak az 5.30 g, rpm max 26841, V min 21.72, I max 79
+  stick>1700 t=6.75+0.17s: stick max 1753, mean cmd max 0.76, peak az 5.35 g, rpm max 25406, V min 21.89, I max 55
+  stick>1700 t=11.56+0.19s: stick max 1838, mean cmd max 0.84, peak az 5.73 g, rpm max 27153, V min 21.16, I max 80
+  stick>1700 t=13.04+0.18s: stick max 1804, mean cmd max 0.81, peak az 5.74 g, rpm max 26255, V min 21.34, I max 76
+  stick>1700 t=14.37+0.14s: stick max 1806, mean cmd max 0.81, peak az 5.75 g, rpm max 26410, V min 21.51, I max 82
+  stick>1700 t=15.65+0.22s: stick max 1814, mean cmd max 0.82, peak az 6.83 g, rpm max 25972, V min 21.31, I max 89
+  stick>1700 t=17.08+0.18s: stick max 1864, mean cmd max 0.87, peak az 6.39 g, rpm max 27327, V min 20.75, I max 104
+  stick>1700 t=26.69+0.14s: stick max 1815, mean cmd max 0.82, peak az 5.84 g, rpm max 26376, V min 21.10, I max 85
+  stick>1700 t=28.58+0.12s: stick max 1836, mean cmd max 0.84, peak az 5.94 g, rpm max 26731, V min 20.97, I max 79
+  stick>1700 t=35.23+0.11s: stick max 1735, mean cmd max 0.74, peak az 5.17 g, rpm max 24582, V min 21.48, I max 53
+  stick>1700 t=46.44+0.26s: stick max 1973, mean cmd max 0.95, peak az 6.73 g, rpm max 27511, V min 19.85, I max 101
+  stick>1700 t=48.67+0.25s: stick max 1851, mean cmd max 0.85, peak az 5.55 g, rpm max 26926, V min 20.87, I max 79
+  stick>1700 t=61.59+0.10s: stick max 1752, mean cmd max 0.76, peak az 4.02 g, rpm max 24938, V min 21.38, I max 58
+  stick>1700 t=69.98+0.24s: stick max 1746, mean cmd max 0.75, peak az 5.04 g, rpm max 24370, V min 21.09, I max 57
+  stick>1700 t=73.85+0.31s: stick max 1887, mean cmd max 0.89, peak az 6.16 g, rpm max 27187, V min 20.20, I max 91
+### inertia.py
+pack resistance (6S, incl. wiring): 26.7 mOhm = 4.4 mOhm per cell; fresh rest V 25.08
+  -> at 100 A from a fresh pack: 22.41 V
+rpm shifted 0.0 ms earlier: roll: alpha/dT +5.9 rad/s^2 per N (r2 0.198) | pitch: alpha/dT +3.7 rad/s^2 per N (r2 0.160) | yaw: kappa/Iyaw +1.58, Jr/Iyaw +1.28e-03 (r2 0.702) | yaw thrust-only: kappa/Iyaw +1.49 (r2 0.187)
+rpm shifted 1.5 ms earlier: roll: alpha/dT +5.9 rad/s^2 per N (r2 0.195) | pitch: alpha/dT +3.7 rad/s^2 per N (r2 0.157) | yaw: kappa/Iyaw +1.61, Jr/Iyaw +1.25e-03 (r2 0.684) | yaw thrust-only: kappa/Iyaw +1.51 (r2 0.194)
+rpm shifted 2.5 ms earlier: roll: alpha/dT +5.8 rad/s^2 per N (r2 0.192) | pitch: alpha/dT +3.6 rad/s^2 per N (r2 0.154) | yaw: kappa/Iyaw +1.63, Jr/Iyaw +1.23e-03 (r2 0.668) | yaw thrust-only: kappa/Iyaw +1.53 (r2 0.198)
+rpm shifted 4.1 ms earlier: roll: alpha/dT +5.7 rad/s^2 per N (r2 0.186) | pitch: alpha/dT +3.6 rad/s^2 per N (r2 0.149) | yaw: kappa/Iyaw +1.66, Jr/Iyaw +1.18e-03 (r2 0.639) | yaw thrust-only: kappa/Iyaw +1.55 (r2 0.204)
+### iv.py
+F10: roll IV 28.72 rad/s^2 per N (instrument lag 0 ms, strength 0.42) | pitch IV 22.45 rad/s^2 per N (instrument lag 0 ms, strength 0.38) | yaw IV kappa/Iyaw 2.98, Jr/Iyaw 1.56e-03
+F20: roll IV 29.74 rad/s^2 per N (instrument lag 0 ms, strength 0.42) | pitch IV 23.22 rad/s^2 per N (instrument lag 0 ms, strength 0.38) | yaw IV kappa/Iyaw 2.97, Jr/Iyaw 1.57e-03
+F40: roll IV 30.02 rad/s^2 per N (instrument lag 0 ms, strength 0.42) | pitch IV 23.46 rad/s^2 per N (instrument lag 0 ms, strength 0.37) | yaw IV kappa/Iyaw 2.94, Jr/Iyaw 1.55e-03
+### iv2.py
+roll: by instrument lag -20ms:28.5 -10ms:29.5 +0ms:29.7 +10ms:29.3 +20ms:28.3 +40ms:25.4 | by half 3-45s:24.9 45-88s:35.6
+pitch: by instrument lag -20ms:21.3 -10ms:22.5 +0ms:23.2 +10ms:23.4 +20ms:23.1 +40ms:21.8 | by half 3-45s:23.5 45-88s:23.0
+### events.py
+roll: 46 torque peaks >3 N: alpha/dT median 4.8 (p25 0.8, p75 27.2) rad/s^2 per N
+      26 accel peaks >80 rad/s^2: alpha/dT at the peak median 39.0 (p25 34.7, p75 45.7)
+pitch: 97 torque peaks >3 N: alpha/dT median 2.1 (p25 0.3, p75 6.5) rad/s^2 per N
+      15 accel peaks >80 rad/s^2: alpha/dT at the peak median 26.3 (p25 21.8, p75 39.9)
+=== log 2
+ M1: active 69% of log; best delay 3.0 ms, tau up 14 ms, tau down 18 ms, rms 173 rpm (no lag: 1260); same both ways: 16 ms rms 205
+ M2: active 67% of log; best delay 3.0 ms, tau up 18 ms, tau down 20 ms, rms 289 rpm (no lag: 1324); same both ways: 20 ms rms 303
+ M3: active 68% of log; best delay 2.0 ms, tau up 20 ms, tau down 20 ms, rms 376 rpm (no lag: 1397); same both ways: 20 ms rms 376
+ M4: active 68% of log; best delay 2.0 ms, tau up 22 ms, tau down 20 ms, rms 394 rpm (no lag: 1538); same both ways: 20 ms rms 399

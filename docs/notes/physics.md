@@ -114,3 +114,44 @@ after airmode is active; 618 tests pass, pinned hashes unchanged.
 case dynamic idle exists for on real quads (props unloading or windmilling in a dive, desyncs) is not in the model;
 here it raises and holds the idle floor. Betaflight's I-term reset at low throttle before airmode activates is not
 modelled (the sim's mixer always runs airmode).
+
+## 2v. The owner's quad measured from a blackbox log (owner, 2026-11-08): measured, not built yet
+
+Owner: "This is a custom 5 inch freestyle frame, R29 props, 2207.5 1750kv motors, 700g AUW. Closest I can get for
+now." Then: "also its squashed X, if it matters." Log `red one.BBL`: Betaflight 4.5.5, 8 kHz loop, ~1970 Hz logging,
+bidirectional DShot eRPM, 14 poles; flight 1 is 15 s of hover on a part-used pack, flight 2 is 88 s of freestyle on a
+fresh one (low rates: 540 deg/s max). Scripts and output: `docs/evidence/2026-11-08-red-one-blackbox/`.
+
+| | measured (red one) | Nazgul preset |
+|---|---|---|
+| motor lag, command -> rpm | 16-20 ms first order (up 14-22, down 18-20; all four motors) + 2-3 ms delay (partly the telemetry) | 17 ms, no delay |
+| rpm / (command x pack V) | ~1950 at 10-20 % command falling to ~1460 at full: speed is not linear in command | constant: 1750 KV x 0.8 = 1400 |
+| hover | ~11 400 rpm per motor, motor command 0.30 at 21.4 V, 5.7 A, 123 W | command 0.35 at any V (sqrt(1/TWR)) |
+| thrust per motor / rpm^2 (accel x 700 g) | 1.20e-8 at hover rising to 1.45e-8 N at 27 000 rpm | constant (thrust ~ speed^2) |
+| peak specific force in punches | 6.2-6.8 g (95 % command, part-used pack sagging to 19.9 V at 101 A) | - |
+| TWR on a fresh pack (extrapolated) | about 8 (rpm 1458/V at full, 26.7 mOhm sag, thrust curve above) | 8.0 |
+| pack resistance (6S + wiring) | 26.7 mOhm, 4.4 mOhm per cell | 5 mOhm per cell |
+| roll accel per N of left-right thrust difference | ~30 rad/s^2 (halves 25 / 36) | 52.8 (arm 84.5 mm / 1.6e-3) |
+| pitch accel per N of front-back thrust difference | ~23 rad/s^2 (halves 23.5 / 23.0) | 52.8 |
+| yaw: kappa / I_yaw (m per kg m^2) | ~2.96 | 0.012 / 2.8e-3 = 4.3 |
+| yaw: rotor inertia / I_yaw | ~1.56e-3 | 6e-6 / 2.8e-3 = 2.1e-3 |
+
+**Method.** Motor lag: each motor's steady command -> rpm map from the log, then a first-order lag with delay fitted to
+the measured rpm over the 68 % of the flight where commands move (rms 173-399 rpm against 1260-1538 with no lag).
+Thrust: accelerometer z x 700 g against the sum of rpm^2 at rotation under 3 rad/s. Roll, pitch and yaw: angular
+acceleration (gyro, 20 Hz low-pass, differentiated) against thrust differences from rpm. A plain least-squares fit gives
+only ~6 (roll) and ~4 (pitch) rad/s^2 per N with r^2 0.2: the flight controller works against gusts and prop wash, so
+its torque and the air's are opposed and the fit is pulled low (a closed-loop identification bias). Physically
+impossible too: 199 rad/s^2 peaks with at most 10 N differences need at least ~20. The pilot's setpoint acceleration is
+used as the instrument instead (the air does not move the sticks): stable against the instrument's lag (-20 to +20 ms:
+roll 28.3-29.7, pitch 21.3-23.4). Yaw uses the same instrument with two terms (prop drag torque and rotor spin-up).
+
+**Meaning.** Motor lag, TWR and the full-throttle speed per volt agree with the Nazgul's estimates. The red one turns
+about 0.57x (roll) and 0.44x (pitch) as hard per newton of thrust difference as the preset: more inertia for its arm
+length. As inertia = arm / (accel per N), a squashed X with half-spacings of ~95 mm side to side and ~70 mm front to back
+would give I_roll ~3.2e-3 and I_pitch ~3.0e-3 kg m^2 (NeuroBEM's 772 g quad: 2.5e-3 / 2.1e-3) - **the frame's real motor
+spacing is needed to turn these into inertia**. If I_yaw is near I_roll + I_pitch (~6e-3), kappa ~0.018 m and rotor
+inertia ~9e-6 kg m^2; with the preset's 6e-6 rotor inertia, I_yaw = 3.8e-3 and kappa = 0.0114 m.
+
+**Not measured:** drag (no airspeed in the log), prop wash, mass split. **Left open:** motor spacing, prop size and pitch
+("R29": which prop?), battery capacity and mass, camera angle, from the owner; then a preset for the red one.
