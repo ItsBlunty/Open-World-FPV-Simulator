@@ -4,6 +4,14 @@ Versions follow `SIM_CORE_VERSION` in `src/index.ts`. It changes whenever a chan
 
 ## Unreleased (no trace change)
 
+- Presets `air75ii-freestyle-1s`, `air75ii-racing-1s`, `air75ii-champion-1s`: BetaFPV's Air75 II, a 75 mm 1S tiny whoop
+  in its three versions (0802 motors of 22000, 25000 and 28000KV), from BetaFPV's pages, its bench of each motor on the
+  Gemfan 1614 prop (thrust, current, power and speed at every 10 % of throttle, carried to the model's own sagged
+  voltage for the thrust-to-weight) and its Betaflight 2026.6 CLI files (rates, PIDs, idle, throttle curve; Betaflight
+  2026's three-point curve fitted by the two-parameter one). A ducted whoop's collider: a sphere on each duct plus the
+  body. The first whoops with rotor inflow and prop wash. No model change: every other preset compiles as before
+  (docs/notes/physics.md §2w, docs/evidence/2026-11-09-air75-ii). Test: `test/air75ii-preset.test.ts`.
+
 - Preset field `motor_spacing_front_rear_mm` (optional): a squashed or stretched X. The side-to-side spacing follows from
   it and `wheelbase_mm` (the diagonal); the collider spheres sit on each motor's diagonal, pushed out in the same
   proportion `collider_duct_offset_mm` gives a true X. Presets without it compile exactly as before. New preset
